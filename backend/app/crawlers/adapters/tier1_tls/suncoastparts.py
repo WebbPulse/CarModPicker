@@ -39,9 +39,10 @@ OpenGraph + meta:
 """
 
 import json
+import logging
 import os
 import re
-from typing import ClassVar, Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional, Tuple
 from urllib.parse import quote, urlparse
 from xml.etree.ElementTree import Element
 
@@ -60,6 +61,8 @@ from app.crawlers.parsing import (
     part_manufacturer_from_description,
     part_manufacturer_from_title,
 )
+
+logger = logging.getLogger(__name__)
 
 SUNCOAST_BASE = "https://www.suncoastparts.com"
 SITEMAP_URL = f"{SUNCOAST_BASE}/sitemap.xml"
@@ -294,6 +297,181 @@ def _extract_price_cents(soup: BeautifulSoup) -> Optional[int]:
 _PORSCHE_OEM_BRAND = "Porsche OEM"
 
 
+# ---------------------------------------------------------------------------
+# Fitment / breadcrumb extraction (Tier-2)
+# ---------------------------------------------------------------------------
+#
+# Suncoast renders a category breadcrumb on every product page in the shape
+#
+#     Home | <Model> | <YYYY-YYYY> (<chassis>) | <variant> | <Cat> | <Sub> | <Title>
+#
+# where ``<Model>`` is the Porsche-side model name ("Boxster", "Cayman",
+# "Cayenne", "Panamera", "718", "911 Carrera Models", ...) and ``<chassis>`` is
+# the chassis-code marker ("986", "997", "987.2", "718", ...). The
+# ``infer_car_for_part`` override below maps that pair to one or more
+# (CarMake, CarModel, Generation) triples that match active rows in our
+# car_generations table; ``resolve_car_triples_to_ids`` does the actual lookup
+# at ingest time so the adapter stays DB-free.
+#
+# Sub-variant chassis codes ("987.2", "991.2") collapse to the parent chassis
+# ("987", "991"). Codes for which we cannot defend a triple (Suncoast Platz,
+# Selection Merchandise, anything outside the recognised Porsche-platform set)
+# return no triple and the universal phrase-triple inference takes over.
+#
+# When the breadcrumb is missing, malformed, or routes through a non-vehicle
+# leaf ("Selection Merchandise", "For Men"), ``_extract_breadcrumb_fitment``
+# returns ``None`` and the override hands control back to the universal
+# pipeline. Never silently universal-flag.
+
+_BREADCRUMB_CONTAINER_CLASSES = (
+    "x-collapsing-breadcrumbs__list",
+    "breadcrumbs__list",
+)
+
+# Captures ``YYYY-YYYY (<chassis>)`` and grabs the chassis token. Chassis is
+# alnum + an optional ``.<digit>`` sub-tag (Suncoast routinely emits "987.2",
+# "991.2", "971.2" for facelift platforms). We bound everything tightly so
+# this regex is linear over the breadcrumb text (MEM029 ReDoS contract).
+_YEAR_CHASSIS_RE = re.compile(
+    r"\b\d{4}\s*[-–—]\s*\d{4}\s*\(([A-Za-z0-9]{2,5}(?:\.\d)?)\)",
+)
+
+# DB-aligned chassis → (model, generation) for the Suncoast-relevant Porsche
+# platforms. Generation strings here MUST match the
+# ``car_generations.generation_name`` column verbatim — ``resolve_car_triples_to_ids``
+# does an exact-match lookup. Anything not in this map (Carrera GT, 918
+# Spyder, Macan) is intentionally unmapped: Suncoast's URL/breadcrumb rarely
+# carries the chassis for those, and a wrong guess attaches to a real owner's
+# build list.
+#
+# 986/987/981 are ambiguous between Boxster and Cayman; the breadcrumb's
+# ``<Model>`` cell disambiguates and is consulted in the override below
+# before the chassis lookup. ``718`` is the inverse case — both models live
+# under the same DB ``718`` car_model row with generation ``982``.
+_CHASSIS_TO_911 = {
+    "930": "930",
+    "964": "964",
+    "993": "993",
+    "996": "996",
+    "997": "997",
+    "991": "991",
+    "992": "992",
+}
+# Cayenne chassis codes — 955 and 957 are 9PA (gen 1 + facelift), 958 is 92A.
+_CHASSIS_TO_CAYENNE = {
+    "955": "9PA",
+    "957": "9PA",
+    "958": "92A",
+}
+# Panamera — 970 is gen 1, 971 is gen 2 (and 971.2 is the facelift, also 971).
+_CHASSIS_TO_PANAMERA = {
+    "970": "970",
+    "971": "971",
+}
+# Boxster / Cayman shared chassis codes. The breadcrumb model cell picks the
+# right car_model row.
+_CHASSIS_TO_MID_ENGINE = {
+    "986": "986",  # Boxster only (Cayman didn't exist on 986)
+    "987": "987",  # Both
+    "981": "981",  # Both
+}
+
+
+def _normalize_chassis(raw: str) -> str:
+    """Drop sub-variant suffix (``987.2`` → ``987``)."""
+    return raw.split(".", 1)[0]
+
+
+def _extract_breadcrumb_fitment(soup: BeautifulSoup) -> Optional[Tuple[str, str]]:
+    """
+    Pull ``(model_text, chassis_code)`` from the Suncoast breadcrumb.
+
+    Returns ``None`` when the breadcrumb is missing, when no
+    ``YYYY-YYYY (<chassis>)`` cell is present (non-vehicle leaves like
+    "Selection Merchandise", scale models, men's apparel), or when the model
+    cell is the literal ``"Home"`` wrapper.
+
+    The chassis is normalised to its parent code (``"987.2"`` → ``"987"``).
+    """
+    container = None
+    for cls in _BREADCRUMB_CONTAINER_CLASSES:
+        container = soup.find(class_=lambda c, target=cls: bool(c) and target in (c if isinstance(c, list) else [c]))
+        if container is not None:
+            break
+    if not isinstance(container, Tag):
+        return None
+
+    # Each ``<li>`` is one breadcrumb cell. Drop the leading "Home" so the
+    # first remaining cell is always the model.
+    cells = [li.get_text(" ", strip=True) for li in container.find_all("li")]
+    cells = [c for c in cells if c and c.lower() != "home"]
+    if len(cells) < 2:
+        return None
+
+    model_text = cells[0]
+    chassis: Optional[str] = None
+    for cell in cells[1:]:
+        match = _YEAR_CHASSIS_RE.search(cell)
+        if match:
+            chassis = _normalize_chassis(match.group(1))
+            break
+    if not chassis:
+        return None
+    return model_text, chassis
+
+
+def _triples_for_chassis(model_text: str, chassis: str) -> List[Tuple[str, str, str]]:
+    """
+    Map a Suncoast (model_text, chassis) breadcrumb pair to one or more
+    (Make, Model, Generation) triples that match active car_generations rows.
+
+    Returns ``[]`` when the chassis is unrecognised so the override falls back
+    to the universal pipeline. Each unrecognised pair is logged at ``warning``
+    so adapter regressions surface in the run summary.
+    """
+    model_lower = model_text.lower()
+
+    # 911 platform — model cell is "911 Carrera Models" (or just "911").
+    if "911" in model_lower:
+        gen = _CHASSIS_TO_911.get(chassis)
+        if gen:
+            return [("Porsche", "911", gen)]
+
+    # 718 platform (post-2017 Boxster + Cayman both ship under the 718 brand).
+    if "718" in model_lower or chassis == "718":
+        # DB has only ``Porsche | 718 | 982`` — both 718 Boxster and 718
+        # Cayman share that row. Suncoast labels the chassis cell "(718)" on
+        # both 718 Boxster and 718 Cayman pages.
+        return [("Porsche", "718", "982")]
+
+    # Cayenne.
+    if "cayenne" in model_lower:
+        gen = _CHASSIS_TO_CAYENNE.get(chassis)
+        if gen:
+            return [("Porsche", "Cayenne", gen)]
+
+    # Panamera.
+    if "panamera" in model_lower:
+        gen = _CHASSIS_TO_PANAMERA.get(chassis)
+        if gen:
+            return [("Porsche", "Panamera", gen)]
+
+    # Boxster / Cayman — shared 986/987/981 platforms; the model text picks
+    # the car_model row.
+    if "boxster" in model_lower:
+        gen = _CHASSIS_TO_MID_ENGINE.get(chassis)
+        if gen:
+            return [("Porsche", "Boxster", gen)]
+    if "cayman" in model_lower:
+        gen = _CHASSIS_TO_MID_ENGINE.get(chassis)
+        # Cayman 986 doesn't exist as a production model — skip if it
+        # somehow shows up.
+        if gen and gen != "986":
+            return [("Porsche", "Cayman", gen)]
+
+    return []
+
+
 def _extract_part_manufacturer(soup: BeautifulSoup, name: Optional[str], description: Optional[str]) -> Optional[str]:
     """
     Resolve the part manufacturer for a Suncoast product.
@@ -410,7 +588,7 @@ class SuncoastPartsAdapter(RetailerCrawlerAdapter):
 
         images = _extract_images(soup, html)
 
-        return ScrapedPayload(
+        payload = ScrapedPayload(
             name=name,
             product_url=url,
             description=description,
@@ -419,3 +597,45 @@ class SuncoastPartsAdapter(RetailerCrawlerAdapter):
             part_number=part_number,
             image_urls=images or None,
         )
+
+        # Stash breadcrumb fitment hint as a private attr so the
+        # ``infer_car_for_part`` override below can resolve it without
+        # re-parsing the HTML. setattr on the dataclass is safe — it isn't
+        # frozen and the attribute is ignored by ingest_payload (which only
+        # reads declared fields). Spec validation never sees it.
+        fitment = _extract_breadcrumb_fitment(soup)
+        if fitment is not None:
+            payload._suncoast_fitment = fitment  # type: ignore[attr-defined]
+        return payload
+
+    def infer_car_for_part(
+        self, parsed: ScrapedPayload
+    ) -> Optional[List[Tuple[str, str, str]]]:
+        """
+        Adapter-wins car-inference for Suncoast (S04 T04).
+
+        Reads the breadcrumb hint stashed by ``parse_product_page`` and maps
+        the Porsche chassis code to one or more (Make, Model, Generation)
+        triples that match active ``car_generations`` rows. When the hint is
+        absent (non-vehicle product, malformed breadcrumb) or the chassis is
+        unrecognised, returns ``None`` so the universal phrase-triple
+        pipeline takes over rather than silently universal-flagging the part.
+
+        Logging: unmapped chassis codes and missing breadcrumbs both emit a
+        WARNING with the product URL so adapter regressions surface in the
+        run summary. Don't crash on the override; never silently universal-flag.
+        """
+        fitment = getattr(parsed, "_suncoast_fitment", None)
+        if not fitment:
+            return None
+        model_text, chassis = fitment
+        triples = _triples_for_chassis(model_text, chassis)
+        if not triples:
+            logger.warning(
+                "suncoastparts: unmapped chassis breadcrumb model=%r chassis=%r url=%s",
+                model_text,
+                chassis,
+                parsed.product_url,
+            )
+            return None
+        return triples

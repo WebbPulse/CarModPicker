@@ -7,7 +7,6 @@ iPE token detection for exhausts).
 from app.crawlers.adapters import adapter_name_for_product_url
 from app.crawlers.adapters.tier0_http.wheelsboutique import (
     WheelsBoutiqueAdapter,
-    _build_wheel_part_number,
     _is_product_url,
     _wheel_brand_display,
 )
@@ -172,9 +171,7 @@ class TestParseWheelProductPage:
         assert result is not None
         assert result.name == "HRE 520"
         assert result.part_manufacturer == "HRE"
-        # H1 already starts with the brand token ("HRE 520") so the prefix
-        # isn't duplicated; the full H1 stands as the model code.
-        assert result.part_number == "HRE 520"
+        assert result.part_number is None
         # Catalog-only site: price must be None, not 0.
         assert result.price_cents is None
         assert result.product_url == WHEEL_URL
@@ -214,89 +211,6 @@ class TestParseWheelProductPage:
         result = WheelsBoutiqueAdapter().parse_product_page(html, WHEEL_URL)
         assert result is not None
         assert result.description == "Forged 1-piece monoblock wheel."
-
-
-class TestBuildWheelPartNumber:
-    """``_build_wheel_part_number`` — brand-prefixed H1 model code."""
-
-    def test_anrky_rs6_3(self) -> None:
-        url = "https://wheelsboutique.com/wheels/anrky-wheels/retroseries-3-piece-concave/rs6-3"
-        assert _build_wheel_part_number(url, "RS6.3") == "ANRKY-RS6.3"
-
-    def test_strips_magnesium_wheels_suffix(self) -> None:
-        # iPE MFV-03 page H1 is ``"MFV-03 Magnesium Wheels"`` — descriptive
-        # padding stripped before promoting to PN so the canonical model
-        # code (``MFV-03``) lands.
-        url = "https://wheelsboutique.com/wheels/ipe-wheels/mfv/mfv-03-magnesium-wheels"
-        assert _build_wheel_part_number(url, "MFV-03 Magnesium Wheels") == "IPE-MFV-03"
-
-    def test_strips_bare_wheels_suffix(self) -> None:
-        url = "https://wheelsboutique.com/wheels/forgiato-wheels/ecl/blocco-ecl"
-        assert _build_wheel_part_number(url, "Blocco-ECL Wheels") == "FORGIATO-Blocco-ECL"
-
-    def test_strips_2piece_construction_descriptor(self) -> None:
-        # iPE 2Piece line ("MFV-L-01 2Piece") - construction descriptor on
-        # the model name; the canonical model code is just "MFV-L-01".
-        url = "https://wheelsboutique.com/wheels/ipe-wheels/mfv/mfv-l-01"
-        assert _build_wheel_part_number(url, "MFV-L-01 2Piece") == "IPE-MFV-L-01"
-
-    def test_strips_stacked_construction_and_wheels_suffix(self) -> None:
-        # Real H1 observed on iPE MFV-L line: ``"MFV-L-01 2Piece Magnesium
-        # Wheels"`` — the loop must strip both suffixes in sequence.
-        url = "https://wheelsboutique.com/wheels/ipe-wheels/mfv-l/mfv-l-01-2piece-magnesium-wheels"
-        assert _build_wheel_part_number(url, "MFV-L-01 2Piece Magnesium Wheels") == "IPE-MFV-L-01"
-
-    def test_strips_1_piece_with_hyphen(self) -> None:
-        url = "https://wheelsboutique.com/wheels/anrky-wheels/series/an18"
-        assert _build_wheel_part_number(url, "AN18 1-Piece") == "ANRKY-AN18"
-
-    def test_strips_3_piece_with_space(self) -> None:
-        url = "https://wheelsboutique.com/wheels/anrky-wheels/series/rs6-3"
-        assert _build_wheel_part_number(url, "RS6.3 3 Piece") == "ANRKY-RS6.3"
-
-    def test_no_suffix_to_strip(self) -> None:
-        url = "https://wheelsboutique.com/wheels/forgiato-wheels/ecl/martellato-ecl"
-        assert _build_wheel_part_number(url, "Martellato-ECL") == "FORGIATO-Martellato-ECL"
-
-    def test_unknown_brand_slug_uses_heuristic_prefix(self) -> None:
-        # Unknown slug ``vossen-wheels`` — display name is "Vossen", prefix
-        # is the upper-cased compaction.
-        url = "https://wheelsboutique.com/wheels/vossen-wheels/hybrid-forged/hf-3"
-        assert _build_wheel_part_number(url, "HF-3") == "VOSSEN-HF-3"
-
-    def test_h1_already_brand_prefixed_not_doubled(self) -> None:
-        # ``"HRE 520"`` on an HRE URL must not become ``"HRE-HRE 520"``.
-        url = "https://wheelsboutique.com/wheels/hre-wheels/520-series/hre-520"
-        assert _build_wheel_part_number(url, "HRE 520") == "HRE 520"
-
-    def test_bbs_short_model_keeps_prefix(self) -> None:
-        # 2-char model ("FI") would be junk-filtered alone (pure-alpha < 4),
-        # but with the brand prefix it lands as ``BBS-FI`` which is comfortably
-        # long and contains digits-or-hyphens.
-        url = "https://wheelsboutique.com/wheels/bbs-wheels/forged-line-exclusive-series/fi"
-        assert _build_wheel_part_number(url, "FI") == "BBS-FI"
-
-    def test_empty_name_returns_none(self) -> None:
-        url = "https://wheelsboutique.com/wheels/anrky-wheels/series/rs6-3"
-        assert _build_wheel_part_number(url, "") is None
-        assert _build_wheel_part_number(url, None) is None
-
-
-class TestParseProductPagePartNumber:
-    """End-to-end PN behavior through ``parse_product_page``."""
-
-    def test_wheel_emits_brand_prefixed_pn(self) -> None:
-        url = "https://wheelsboutique.com/wheels/anrky-wheels/retroseries-3-piece-concave/rs6-3"
-        result = WheelsBoutiqueAdapter().parse_product_page(_wheel_html(name="RS6.3"), url)
-        assert result is not None
-        assert result.part_number == "ANRKY-RS6.3"
-
-    def test_exhaust_pn_remains_none(self) -> None:
-        # Exhaust pages have no PN signal — H1 is fitment text. Adapter
-        # must not promote that into the SKU slot.
-        result = WheelsBoutiqueAdapter().parse_product_page(_exhaust_html(), EXHAUST_URL)
-        assert result is not None
-        assert result.part_number is None
 
 
 class TestParseExhaustProductPage:
