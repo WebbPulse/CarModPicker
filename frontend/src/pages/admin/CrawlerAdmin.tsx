@@ -42,54 +42,22 @@ type FetcherTier = 'http' | 'tls' | 'browser' | 'unverified';
 // an adapter has been confirmed to produce correct ScrapedPayload end-to-end
 // on a real crawl, delete it from this set.
 const UNVERIFIED_ADAPTERS: ReadonlySet<string> = new Set([
-  // Phase 1 (landed 2026-04-20)
-  'burgermotorsports',
-  'corksport',
-  'ets',
-  'grimmspeed',
-  'mishimoto',
-  'modernmusclextreme',
-  'radium',
-  'seiboncarbon',
-  'skunk2',
-  'verusengineering',
-  // Phase 2 batch 2A (landed 2026-04-21) — Tier-0-likely house brands
-  'csfrace',
-  'deatschwerks',
-  'delicioustuning',
-  'dinan',
-  'injectordynamics',
-  'injentechnology',
-  'mountainpassperformance',
-  'openflashperformance',
-  'perrinperformance',
-  'unpluggedperformance',
-  // Phase 2 batch 2B (landed 2026-04-21) — multi-brand resellers + house brands
-  'afepower',
-  'bloxracing',
-  'buschurracing',
-  'englishracing',
-  'ftpmotorsports',
-  'hennessey',
-  'jltperformance',
-  'karcepts',
-  'racingbeat',
-  'roadraceengineering',
-  // Phase 2 batch 2C (landed 2026-04-21) — open verticals (ECU, track aero, safety, suspension, BBK, wheels)
-  'aemelectronics',
-  'aprperformance',
+  // Inquiry-only brochure sites with no purchasable PDPs (no cart, no SKU,
+  // no price — see each adapter's docstring). Crawl shape works but every
+  // resulting Part row is a marketing stub. Hold T4 until a product-detection
+  // story lands.
   'ecutek',
-  'haltech',
-  'ioportracing',
-  'linkecu',
-  'ogracing',
+  'hennessey',
+  'injectordynamics',
+  // Stub adapters — no live storefront on any candidate host. Discovery
+  // returns 0 URLs by design (see each adapter's docstring for recon).
+  'jltperformance',
   'racerwholesale',
-  'rotiform',
-  'stanceusa',
+  'roadraceengineering',
   'stoptech',
-  'tein',
-  'voltexusa',
-  'wilwood',
+  // Blanket robots.txt Disallow — adapter is for Chrome-extension capture
+  // and archive rescrape only.
+  'skunk2',
 ]);
 
 const TIER_META: Record<
@@ -451,6 +419,15 @@ function ArchiveRescrapeProgress({
   startedAt: Date;
   endedAt?: Date | null | undefined;
 }) {
+  // Self-tick once per second so the rate display stays current while running.
+  // Mirrors RunningCrawlerProgress — scoped to this subtree so the parent page
+  // doesn't re-render every second.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (endedAt) return;
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [endedAt]);
   const processed = Number(summary?.['processed'] ?? 0);
   const total = Number(summary?.['total'] ?? 0);
   const hasTotal = total > 0;
@@ -461,6 +438,27 @@ function ArchiveRescrapeProgress({
   const failed =
     Number(summary?.['parse_failed'] ?? 0) +
     Number(summary?.['ingest_failed'] ?? 0);
+  const elapsedSec = Math.max(
+    0,
+    Math.floor(
+      ((endedAt ?? new Date()).getTime() - startedAt.getTime()) / 1000
+    )
+  );
+  const rateMinute =
+    elapsedSec > 0 ? Math.round((processed / elapsedSec) * 60) : 0;
+  // Rough ETA based on the trailing average rate. Hidden until we've actually
+  // processed something — a zero-rate ETA is meaningless and just flashes.
+  const remaining = hasTotal ? Math.max(0, total - processed) : 0;
+  const etaSec =
+    rateMinute > 0 && remaining > 0
+      ? Math.round((remaining / rateMinute) * 60)
+      : 0;
+  const fmtEta = (s: number): string => {
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return r === 0 ? `${m}m` : `${m}m ${r}s`;
+  };
   return (
     <div>
       <div className="flex items-center justify-between text-xs mb-1">
@@ -492,27 +490,50 @@ function ArchiveRescrapeProgress({
           style={{ width: `${pct}%` }}
         />
       </div>
-      {hasTotal && (ok > 0 || failed > 0) && (
-        <div className="flex gap-3 mt-1.5 text-[10px] text-gray-400">
-          <span>
-            <span className="text-success">{ok.toLocaleString()}</span> ok
-          </span>
+      {(hasTotal && (ok > 0 || failed > 0)) || rateMinute > 0 ? (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-[10px] text-gray-400">
+          {ok > 0 && (
+            <span>
+              <span className="text-success">{ok.toLocaleString()}</span> ok
+            </span>
+          )}
           {failed > 0 && (
             <span>
               <span className="text-red-400">{failed.toLocaleString()}</span>{' '}
               failed
             </span>
           )}
+          {rateMinute > 0 && (
+            <span>
+              <span className="text-gray-500">rate</span>{' '}
+              <span className="tabular-nums text-gray-200 font-semibold">
+                {rateMinute.toLocaleString()}
+              </span>
+              <span className="text-gray-500">/min</span>
+            </span>
+          )}
+          {!endedAt && etaSec > 0 && (
+            <span>
+              <span className="text-gray-500">eta</span>{' '}
+              <span className="tabular-nums text-gray-200">
+                {fmtEta(etaSec)}
+              </span>
+            </span>
+          )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
 function ArchiveRescrapeResult({
   summary,
+  startedAt,
+  endedAt,
 }: {
   summary: Record<string, unknown>;
+  startedAt?: Date;
+  endedAt?: Date | null | undefined;
 }) {
   const rows: { label: string; value: number; variant: string }[] = [
     {
@@ -546,6 +567,22 @@ function ArchiveRescrapeResult({
     summary['failures_total'] ?? failures.length ?? 0
   );
   const truncated = Boolean(summary['failures_truncated']);
+  // Wall-clock rate so post-run the operator can compare runs at a glance.
+  // Falls back to processed when total isn't recorded (older summaries).
+  const processedForRate = Number(
+    summary['processed'] ?? summary['parsed_ok'] ?? 0
+  );
+  const elapsedSec =
+    startedAt && endedAt
+      ? Math.max(
+          0,
+          Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000)
+        )
+      : 0;
+  const rateMinute =
+    elapsedSec > 0 && processedForRate > 0
+      ? Math.round((processedForRate / elapsedSec) * 60)
+      : 0;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
@@ -563,6 +600,14 @@ function ArchiveRescrapeResult({
             <span className="font-semibold">{r.value}</span> {r.label}
           </span>
         ))}
+        {rateMinute > 0 && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-800/60 border border-gray-600/60 text-xs text-gray-300">
+            <span className="font-semibold tabular-nums">
+              {rateMinute.toLocaleString()}
+            </span>
+            <span className="text-gray-500">/min avg</span>
+          </span>
+        )}
       </div>
       {failures.length > 0 && (
         <details className="rounded border border-red-800/40 bg-red-950/20 px-2 py-1 text-xs">
@@ -1135,7 +1180,11 @@ const BackgroundJobItem = memo(function BackgroundJobItem({
                   {job.job_type === 'crawler_run' ? (
                     <CrawlerRunResult summary={job.result_summary} />
                   ) : job.job_type === 'archive_rescrape' ? (
-                    <ArchiveRescrapeResult summary={job.result_summary} />
+                    <ArchiveRescrapeResult
+                      summary={job.result_summary}
+                      startedAt={startedAt}
+                      endedAt={completedAt}
+                    />
                   ) : (
                     <pre className="text-xs text-gray-300 bg-gray-900/60 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
                       {JSON.stringify(job.result_summary, null, 2)}

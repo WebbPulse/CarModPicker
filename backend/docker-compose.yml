@@ -12,6 +12,11 @@ services:
       - "5432:5432"
     volumes:
       - carmodpicker_data:/var/lib/postgresql/data
+    # Default postgres max_connections is 100 — too low for local archive
+    # rescrape, which can hold 128 sockets per process before the API server
+    # / psql sessions are even counted. 300 is comfortable headroom on a dev
+    # box and matches the local-dev DB pool ceiling in app/db/session.py.
+    command: ["postgres", "-c", "max_connections=300"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s

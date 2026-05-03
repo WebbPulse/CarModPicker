@@ -60,15 +60,21 @@ def _get_superadmin_emails(db: Session) -> List[str]:
     return list(users)
 
 
-def notify_job_completion(job_id: UUID) -> None:
+def notify_job_completion(job_id: UUID, *, skip_if_cancelled: bool = True) -> None:
     """
     Send a job-report email to all superadmins.
     Opens its own DB session; safe to call from a background thread.
+
+    The cancel endpoint sends the report itself the moment a job is cancelled,
+    so by default this skips when ``job.status == "cancelled"`` to prevent the
+    in-process worker's own completion path from double-sending.
     """
     db = SessionLocal()
     try:
         job = job_service.get_job(db, job_id)
         if job is None:
+            return
+        if skip_if_cancelled and job.status == "cancelled":
             return
         recipients = _get_superadmin_emails(db)
         if recipients:

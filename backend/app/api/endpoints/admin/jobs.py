@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
+from app.api.endpoints.admin._helpers import notify_job_completion
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
 from app.api.schemas.background_job import BackgroundJobList, BackgroundJobRead
@@ -240,5 +241,13 @@ async def cancel_background_job(
             logger.info("Job #%s cancel: stop event signalled.", job_id)
         else:
             logger.warning("Job #%s cancel: no stop event or ECS task found (job may have already finished).", job_id)
+
+    # Send the cancellation report from here so the email fires even when the
+    # worker is killed (ECS stop_task) before reaching its cleanup. The report
+    # uses whatever partial result_summary the periodic progress callback last
+    # wrote. notify_job_completion() defaults to skipping cancelled jobs (so
+    # the in-process worker's own completion path can't double-send); we
+    # disable that guard here because *this* call IS the cancel-report send.
+    notify_job_completion(job_id, skip_if_cancelled=False)
 
     return BackgroundJobRead.model_validate(updated)

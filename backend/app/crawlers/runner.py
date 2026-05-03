@@ -702,7 +702,14 @@ def run_crawler(
                         logger.warning("Failed to mark %s as gone: %s", url, mark_err)
                 else:
                     errors += 1
-                    logger.exception("Error processing %s: %s", url, e)
+                    # 5xx is the upstream's own bug (their app errored), not ours
+                    # — a stack trace from our side adds no diagnostic value and
+                    # floods logs when one bad page sits in the sitemap. Still
+                    # counted as an error and still feeds the breaker.
+                    if status is not None and 500 <= status < 600:
+                        logger.warning("[%s/%s] Upstream HTTP %s: %s", i, total, status, url)
+                    else:
+                        logger.exception("Error processing %s: %s", url, e)
                     if len(error_urls) < _MAX_SAMPLES:
                         error_urls.append(
                             {
@@ -971,6 +978,37 @@ def run_crawlers(
     }
 
 
+def rescrape_archives_cli(
+    source: Optional[str] = None,
+    shards: int = 1,
+    shard_index: int = 0,
+) -> dict[str, Any]:
+    """
+    Re-parse every archived page locally — same path as the admin batch job.
+
+    Intended for local dev use. Pair with multiple shells (each setting a
+    different ``--shard-index``) to escape the Python GIL when parsing is
+    CPU-bound. Each process opens its own DB pool / S3 client.
+    """
+    from app.crawlers.archive_rescrape import run_rescrape_all_archived_pages
+
+    db = SessionLocal()
+    try:
+        crawler_user = resolve_crawler_user(db)
+        default_category_id = resolve_default_category_id(db)
+        return run_rescrape_all_archived_pages(
+            db,
+            crawler_user=crawler_user,
+            default_category_id=default_category_id,
+            log=logger,
+            source=source,
+            shards=shards,
+            shard_index=shard_index,
+        )
+    finally:
+        db.close()
+
+
 def rescrape_single_url_cli(url: str) -> str:
     """
     Re-parse one archived URL from its stored HTML and ingest the result.
@@ -1045,6 +1083,37 @@ def main() -> None:
             "Use after fixing an adapter to immediately retry one page."
         ),
     )
+    parser.add_argument(
+        "--rescrape-archives",
+        action="store_true",
+        default=False,
+        help=(
+            "Re-parse every archived page locally (same path as the admin batch job). "
+            "Pair with --source to scope to one adapter and --shards/--shard-index to "
+            "split across multiple processes for GIL-bypass parallelism."
+        ),
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default=None,
+        help="Restrict --rescrape-archives to a single adapter source (e.g. 'adro').",
+    )
+    parser.add_argument(
+        "--shards",
+        type=int,
+        default=1,
+        help=(
+            "Total number of shards when sharding --rescrape-archives across "
+            "multiple processes. Each shard handles a disjoint slice of pages."
+        ),
+    )
+    parser.add_argument(
+        "--shard-index",
+        type=int,
+        default=0,
+        help="0-based index of this process within --shards (must be < --shards).",
+    )
     args = parser.parse_args()
 
     if args.rescrape_url:
@@ -1055,8 +1124,23 @@ def main() -> None:
             sys.exit(1)
         sys.exit(0 if outcome == "parsed_ok" else 2)
 
+    if args.rescrape_archives:
+        try:
+            result = rescrape_archives_cli(
+                source=args.source,
+                shards=args.shards,
+                shard_index=args.shard_index,
+            )
+        except CrawlerConfigError as e:
+            logger.error("%s", e)
+            sys.exit(1)
+        except ValueError as e:
+            parser.error(str(e))
+        logger.info("Archive rescrape finished: %s", result)
+        sys.exit(0)
+
     if not args.adapter:
-        parser.error("--adapter is required unless --rescrape-url is given")
+        parser.error("--adapter is required unless --rescrape-url or --rescrape-archives is given")
 
     try:
         run_crawler(args.adapter, limit=args.limit, delay_sec=args.delay, skip_known_urls=args.skip_known)

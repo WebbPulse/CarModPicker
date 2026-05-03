@@ -662,7 +662,17 @@ async def _run_rescrape_in_process(
     """
     Dev-only fallback: run archive rescrape in a background thread.
     Only used when ECS is not configured (i.e. local development).
+
+    By default this fans out across multiple worker processes (see
+    archive_rescrape_mp) to escape the GIL on parsing-heavy workloads. Set
+    ``CRAWLER_RESCRAPE_PROCESSES=1`` to force the legacy single-process
+    threaded path (useful for debugging adapters where a forked stack trace
+    would obscure the failure).
     """
+    from app.crawlers.archive_rescrape_mp import (
+        resolve_process_count,
+        run_rescrape_all_archived_pages_mp,
+    )
 
     def _progress(processed: int, total: int, counts_snapshot: dict[str, int]) -> None:
         # Dedicated short-lived session — the driver thread's ``db`` is the
@@ -679,7 +689,35 @@ async def _run_rescrape_in_process(
         finally:
             pdb.close()
 
-    def _blocking() -> None:
+    use_multiprocess = resolve_process_count() > 1
+
+    def _blocking_multiprocess() -> None:
+        try:
+            counts = run_rescrape_all_archived_pages_mp(
+                crawler_user_id=crawler_user_id,
+                default_category_id=default_category_id,
+                log=logger,
+                stop_event=stop_event,
+                progress_callback=_progress,
+            )
+            # Use a short-lived session for job state writes — we never opened
+            # a long-running one in the multiprocess path.
+            db = SessionLocal()
+            try:
+                job_service.complete_job(db, job_id, result_summary=counts)
+            finally:
+                db.close()
+            notify_job_completion(job_id)
+        except Exception as e:
+            logger.exception("In-process (mp) archive rescrape job #%s failed: %s", job_id, e)
+            db = SessionLocal()
+            try:
+                job_service.fail_job(db, job_id, error_message=traceback.format_exc())
+            finally:
+                db.close()
+            notify_job_completion(job_id)
+
+    def _blocking_singleprocess() -> None:
         db = SessionLocal()
         try:
             crawler_user = resolve_crawler_user(db, crawler_user_id)
@@ -700,6 +738,16 @@ async def _run_rescrape_in_process(
             notify_job_completion(job_id)
         finally:
             db.close()
+
+    _blocking = _blocking_multiprocess if use_multiprocess else _blocking_singleprocess
+    if use_multiprocess:
+        logger.info(
+            "Archive rescrape job #%s: multiprocess mode (%d shards; override CRAWLER_RESCRAPE_PROCESSES=1 to disable).",
+            job_id,
+            resolve_process_count(),
+        )
+    else:
+        logger.info("Archive rescrape job #%s: single-process mode.", job_id)
 
     await asyncio.to_thread(stamp_heartbeat, job_id)
     heartbeat_task = asyncio.create_task(heartbeat_loop(job_id))

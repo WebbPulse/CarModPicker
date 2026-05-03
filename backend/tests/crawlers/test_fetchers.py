@@ -120,12 +120,13 @@ class TestTlsFetcher:
             sys.modules.pop("curl_cffi", None)
             sys.modules.pop("curl_cffi.requests", None)
 
-    @pytest.mark.parametrize("transient_status", [502, 504])
+    @pytest.mark.parametrize("transient_status", [500, 502, 503, 504])
     def test_retries_on_transient_gateway_errors(self, monkeypatch: pytest.MonkeyPatch, transient_status: int) -> None:
         """
-        502 (Bad Gateway) and 504 (Gateway Timeout) are transient edge/CDN
-        failures — retry them with backoff alongside 429/503 instead of
-        bubbling them up as hard errors after a single shot.
+        500/502/503/504 are transient origin/edge failures — retry them with
+        backoff alongside 429 instead of bubbling them up as hard errors
+        after a single shot. 500 covers vanilla WP/Apache origins (e.g.
+        ecutek.com) that emit 500 on momentary app blips.
         """
         transient = MagicMock(status_code=transient_status, headers={}, text="", content=b"")
         ok = MagicMock(status_code=200, headers={}, text="<html>ok</html>", content=b"<html>ok</html>")

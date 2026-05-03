@@ -28,9 +28,29 @@ settings = get_settings()
 # ``DB_POOL_SIZE + DB_MAX_OVERFLOW - API_CONNECTION_RESERVE`` and can be
 # capped further via ``CRAWLER_MAX_ADAPTER_WORKERS`` /
 # ``CRAWLER_RESCRAPE_MAX_WORKERS``.
-DB_POOL_SIZE = 25
-DB_MAX_OVERFLOW = 25
-API_CONNECTION_RESERVE = 20
+#
+# Local dev gets a much larger pool: a developer's Postgres in Docker
+# handles 100+ connections without breaking a sweat (docker-compose pins
+# max_connections=300), and there is no live App Runner traffic to share
+# with — so we lift the prod ceiling to let archive rescrapes saturate
+# the host's CPU rather than the connection pool. Gate is
+# APP_ENVIRONMENT=="development" so staging/prod are unaffected.
+#
+# Reserve is non-zero in dev for a reason: the in-process rescrape job
+# (admin batch path) shares this pool with the FastAPI server in the same
+# process. Workers each hold a session for an entire page (S3 fetch +
+# parse + multi-statement ingest, often seconds), so without a reserve
+# the progress writer + heartbeat + any concurrent API request would
+# starve and hit pool TimeoutError after 30s. 16 leaves headroom for
+# those and the per-job _progress short-lived session.
+if settings.APP_ENVIRONMENT.lower() == "development":
+    DB_POOL_SIZE = 80
+    DB_MAX_OVERFLOW = 80
+    API_CONNECTION_RESERVE = 16
+else:
+    DB_POOL_SIZE = 25
+    DB_MAX_OVERFLOW = 25
+    API_CONNECTION_RESERVE = 20
 
 engine = create_engine(
     settings.DATABASE_URL,

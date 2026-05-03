@@ -96,10 +96,19 @@ def fail_job(
     error_message: str,
     result_summary: Optional[dict[str, Any]] = None,
 ) -> Optional[BackgroundJob]:
-    """Mark a job as failed, recording the error and any partial result summary."""
+    """Mark a job as failed, recording the error and any partial result summary.
+
+    If the job was already cancelled (e.g. by an admin while the worker was
+    still running), this is a no-op so the cancelled status is preserved.
+    Mirrors the guard in :func:`complete_job` so a cancelled worker that then
+    raises during shutdown can't flip the row to "failed" and trigger a second
+    superadmin email after the cancel-report has already been sent.
+    """
     job = db.scalars(select(BackgroundJob).where(BackgroundJob.id == job_id)).first()
     if job is None:
         return None
+    if job.status == "cancelled":
+        return job
     job.status = "failed"
     job.completed_at = datetime.now(UTC)
     job.error_message = error_message

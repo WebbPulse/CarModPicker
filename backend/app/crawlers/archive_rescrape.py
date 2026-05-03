@@ -42,7 +42,9 @@ RescrapeOutcome = Literal[
 # archive that fails on half its rows would produce a multi-megabyte JSON blob
 # and bloat both the DB row and the job-report email. 200 is enough for an
 # operator to eyeball the failure shape.
-_MAX_REPORTED_FAILURES = 200
+MAX_REPORTED_FAILURES = 200
+# Backwards-compat alias for older imports.
+_MAX_REPORTED_FAILURES = MAX_REPORTED_FAILURES
 
 # How often the driver fires progress_callback while work is in flight. Too
 # fast and the admin job-row UPDATE storm shows up on RDS; too slow and the
@@ -53,6 +55,20 @@ _PROGRESS_CALLBACK_INTERVAL_SEC = 2.0
 # lock, so callbacks don't need their own synchronisation.
 ProgressCallback = Callable[[int, int, dict[str, int]], None]
 
+# Default cap on rescrape threads when no operator override is set.
+#
+# The DB pool budget can be huge in dev (DB_POOL_SIZE+OVERFLOW-RESERVE = 144
+# with the local-dev settings), but the rescrape worker is GIL-bound: each
+# page's parse_product_page / apply_universal_extraction / variant ingest
+# spends most of its wall time in pure-Python BeautifulSoup + regex work.
+# Throwing 144 threads at a single GIL just adds context-switch overhead and
+# parks ~120 connections idle-in-transaction (observed in pg_stat_activity:
+# active=1, idle_in_txn=~120, sustained for minutes). 16 is the empirical
+# sweet spot — enough to overlap S3 GETs with parsing on a different worker,
+# few enough that the GIL ping-pong tax is small. Operators can still raise
+# it via CRAWLER_RESCRAPE_MAX_WORKERS for I/O-heavy or process-sharded runs.
+_DEFAULT_RESCRAPE_WORKERS = 16
+
 
 def _compute_rescrape_workers(num_pages: int) -> int:
     """
@@ -62,26 +78,38 @@ def _compute_rescrape_workers(num_pages: int) -> int:
     page, so concurrency is bounded by the DB pool budget left over after
     reserving live traffic: ``DB_POOL_SIZE + DB_MAX_OVERFLOW - API_CONNECTION_RESERVE``.
 
+    Within that hard ceiling we apply :data:`_DEFAULT_RESCRAPE_WORKERS` as an
+    implicit soft cap because the per-page workload is GIL-bound — see the
+    constant's docstring.
+
     ``CRAWLER_RESCRAPE_MAX_WORKERS`` (int env var) is an operator cap for
     throttling against RDS ``max_connections`` or S3 GET concurrency without
-    bouncing the process.
+    bouncing the process. It can also be used to *raise* the soft cap above
+    :data:`_DEFAULT_RESCRAPE_WORKERS` (still bounded by the DB pool).
     """
     worker_budget = max(1, DB_POOL_SIZE + DB_MAX_OVERFLOW - API_CONNECTION_RESERVE)
-    max_workers = min(num_pages, worker_budget)
 
     override_raw = os.environ.get("CRAWLER_RESCRAPE_MAX_WORKERS")
     if override_raw:
         try:
             override = int(override_raw)
             if override > 0:
-                max_workers = min(max_workers, override)
+                # Operator override replaces the GIL-aware default and is
+                # still clamped to the DB-pool budget below.
+                soft_cap = override
+            else:
+                soft_cap = _DEFAULT_RESCRAPE_WORKERS
         except ValueError:
             # IN-08: mirror runner.py's _compute_adapter_workers behavior —
             # surface a bad env value in the logs instead of silently falling
             # back to the DB-pool-sized default. CRAWLER_RESCRAPE_MAX_WORKERS=8x
             # used to disappear without a trace; now operators see the typo.
             logging.getLogger(__name__).warning("Ignoring non-integer CRAWLER_RESCRAPE_MAX_WORKERS=%r", override_raw)
+            soft_cap = _DEFAULT_RESCRAPE_WORKERS
+    else:
+        soft_cap = _DEFAULT_RESCRAPE_WORKERS
 
+    max_workers = min(num_pages, worker_budget, soft_cap)
     return max(1, max_workers)
 
 
@@ -123,15 +151,21 @@ def rescrape_crawled_page_from_archive(
     crawler_user: DBUser,
     default_category_id: UUID,
     log: logging.Logger,
+    prefetched_html: Optional[str] = None,
 ) -> tuple[RescrapeOutcome, Optional[UUID], Optional[str]]:
     """
     Fetch archived HTML, parse with the right adapter, ingest (including price history).
 
     Returns (outcome, part_id if parsed_ok else None, error detail for ingest failures).
     Commits on each terminal path (same as legacy re-parse + ingest_payload commits).
+
+    ``prefetched_html`` lets bulk callers load HTML before checking out a DB
+    session, so the (potentially multi-second) S3 GET doesn't sit
+    idle-in-transaction holding a connection slot. When omitted, behavior is
+    identical to the legacy single-page path.
     """
     adapter_key = resolve_parse_adapter_name(page)
-    html = load_archived_html(page, log)
+    html = prefetched_html if prefetched_html is not None else load_archived_html(page, log)
     if not html:
         return "skipped_no_html", None, "No archived HTML available (S3 key missing or unreadable)"
 
@@ -249,6 +283,8 @@ def run_rescrape_all_archived_pages(
     stop_event: Optional[threading.Event] = None,
     source: Optional[str] = None,
     progress_callback: Optional[ProgressCallback] = None,
+    shards: int = 1,
+    shard_index: int = 0,
 ) -> dict[str, Any]:
     """
     Re-parse every crawled page that has archived HTML, in parallel.
@@ -270,11 +306,22 @@ def run_rescrape_all_archived_pages(
     callbacks don't need their own synchronisation. Exceptions from the
     callback are logged and swallowed so a flaky writer can't abort the job.
 
+    ``shards``/``shard_index`` (local-dev sharding): split the candidate page
+    set across ``shards`` independent processes by ``int(page.id) % shards ==
+    shard_index``. Each process runs its own ThreadPoolExecutor against its
+    slice, escaping the GIL on parsing-heavy work. Disjoint partitioning
+    means no two processes touch the same row. Default ``shards=1`` is the
+    pre-sharding behavior.
+
     Returns a dict merging aggregate counts with ``failures`` (bounded list),
     ``failures_total``, ``failures_truncated``, and ``processed``/``total`` so
     the admin UI can render a live progress bar from
     ``BackgroundJob.result_summary`` alone.
     """
+    if shards < 1:
+        raise ValueError(f"shards must be >= 1, got {shards}")
+    if not (0 <= shard_index < shards):
+        raise ValueError(f"shard_index must be in [0, {shards}), got {shard_index}")
     counts: dict[str, int] = {
         "parsed_ok": 0,
         "parse_failed": 0,
@@ -286,7 +333,13 @@ def run_rescrape_all_archived_pages(
     total_failures = 0
 
     stmt = (
-        select(DBCrawledPage.id, DBCrawledPage.url, DBCrawledPage.source)
+        select(
+            DBCrawledPage.id,
+            DBCrawledPage.url,
+            DBCrawledPage.source,
+            DBCrawledPage.html_s3_key,
+            DBCrawledPage.html_local_path,
+        )
         .where(
             or_(
                 DBCrawledPage.html_s3_key.isnot(None),
@@ -297,7 +350,26 @@ def run_rescrape_all_archived_pages(
     )
     if source is not None:
         stmt = stmt.where(DBCrawledPage.source == source)
-    rows = db.execute(stmt).all()
+    # Materialize into plain tuples then drop the driver session's transaction.
+    # The original code held this SELECT's transaction open for the entire job
+    # (~9 min observed in pg_stat_activity), pinning a connection slot
+    # idle-in-transaction for no reason — we don't touch ``db`` again until
+    # the function returns.
+    rows = [
+        (r.id, r.url, r.source, r.html_s3_key, r.html_local_path) for r in db.execute(stmt).all()
+    ]
+    db.commit()
+    if shards > 1:
+        # int(uuid) is the same on every process for a given row, so this
+        # gives a deterministic disjoint partition. Doing the filter in Python
+        # avoids a Postgres-vs-SQLite UUID-modulo dialect dance.
+        rows = [r for r in rows if int(r[0]) % shards == shard_index]
+        log.info(
+            "Archive rescrape: shard %d/%d selected — %d page(s) in this slice.",
+            shard_index,
+            shards,
+            len(rows),
+        )
     total = len(rows)
 
     def _build_result(processed_: int) -> dict[str, Any]:
@@ -330,10 +402,36 @@ def run_rescrape_all_archived_pages(
     )
     _fire_progress(0)
 
-    crawler_user_id: UUID = crawler_user.id
+    def _load_html_no_session(
+        page_id: UUID, html_s3_key: Optional[str], html_local_path: Optional[str]
+    ) -> Optional[str]:
+        # Mirrors load_archived_html() but works off the row tuple rather than
+        # an ORM-attached page, so we can fetch HTML before checking out a
+        # SessionLocal. Keeps the ~hundred-millisecond S3 GET out of the DB
+        # connection's open-transaction window.
+        html: Optional[str] = None
+        if html_s3_key:
+            s3_client, bucket_name = get_crawl_s3_client()
+            if s3_client is not None and bucket_name is not None:
+                try:
+                    obj = s3_client.get_object(Bucket=bucket_name, Key=html_s3_key)
+                    html = obj["Body"].read().decode("utf-8", errors="replace")
+                except Exception as e:
+                    log.warning("Could not fetch HTML from S3 key %s (page=%s): %s", html_s3_key, page_id, e)
+        if html is None and html_local_path:
+            try:
+                html = Path(html_local_path).read_text(encoding="utf-8", errors="replace")
+            except OSError as e:
+                log.warning("Could not read local HTML %s (page=%s): %s", html_local_path, page_id, e)
+        return html
 
     def _worker(
-        idx: int, page_id: UUID, page_url: str, page_source: str
+        idx: int,
+        page_id: UUID,
+        page_url: str,
+        page_source: str,
+        html_s3_key: Optional[str],
+        html_local_path: Optional[str],
     ) -> Optional[tuple[str, str, str, Optional[str]]]:
         # Pending workers that haven't started when cancellation is requested
         # short-circuit on entry — the parallel analog of the old per-iteration
@@ -352,20 +450,39 @@ def run_rescrape_all_archived_pages(
             page_url,
             page_source,
         )
+        # Fetch HTML BEFORE opening a DB session. The original ordering opened
+        # the session first, then issued an S3 GetObject while the connection
+        # sat idle-in-transaction; under the GIL with ~120 workers in flight,
+        # only one could execute SQL at a time and the rest were just hoarding
+        # connections. Loading HTML first frees that slot for other workers.
+        prefetched_html = _load_html_no_session(page_id, html_s3_key, html_local_path)
+        if prefetched_html is None:
+            return (
+                "skipped_no_html",
+                page_url,
+                page_source,
+                "No archived HTML available (S3 key missing or unreadable)",
+            )
+
         worker_db = SessionLocal()
         try:
             page_row = worker_db.get(DBCrawledPage, page_id)
             if page_row is None:
                 return ("skipped_no_html", page_url, page_source, "CrawledPage deleted between query and rescrape")
-            worker_user = worker_db.get(DBUser, crawler_user_id)
-            if worker_user is None:
-                return ("ingest_failed", page_url, page_source, "Crawler user not found in worker session")
+            # Reuse the pre-fetched user via merge() instead of re-SELECTing
+            # the users row on every page (28k+ wasted lookups per job — the
+            # dominant query in pg_stat_activity samples). merge() with
+            # load=False attaches the existing object to this session without
+            # a SELECT, which is safe because the crawler user identity does
+            # not change for the duration of the job.
+            worker_user = worker_db.merge(crawler_user, load=False)
             outcome, _, err_detail = rescrape_crawled_page_from_archive(
                 worker_db,
                 page_row,
                 crawler_user=worker_user,
                 default_category_id=default_category_id,
                 log=log,
+                prefetched_html=prefetched_html,
             )
             return (outcome, page_url, page_source, err_detail)
         except Exception as e:
@@ -403,7 +520,10 @@ def run_rescrape_all_archived_pages(
     cancelled_logged = False
 
     with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="rescrape") as executor:
-        futures = [executor.submit(_worker, i + 1, r.id, r.url, r.source) for i, r in enumerate(rows)]
+        futures = [
+            executor.submit(_worker, i + 1, page_id, page_url, page_source, html_s3_key, html_local_path)
+            for i, (page_id, page_url, page_source, html_s3_key, html_local_path) in enumerate(rows)
+        ]
         try:
             for future in as_completed(futures):
                 if stop_event is not None and stop_event.is_set() and not cancelled_logged:
