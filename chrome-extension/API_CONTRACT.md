@@ -990,17 +990,9 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       "type": "string"
     },
     "part_manufacturer_id": {
-      "anyOf": [
-        {
-          "format": "uuid",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "Manufacturer/brand for this part. Optional: scraped pages where the brand cannot be confidently determined leave this NULL rather than minting a sentinel 'Unknown' brand row. The DB column is also nullable.",
-      "title": "Part Manufacturer Id"
+      "format": "uuid",
+      "title": "Part Manufacturer Id",
+      "type": "string"
     },
     "part_number": {
       "anyOf": [
@@ -1067,7 +1059,8 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
   },
   "required": [
     "name",
-    "category_id"
+    "category_id",
+    "part_manufacturer_id"
   ],
   "title": "PartCreate",
   "type": "object"

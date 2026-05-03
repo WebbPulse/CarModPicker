@@ -35,9 +35,9 @@ adapter-local logic:
   Mishimoto, BC Racing, Eibach, Koni, …) propagate through unchanged.
 - **The title heuristic often picks a car make** (titles regularly start with
   ``"Mazdaspeed"`` / ``"Mazda"``) or a chassis token (``"MZR"``, ``"DISI"``).
-  Those are not part manufacturers. We drop them and let ingest store
-  ``part_manufacturer_id = NULL`` rather than creating a ``"Mazdaspeed"``
-  manufacturer row alongside real brands.
+  Those are not part manufacturers. We drop them so the honest answer is
+  "unknown" and ingest falls back to ``"Unknown"`` rather than creating a
+  ``"Mazdaspeed"`` manufacturer row alongside real brands.
 - **SKUs are retailer-internal, never the manufacturer MPN.** CorkSport emits
   SKU values like ``"Axl-6-276-63130"`` (own-brand intake), ``"GEN-6-715"``
   (Tial wastegate), ``"GEN-6-147-11"`` (NGK spark plugs). There is no ``mpn``

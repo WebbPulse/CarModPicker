@@ -15,6 +15,19 @@ catalog completeness but appends nothing to price history. See
 ``site_problem_notes/wheelsboutique.md`` for why this retailer is still
 worth crawling even without pricing.
 
+Part numbers: WB renders no structured SKU anywhere in the page DOM (no
+JSON-LD, no ``data-sku``, no hidden form input). The H1 *is* the wheel
+model code (``RS6.3``, ``MFV-03``, ``Martellato-ECL``) — the only stable
+identifier the retailer publishes — and the URL's first path segment
+carries the brand slug (``/wheels/anrky-wheels/...``). The adapter
+combines them into ``<BRAND_PREFIX>-<MODEL>`` (``ANRKY-RS6.3``) so the
+PN is globally unique across resellers. Configured fitments (diameter,
+width, offset, finish) live behind the quote form and aren't reachable
+from the archived HTML, so the PN granularity is per-model, not
+per-fitment. Exhausts have neither H1 model codes nor any other PN
+signal — H1 is a fitment description ("Porsche 718 GT4 Exhaust System")
+— so ``part_number`` stays ``None`` for ``/exhausts/`` URLs.
+
 Fetcher tier: ``http`` — plain nginx + WordPress, no Cloudflare challenge,
 no TLS-fingerprint check. Sitemap and product pages all return 200 to the
 crawler User-Agent.
@@ -87,6 +100,41 @@ _WHEEL_BRAND_DISPLAY: dict[str, str] = {
 # (case-insensitive, word-boundary) before giving up on the brand field.
 _IPE_EXHAUST_TOKEN_RE = re.compile(r"\bi[Pp]E\b|\bIPE\b")
 _IPE_EXHAUST_BRAND = "iPE"
+
+# Trailing words in wheel H1 titles that are descriptive padding rather than
+# part of the model code. Stripped before promoting the H1 to ``part_number``
+# so ``"MFV-03 Magnesium Wheels"`` becomes ``"MFV-03"`` (the canonical model)
+# but a bare model H1 like ``"RS6.3"`` is left untouched.
+#
+# Patterns observed:
+#   "<model> Magnesium Wheels"   - iPE MFV magnesium line
+#   "<model> Wheels"             - generic suffix on Forgiato / Vossen pages
+#   "<model> Forged Wheels"
+#   "<model> 2Piece" / "1-Piece" / "3 piece" - construction descriptor in
+#       iPE 2Piece line ("MFV-L-01 2Piece") - drop because per-construction
+#       SKU isn't published; the model code alone is what the retailer uses.
+_WHEEL_PN_TRAILING_NOISE_RE = re.compile(
+    r"\s+(?:[1-3][\s-]*piece|(?:magnesium\s+)?(?:forged\s+)?wheels?)\s*$",
+    re.IGNORECASE,
+)
+
+# Brand-slug → display-name token used as a part-number prefix so the H1
+# model code (``RS6.3``) becomes a globally-unique identifier
+# (``ANRKY-RS6.3``). Without the prefix, identical model codes from
+# different makers (BBS ``CH``, Forgeline ``CH``) would collide downstream.
+# Uses the same slug map as ``_WHEEL_BRAND_DISPLAY`` but reduced to a
+# safe ASCII upper-case prefix; falls back to the slug-derived display name.
+_WHEEL_PN_PREFIX_OVERRIDES: dict[str, str] = {
+    "1886-wheels": "1886",
+    "ag-luxury-wheels": "AGL",
+    "anrky-wheels": "ANRKY",
+    "bbs-wheels": "BBS",
+    "forgiato-wheels": "FORGIATO",
+    "hre-wheels": "HRE",
+    "ipe-wheels": "IPE",
+    "rotiform-wheels": "ROTIFORM",
+    "techart-wheels-porsche": "TECHART",
+}
 
 DEFAULT_START_URLS = [
     "https://wheelsboutique.com/wheels/hre-wheels/520-series/hre-520/",
@@ -271,14 +319,86 @@ def _wheel_brand_display(slug: str) -> str:
     return base.replace("-", " ").title() if base else slug
 
 
+def _wheel_pn_prefix(slug: str) -> str:
+    """Brand prefix used to namespace H1 model codes into globally unique PNs.
+
+    Curated slugs map to a short ASCII upper-case token; unknown slugs fall
+    back to the display-name heuristic upper-cased and de-spaced (so
+    ``vossen-wheels`` → ``VOSSEN``). Always ASCII upper for stable downstream
+    comparison.
+    """
+    if slug in _WHEEL_PN_PREFIX_OVERRIDES:
+        return _WHEEL_PN_PREFIX_OVERRIDES[slug]
+    display = _wheel_brand_display(slug)
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "", display)
+    return cleaned.upper() or slug.upper()
+
+
+def _wheel_pn_from_name(name: str) -> Optional[str]:
+    """Return the cleaned model-code core of a wheel H1.
+
+    Strips trailing descriptive padding ("Magnesium Wheels", "Wheels",
+    "Forged Wheels", "2Piece"/"3-Piece" construction descriptors) so
+    titles like ``"MFV-L-01 2Piece Magnesium Wheels"`` collapse to
+    ``"MFV-L-01"`` while bare model codes (``"RS6.3"``, ``"Martellato-ECL"``)
+    are returned as-is. Applied iteratively because two adjacent suffix
+    types can stack (``"<model> 2Piece Magnesium Wheels"``). Caps the
+    iteration count to avoid pathological inputs spinning forever.
+    Returns ``None`` for empty input or when stripping leaves nothing.
+    """
+    if not name:
+        return None
+    cleaned = name.strip()
+    for _ in range(4):
+        next_cleaned = _WHEEL_PN_TRAILING_NOISE_RE.sub("", cleaned).strip()
+        if next_cleaned == cleaned:
+            break
+        cleaned = next_cleaned
+    return cleaned or None
+
+
+def _build_wheel_part_number(url: str, name: Optional[str]) -> Optional[str]:
+    """Build a brand-prefixed part number for a Wheels Boutique wheel page.
+
+    Wheels Boutique never ships a structured SKU — no JSON-LD Product, no
+    add-to-cart form, no hidden ``data-sku`` attribute. The H1 *is* the
+    model code (``RS6.3``, ``MFV-03``, ``Martellato-ECL``) and the URL's
+    first path segment (``/wheels/anrky-wheels/...``) carries the brand.
+    Combined they give a stable, real PN (``ANRKY-RS6.3``) that survives
+    cross-retailer dedupe — the same wheel sold by a different reseller
+    will normalize to the same brand+model token.
+
+    Configured fitments (diameter/width/offset/finish) live behind a
+    "Request a Quote" form and never reach the page DOM, so per-variant
+    SKUs aren't extractable from the archived HTML. The returned PN is
+    therefore at the model level — same granularity the retailer exposes
+    publicly.
+    """
+    core = _wheel_pn_from_name(name or "")
+    if not core:
+        return None
+    slug = _brand_slug_from_url(url)
+    if not slug:
+        return core
+    prefix = _wheel_pn_prefix(slug)
+    if not prefix:
+        return core
+    # Don't double-prefix when the H1 already starts with the brand token
+    # (e.g. ``"HRE 520"`` on ``/wheels/hre-wheels/...``). Compare on
+    # alphanumeric-only key so ``"BBS"`` matches ``"B B S"`` etc.
+    core_key = re.sub(r"[^A-Za-z0-9]+", "", core).upper()
+    if core_key.startswith(prefix):
+        return core
+    return f"{prefix}-{core}"
+
+
 def _extract_brand(url: str, name: Optional[str], description: Optional[str]) -> Optional[str]:
     """
     Wheel products: brand is the first path segment after ``/wheels/``.
     Exhaust products: Wheels Boutique's exhaust taxonomy today is iPE-only,
     and the vendor embeds the literal ``iPE`` token in every exhaust
     description. Detect the token on the page; return None when absent so
-    ingest stores the part with ``part_manufacturer_id = NULL`` rather than
-    guessing.
+    the ingest path stores the part under ``Unknown`` rather than guessing.
     """
     path = urlparse(url).path or ""
     if path.lower().startswith("/wheels/"):
@@ -353,12 +473,27 @@ class WheelsBoutiqueAdapter(RetailerCrawlerAdapter):
         description = _extract_description(soup)
         hero_image = _extract_hero_image(soup)
 
+        # Wheel pages: brand-prefixed H1 model code is the canonical PN
+        # (``ANRKY-RS6.3``). Exhaust pages: H1 is fitment text ("Porsche
+        # 718 GT4 Exhaust System"), not a model code, and the page renders
+        # no structured PN of any kind — leave ``part_number=None`` so a
+        # fitment string isn't promoted into the SKU slot.
+        # REASON for exhausts=None: vTiger lead form, no add-to-cart, no
+        # JSON-LD, no data-sku, no hidden config blob. The URL slug is a
+        # long fitment description ("porsche-718-gts-4-0-...exhaust-system-
+        # 2020-present") that would normalize into junk if used as a PN.
+        path = (urlparse(url).path or "").lower()
+        if path.startswith("/wheels/"):
+            part_number = _build_wheel_part_number(url, name)
+        else:
+            part_number = None
+
         return ScrapedPayload(
             name=name,
             product_url=url,
             description=description,
             price_cents=None,
             part_manufacturer=_extract_brand(url, name, description),
-            part_number=None,
+            part_number=part_number,
             image_urls=[hero_image] if hero_image else None,
         )

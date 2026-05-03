@@ -23,69 +23,6 @@ from app.api.models.part_manufacturer import PartManufacturer as DBPartManufactu
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
 
-# Tokens stripped from the tail of a manufacturer name during canonical comparison.
-# Sub-divisions ("Performance", "Racing", "Electronics", ...) and corporate suffixes
-# ("Inc", "LLC", ...) all collapse to the parent brand so an adapter submitting
-# "AEM Electronics" or "APR Performance" resolves to the existing "AEM" / "APR" row
-# rather than creating a duplicate.
-_MANUFACTURER_TRAILING_TOKENS = frozenset(
-    {
-        # Corporate suffixes
-        "inc",
-        "llc",
-        "ltd",
-        "co",
-        "corp",
-        "company",
-        "llp",
-        "limited",
-        # Brand sub-divisions / generic descriptors
-        "performance",
-        "racing",
-        "motorsport",
-        "motorsports",
-        "tuning",
-        "engineering",
-        "electronics",
-        "induction",
-        "industries",
-        "usa",
-        "america",
-        "automotive",
-    }
-)
-
-
-def manufacturer_name_canonical(raw: str) -> str:
-    """Reduce a manufacturer name to a canonical comparison key.
-
-    Steps:
-      1. Lowercase.
-      2. Strip non-alphanumerics (collapses ``A'PEX-i`` -> ``apexi``,
-         ``Borg Warner`` -> ``borgwarner``, ``K&N`` -> ``kn``, ``Stop Tech``
-         -> ``stoptech``, ``Studio RSR`` -> ``studiorsr``).
-      3. After tokenizing on whitespace, drop trailing tokens listed in
-         ``_MANUFACTURER_TRAILING_TOKENS`` (corporate suffixes + brand
-         sub-division words). Iteratively — ``Titan 7 LLC USA`` collapses
-         all the way to ``titan7``.
-
-    Returns an empty string if nothing remains. Used for case-insensitive,
-    whitespace-insensitive, suffix-insensitive lookups; never written back
-    to the DB.
-    """
-    if not raw:
-        return ""
-    lowered = raw.lower()
-    # Tokenize first (whitespace + punctuation), then apply the trailing-token
-    # filter, then strip remaining non-alphanumerics on each surviving token.
-    # This way ``AEM Electronics`` -> tokens ["aem", "electronics"] -> drop
-    # trailing "electronics" -> "aem", instead of mashing into "aemelectronics"
-    # and never matching the trailing-token list.
-    tokens = [t for t in re.split(r"[^a-z0-9]+", lowered) if t]
-    while tokens and tokens[-1] in _MANUFACTURER_TRAILING_TOKENS:
-        tokens.pop()
-    return "".join(tokens)
-
 
 def get_or_create_retailer(
     db: Session,
@@ -128,43 +65,12 @@ def get_or_create_retailer(
 
 
 def _find_curated_pm_by_name(db: Session, name_normalized: str) -> Optional[DBPartManufacturer]:
-    """Look up a curated manufacturer by name.
-
-    Two-pass match:
-      1. Exact case-insensitive name match (preserves ``ilike`` semantics —
-         this is the fast path and the only path the partial unique index
-         on ``lower(name)`` enforces).
-      2. Canonical-key match: compute ``manufacturer_name_canonical`` for
-         the input, then for each curated row, and return the first row
-         whose canonical key matches. This is what lets adapters submitting
-         ``"APR Performance"`` resolve to the existing ``"APR"`` row, or
-         ``"AEM Electronics"`` to the existing ``"AEM"``, without minting
-         a duplicate. Pulls all curated rows in memory; the curated catalog
-         is small (~hundreds), so the cost is negligible compared to the
-         dedup win. If two curated rows happen to share a canonical key
-         (post-migration this should be rare), we return the first sorted
-         by name for determinism.
-    """
-    exact = db.scalars(
+    return db.scalars(
         select(DBPartManufacturer).where(
             DBPartManufacturer.is_curated.is_(True),
             DBPartManufacturer.name.ilike(name_normalized),
         )
     ).first()
-    if exact is not None:
-        return exact
-
-    canonical_key = manufacturer_name_canonical(name_normalized)
-    if not canonical_key:
-        return None
-    for pm in db.scalars(
-        select(DBPartManufacturer)
-        .where(DBPartManufacturer.is_curated.is_(True))
-        .order_by(DBPartManufacturer.name)
-    ).all():
-        if manufacturer_name_canonical(pm.name) == canonical_key:
-            return pm
-    return None
 
 
 def _find_ugc_pm_for_user(db: Session, name_normalized: str, creator_id: UUID) -> Optional[DBPartManufacturer]:

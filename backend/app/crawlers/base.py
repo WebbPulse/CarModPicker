@@ -697,24 +697,10 @@ def ingest_payload(
     # Central curated part_manufacturer list: crawler and extension service-account
     # writes share the catalog. Always routes to a curated row so user-typed names
     # from the app can never collide with scraper data.
-    #
-    # Manufacturer is *optional*: when an adapter/payload can't confidently
-    # identify the brand, we leave ``part.part_manufacturer_id`` NULL rather
-    # than parking everything under a sentinel ``"Unknown"`` row (which used
-    # to grow without bound and corrupt facets/search). The DB column on
-    # ``parts.part_manufacturer_id`` is nullable to match.
-    part_manufacturer_name = (payload.part_manufacturer or "").strip()
-    part_manufacturer = (
-        get_or_create_curated_part_manufacturer(db, part_manufacturer_name) if part_manufacturer_name else None
-    )
-    if part_manufacturer_name and part_manufacturer is None:
-        # Name was provided but get_or_create returned None (empty after stripping
-        # internal whitespace, etc.) — treat as unbranded rather than failing the
-        # whole ingest.
-        logger.debug(
-            "ingest: payload manufacturer %r resolved to None; storing part with NULL manufacturer",
-            part_manufacturer_name,
-        )
+    part_manufacturer_name = (payload.part_manufacturer or "").strip() or "Unknown"
+    part_manufacturer = get_or_create_curated_part_manufacturer(db, part_manufacturer_name)
+    if not part_manufacturer:
+        raise ValueError("Could not resolve or create part manufacturer")
     db.flush()
 
     # Lazy import: parsing.py imports ScrapedPayload from this module, so we keep
@@ -871,7 +857,7 @@ def ingest_payload(
         category_id=category_id,
         car_ids=inferred_car_ids if inferred_car_ids else [],
         is_universal=not inferred_car_ids,
-        part_manufacturer_id=part_manufacturer.id if part_manufacturer is not None else None,
+        part_manufacturer_id=part_manufacturer.id,
         part_number=part_number_effective,
         gtin=payload.gtin,
         retailer_id=retailer.id,

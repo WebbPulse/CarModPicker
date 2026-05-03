@@ -195,8 +195,7 @@ class TestBrandTokenMap:
 
     def test_generic_slug_has_no_brand(self) -> None:
         # wheel-rack, magnetic-drain-bolt, optional-decal-set all miss the
-        # map on purpose — the ingest layer keeps part_manufacturer_id NULL
-        # rather than inventing a sentinel "Unknown" brand.
+        # map on purpose — the ingest layer's "Unknown" default is honest.
         assert _brand_from_tokens("wheel-rack") is None
         assert _brand_from_tokens("magnetic-drain-bolt-2") is None
         assert _brand_from_tokens("optional-decal-set") is None
@@ -302,8 +301,8 @@ class TestParseItemPage:
         assert result.name == "M8"
 
     def test_generic_accessory_has_no_brand(self) -> None:
-        # "wheel-rack" slug misses every brand token; ingest will leave
-        # part_manufacturer_id NULL. Adapter must not invent a brand.
+        # "wheel-rack" slug misses every brand token; the ingest-layer
+        # "Unknown" default will apply. Adapter must not invent a brand.
         result = MackinIndustriesAdapter().parse_product_page(
             _item_html(og_title="Wheel Rack - Mackin Industries", h1="Wheel Rack"),
             "https://mackin-ind.com/item/wheel-rack/",

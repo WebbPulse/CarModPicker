@@ -55,11 +55,17 @@ where the brand is in the URL's first path segment), every hrewheels.com
 product is by definition an HRE wheel, so the adapter returns the
 constant ``"HRE"``.
 
-Part numbers: model codes like ``P101`` / ``305M`` / ``FF15`` are
-series-level identifiers, not true SKUs — the same model ships in many
-diameters, widths, offsets, and finishes, each a distinct part. Leaving
-``part_number=None`` matches Wheels Boutique's posture and avoids
-collapsing real fitments into a single catalog row downstream.
+Part numbers: HRE renders no JSON-LD ``Product`` block, no hidden form
+input, and no ``data-sku`` attribute anywhere on the product page —
+configured fitments (diameter, width, offset, finish) are quote-driven
+and never reach the page DOM. The only public, stable identifier is the
+``h1.WheelName`` model code (``P101``, ``RS105M``, ``FF15``), which IS
+the canonical product identifier the retailer prints on its own catalog
+and brochure pages. The adapter promotes that code, prefixed with the
+constant ``HRE-`` for cross-retailer uniqueness, into ``part_number``
+(``HRE-P101``). Per-fitment SKUs would require crawling the dealer
+ordering portal (auth-walled) and aren't extractable from the public
+page; the model-level granularity matches what HRE itself publishes.
 """
 
 import os
@@ -278,6 +284,52 @@ def _extract_name(soup: BeautifulSoup) -> Optional[str]:
     return None
 
 
+def _extract_part_number(soup: BeautifulSoup, url: str) -> Optional[str]:
+    """Extract the wheel model code and prefix it with ``HRE-``.
+
+    Source priority:
+      1. ``h1.WheelName`` — bespoke class on every product page (``P101``,
+         ``RS105M``, ``FF15``). This is the public, canonical identifier.
+      2. URL slug last segment — fallback when the H1 is absent or empty
+         (e.g. malformed cached page). HRE URL paths are always
+         ``/wheels/<series>/<model>``, so the last segment is the model
+         code in its slug form.
+
+    The returned value is brand-namespaced (``HRE-<MODEL>``) so a model
+    code that happens to collide with another retailer's code (Forgeline,
+    BBS, etc.) doesn't coalesce in cross-retailer dedupe. Pure-alpha
+    H1s shorter than 4 chars would be rejected by the ingest junk filter,
+    but every HRE model code observed contains digits — the prefix push
+    also makes the value comfortably long.
+    """
+    raw: Optional[str] = None
+    h1 = soup.select_one("h1.WheelName")
+    if isinstance(h1, Tag):
+        text = h1.get_text(strip=True)
+        if text:
+            raw = text
+
+    if not raw:
+        try:
+            path = urlparse(url).path or ""
+        except ValueError:
+            path = ""
+        segments = [p for p in path.split("/") if p]
+        if len(segments) >= 3 and segments[0].lower() == "wheels":
+            slug = segments[-1].strip()
+            if slug:
+                raw = slug.upper()
+
+    if not raw:
+        return None
+    cleaned = re.sub(r"\s+", "-", raw.strip())
+    if not cleaned:
+        return None
+    if cleaned.upper().startswith("HRE-") or cleaned.upper().startswith("HRE "):
+        return cleaned
+    return f"HRE-{cleaned}"
+
+
 def _extract_description(soup: BeautifulSoup) -> Optional[str]:
     """
     Join the prose ``<p>`` tags inside ``.MainInformation``.
@@ -448,6 +500,7 @@ class HREWheelsAdapter(RetailerCrawlerAdapter):
 
         description = _extract_description(soup)
         images = _extract_images(soup)
+        part_number = _extract_part_number(soup, url)
 
         return ScrapedPayload(
             name=name,
@@ -455,6 +508,6 @@ class HREWheelsAdapter(RetailerCrawlerAdapter):
             description=description,
             price_cents=None,
             part_manufacturer=HRE_BRAND,
-            part_number=None,
+            part_number=part_number,
             image_urls=images if images else None,
         )

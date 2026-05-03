@@ -8,8 +8,10 @@ from app.crawlers.adapters import adapter_name_for_product_url
 from app.crawlers.adapters.tier0_http.hrewheels import (
     HREWheelsAdapter,
     _canonicalize_sitemap_url,
+    _extract_part_number,
     _is_product_url,
 )
+from bs4 import BeautifulSoup
 
 PRODUCT_URL = "https://www.hrewheels.com/wheels/series-p1/p101"
 CLASSIC_URL = "https://www.hrewheels.com/wheels/classic-series/305m"
@@ -149,7 +151,9 @@ class TestParseProductPage:
         # disambiguates the model across series in the global catalog.
         assert result.name == "Series P1 - P101"
         assert result.part_manufacturer == "HRE"
-        assert result.part_number is None
+        # PN promotes the bespoke ``h1.WheelName`` (model code) brand-prefixed
+        # for cross-retailer dedupe safety.
+        assert result.part_number == "HRE-P101"
         # Catalog-only retailer: even when the page shows "Starting at $3,350",
         # price must be None.
         assert result.price_cents is None
@@ -219,6 +223,46 @@ class TestParseProductPage:
         result = HREWheelsAdapter().parse_product_page(_product_html(alt_data_large=()), PRODUCT_URL)
         assert result is not None
         assert result.image_urls is not None and len(result.image_urls) >= 1
+
+
+class TestExtractPartNumber:
+    """``h1.WheelName`` is the canonical PN, brand-prefixed with ``HRE-``."""
+
+    def test_h1_wheelname_used_as_pn(self) -> None:
+        soup = BeautifulSoup(_product_html(h1_model="P101"), "html.parser")
+        assert _extract_part_number(soup, PRODUCT_URL) == "HRE-P101"
+
+    def test_classic_series_3char_alphanumeric_pn(self) -> None:
+        # "305M" — 4 chars, contains digit, must pass through.
+        soup = BeautifulSoup(_product_html(h1_model="305M"), "html.parser")
+        assert _extract_part_number(soup, CLASSIC_URL) == "HRE-305M"
+
+    def test_flowform_pn(self) -> None:
+        soup = BeautifulSoup(_product_html(h1_model="FF15"), "html.parser")
+        ff_url = "https://www.hrewheels.com/wheels/hre-flowform/ff15"
+        assert _extract_part_number(soup, ff_url) == "HRE-FF15"
+
+    def test_falls_back_to_url_slug_when_h1_missing(self) -> None:
+        # Defensive: malformed page with no ``h1.WheelName`` — last URL
+        # segment is the slug-form of the model code.
+        html = "<html><body><div class='MainInformation'></div></body></html>"
+        soup = BeautifulSoup(html, "html.parser")
+        assert _extract_part_number(soup, PRODUCT_URL) == "HRE-P101"
+
+    def test_avoids_double_prefix_when_h1_already_starts_with_hre(self) -> None:
+        # Defensive: hypothetical H1 ``"HRE 520"`` from a future template
+        # change must not produce ``"HRE-HRE 520"``.
+        soup = BeautifulSoup(_product_html(h1_model="HRE 520"), "html.parser")
+        result = _extract_part_number(soup, PRODUCT_URL)
+        assert result is not None
+        assert result.startswith("HRE-") or result.upper().startswith("HRE")
+        assert not result.upper().startswith("HRE-HRE")
+
+    def test_returns_none_when_no_h1_and_url_lacks_model_segment(self) -> None:
+        html = "<html><body></body></html>"
+        soup = BeautifulSoup(html, "html.parser")
+        # ``/wheels`` has no model segment.
+        assert _extract_part_number(soup, "https://www.hrewheels.com/wheels") is None
 
 
 class TestParseEdgeCases:

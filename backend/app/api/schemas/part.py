@@ -37,14 +37,7 @@ class PartCreate(BaseModel):
         default=False,
         description="When True, part fits all cars; no need to list car_ids.",
     )
-    part_manufacturer_id: Optional[UUID] = Field(
-        None,
-        description=(
-            "Manufacturer/brand for this part. Optional: scraped pages where the "
-            "brand cannot be confidently determined leave this NULL rather than "
-            "minting a sentinel 'Unknown' brand row. The DB column is also nullable."
-        ),
-    )
+    part_manufacturer_id: UUID
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(
         None,
@@ -75,7 +68,7 @@ class PartUpdate(BaseModel):
     category_id: Optional[UUID] = None
     car_ids: Optional[List[UUID]] = None
     is_universal: Optional[bool] = None
-    part_manufacturer_id: Optional[UUID] = None
+    part_manufacturer_id: UUID
     part_number: Optional[str] = None
     gtin: Optional[str] = None
     specifications: Optional[Dict[str, Any]] = None

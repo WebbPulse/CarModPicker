@@ -37,8 +37,8 @@ including the 57* and G* model families), Yokohama Wheel (Advan Racing),
 Project Mu, KYO-EI (including KICS, Bull Lock, Muteki sub-brands), MXP, and
 Wheel Mate Products. The slug/title token map covers every catalog entry; a
 slug that matches none of them (generic accessories like ``wheel-rack``,
-``magnetic-drain-bolt``, ``optional-decal-set``) gets ``None`` — ingest stores
-the part with ``part_manufacturer_id = NULL`` rather than mis-attributing.
+``magnetic-drain-bolt``, ``optional-decal-set``) gets ``None`` — the
+ingest-time default of ``"Unknown"`` is honest and better than mis-attributing.
 """
 
 import os
