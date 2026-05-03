@@ -202,72 +202,19 @@ def _extract_full_description_from_dom(soup: BeautifulSoup, max_len: int = 2000)
     return _strip_studiorsr_boilerplate(normalized) if normalized else None
 
 
-# Shopify lazy-loader theme assets and brand chrome that should NEVER be
-# treated as product images. The theme leaves ``<img src=...>`` pointing at a
-# spinner SVG (``loading.svg``) until the lazy-loader hydrates the real
-# product image into ``data-src``/``data-srcset`` — so reading ``src`` first
-# was capturing the spinner placeholder. Header/footer assets under
-# ``/cdn/shop/t/<theme-id>/assets/`` (logos, icons, etc.) are also chrome.
-_STUDIORSR_IMAGE_DENY_RE = re.compile(
-    r"/cdn/shop/t/[^/]+/assets/|loading\.svg|studiorsr_dark|\.svg(?:$|\?)",
-    re.IGNORECASE,
-)
-
-# Real product images live on the Shopify CDN under
-# ``/cdn/shop/products/`` or ``/cdn/shop/files/`` on the studiorsr.com host.
-_STUDIORSR_PRODUCT_IMAGE_PATH_RE = re.compile(
-    r"/cdn/shop/(?:products|files)/",
-    re.IGNORECASE,
-)
-
-
 def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
-    """
-    Collect product image URLs from the Shopify-themed product page.
-
-    Read order: ``data-src`` then ``data-srcset`` then ``src``. Shopify's lazy-
-    loader leaves ``src`` set to a spinner SVG (``loading.svg``) until the
-    real image is hydrated into ``data-src`` — so reading ``src`` first
-    captured ~790 spinner placeholders as "product images" across the
-    catalog.
-
-    Filters: deny theme/asset paths (``/cdn/shop/t/.*/assets/``), logo
-    chrome (``studiorsr_dark``, ``loading.svg``), and any ``.svg``
-    extension. Constrain to ``studiorsr.com`` paths matching
-    ``/cdn/shop/(products|files)/`` so anything else is dropped.
-    Force ``https://`` (rewrite ``http://`` and drop bare ``http://``
-    on non-studiorsr hosts that slipped through).
-    """
+    """Collect product image URLs: og:image first, then gallery img srcs (Shopify CDN or same-origin)."""
     urls: List[str] = []
     seen: set[str] = set()
 
     def add(u: str) -> None:
-        if not u:
-            return
-        u = u.strip()
-        if not u:
+        if not u or u in seen:
             return
         if u.startswith("//"):
             u = "https:" + u
         elif u.startswith("/"):
             u = STUDIORSR_BASE + u
-        elif u.startswith("http://"):
-            u = "https://" + u[len("http://") :]
-        if not u.startswith("https://"):
-            return
-        if _STUDIORSR_IMAGE_DENY_RE.search(u):
-            return
-        try:
-            parsed = urlparse(u)
-        except ValueError:
-            return
-        host = (parsed.hostname or "").lower()
-        # Restrict to first-party Shopify CDN paths on studiorsr.com.
-        if not (host == "studiorsr.com" or host.endswith(".studiorsr.com")):
-            return
-        if not _STUDIORSR_PRODUCT_IMAGE_PATH_RE.search(parsed.path or ""):
-            return
-        if u in seen:
+        if not u.startswith("http"):
             return
         seen.add(u)
         urls.append(u)
@@ -278,20 +225,12 @@ def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
         if content and content.strip():
             add(content.strip())
 
-    for img in soup.find_all("img"):
+    for img in soup.find_all("img", src=True):
         if not isinstance(img, Tag) or len(urls) >= 12:
             break
-        # Prefer data-src / data-srcset (the real image URL after the
-        # lazy-loader hydrates) over ``src`` (the spinner placeholder).
-        for attr in ("data-src", "data-srcset", "src"):
-            val = img.get(attr)
-            if isinstance(val, str) and val.strip():
-                # data-srcset is a comma-separated list of "<url> <density>";
-                # take the first URL.
-                first = val.strip().split(",")[0].strip().split(" ")[0]
-                if first:
-                    add(first)
-                    break
+        src = img.get("src")
+        if isinstance(src, str) and src.strip():
+            add(src.strip())
     return urls[:12]
 
 

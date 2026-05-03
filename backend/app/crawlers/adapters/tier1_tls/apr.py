@@ -107,11 +107,6 @@ _PRODUCT_DATA_SCRIPT_RE = re.compile(
 # gallery the extension would surface.
 _GALLERY_IMAGE_TYPES = frozenset({"default", "additional", "lifestyle"})
 
-# Filenames that APR ships as the gallery image on ECU-tune SKUs that have
-# no real product photo. ``apr-ecu-box.png`` is the same generic ECU-box
-# render on ~120 different ECU upgrade SKUs — pure noise. Drop by filename.
-_APR_GENERIC_IMAGE_FILENAMES: frozenset[str] = frozenset({"apr-ecu-box.png"})
-
 # Default smoke-test URL for a fresh run when the sitemap walk returns nothing
 # (e.g. CF starts blocking the TLS fetcher and we want the adapter to still
 # exercise ``parse_product_page`` end-to-end against a known-good SKU).
@@ -247,11 +242,6 @@ def _image_urls_from_data(data: dict) -> List[str]:
             continue
         key = filename.strip()
         if key in seen:
-            continue
-        # Drop generic placeholder filenames (e.g. ``apr-ecu-box.png`` on
-        # ECU-tune SKUs that have no real product photo). The same filename
-        # appears on ~120 unrelated SKUs.
-        if key.lower() in _APR_GENERIC_IMAGE_FILENAMES:
             continue
         seen.add(key)
         urls.append(f"{APR_IMAGE_BASE}/{key}")

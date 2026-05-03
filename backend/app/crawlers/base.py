@@ -366,73 +366,6 @@ TIMEOUT_BACKOFF_BASE_SEC = 3.0
 _robots_cache: Dict[str, RobotFileParser] = {}
 
 
-# Cross-adapter image URL post-filter (applied during ingest, defense in
-# depth on top of per-adapter filters). The data audit showed ~5% of parts
-# had no usable image because adapters were emitting (a) ``data:`` URIs from
-# theme placeholders, (b) ``http://`` URLs that fail mixed-content blocks
-# in the React frontend, (c) ``.svg`` icons / spinners, and (d) empty arrays
-# that downstream code treated as "we have an image" rather than "no
-# image". Centralize all four checks here so a misbehaving adapter can't
-# leak any of them into ``parts.image_urls``.
-_PARTNAME_IMAGE_KEEP_SVG_TOKENS = ("decal", "sticker", "logo")
-
-
-def _is_known_https_host(url: str) -> bool:
-    """
-    Always rewrite ``http://`` to ``https://``. Keeping a per-host allowlist
-    here would be brittle (every retailer adapter would have to register its
-    image host) and the failure mode of forcing https on a host that doesn't
-    serve TLS (broken image) is no worse than keeping the http URL (mixed
-    content blocked at the browser anyway). Returning True for every URL.
-    """
-    _ = url  # placeholder for future per-host opt-out if a retailer is https-broken
-    return True
-
-
-def filter_payload_image_urls(
-    image_urls: Optional[List[str]],
-    *,
-    part_name: Optional[str] = None,
-) -> Optional[List[str]]:
-    """
-    Apply cross-adapter post-extraction filters to ``image_urls``:
-
-    - Drop ``data:`` URIs (Shopify lazy-loader placeholders, base64 spinners).
-    - Rewrite ``http://`` to ``https://`` so the React frontend's mixed-
-      content block doesn't strip the image at render time.
-    - Drop ``.svg`` filenames unless ``part_name`` mentions decal / sticker
-      / logo (the only case where an SVG is the actual product photo).
-    - Drop blank / whitespace-only entries.
-    - Return ``None`` (not ``[]``) when nothing survives — downstream code
-      treats an empty array as "we have an image" rather than "no image".
-
-    Idempotent: filtered output passed back through this function is a
-    no-op. Order is preserved.
-    """
-    if not image_urls:
-        return None
-    pn_lower = (part_name or "").lower()
-    keep_svg = any(token in pn_lower for token in _PARTNAME_IMAGE_KEEP_SVG_TOKENS)
-    out: List[str] = []
-    for raw in image_urls:
-        if not isinstance(raw, str):
-            continue
-        u = raw.strip()
-        if not u:
-            continue
-        if u.lower().startswith("data:"):
-            continue
-        if u.startswith("http://") and _is_known_https_host(u):
-            u = "https://" + u[len("http://") :]
-        # Cheap .svg test: split off any query string then check the
-        # extension. Catches both ``foo.svg`` and ``foo.svg?v=1``.
-        path_only = u.split("?", 1)[0].split("#", 1)[0]
-        if path_only.lower().endswith(".svg") and not keep_svg:
-            continue
-        out.append(u)
-    return out or None
-
-
 @dataclass
 class ScrapedPayload:
     """
@@ -772,9 +705,27 @@ def ingest_payload(
 
     # Lazy import: parsing.py imports ScrapedPayload from this module, so we keep
     # the reverse-direction import local to avoid a circular import at load time.
-    from app.crawlers.parsing import is_junk_part_number
+    from app.crawlers.parsing import gtin_candidate_for_pn, is_junk_part_number
 
     part_number_effective = payload.part_number
+    gtin_effective = payload.gtin
+
+    # GTIN promotion: when the adapter wrote a 12/13-digit pure-numeric value
+    # into ``part_number`` and the ``gtin`` slot is currently empty, the SKU
+    # field on the source page was almost certainly a UPC/EAN. Move it to the
+    # gtin column rather than dropping it as part-number junk.
+    if part_number_effective and not gtin_effective:
+        promoted = gtin_candidate_for_pn(part_number_effective)
+        if promoted is not None:
+            gtin_effective = promoted
+            logger.debug(
+                "Promoting GTIN-shaped part_number %r to gtin for manufacturer %r on %s",
+                part_number_effective,
+                part_manufacturer_name,
+                payload.product_url,
+            )
+            part_number_effective = None
+
     if is_junk_part_number(part_number_effective, part_manufacturer_name):
         if part_number_effective:
             logger.debug(
@@ -793,7 +744,15 @@ def ingest_payload(
         spec_mpn = payload.specifications.get("manufacturer_part_number")
         if isinstance(spec_mpn, str) and spec_mpn.strip():
             candidate = spec_mpn.strip()
-            if not is_junk_part_number(candidate, part_manufacturer_name):
+            # Spec-side GTIN promotion mirrors the payload-side check above:
+            # an MPN that looks like a UPC/EAN belongs in ``gtin``, not in the
+            # part_number slot.
+            if not gtin_effective:
+                promoted = gtin_candidate_for_pn(candidate)
+                if promoted is not None:
+                    gtin_effective = promoted
+                    candidate = ""
+            if candidate and not is_junk_part_number(candidate, part_manufacturer_name):
                 part_number_effective = candidate
 
     # Infer category. Adapter override (``infer_category_for_part``) wins over
@@ -916,20 +875,17 @@ def ingest_payload(
     else:
         validated_specifications = payload.specifications
 
-    # Cross-adapter image hygiene: drop data:URIs / .svg icons, force https,
-    # collapse empty arrays to None. See ``filter_payload_image_urls``.
-    filtered_image_urls = filter_payload_image_urls(payload.image_urls, part_name=payload.name)
     create_data = PartCreate(
         name=payload.name,
         description=payload.description,
-        image_urls=filtered_image_urls[:12] if filtered_image_urls else None,
+        image_urls=payload.image_urls[:12] if payload.image_urls else None,
         product_url=payload.product_url,
         category_id=category_id,
         car_ids=inferred_car_ids if inferred_car_ids else [],
         is_universal=not inferred_car_ids,
         part_manufacturer_id=part_manufacturer.id,
         part_number=part_number_effective,
-        gtin=payload.gtin,
+        gtin=gtin_effective,
         retailer_id=retailer.id,
         price_cents=payload.price_cents,
         specifications=validated_specifications,

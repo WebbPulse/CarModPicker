@@ -203,27 +203,12 @@ def _extract_price_cents(html_text: str) -> Optional[int]:
     return dollars * 100
 
 
-# When the CMS hasn't uploaded a real product photo for an SKU yet, HKS's
-# Next.js theme falls back to one of two brand-logo URLs as the og:image.
-# Returning that as the part's image populates ~304 rows with the brand
-# logo instead of nothing — worse than empty, because the UI then thinks
-# we have an image and skips the "no image" placeholder. Detect by
-# filename substring so we drop both ``hks_logo.png`` and
-# ``hksusa_logo.svg`` (and any future variant) and return None instead.
-_HKS_LOGO_RE = re.compile(r"hks(?:usa)?_logo", re.IGNORECASE)
-
-
 def _extract_hero_image(soup: BeautifulSoup) -> Optional[str]:
     """
     Read ``og:image`` for the hero image. The Strapi media host
     (``cheerful-bouquet-*.media.strapiapp.com``) serves the original-size JPG
     here; resized variants live nested under ``formats.{large,medium,small,…}``
     in the RSC blob and aren't needed for the catalog thumbnail.
-
-    Returns ``None`` when the og:image points at a brand-logo placeholder
-    (``hks_logo`` / ``hksusa_logo``) — Next.js falls back to the logo when
-    the CMS has no real product photo for the SKU, and ingesting the logo
-    as the part's image is worse than ingesting nothing.
     """
     og_img = soup.find("meta", property="og:image")
     if not isinstance(og_img, Tag):
@@ -232,11 +217,7 @@ def _extract_hero_image(soup: BeautifulSoup) -> Optional[str]:
     if not content:
         return None
     content = content.strip()
-    if not content:
-        return None
-    if _HKS_LOGO_RE.search(content):
-        return None
-    return content
+    return content or None
 
 
 def _extract_name_fallback(soup: BeautifulSoup) -> Optional[str]:

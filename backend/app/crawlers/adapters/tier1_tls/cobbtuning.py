@@ -248,40 +248,13 @@ _NAME_SKU_PARENS_RE = re.compile(
 )
 
 
-# Generic AccessPort beauty-shot filenames that COBB inlines as marketing
-# imagery on a wide set of unrelated category pages (intakes, exhausts,
-# stage packages). The hero image often points at one of these — leaking
-# the AccessPort glamour shot onto ~417 non-AP3 product rows. We deny these
-# UNLESS the page's SKU starts with ``AP3-`` (the AccessPort SKU prefix),
-# in which case the beauty shot IS the product photo.
-_COBB_ACCESSPORT_IMAGE_RE = re.compile(
-    r"accessport_v3_(?:extra|main|subaru|ford|bmw|volkswagen|mazda)",
-    re.IGNORECASE,
-)
-
-
-def _is_accessport_marketing_image(url: str, *, page_sku: Optional[str]) -> bool:
-    """
-    True when ``url`` is one of the generic AccessPort marketing beauty shots
-    AND the page's SKU is not part of the AP3 family.
-    """
-    if not _COBB_ACCESSPORT_IMAGE_RE.search(url):
-        return False
-    if page_sku and page_sku.upper().startswith("AP3-"):
-        return False
-    return True
-
-
-def _extract_dom_images(soup: BeautifulSoup, *, page_sku: Optional[str] = None) -> List[str]:
+def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
     """
     Collect product image URLs: og:image first, then <img> tags. Normalizes
     protocol-relative and site-root paths to absolute https URLs. Drops
     analytics/tracking-pixel hosts, plus any cobbtuning.com image that isn't
     under ``/media/catalog/products/`` (site logos, theme icons, etc.).
-    Also denies generic AccessPort beauty shots
-    (``accessport_v3_(extra|main|subaru|ford|bmw|volkswagen|mazda)``) when the
-    page's SKU is NOT in the AP3 family — those marketing photos otherwise
-    leak across hundreds of unrelated parts. Capped at 12.
+    Capped at 12.
     """
     urls: List[str] = []
     seen: set[str] = set()
@@ -311,8 +284,6 @@ def _extract_dom_images(soup: BeautifulSoup, *, page_sku: Optional[str] = None) 
         if host == "cobbtuning.com" or host.endswith(".cobbtuning.com"):
             if "/media/catalog/products/" not in (parsed.path or ""):
                 return
-        if _is_accessport_marketing_image(u, page_sku=page_sku):
-            return
         seen.add(u)
         urls.append(u)
 
@@ -505,6 +476,7 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
             return None
 
         soup = BeautifulSoup(html, "html.parser")
+        dom_images = _extract_dom_images(soup)
         dom_price = extract_dom_price(soup)
 
         # 1. JSON-LD Product (Magento 2 default SEO output).
@@ -514,19 +486,28 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
             if payload and payload.name:
                 description = payload.description
                 part_number = normalize_part_number(payload.part_number) if payload.part_number else None
+                # JSON-LD-driven SKU recovery when ``sku`` is missing/false-y on
+                # the JSON-LD item (Cobb's catalog frequently emits
+                # ``"sku": false`` and stuffs the real code into ``productID``,
+                # e.g. ``"productID": "COBB_NylonWasher-Kit"``). Fall back to
+                # image-URL filename, name-parens, then JSON-LD productID — the
+                # same order the DOM path uses, with productID acting as the
+                # JSON-LD-only last resort.
+                if not part_number:
+                    image_sku = _extract_sku_from_image_urls(payload.image_urls or dom_images)
+                    if image_sku:
+                        part_number = normalize_part_number(image_sku)
+                if not part_number:
+                    name_sku = _extract_sku_from_name_parens(payload.name)
+                    if name_sku:
+                        part_number = normalize_part_number(name_sku)
+                if not part_number:
+                    product_id = item.get("productID")
+                    if isinstance(product_id, str) and product_id.strip():
+                        part_number = normalize_part_number(product_id)
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 part_manufacturer = payload.part_manufacturer or _DEFAULT_MANUFACTURER
-                # Filter DOM images using the JSON-LD SKU so generic Accessport
-                # beauty-shots are denied on non-AP3 SKUs.
-                dom_images = _extract_dom_images(soup, page_sku=part_number)
-                # JSON-LD image lists are also vulnerable to the same generic
-                # accessport_v3_*.jpg leak — apply the deny filter post-hoc.
-                jsonld_images = [
-                    u
-                    for u in (payload.image_urls or [])
-                    if not _is_accessport_marketing_image(u, page_sku=part_number)
-                ]
-                image_urls = jsonld_images or (dom_images[:12] if dom_images else None)
+                image_urls = payload.image_urls or (dom_images[:12] if dom_images else None)
                 return ScrapedPayload(
                     name=payload.name,
                     product_url=url,
@@ -599,13 +580,7 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
             if isinstance(sku_elem, Tag):
                 part_number = normalize_part_number(sku_elem.get_text(strip=True))
         if not part_number:
-            # Image-filename SKU recovery has to happen on the unfiltered DOM
-            # images so we can still extract an AP3 SKU when only the generic
-            # accessport_v3_main.jpg image is present. Pull a temporary list
-            # without the SKU-aware deny filter, mine it for SKUs, then re-run
-            # extraction with the recovered SKU to filter properly.
-            unfiltered = _extract_dom_images(soup, page_sku="AP3-PROBE")
-            image_sku = _extract_sku_from_image_urls(unfiltered)
+            image_sku = _extract_sku_from_image_urls(dom_images)
             if image_sku:
                 part_number = normalize_part_number(image_sku)
         if not part_number:
@@ -617,10 +592,6 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
         # (which picks "Accessport" / "Stage" / "SF" as manufacturers on this
         # catalog) and use the COBB Tuning default directly.
         part_manufacturer = _DEFAULT_MANUFACTURER
-
-        # Filter the gallery using the recovered SKU so AccessPort beauty
-        # shots are dropped from non-AP3 product pages but kept for AP3 SKUs.
-        dom_images = _extract_dom_images(soup, page_sku=part_number)
 
         return ScrapedPayload(
             name=str(name),

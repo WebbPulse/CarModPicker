@@ -105,51 +105,6 @@ _SHOPIFY_META_SKU_RE = re.compile(r'"sku"\s*:\s*"([^"]+)"')
 # children contain ``/products/`` URLs; collections / pages / blogs do not.
 _PRODUCTS_SITEMAP_MARKER = "sitemap_products"
 
-# Catalog hero / category banner filenames that BC re-uses across most of
-# the coilover catalog. They are not product photos — every BR-series
-# product page that lacks its own photo falls back to ``BR_Series_Coilover.jpg``,
-# and rear-height-adjuster accessories all share ``Rear_Height_Adjuster.jpg``.
-# In the live catalog 86.5% of BC parts ended up with one of these as their
-# only image. Site rendering of real product photos appears to be client-
-# side only at the entry tier — without a browser-tier rescrape we can't
-# recover the real photos. Drop the catalog heroes so the parts at least
-# fall through to a "no image" placeholder rather than the wrong photo,
-# and TODO: promote to a browser-tier adapter to capture real photos.
-_BCRACING_CATALOG_HERO_FILENAMES: frozenset[str] = frozenset(
-    {
-        "br_series_coilover.jpg",
-        "rear_height_adjuster.jpg",
-    }
-)
-
-
-def _is_bcracing_catalog_hero(url: Optional[str]) -> bool:
-    """
-    True if ``url`` points at one of BC's catalog-hero / category-banner
-    images that get re-used as a placeholder across many product pages.
-    """
-    if not url:
-        return False
-    try:
-        path = urlparse(url).path or ""
-    except ValueError:
-        return False
-    filename = path.rsplit("/", 1)[-1].split("?", 1)[0].lower()
-    return filename in _BCRACING_CATALOG_HERO_FILENAMES
-
-
-def _filter_bcracing_images(image_urls: Optional[List[str]]) -> Optional[List[str]]:
-    """
-    Drop catalog-hero / category-banner entries from a list of image URLs.
-    Returns ``None`` if the list is empty after filtering — emitting an
-    empty array is wrong; downstream code expects either a real list or
-    ``None``. Order is preserved.
-    """
-    if not image_urls:
-        return None
-    filtered = [u for u in image_urls if not _is_bcracing_catalog_hero(u)]
-    return filtered or None
-
 DEFAULT_START_URLS = [
     "https://shop.bcracing-na.com/products/premium-spanner-wrench-set",
 ]
@@ -373,7 +328,7 @@ class BCRacingAdapter(RetailerCrawlerAdapter):
                     price_cents=price_cents,
                     part_manufacturer=part_manufacturer,
                     part_number=part_number,
-                    image_urls=_filter_bcracing_images(payload.image_urls),
+                    image_urls=payload.image_urls,
                     gtin=payload.gtin,
                 )
 
@@ -402,5 +357,5 @@ class BCRacingAdapter(RetailerCrawlerAdapter):
             price_cents=price_cents,
             part_manufacturer=BCRACING_BRAND,
             part_number=part_number,
-            image_urls=_filter_bcracing_images(image_urls),
+            image_urls=image_urls,
         )

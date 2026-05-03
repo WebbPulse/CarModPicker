@@ -156,8 +156,17 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
             for _k, _v in additional_data.items():
                 entity_data[_k] = _v
         entity_data["user_id"] = current_user.id
+        from app.crawlers.parsing import part_number_canonical
+
         entity_data["part_number"] = (
             normalize_part_number(data.part_number) if data.part_number else entity_data.get("part_number")
+        )
+        # Mirror the human-readable PN into the canonical key so the linker's
+        # ``part_manufacturer_id + part_number_normalized`` lookup hits.
+        entity_data["part_number_normalized"] = (
+            part_number_canonical(data.part_number)
+            if data.part_number
+            else entity_data.get("part_number_normalized")
         )
         if data.gtin:
             entity_data["gtin"] = normalize_gtin(data.gtin) or entity_data.get("gtin")
@@ -225,9 +234,12 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         if data.part_manufacturer_id is not None:
             existing_part.part_manufacturer_id = data.part_manufacturer_id
         if data.part_number is not None:
+            from app.crawlers.parsing import part_number_canonical
+
             normalized_pn = normalize_part_number(data.part_number)
             if normalized_pn:
                 existing_part.part_number = normalized_pn
+                existing_part.part_number_normalized = part_number_canonical(data.part_number)
         if data.gtin is not None:
             normalized_gtin = normalize_gtin(data.gtin)
             if normalized_gtin:
