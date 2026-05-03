@@ -366,6 +366,73 @@ TIMEOUT_BACKOFF_BASE_SEC = 3.0
 _robots_cache: Dict[str, RobotFileParser] = {}
 
 
+# Cross-adapter image URL post-filter (applied during ingest, defense in
+# depth on top of per-adapter filters). The data audit showed ~5% of parts
+# had no usable image because adapters were emitting (a) ``data:`` URIs from
+# theme placeholders, (b) ``http://`` URLs that fail mixed-content blocks
+# in the React frontend, (c) ``.svg`` icons / spinners, and (d) empty arrays
+# that downstream code treated as "we have an image" rather than "no
+# image". Centralize all four checks here so a misbehaving adapter can't
+# leak any of them into ``parts.image_urls``.
+_PARTNAME_IMAGE_KEEP_SVG_TOKENS = ("decal", "sticker", "logo")
+
+
+def _is_known_https_host(url: str) -> bool:
+    """
+    Always rewrite ``http://`` to ``https://``. Keeping a per-host allowlist
+    here would be brittle (every retailer adapter would have to register its
+    image host) and the failure mode of forcing https on a host that doesn't
+    serve TLS (broken image) is no worse than keeping the http URL (mixed
+    content blocked at the browser anyway). Returning True for every URL.
+    """
+    _ = url  # placeholder for future per-host opt-out if a retailer is https-broken
+    return True
+
+
+def filter_payload_image_urls(
+    image_urls: Optional[List[str]],
+    *,
+    part_name: Optional[str] = None,
+) -> Optional[List[str]]:
+    """
+    Apply cross-adapter post-extraction filters to ``image_urls``:
+
+    - Drop ``data:`` URIs (Shopify lazy-loader placeholders, base64 spinners).
+    - Rewrite ``http://`` to ``https://`` so the React frontend's mixed-
+      content block doesn't strip the image at render time.
+    - Drop ``.svg`` filenames unless ``part_name`` mentions decal / sticker
+      / logo (the only case where an SVG is the actual product photo).
+    - Drop blank / whitespace-only entries.
+    - Return ``None`` (not ``[]``) when nothing survives — downstream code
+      treats an empty array as "we have an image" rather than "no image".
+
+    Idempotent: filtered output passed back through this function is a
+    no-op. Order is preserved.
+    """
+    if not image_urls:
+        return None
+    pn_lower = (part_name or "").lower()
+    keep_svg = any(token in pn_lower for token in _PARTNAME_IMAGE_KEEP_SVG_TOKENS)
+    out: List[str] = []
+    for raw in image_urls:
+        if not isinstance(raw, str):
+            continue
+        u = raw.strip()
+        if not u:
+            continue
+        if u.lower().startswith("data:"):
+            continue
+        if u.startswith("http://") and _is_known_https_host(u):
+            u = "https://" + u[len("http://") :]
+        # Cheap .svg test: split off any query string then check the
+        # extension. Catches both ``foo.svg`` and ``foo.svg?v=1``.
+        path_only = u.split("?", 1)[0].split("#", 1)[0]
+        if path_only.lower().endswith(".svg") and not keep_svg:
+            continue
+        out.append(u)
+    return out or None
+
+
 @dataclass
 class ScrapedPayload:
     """
@@ -849,10 +916,13 @@ def ingest_payload(
     else:
         validated_specifications = payload.specifications
 
+    # Cross-adapter image hygiene: drop data:URIs / .svg icons, force https,
+    # collapse empty arrays to None. See ``filter_payload_image_urls``.
+    filtered_image_urls = filter_payload_image_urls(payload.image_urls, part_name=payload.name)
     create_data = PartCreate(
         name=payload.name,
         description=payload.description,
-        image_urls=payload.image_urls[:12] if payload.image_urls else None,
+        image_urls=filtered_image_urls[:12] if filtered_image_urls else None,
         product_url=payload.product_url,
         category_id=category_id,
         car_ids=inferred_car_ids if inferred_car_ids else [],
