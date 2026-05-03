@@ -286,6 +286,31 @@ class TestExtractMaterial:
         """
         assert extract_material(html) is None
 
+    def test_body_sweep_skips_chrome_neighborhood_and_returns_real_match(self) -> None:
+        # The first lexicon hit is in nav chrome ("ARP stainless steel hidden hardware"
+        # appears in a footer line); a real product description further down
+        # mentions "carbon fiber". The chrome guard skips the chrome match and
+        # returns the legit one.
+        html = (
+            "<html><body>"
+            "<nav>Sign In My Cart Toggle Nav uses ARP stainless steel hidden hardware throughout. </nav>"
+            "<main><p>This wheel is forged from carbon fiber for ultimate stiffness.</p></main>"
+            "</body></html>"
+        )
+        assert extract_material(html) == ("carbon fiber", "low")
+
+    def test_body_sweep_returns_none_when_only_chrome_match_exists(self) -> None:
+        # Only the chrome region mentions a material — no clean signal. Returning
+        # None is correct: a junk low-confidence hit on every page is worse than
+        # an honest "we don't know".
+        html = (
+            "<html><body>"
+            "<footer>Toggle Nav Sign In My Account Customer Service "
+            "stainless steel hardware page. Wishlist Add to Cart.</footer>"
+            "</body></html>"
+        )
+        assert extract_material(html) is None
+
 
 # ---------------------------------------------------------------------------
 # extract_finish
@@ -350,6 +375,25 @@ class TestExtractFinish:
         # shape) must not produce a labeled-row treatment hit. There's no
         # treatment word in the prose, so the body-text path also returns None.
         html = "<html><body><p>Coatings sold separately.</p></body></html>"
+        assert extract_finish(html) is None
+
+    def test_body_sweep_skips_chrome_neighborhood(self) -> None:
+        # Chrome region's "Black" link doesn't beat a real "polished" body line.
+        html = (
+            "<html><body>"
+            "<nav>Skip to Content Sign In My Cart Wishlist Black Friday Sale.</nav>"
+            "<main><p>Polished aluminum face for show-quality finish.</p></main>"
+            "</body></html>"
+        )
+        assert extract_finish(html) == ("polished", "low")
+
+    def test_body_sweep_returns_none_when_only_chrome_match_exists(self) -> None:
+        html = (
+            "<html><body>"
+            "<footer>Toggle Nav My Account Customer Service: silver tier "
+            "membership. Wishlist Add to Cart View Cart.</footer>"
+            "</body></html>"
+        )
         assert extract_finish(html) is None
 
 
@@ -496,6 +540,52 @@ class TestExtractFitmentNotes:
         # Negative path: a 3-alpha token with no digits (looks vaguely chassis-shaped)
         # must not produce a fitment-notes hit on its own.
         html = "<html><body><p>The ABC product line is now in stock.</p></body></html>"
+        assert extract_fitment_notes(html) is None
+
+    # ---------- Chrome neighborhood rejection (cross-cutting noise filter) ----------
+
+    def test_chrome_sentence_with_chassis_is_rejected(self) -> None:
+        # Real shape captured from production data: site nav text with a chassis
+        # token in the breadcrumb / category list. Must not be persisted as
+        # fitment_notes — return None and let the consumer omit the field.
+        html = (
+            "<html><body><p>Skip to Content Sign In Create an Account "
+            "Toggle Nav My Cart Search Search Advanced Search Search Menu "
+            "Shop By Vehicle Software ZTF Wheels 034 Gear Garage Sale "
+            "RacingLine Service All-Wheel Alignments E36 E46 G20 platform "
+            "Kits Brakes Pads Rotors.</p></body></html>"
+        )
+        assert extract_fitment_notes(html) is None
+
+    def test_chrome_sentence_does_not_shadow_a_clean_one(self) -> None:
+        # When the page chrome AND a real product sentence both mention chassis
+        # codes, the chrome filter skips the chrome and the legitimate sentence
+        # still wins.
+        html = (
+            "<html><body>"
+            "<p>Skip to Content Sign In My Cart Toggle Nav Shop By Vehicle E36.</p>"
+            "<p>Direct fit for E46 M3, 2001-2006 production years.</p>"
+            "</body></html>"
+        )
+        result = extract_fitment_notes(html)
+        assert result is not None
+        text, conf = result
+        assert "E46" in text
+        assert "Sign In" not in text
+        assert conf == "high"
+
+    def test_chrome_only_window_in_last_ditch_sweep_is_rejected(self) -> None:
+        # All chassis hits sit inside one chrome-saturated run with no period
+        # to split on. The first-pass sentence loop rejects the chrome sentence;
+        # the last-ditch sweep then evaluates the wider chrome window and also
+        # rejects, returning None instead of nav-only "fitment".
+        html = (
+            "<html><body><div>"
+            "Open Main Menu Sign In Wishlist Customer Service Cart 0 "
+            "Add to Cart View Cart Checkout free shipping on orders "
+            "categories include E46 in the menu listings"
+            "</div></body></html>"
+        )
         assert extract_fitment_notes(html) is None
 
 

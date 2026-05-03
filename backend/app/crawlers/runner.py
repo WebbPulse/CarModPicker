@@ -624,6 +624,40 @@ def run_crawler(
                 )
                 ingested += 1
                 logger.info("[%s/%s] Ingested: %s", i, total, url)
+                # Multi-variant retailers (Wix/Shopify pages selling several
+                # priced SKUs under one URL) emit additional payloads via the
+                # adapter's ``extract_variants`` hook. Each variant ingests as
+                # its own Part; the crawled_pages.part_id stays pointed at the
+                # base part so the archive index isn't ambiguous. Per-variant
+                # failures are isolated so one bad variant can't drop the rest
+                # or mark the page as failed (the base already landed).
+                try:
+                    variant_payloads = adapter.extract_variants(html, url, payload)
+                except Exception as ev:
+                    logger.warning("extract_variants raised on %s: %s", url, ev)
+                    variant_payloads = []
+                for variant_payload in variant_payloads:
+                    try:
+                        variant_payload = adapter.apply_universal_extraction(html, variant_payload) or variant_payload
+                        ingest_payload(
+                            db,
+                            variant_payload,
+                            current_user=user,
+                            default_category_id=cat_id,
+                            logger=logger,
+                            source="scraped",
+                            adapter_name=adapter_name,
+                            adapter=adapter,
+                        )
+                        ingested += 1
+                    except Exception as ev:
+                        db.rollback()
+                        logger.warning(
+                            "Variant ingest failed for %s (variant_url=%s): %s",
+                            url,
+                            getattr(variant_payload, "product_url", "?"),
+                            ev,
+                        )
             except Exception as e:
                 # 404 / 410 are routine on retailer sitemaps — the product has
                 # been removed but the sitemap still lists the URL. Count as a
@@ -937,15 +971,52 @@ def run_crawlers(
     }
 
 
+def rescrape_single_url_cli(url: str) -> str:
+    """
+    Re-parse one archived URL from its stored HTML and ingest the result.
+
+    Looks up ``crawled_pages`` by canonicalized URL and calls the same
+    archive-rescrape path as the admin re-parse endpoint. No network fetch —
+    the adapter runs against the HTML already in S3 / local archive, so this
+    is the right tool for verifying an adapter fix against a known page.
+    """
+    from app.crawlers.archive_rescrape import rescrape_crawled_page_from_archive
+
+    canonical = canonicalize_url(url.strip())
+    db = SessionLocal()
+    try:
+        page = db.scalars(select(DBCrawledPage).where(DBCrawledPage.url == canonical)).first()
+        if page is None:
+            logger.error("No crawled_pages row found for url=%s (canonical=%s)", url, canonical)
+            return "skipped_no_html"
+        if not page.html_s3_key and not page.html_local_path:
+            logger.error("CrawledPage %s has no archived HTML (s3_key and local_path both empty)", page.id)
+            return "skipped_no_html"
+
+        crawler_user = resolve_crawler_user(db)
+        default_category_id = resolve_default_category_id(db)
+
+        outcome, part_id, err = rescrape_crawled_page_from_archive(
+            db, page, crawler_user=crawler_user, default_category_id=default_category_id, log=logger
+        )
+        if outcome == "parsed_ok":
+            logger.info("Rescrape OK: url=%s part_id=%s", canonical, part_id)
+        else:
+            logger.error("Rescrape outcome=%s url=%s error=%s", outcome, canonical, err)
+        return outcome
+    finally:
+        db.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run a retailer crawler adapter (discover URLs, fetch, parse, ingest).",
     )
     parser.add_argument(
         "--adapter",
-        required=True,
+        required=False,
         choices=list(ADAPTER_REGISTRY.keys()),
-        help="Adapter name to run.",
+        help="Adapter name to run. Required unless --rescrape-url is given.",
     )
     parser.add_argument(
         "--limit",
@@ -965,7 +1036,27 @@ def main() -> None:
         default=False,
         help="Skip URLs already in crawled_pages with parse_status='parsed'.",
     )
+    parser.add_argument(
+        "--rescrape-url",
+        type=str,
+        default=None,
+        help=(
+            "Re-parse a single archived URL from its stored HTML (no network fetch). "
+            "Use after fixing an adapter to immediately retry one page."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.rescrape_url:
+        try:
+            outcome = rescrape_single_url_cli(args.rescrape_url)
+        except CrawlerConfigError as e:
+            logger.error("%s", e)
+            sys.exit(1)
+        sys.exit(0 if outcome == "parsed_ok" else 2)
+
+    if not args.adapter:
+        parser.error("--adapter is required unless --rescrape-url is given")
 
     try:
         run_crawler(args.adapter, limit=args.limit, delay_sec=args.delay, skip_known_urls=args.skip_known)

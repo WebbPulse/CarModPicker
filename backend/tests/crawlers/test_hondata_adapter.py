@@ -21,7 +21,7 @@ def _product_page_html(
     *,
     h1: str = "Traction Control",
     brand: str = "Hondata, Inc.",
-    product_code: str = "Traction Control",
+    product_code: str = "HON-TC-S300",
     availability: str = "In Stock",
     price: str = "$595.00",
     description: str = (
@@ -155,7 +155,7 @@ class TestParseProductPage:
         assert result is not None
         assert result.name == "Traction Control"
         assert result.part_manufacturer == "Hondata"
-        assert result.part_number == "Traction Control"
+        assert result.part_number == "HON-TC-S300"
         assert result.price_cents == 59500
         assert result.description is not None
         assert "Traction Control for your s300" in result.description
@@ -184,6 +184,28 @@ class TestParseProductPage:
         assert "language=" not in result.product_url
         assert "path=" not in result.product_url
         assert "product_id=30" in result.product_url
+
+    def test_product_code_echoes_h1_is_rejected(self) -> None:
+        # Real-corpus pattern: family-overview pages on this storefront
+        # (``KPro``, ``CANBoost``, ``Injector Driver``, ``Traction Control``,
+        # …) leave the OpenCart Product Code field unset and the template
+        # falls back to echoing the H1. Trusting that echo collapses every
+        # chassis-specific KPro/S300/etc. variant under one fake SKU. When
+        # the Product Code matches the H1 verbatim, leave part_number unset.
+        html = _product_page_html(h1="KPro", product_code="KPro")
+        result = HondataAdapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.name == "KPro"
+        assert result.part_number is None
+
+    def test_product_code_echoes_h1_case_and_whitespace_insensitive(self) -> None:
+        # The fallback comparison must be tolerant of trailing whitespace and
+        # capitalization drift between the template's two echo paths so a
+        # ``Product Code:  s300 `` row doesn't slip past when ``<h1>S300</h1>``.
+        html = _product_page_html(h1="S300", product_code="s300 ")
+        result = HondataAdapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.part_number is None
 
     def test_missing_h1_returns_none(self) -> None:
         # A category listing or account page rendered through the same template

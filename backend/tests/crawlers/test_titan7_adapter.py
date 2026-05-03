@@ -193,6 +193,27 @@ class TestParseProductPage:
         html = "<html><head></head><body><p>Out of stock.</p></body></html>"
         assert Titan7Adapter().parse_product_page(html, SAMPLE_URL) is None
 
+    def test_fitment_string_in_jsonld_sku_is_rejected(self) -> None:
+        # Real-corpus pattern: titan-7.com renders one schema.org Product per
+        # supported chassis fitment on each wheel-model URL and abuses the
+        # ``sku`` field to hold the fitment label (year shorthand + chassis
+        # name). Trusting that string would tag every wheel SKU on the page
+        # with the same bogus PN. Reject any sku that carries a year shorthand
+        # like ``'23`` / ``'21-`` — real Titan7 SKUs never contain apostrophes.
+        html = _product_html(name="T-R10 Forged 10 Spoke", sku="Acura Integra Type S '23-")
+        result = Titan7Adapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.name == "T-R10 Forged 10 Spoke"
+        assert result.part_number is None
+
+    def test_real_titan7_sku_passes_through(self) -> None:
+        # Defensive case: a real Titan7 wheel SKU has no apostrophes and must
+        # survive the fitment-string guard intact.
+        html = _product_html(sku="TR10-1995-5X1143-CB73")
+        result = Titan7Adapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.part_number == "TR10-1995-5X1143-CB73"
+
 
 class TestAdapterFetcherTier:
     """Titan7 starts on plain HTTP (tier0); promote to ``tls`` if Cloudflare fires."""

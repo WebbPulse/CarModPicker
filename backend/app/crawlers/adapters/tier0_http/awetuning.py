@@ -26,10 +26,11 @@ lists that intersect every chassis cluster (VAG, BMW, Porsche, A90 Supra,
 FL5 Civic Type R, S650 Mustang).
 """
 
+import json
 import os
 import re
 import time
-from typing import ClassVar, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
@@ -80,6 +81,17 @@ _IMAGE_NOISE_RE = re.compile(
     r"mega_?menu|/banner_|_banner|/logo|logo_|awe[-_]?tuning\.svg|header_|footer_|megamenu|placeholder",
     re.IGNORECASE,
 )
+
+# Shopify renders a per-page ``var meta = {"product": {...}}`` JS object that
+# is the authoritative source for the *current* product's id, vendor, handle,
+# and variant list. AWE pages do **not** emit a ``Product`` JSON-LD scope —
+# only this Shopify ``meta`` blob. Without it, the only on-page SKU strings
+# come from the related-products carousel (every page reuses the same Cadillac
+# CT4-V Blackwing exhaust as the first related card), which is why a plain
+# ``extract_sku_from_text`` fallback would tag the entire AWE catalog with
+# the same SKU. Anchor on ``meta = {"product":`` and walk braces until the
+# matching ``};`` to recover the JSON.
+_META_PRODUCT_OPEN_RE = re.compile(r"\bvar\s+meta\s*=\s*\{")
 
 
 def _is_awe_brand_variant(value: Optional[str]) -> bool:
@@ -254,6 +266,77 @@ def _extract_awe_images(soup: BeautifulSoup) -> List[str]:
     return ordered[:12]
 
 
+def _extract_shopify_meta_product(html_text: str) -> Optional[Dict[str, Any]]:
+    """
+    Recover the ``meta.product`` object from the Shopify-emitted
+    ``var meta = {...};`` blob on every AWE product page.
+
+    Returns ``None`` when the page has no such blob, when the JSON is
+    malformed, or when ``product`` is missing. Walks braces in string-aware
+    mode so embedded ``{`` / ``}`` characters in titles do not throw off
+    depth tracking.
+    """
+    match = _META_PRODUCT_OPEN_RE.search(html_text)
+    if not match:
+        return None
+    start = match.end() - 1
+    depth = 0
+    end = -1
+    in_str = False
+    esc = False
+    limit = min(start + 200_000, len(html_text))
+    for k in range(start, limit):
+        c = html_text[k]
+        if esc:
+            esc = False
+            continue
+        if c == "\\":
+            esc = True
+            continue
+        if c == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                end = k + 1
+                break
+    if end < 0:
+        return None
+    try:
+        data = json.loads(html_text[start:end])
+    except (ValueError, json.JSONDecodeError):
+        return None
+    product = data.get("product") if isinstance(data, dict) else None
+    return product if isinstance(product, dict) else None
+
+
+def _sku_from_shopify_meta(product: Dict[str, Any]) -> Optional[str]:
+    """First non-empty variant SKU from ``meta.product.variants``."""
+    variants = product.get("variants")
+    if not isinstance(variants, list):
+        return None
+    for v in variants:
+        if not isinstance(v, dict):
+            continue
+        sku = v.get("sku")
+        if isinstance(sku, str) and sku.strip():
+            return sku.strip()
+    return None
+
+
+def _vendor_from_shopify_meta(product: Dict[str, Any]) -> Optional[str]:
+    """Shopify vendor field — usually ``"AWE"`` or ``"AWE Tuning"`` on AWE pages."""
+    vendor = product.get("vendor")
+    if isinstance(vendor, str) and vendor.strip():
+        return vendor.strip()
+    return None
+
+
 def _is_product_url(url: str) -> bool:
     """True if ``url`` is an awe-tuning.com ``/products/<handle>`` page."""
     try:
@@ -303,14 +386,26 @@ class AWETuningAdapter(RetailerCrawlerAdapter):
         dom_images = _extract_awe_images(soup)
         dom_price = extract_dom_price(soup)
 
-        # 1. JSON-LD Product (Shopify default).
+        # Shopify ``meta.product`` is the authoritative SKU/vendor source on
+        # AWE — JSON-LD Product is not emitted, so without this every page
+        # would inherit the SKU of the first related-products card via the
+        # text-scrape fallback.
+        meta_product = _extract_shopify_meta_product(html)
+        meta_sku = _sku_from_shopify_meta(meta_product) if meta_product else None
+        meta_vendor = _vendor_from_shopify_meta(meta_product) if meta_product else None
+
+        # 1. JSON-LD Product (rare on AWE — they don't emit it — but kept as
+        #    a defensive path for any page that might).
         item = extract_json_ld_product(html, product_url=url)
         if item:
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:
-                part_number = normalize_part_number(payload.part_number) if payload.part_number else None
+                # Prefer the per-page Shopify variant SKU when available;
+                # JSON-LD's ``sku`` (when present) is sometimes the parent
+                # product code rather than the live variant.
+                part_number = normalize_part_number(meta_sku or payload.part_number) if (meta_sku or payload.part_number) else None
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
-                part_manufacturer = _normalize_part_manufacturer(payload.part_manufacturer)
+                part_manufacturer = _normalize_part_manufacturer(meta_vendor or payload.part_manufacturer)
                 image_urls = dom_images[:12] if dom_images else payload.image_urls
                 return ScrapedPayload(
                     name=payload.name,
@@ -323,7 +418,7 @@ class AWETuningAdapter(RetailerCrawlerAdapter):
                     gtin=payload.gtin,
                 )
 
-        # 2. DOM / og fallback — no JSON-LD on the page (rare on Shopify).
+        # 2. DOM / og fallback — the common path on AWE since JSON-LD is absent.
         name: Optional[str] = None
         og_title = soup.find("meta", property="og:title")
         content_title = meta_content(og_title) if isinstance(og_title, Tag) else None
@@ -351,7 +446,12 @@ class AWETuningAdapter(RetailerCrawlerAdapter):
                 if d and d.strip():
                     description = normalize_description_text(d, max_len=2000)
 
-        part_number = extract_sku_from_text(soup.get_text())
+        # SKU: Shopify ``meta.product`` first (per-page, authoritative).
+        # The text/DOM heuristics that follow would otherwise latch onto the
+        # related-products carousel SKU shared across every product page.
+        part_number = normalize_part_number(meta_sku) if meta_sku else None
+        if not part_number:
+            part_number = extract_sku_from_text(soup.get_text())
         if not part_number:
             sku_elem = soup.find(class_=re.compile(r"sku", re.I)) or soup.find(id=re.compile(r"sku", re.I))
             if isinstance(sku_elem, Tag):
@@ -359,11 +459,12 @@ class AWETuningAdapter(RetailerCrawlerAdapter):
         if not part_number:
             part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
 
-        # No JSON-LD brand available. AWE's catalog is overwhelmingly their
-        # own hardware, so default directly to the canonical brand rather
-        # than running the title-first-word heuristic (which would pick up
-        # product words like "Track" / "Touring" / "SwitchPath").
-        part_manufacturer = _AWE_CANONICAL_BRAND
+        # Manufacturer: Shopify vendor field via meta.product when present.
+        # AWE's catalog is overwhelmingly their own hardware, so default to
+        # the canonical brand rather than running the title-first-word
+        # heuristic (which would pick up product words like "Track" /
+        # "Touring" / "SwitchPath").
+        part_manufacturer = _normalize_part_manufacturer(meta_vendor)
 
         return ScrapedPayload(
             name=str(name),

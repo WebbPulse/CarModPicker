@@ -291,17 +291,35 @@ def _extract_price_cents(soup: BeautifulSoup) -> Optional[int]:
     return extract_dom_price(soup)
 
 
+_PORSCHE_OEM_BRAND = "Porsche OEM"
+
+
 def _extract_part_manufacturer(soup: BeautifulSoup, name: Optional[str], description: Optional[str]) -> Optional[str]:
     """
-    ``og:brand`` is Suncoast's manufacturer signal — "Porsche" for OEM stock,
-    third-party names ("AWE Tuning", "Bilstein", …) for aftermarket. Fall
-    back to title/description heuristics only when the meta is missing.
+    Resolve the part manufacturer for a Suncoast product.
+
+    Suncoast's ``og:brand`` reports ``"Porsche"`` on every OEM SKU — but
+    "Porsche" is the *car make*, not a parts-catalog brand. Storing it as
+    the manufacturer collapses 999 unrelated OEM SKUs (engine mounts, brake
+    pads, headlights) onto a single make-shaped row that's indistinguishable
+    from any other Porsche-fitment part in the global catalog. We rename it
+    to ``"Porsche OEM"`` so dedupe / search can still group genuine Porsche
+    parts but the row is unambiguously a parts brand.
+
+    Third-party brands (``"AWE Tuning"``, ``"Bilstein"``, …) pass through
+    unchanged because they are real aftermarket manufacturers.
+
+    Title / description fallbacks only run when ``og:brand`` is missing
+    entirely.
     """
     brand_meta = soup.find("meta", property="og:brand")
     if isinstance(brand_meta, Tag):
         v = meta_content(brand_meta)
         if v and v.strip():
-            return v.strip()
+            cleaned = v.strip()
+            if cleaned.lower() == "porsche":
+                return _PORSCHE_OEM_BRAND
+            return cleaned
     if name:
         candidate = part_manufacturer_from_title(name)
         if candidate:
@@ -312,7 +330,10 @@ def _extract_part_manufacturer(soup: BeautifulSoup, name: Optional[str], descrip
             return candidate
     if name:
         return part_manufacturer_fallback_from_title(name)
-    return None
+    # Final fallback: every Suncoast SKU is sold by an authorized Porsche
+    # dealer, so when the heuristics fail we still know it is at minimum
+    # a Porsche-OEM-grade part. Better than leaking ``None``.
+    return _PORSCHE_OEM_BRAND
 
 
 class SuncoastPartsAdapter(RetailerCrawlerAdapter):

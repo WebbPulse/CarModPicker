@@ -6,8 +6,18 @@ h1 title, "SKU: ...", "From $...", og:meta, and product description.
 
 Discovery: sitemap.xml (and child sitemaps) to find all /product-page/ URLs.
 Override with CRAWLER_A90SHOP_START_URLS (comma-separated) to use a fixed list.
+
+Variant splitting (``extract_variants``): Wix product pages embed an
+``"options":[{...selections:[...]}]`` JSON block in the inline product data.
+Many A90 Shop selections carry a ``+$NN`` price delta in the label
+(``"Matte +$22"``, ``"JB4PRO +$300 (fuel options)"``) or are *categorically*
+different products (turbo choice / brake pad position / drive type). Any such
+selection beyond the default is emitted as its own derived ``ScrapedPayload``
+so the catalog stops collapsing eight $200–$1500 SKUs into one row at one
+price. See ``_a90_extract_variant_payloads`` for the deduction rules.
 """
 
+import json
 import os
 import re
 import time
@@ -264,6 +274,267 @@ def _extract_a90_images(soup: BeautifulSoup, raw_html: str) -> List[str]:
     return ordered[:12]
 
 
+# Wix product pages embed an ``"options":[{...}]`` JSON array in inline
+# storefront data. Each entry is one user-facing dropdown (``"Clear Coat
+# Finish"``, ``"Turbo Choice"``, ``"Side"``); each entry's ``selections``
+# array lists the choosable values. The label often encodes a price delta
+# (``"Matte +$22"``, ``"JB4PRO +$300 (fuel options)"``) — Wix does not expose
+# per-variant SKUs in this block, so the delta is the only structured price
+# signal available without scraping the live storefront API.
+_WIX_OPTIONS_KEY_RE = re.compile(r'"options"\s*:\s*\[')
+
+# Match ``+$22``, ``+$300``, ``+ $1,200``, ``$22``, ``$1,004.99`` inside a
+# selection label. Capture the numeric portion. We look for the first
+# dollar-anchored token; non-dollar numbers in the label (``"V2"``, ``"288 /
+# 288 Stage 3"``) are NOT prices and must not be treated as deltas.
+_PRICE_DELTA_RE = re.compile(r"\$\s*([\d,]+(?:\.\d{1,2})?)")
+
+# Conservative cap on how many variants we emit per page. A turbo-kit page
+# with 6 turbo choices × 5 yes/no add-ons is 7 categorically-distinct extras
+# at most under our per-option (no-cross-product) split — clamp to 12 so a
+# pathological page can't fan out to dozens of part rows.
+_MAX_VARIANTS_PER_PAGE = 12
+
+# Minimum dollar delta to treat a numeric ``+$NN`` selection as a distinct
+# variant. Smaller deltas are usually rounding / minor finish differences
+# we'd rather collapse into the canonical part. Categorical-axis selections
+# (Side, Position, Drive Type, Turbo Choice, etc.) bypass this floor — they
+# are different products even at $0 delta.
+_VARIANT_PRICE_DELTA_MIN_CENTS = 500
+
+# When the Wix ``options[].title`` matches one of these keywords (case-
+# insensitive), all non-default selections on that option are split into
+# distinct variants regardless of price delta — these axes describe genuinely
+# different products (turbo type, brake-pad position, drive-side LHD/RHD).
+_CATEGORICAL_OPTION_TOKENS = (
+    "turbo",
+    "position",
+    "side",
+    "option",
+    "version",
+    "configuration",
+    "type",
+    "pad",
+    "kit",
+    "drive type",
+)
+
+
+def _slugify_variant(value: str) -> str:
+    """Lowercase + collapse non-alphanumerics to a single hyphen.
+
+    The slug feeds two distinct keys: the ``?variant=<slug>`` query param
+    (must be URL-safe and stable across re-crawls) and the synthetic part
+    number suffix (``<base_pn>-<slug>``). Keep it short — labels include
+    promotional text (``"+$22"``, ``"(fuel options)"``) we want to drop.
+    """
+    cleaned = re.sub(r"\$\s*[\d,]+(?:\.\d{1,2})?", "", value)
+    cleaned = re.sub(r"[^a-z0-9]+", "-", cleaned.lower()).strip("-")
+    return cleaned[:40] if cleaned else "variant"
+
+
+def _extract_wix_options_block(html: str) -> List[dict]:
+    """Locate the first ``"options":[...]`` array in inline Wix storefront data.
+
+    Wix embeds the product object as inline JSON; there's no canonical
+    ``application/json`` script tag we can latch onto, so we anchor on the
+    literal key and walk brackets in string-aware mode (escapes + quoted
+    bracket characters in selection labels). Returns ``[]`` when the page
+    has no Wix options block, when the JSON is malformed, or when the array
+    contains no dict entries with a ``selections`` field — never raises.
+    """
+    match = _WIX_OPTIONS_KEY_RE.search(html)
+    if not match:
+        return []
+    start = match.end() - 1  # the ``[`` itself
+    depth = 0
+    in_str = False
+    esc = False
+    end = -1
+    limit = min(start + 200_000, len(html))
+    for k in range(start, limit):
+        c = html[k]
+        if esc:
+            esc = False
+            continue
+        if c == "\\":
+            esc = True
+            continue
+        if c == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if c == "[":
+            depth += 1
+        elif c == "]":
+            depth -= 1
+            if depth == 0:
+                end = k + 1
+                break
+    if end < 0:
+        return []
+    try:
+        arr = json.loads(html[start:end])
+    except (ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(arr, list):
+        return []
+    return [o for o in arr if isinstance(o, dict) and isinstance(o.get("selections"), list)]
+
+
+def _parse_price_delta_cents(label: str) -> Optional[int]:
+    """Pull the first ``$NN`` dollar amount out of a Wix selection label.
+
+    Handles ``"+$22"``, ``"Matte +$22"``, ``"JB4PRO +$300 (fuel options)"``,
+    ``"Yes $1,004.99"``. Returns ``None`` when no dollar-anchored amount is
+    present (color/finish toggles like ``"Gloss"`` / ``"Black"`` carry no
+    delta and stay collapsed under their categorical-or-price filter).
+    """
+    if not label:
+        return None
+    match = _PRICE_DELTA_RE.search(label)
+    if not match:
+        return None
+    raw = match.group(1).replace(",", "")
+    try:
+        dollars = float(raw)
+    except ValueError:
+        return None
+    if dollars <= 0:
+        return None
+    return int(round(dollars * 100))
+
+
+def _is_categorical_option(option_title: str) -> bool:
+    """True if the option title names a categorical axis (vs. a finish toggle)."""
+    title = (option_title or "").strip().lower()
+    if not title:
+        return False
+    return any(tok in title for tok in _CATEGORICAL_OPTION_TOKENS)
+
+
+def _label_without_price(label: str) -> str:
+    """Strip the trailing ``+$NN`` / ``$NN`` token so we get a clean variant name."""
+    cleaned = re.sub(r"\s*\+?\s*\$\s*[\d,]+(?:\.\d{1,2})?\s*", " ", label or "")
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _build_variant_payload(
+    base: ScrapedPayload,
+    *,
+    option_title: str,
+    selection_label: str,
+    delta_cents: Optional[int],
+) -> Optional[ScrapedPayload]:
+    """Derive a per-variant ``ScrapedPayload`` from the base part + one Wix selection.
+
+    Returns ``None`` when the selection is the implicit default (label
+    matches the base name) or when the slug would be empty. The returned
+    payload differs from ``base`` only in:
+
+      * ``name`` — appended ``" (<option> · <selection>)"``.
+      * ``product_url`` — base URL + ``?variant=<slug>``.
+      * ``part_number`` — base + ``-<slug>`` (when base has one); else ``None``.
+      * ``price_cents`` — base + delta (when base price is known and delta
+        is set); else inherits base.
+    """
+    label_clean = _label_without_price(selection_label)
+    if not label_clean:
+        return None
+    slug = _slugify_variant(selection_label)
+    if not slug:
+        return None
+
+    sep = "&" if "?" in base.product_url else "?"
+    variant_url = f"{base.product_url}{sep}variant={slug}"
+
+    label_for_name = label_clean
+    title_for_name = (option_title or "").strip()
+    if title_for_name:
+        variant_name_suffix = f" ({title_for_name}: {label_for_name})"
+    else:
+        variant_name_suffix = f" ({label_for_name})"
+    variant_name = (base.name or "") + variant_name_suffix
+
+    variant_part_number: Optional[str] = None
+    if base.part_number:
+        variant_part_number = f"{base.part_number}-{slug}"
+
+    if base.price_cents is not None and delta_cents:
+        variant_price_cents: Optional[int] = base.price_cents + delta_cents
+    else:
+        variant_price_cents = base.price_cents
+
+    return ScrapedPayload(
+        name=variant_name,
+        product_url=variant_url,
+        description=base.description,
+        price_cents=variant_price_cents,
+        part_manufacturer=base.part_manufacturer,
+        part_number=variant_part_number,
+        image_urls=base.image_urls,
+        gtin=None,  # variant SKUs do not share the base GTIN; safer to omit
+    )
+
+
+def _a90_extract_variant_payloads(html: str, base: ScrapedPayload) -> List[ScrapedPayload]:
+    """Top-level variant extractor for an A90 Shop product page.
+
+    For each Wix option block on the page, treat the FIRST selection as the
+    base/default (already represented by ``base``) and emit additional
+    payloads for the remaining selections that pass the
+    delta-or-categorical filter. We deliberately do NOT cross-product
+    multi-axis options — A90 Shop labels carry per-option deltas only, so a
+    cross-product would generate combinatorial variants without correct
+    per-combo prices. Per-axis splits give the catalog distinct rows for
+    the "interesting" selections (turbo type, JB4 vs JB4PRO, brake pad
+    position) without inventing prices we can't verify.
+    """
+    if not base or not base.product_url or not base.name:
+        return []
+    options = _extract_wix_options_block(html)
+    if not options:
+        return []
+
+    out: List[ScrapedPayload] = []
+    seen_urls: set[str] = set()
+    seen_urls.add(base.product_url)
+    for opt in options:
+        title = str(opt.get("title") or opt.get("key") or "").strip()
+        selections = opt.get("selections") or []
+        if not isinstance(selections, list) or len(selections) < 2:
+            continue
+        categorical = _is_categorical_option(title)
+        # First selection is the implicit default — base payload covers it.
+        for sel in selections[1:]:
+            if not isinstance(sel, dict):
+                continue
+            label = str(sel.get("value") or sel.get("description") or "").strip()
+            if not label:
+                continue
+            delta = _parse_price_delta_cents(label)
+            if delta is None and not categorical:
+                continue
+            if delta is not None and delta < _VARIANT_PRICE_DELTA_MIN_CENTS and not categorical:
+                continue
+            variant = _build_variant_payload(
+                base,
+                option_title=title,
+                selection_label=label,
+                delta_cents=delta,
+            )
+            if variant is None:
+                continue
+            if variant.product_url in seen_urls:
+                continue
+            seen_urls.add(variant.product_url)
+            out.append(variant)
+            if len(out) >= _MAX_VARIANTS_PER_PAGE:
+                return out
+    return out
+
+
 class A90ShopAdapter(RetailerCrawlerAdapter):
     """
     A90 Shop adapter. Discovery: start URLs from env or default list.
@@ -281,6 +552,23 @@ class A90ShopAdapter(RetailerCrawlerAdapter):
         """
         for url in _resolve_start_urls():
             yield url
+
+    def extract_variants(
+        self,
+        html: str,
+        url: str,
+        base_payload: ScrapedPayload,
+    ) -> List[ScrapedPayload]:
+        """Split Wix multi-variant product pages into one ScrapedPayload per SKU.
+
+        Delegates to ``_a90_extract_variant_payloads``; see that helper for
+        the per-axis split rules. Returns ``[]`` when the page has no
+        multi-variant options block, when every selection is the default,
+        or when no selection passes the delta-or-categorical filter — the
+        common case for single-SKU A90 Shop pages.
+        """
+        _ = url  # base_payload.product_url already encodes the page URL
+        return _a90_extract_variant_payloads(html, base_payload)
 
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """

@@ -63,6 +63,7 @@ from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import ScrapedPayload, fetch_page
 from app.crawlers.parsing import (
     extract_json_ld_product,
+    normalize_description_text,
     normalize_part_number,
     scraped_payload_from_json_ld,
 )
@@ -85,6 +86,19 @@ _HASPORT_BRAND = "Hasport"
 # ``"FDSTK Stock ..."`` matches ``FDSTK``, and ``"Urethane Mount ..."``
 # does not match.
 _LEADING_SKU_TOKEN_RE = re.compile(r"^([A-Z0-9][A-Z0-9\-]{1,15})\b")
+
+# A non-trivial subset of Hasport's catalog uses the bare SKU as the JSON-LD
+# ``name`` (e.g. ``"EFRB"``, ``"BBRB"``) with the descriptive text living
+# only in ``.woocommerce-product-details__short-description``. This regex
+# detects that "name is just the SKU" case so we can splice the short
+# description into the catalog name. Anchored end-to-end; allows internal
+# dashes for codes like ``DC2-K``.
+_BARE_SKU_NAME_RE = re.compile(r"^[A-Z0-9][A-Z0-9\-]{1,15}$")
+
+# Truncation cap when composing ``<SKU> - <short description>``. Keeps the
+# catalog row's ``name`` under the same effective ceiling as other adapters
+# while leaving room for the SKU prefix.
+_NAME_COMPOSE_MAX_LEN = 200
 
 DEFAULT_START_URLS = [
     "https://hasportperformance.com/products/fdstk/",
@@ -221,6 +235,42 @@ def _extract_leading_sku(name: str) -> Optional[str]:
     return normalize_part_number(token)
 
 
+def _extract_short_description(soup: BeautifulSoup) -> Optional[str]:
+    """
+    Pull the WooCommerce ``.woocommerce-product-details__short-description``
+    block. On Hasport this is consistently a single descriptive sentence
+    (``"Rear Engine Bracket for 88-91 Civic/CRX..."``) — the place to look
+    when JSON-LD ``name`` is just the SKU code. Returns ``None`` when the
+    block is missing or empty after normalization.
+    """
+    block = soup.select_one(".woocommerce-product-details__short-description")
+    if not isinstance(block, Tag):
+        return None
+    text = block.get_text(separator=" ", strip=True)
+    if not text:
+        return None
+    return normalize_description_text(text, max_len=_NAME_COMPOSE_MAX_LEN)
+
+
+def _compose_name(json_ld_name: str, short_description: Optional[str]) -> str:
+    """
+    Return the catalog ``name`` to use for the part. When the JSON-LD
+    ``name`` is just a bare SKU code (``"EFRB"``, ``"BBRB"``) and we have a
+    short description, splice them as ``"<SKU> - <short description>"`` so
+    the catalog row carries something the user can read at a glance.
+    Otherwise return the JSON-LD name unchanged.
+    """
+    name = (json_ld_name or "").strip()
+    if not name or not short_description or not _BARE_SKU_NAME_RE.match(name):
+        return name
+    composed = f"{name} - {short_description.strip()}"
+    if len(composed) > _NAME_COMPOSE_MAX_LEN:
+        # Reserve one char for the trailing ellipsis so the final string
+        # respects the cap exactly.
+        composed = composed[: _NAME_COMPOSE_MAX_LEN - 1].rstrip() + "…"
+    return composed
+
+
 def _extract_gallery_images(soup: BeautifulSoup) -> List[str]:
     """
     Collect every ``<a href>`` inside a ``.woocommerce-product-gallery__image``
@@ -308,11 +358,19 @@ class HasportAdapter(RetailerCrawlerAdapter):
         part_number = _extract_leading_sku(payload.name)
 
         soup = BeautifulSoup(html, "html.parser")
+
+        # Hasport's JSON-LD ``name`` is sometimes the bare SKU code (e.g.
+        # ``"EFRB"``) with the descriptive copy only in the WooCommerce
+        # short-description block. Compose ``"<SKU> - <short desc>"`` for
+        # those rows so the catalog isn't full of opaque four-letter codes.
+        short_desc = _extract_short_description(soup)
+        composed_name = _compose_name(payload.name, short_desc)
+
         gallery = _extract_gallery_images(soup)
         image_urls = gallery or (payload.image_urls or None)
 
         return ScrapedPayload(
-            name=payload.name,
+            name=composed_name,
             product_url=canonical_url,
             description=payload.description,
             price_cents=payload.price_cents,

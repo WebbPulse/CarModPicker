@@ -222,6 +222,61 @@ class TestParseFinishPage:
         assert result.name == "Anthracite"
 
 
+class TestTruncatedOgTitleFallback:
+    """
+    Forgeline emits ``"<SKU> |"`` (with an empty right side) as ``og:title``
+    on a chunk of finish / inner-rim-shell / hardware product pages. Without
+    a fallback, ``parts.name`` ends up storing the bare SKU code. The
+    ``h1.product_title[title]`` attribute carries the real title-cased
+    description on those pages and must take over.
+    """
+
+    @staticmethod
+    def _truncated_html(*, og_title: str, h1_title_attr: str, h1_text: str) -> str:
+        return f"""
+        <html><head>
+          <meta property="og:title" content="{og_title}" />
+        </head><body>
+          <h1 class="product_title tabtile-font" title="{h1_title_attr}">{h1_text}</h1>
+        </body></html>
+        """
+
+    def test_truncated_pipe_title_falls_back_to_h1_title_attribute(self) -> None:
+        html = self._truncated_html(
+            og_title="1PC-FULLPOL |",
+            h1_title_attr="Fully Polished One Piece Monoblock Complete Wheel",
+            h1_text="FULLY POLISHED ONE PIECE MONOBLOCK COMPLETE WHEEL",
+        )
+        result = ForgelineAdapter().parse_product_page(html, "https://www.forgeline.com/fully-polished-one-piece-monoblock-complete-wheel/p217")
+        assert result is not None
+        assert result.name == "Fully Polished One Piece Monoblock Complete Wheel"
+
+    def test_clean_pipe_title_still_wins(self) -> None:
+        # When og:title has both sides populated ("AL304 | Three Piece Forged
+        # Wheel"), it remains authoritative — the title attribute is just the
+        # H1 text and would lose the descriptive suffix.
+        html = self._truncated_html(
+            og_title="AL304 | Three Piece Forged Wheel",
+            h1_title_attr="AL304",
+            h1_text="AL304",
+        )
+        result = ForgelineAdapter().parse_product_page(html, WHEEL_URL)
+        assert result is not None
+        assert result.name == "AL304 | Three Piece Forged Wheel"
+
+    def test_pipe_with_trailing_whitespace_treated_as_truncated(self) -> None:
+        # ``"DP3R | "`` (trailing space after pipe) is the same broken form;
+        # whitespace must not defeat the detector.
+        html = self._truncated_html(
+            og_title="DP3R |   ",
+            h1_title_attr="DP3R Three Piece Forged Wheel",
+            h1_text="DP3R",
+        )
+        result = ForgelineAdapter().parse_product_page(html, "https://www.forgeline.com/dp3r/p36")
+        assert result is not None
+        assert result.name == "DP3R Three Piece Forged Wheel"
+
+
 class TestParseGuards:
     """Defensive checks — bad input shouldn't crash or pollute the catalog."""
 

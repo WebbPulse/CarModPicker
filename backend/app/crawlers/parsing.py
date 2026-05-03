@@ -89,9 +89,26 @@ def _looks_like_part_or_model_code(word: str) -> bool:
     return bool(_PART_CODE_PATTERN.match(w))
 
 
-# Generic product-type words that must never be used as part_manufacturer (Supercharger, Oil, System, etc.).
+# Generic product-type words that must never be used as part_manufacturer.
+#
+# Three flavors collapsed into one set so the title-token loop can do a single
+# lookup:
+#
+# - Product-category words ("supercharger", "exhaust", "wheel"): a title that
+#   leads with the product type rarely names a real manufacturer in that token.
+# - Material / finish / shape descriptors ("carbon", "aluminum", "billet",
+#   "stainless", "titanium", "silicone", "forged"): observed in production as
+#   the assigned manufacturer for studiorsr, atpturbo, etc. when the title
+#   reads "Carbon Fiber Trunk Spoiler ..." or "Billet Wastegate Actuator ...".
+# - Position / state adjectives ("front", "rear", "complete", "replacement",
+#   "universal", "new", "oem"): same shape — these lead the title before any
+#   real brand token.
+# - Articles / connectors ("the", "for", "and", "with", "to", "of"): observed
+#   as ``"for"`` and ``"the"`` getting written as the manufacturer when the
+#   title structure is "<part> for <car>".
 _GENERIC_PRODUCT_WORDS = frozenset(
     {
+        # Product categories.
         "supercharger",
         "cooler",
         "oil",
@@ -116,7 +133,494 @@ _GENERIC_PRODUCT_WORDS = frozenset(
         "air",
         "flash",
         "na",
+        "thermostat",
+        "flange",
+        "clamp",
+        "gasket",
+        "gaskets",
+        "sensor",
+        "sensors",
+        "switch",
+        "sender",
+        "module",
+        "wire",
+        "wires",
+        "harness",
+        "connector",
+        "relay",
+        "coil",
+        "coils",
+        "spark",
+        "plug",
+        "plugs",
+        "bolt",
+        "bolts",
+        "nut",
+        "nuts",
+        "head",
+        "heads",
+        "valve",
+        "valves",
+        "clutch",
+        "coilover",
+        "coilovers",
+        "spring",
+        "springs",
+        "tank",
+        "pump",
+        "filter",
+        "hose",
+        "hoses",
+        "spacer",
+        "spacers",
+        "tool",
+        "tools",
+        "bushing",
+        "bushings",
+        "manifold",
+        "manifolds",
+        "header",
+        "headers",
+        "downpipe",
+        "catback",
+        "muffler",
+        "rotor",
+        "rotors",
+        "pad",
+        "pads",
+        "pulley",
+        "pulleys",
+        "lip",
+        "spoiler",
+        "diffuser",
+        "fender",
+        "hood",
+        "trunk",
+        "shift",
+        "shifter",
+        "steering",
+        "racing",
+        "tuner",
+        "challenge",
+        "motorsport",
+        "motorsports",
+        "install",
+        # Engine internals / drivetrain pieces that lead Lingenfelter / BTR /
+        # Texas Speed titles when the brand is implicit ("LSA Pistons", "C6
+        # Driveshaft"). The first-token scan would otherwise persist these as
+        # standalone manufacturer rows.
+        "piston",
+        "pistons",
+        "ring",
+        "rings",
+        "rod",
+        "rods",
+        "crank",
+        "crankshaft",
+        "cam",
+        "cams",
+        "camshaft",
+        "camshafts",
+        "lifter",
+        "lifters",
+        "bearing",
+        "bearings",
+        "block",
+        "engine",
+        "driveshaft",
+        "driveshafts",
+        "axle",
+        "axles",
+        "differential",
+        "transmission",
+        "flywheel",
+        "injector",
+        "injectors",
+        "throttle",
+        "regulator",
+        # Catalog / placeholder leakage. The GReddy Shopify storefront emits
+        # ``"brand": {"name": "CATALOG"}`` for first-party SKUs; without an
+        # explicit reject the title scan promotes "CATALOG" to a manufacturer
+        # row of its own.
+        "catalog",
+        # Generic hardware nouns observed leading multi-brand retailer titles
+        # (Lingenfelter, MAPerformance, …) — "Cover Plate", "Output Basket",
+        # "Bracket Set", "Mounting Adapter". The leading token never names
+        # the maker.
+        "cover",
+        "covers",
+        "output",
+        "basket",
+        "baskets",
+        "shaft",
+        "shafts",
+        "removal",
+        "package",
+        "set",
+        "sets",
+        "assembly",
+        "assemblies",
+        "adapter",
+        "adapters",
+        "fitting",
+        "fittings",
+        # Vehicle subsystem nouns observed leading aftermarket retailer titles
+        # ("BMW Accelerator Cable", "VW Brake Hose", "Audi Tie Rod End"). The
+        # leading word names the function or part — never the maker.
+        "accelerator",
+        "bowden",
+        "cable",
+        "cables",
+        "arm",
+        "arms",
+        "rod",
+        "tie",
+        "ball",
+        "joint",
+        "joints",
+        "link",
+        "links",
+        "gas",
+        "gear",
+        "gears",
+        "wiper",
+        "wipers",
+        "blade",
+        "blades",
+        "lamp",
+        "lamps",
+        "light",
+        "lights",
+        "headlight",
+        "headlights",
+        "taillight",
+        "taillights",
+        "mirror",
+        "mirrors",
+        "panel",
+        "panels",
+        "door",
+        "doors",
+        "window",
+        "windows",
+        "carpet",
+        "floormat",
+        "floormats",
+        "mat",
+        "mats",
+        "trim",
+        "trims",
+        "seal",
+        "seals",
+        "weatherstrip",
+        "emblem",
+        "emblems",
+        "badge",
+        "badges",
+        # Materials / finishes.
+        "carbon",
+        "fiber",
+        "aluminum",
+        "aluminium",
+        "stainless",
+        "titanium",
+        "billet",
+        "forged",
+        "silicone",
+        "rubber",
+        "leather",
+        "chrome",
+        "polished",
+        "anodized",
+        "ceramic",
+        "magnesium",
+        "kevlar",
+        "composite",
+        # Generic part nouns that surface as second-token mfr when the first
+        # token is a material we already reject (e.g. "Aluminum Transmission
+        # Pan ..." would otherwise yield "Pan" once "Aluminum" is skipped).
+        "pan",
+        "cover",
+        "covers",
+        "cap",
+        "caps",
+        "shield",
+        "guard",
+        "mount",
+        "mounts",
+        "bracket",
+        "brackets",
+        "arm",
+        "arms",
+        "transmission",
+        # Position / state adjectives.
+        "front",
+        "rear",
+        "left",
+        "right",
+        "upper",
+        "lower",
+        "complete",
+        "replacement",
+        "universal",
+        "new",
+        "oem",
+        "aftermarket",
+        "heavy",
+        "duty",
+        "high",
+        "low",
+        "pure",
+        "race",
+        "canyon",
+        # Connectors / articles — observed as actual stored manufacturer names.
+        "the",
+        "for",
+        "and",
+        "with",
+        "to",
+        "of",
+        "or",
+        "from",
+        "your",
+        "our",
+        "all",
+        # Title-leading qualifiers observed in production as the stored
+        # manufacturer for hundreds of parts:
+        # - "aka" — ATP Turbo titles like "GTW3684 aka GTW6262 …"
+        # - "amazon.com" / "amazon" — Flyin' Miata marketplace titles like
+        #   "Amazon.com Brake line union (metric)".
+        # - "alternate" / "genuine" — OEM-replacement titles ("Genuine BMW
+        #   Pulley") where the real brand is the second token.
+        #
+        # Compound brands whose first token alone is misleading
+        # ("American Racing Headers", "Active Autowerke", "Agency Power",
+        # "Alfa Romeo") are NOT rejected via this set — they're matched
+        # up-front in ``part_manufacturer_from_title`` via the multi-word
+        # brand list so the full brand wins before the first-token loop
+        # fires. That keeps "Agency Power Oval Taper" → "Agency Power"
+        # rather than losing the brand entirely to "Unknown".
+        "aka",
+        "amazon.com",
+        "amazon",
+        "alternate",
+        "genuine",
+        # Plural and adjective leakage observed downstream of the leading
+        # product noun: e.g. "Engine Air Filters - Cayenne 955" lands on
+        # "Filters" once "Engine"/"Air" are skipped; "Flange, Oil Drain /
+        # Return" lands on "Drain"; "Cat Back Tube" lands on "Cat" / "Back".
+        # All of these are descriptor or noun fragments, never brands.
+        "filters",
+        "drain",
+        "tube",
+        "tubes",
+        "disk",
+        "disks",
+        "disc",
+        "discs",
+        "tip",
+        "tips",
+        "package",
+        "packages",
+        "set",
+        "sets",
+        "cat",
+        "back",
+        "cool",
+        "cooling",
+        "boost",
+        # Use-case descriptors that ride on top of any product noun ("Sport
+        # Brakes", "Touring Cat Back", "Track Day Pads"). Never brands on
+        # their own. ``race`` is already in the set above; the rest were
+        # leaking through.
+        "track",
+        "street",
+        "rally",
+        "drag",
+        "drift",
+        "touring",
+        "sport",
+        # Size / shape adjectives.
+        "long",
+        "short",
+        "wide",
+        "narrow",
+        "tall",
+        "deep",
+        "shallow",
+        "soft",
+        "hard",
+        "round",
+        "square",
+        "flat",
+        "curved",
+        "twin",
+        "single",
+        "triple",
+        "dual",
+        # State words common in product titles ("Stage 2", "Custom Cage").
+        "stage",
+        "mode",
+        "custom",
+        # Standalone product fragments that show up at title start.
+        "lift",
+        "vacuum",
+        # Additional product nouns and material/finish leakage observed
+        # post-fix in the title corpus: "Wastegate, Tial 38mm" → "Wastegate";
+        # "STAINLESS Steel V-band" → "Steel"; "Flange, Oil Drain / Return" →
+        # "Return". Plus connectors / port words on plumbing parts.
+        "wastegate",
+        "blowoff",
+        "steel",
+        "iron",
+        "brass",
+        "alloy",
+        "return",
+        "inlet",
+        "outlet",
+        "supply",
+        "feed",
+        "vent",
+        "vents",
+        "gauge",
+        "gauges",
+        "actuator",
+        "actuators",
+        "bracket",
+        "brackets",
+        "mount",
+        "mounts",
+        "adapter",
+        "adapters",
+        # Car *model* / chassis-name leakage. The first-token reject above
+        # covers car *makes*; these are the high-volume *model* names that
+        # lead Suncoast / a90shop / studiorsr titles ("Cayenne 955 V8",
+        # "Boxster 986", "Supra A90"). They belong to car attribution.
+        "cayenne",
+        "boxster",
+        "macan",
+        "panamera",
+        "carrera",
+        "supra",
+        "civic",
+        "accord",
+        "miata",
+        "corvette",
+        "camaro",
+        "mustang",
+        "challenger",
+        "charger",
+        "hellcat",
+        "trackhawk",
+        "wrangler",
+        "tacoma",
+        "tundra",
+        "f-150",
+        "f150",
+        "silverado",
+        "sierra",
+        "ranger",
+        "raptor",
+        "wrx",
+        "evo",
+        "evolution",
+        "lancer",
+        "skyline",
+        "gtr",
+        "z06",
+        "zr1",
+        "ctsv",
+        "cts-v",
     }
+)
+
+
+# Tokens that look like manufacturers but are car makes, not parts brands.
+# A car make can occasionally be a parts brand (Subaru ships first-party
+# accessories), but in the first-token title heuristic, leading with the car
+# make almost always means "this part fits a <make>" — not "<make> made this
+# part." Reject and let the description fallback or JSON-LD recover the real
+# brand. Mirrors the broader ``_CAR_MAKES`` set declared lower in this file
+# (used by ``part_manufacturer_universal``); kept as a separate identifier so
+# tightening the title heuristic doesn't accidentally narrow the universal
+# pipeline's reject list.
+_TITLE_REJECT_CAR_MAKES = frozenset(
+    {
+        "acura",
+        "audi",
+        "bmw",
+        "chevrolet",
+        "chevy",
+        "chrysler",
+        "dodge",
+        "ford",
+        "honda",
+        "hyundai",
+        "infiniti",
+        "jeep",
+        "kia",
+        "lexus",
+        "mazda",
+        "mclaren",
+        "mercedes",
+        "mercedes-benz",
+        "mini",
+        "mitsubishi",
+        "nissan",
+        "plymouth",
+        "pontiac",
+        "porsche",
+        "ram",
+        "saab",
+        "scion",
+        "subaru",
+        "toyota",
+        "volkswagen",
+        "vw",
+        "yamaha",
+        # Exotic / European car makes that lead studiorsr / a90shop / IND
+        # titles ("Maserati JB5", "Lamborghini Huracan ECU tune", "Ferrari
+        # 488 ..."). Same shape as the other car makes — leading the title
+        # signals fitment, not brand.
+        "maserati",
+        "lamborghini",
+        "ferrari",
+        "lotus",
+        "bentley",
+        "rollsroyce",
+        "rolls-royce",
+        "aston",
+        "alpine",
+        "polestar",
+        "tesla",
+        "rivian",
+        "lucid",
+    }
+)
+
+
+# Multi-word brands the first-token scan would otherwise split. Each entry is
+# a regex matched case-insensitively as a whole-word phrase anywhere in the
+# title; the second element is the canonical brand name to return. Order is
+# most-specific → least-specific because some prefixes overlap (e.g.
+# "American Axle" vs "American Racing Headers").
+#
+# Add a new entry here when production data shows a brand being chopped at
+# the first space — observed losses include "American" (was "American Racing
+# Headers"), "Brian" (was "Brian Crower" / "Brian Tooley Racing").
+_TITLE_MULTI_WORD_BRANDS: tuple[tuple[str, str], ...] = (
+    (r"\bAmerican\s+Racing\s+Headers\b", "American Racing Headers"),
+    (r"\bAmerican\s+Axle\b", "American Axle"),
+    (r"\bBrian\s+Crower\b", "Brian Crower"),
+    (r"\bBrian\s+Tooley\s+Racing\b", "Brian Tooley Racing"),
+    (r"\bChevrolet\s+Performance\b", "Chevrolet Performance"),
+    # Compound brands whose first token alone names a different (or
+    # nonexistent) entity. Without an up-front match the first-token scan
+    # would store the leading qualifier as the manufacturer
+    # ("Active", "Agency", "Alfa") and we'd lose the real brand.
+    (r"\bActive\s+Autowerke\b", "Active Autowerke"),
+    (r"\bAgency\s+Power\b", "Agency Power"),
+    (r"\bAlfa\s+Romeo\b", "Alfa Romeo"),
 )
 
 
@@ -125,8 +629,17 @@ def part_manufacturer_from_title(title: str) -> Optional[str]:
     Heuristic for part_manufacturer from product title when JSON-LD part_manufacturer is missing.
 
     1. Prefer explicit " by PartManufacturerName" (e.g. "... by VF-Engineering").
-    2. Otherwise use first word that is not a chassis code (E46, E9x) and not a part code (VF540, VF620).
-       Part codes in the title should go to part_number, not part_manufacturer.
+    2. Match curated multi-word brands (``_TITLE_MULTI_WORD_BRANDS``) so brands
+       like "American Racing Headers" don't get chopped at the first space.
+    3. Otherwise use first word that is not a chassis code (E46, E9x), not a
+       part code (VF540, VF620), not a generic product / material word
+       (Carbon, Front, Stainless), and not a car make (Toyota, BMW). Trailing
+       punctuation is stripped before comparison so "Thermostat," doesn't
+       sneak past the generic-word guard.
+
+    Returning ``None`` is a feature — it lets the description fallback and
+    the universal-pipeline JSON-LD/microdata layers recover the real brand
+    instead of locking in a noise token like "Carbon" or "Front."
     """
     if not title or len(title) < 2:
         return None
@@ -152,8 +665,18 @@ def part_manufacturer_from_title(title: str) -> Optional[str]:
     # across two manufacturer rows.
     if re.search(r"\bJQ\s+Werks\b", title, re.IGNORECASE):
         return "JQ Werks"
+    # Curated multi-word brands (American Racing Headers, Brian Tooley Racing,
+    # Chevrolet Performance, …) — match before the first-token scan would
+    # chop them at the first space.
+    for pattern, canonical in _TITLE_MULTI_WORD_BRANDS:
+        if re.search(pattern, title, re.IGNORECASE):
+            return canonical
 
-    # 3. First token that looks like a part_manufacturer (not chassis, not part code, not generic product word)
+    # 3. First token that looks like a part_manufacturer (not chassis, not
+    # part code, not generic product word, not a car make like "BMW" /
+    # "Porsche" / "Ford" — leading with the make almost always means "fits a
+    # <make>" rather than "<make> made this part"; let the description /
+    # JSON-LD recover the real brand instead).
     parts = title.split()
     for token in parts:
         if not token or len(token) < 3:
@@ -162,10 +685,13 @@ def part_manufacturer_from_title(title: str) -> Optional[str]:
             continue
         if _looks_like_part_or_model_code(token):
             continue
-        if token.lower() in _GENERIC_PRODUCT_WORDS:
+        cleaned = token.lower().rstrip(",.;:!?")
+        if cleaned in _GENERIC_PRODUCT_WORDS:
+            continue
+        if cleaned in _TITLE_REJECT_CAR_MAKES:
             continue
         if token[0].isupper() or (len(token) > 1 and token[0].isalpha()):
-            return token
+            return token.rstrip(",.;:!?")
         break
     return None
 
@@ -761,10 +1287,18 @@ def part_manufacturer_universal(
 
 def _canonical_url_key(url: Optional[str]) -> Optional[str]:
     """
-    Normalize a URL for equality comparison: lowercase scheme+host, strip a
-    trailing slash from the path, drop query/fragment. Used to decide whether
-    a JSON-LD Product's declared URL refers to the page we're actually parsing.
-    Returns None when the input isn't a parseable absolute URL.
+    Normalize a URL for equality comparison: collapse http/https to a single
+    key, lowercase host, strip a trailing slash from the path, drop
+    query/fragment. Used to decide whether a JSON-LD Product's declared URL
+    refers to the page we're actually parsing. Returns None when the input
+    isn't a parseable absolute URL.
+
+    Why http and https collapse: legacy storefronts (vividracing.com, plus
+    other older catalogs) emit JSON-LD with ``url`` set to ``http://...`` even
+    though the canonical page is served over https. A strict scheme match
+    would reject every Product block on those sites, the adapter would fall
+    through to the DOM/og fallback, and chassis tokens from the title (IS300,
+    AE86, JZA80) would land in ``part_number`` via the title-shape heuristic.
     """
     if not url or not isinstance(url, str):
         return None
@@ -777,10 +1311,13 @@ def _canonical_url_key(url: Optional[str]) -> Optional[str]:
         return None
     if not parsed.scheme or not parsed.netloc:
         return None
+    scheme = parsed.scheme.lower()
+    if scheme in ("http", "https"):
+        scheme = "http"
     path = parsed.path or "/"
     if len(path) > 1 and path.endswith("/"):
         path = path[:-1]
-    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{path}"
+    return f"{scheme}://{parsed.netloc.lower()}{path}"
 
 
 def _json_ld_product_urls(item: Dict[str, Any]) -> List[str]:
@@ -808,6 +1345,64 @@ def _json_ld_product_urls(item: Dict[str, Any]) -> List[str]:
             if isinstance(off, dict):
                 _append(off.get("url"))
     return urls
+
+
+def _escape_json_control_chars(raw: str) -> str:
+    """
+    Escape raw control characters (newline, tab, etc.) that appear inside
+    JSON *string values*. Some Shopify themes (studiorsr.com) embed
+    multi-line product descriptions directly into the JSON-LD payload
+    without escaping the newlines/tabs, so strict ``json.loads`` rejects
+    the document and the adapter silently loses sku/brand.
+
+    Walks the document character by character, tracking whether we're
+    inside a quoted string, and replaces any control byte (0x00–0x1F)
+    *inside* a string with its ``\\uXXXX`` form. Control bytes between
+    tokens (formatting whitespace) are preserved as-is — JSON allows them
+    structurally — so the rewrite never changes the document's shape.
+    """
+    out: List[str] = []
+    in_str = False
+    esc = False
+    for ch in raw:
+        cp = ord(ch)
+        if in_str:
+            if esc:
+                esc = False
+                out.append(ch)
+                continue
+            if ch == "\\":
+                esc = True
+                out.append(ch)
+                continue
+            if ch == '"':
+                in_str = False
+                out.append(ch)
+                continue
+            if cp <= 0x1F:
+                out.append(f"\\u{cp:04x}")
+                continue
+            out.append(ch)
+            continue
+        if ch == '"':
+            in_str = True
+        out.append(ch)
+    return "".join(out)
+
+
+def _json_ld_type_is_product(t: Any) -> bool:
+    """schema.org @type matcher for Product, case-insensitive.
+
+    Some storefronts (notably Shopify themes on studiorsr.com) emit
+    `"@type": "product"` in lowercase, which a strict equality check would skip
+    and silently fall through to the adapter's DOM fallback — losing
+    JSON-LD-only fields like `sku` and `brand.name`.
+    """
+    if isinstance(t, str):
+        return t.strip().lower() == "product"
+    if isinstance(t, list):
+        return any(isinstance(x, str) and x.strip().lower() == "product" for x in t)
+    return False
 
 
 def extract_json_ld_product(
@@ -843,7 +1438,15 @@ def extract_json_ld_product(
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
-            continue
+            # Some Shopify themes (e.g. studiorsr.com) emit JSON-LD with
+            # unescaped raw newlines / tabs inside string values from a
+            # multi-line description, which strict JSON rejects. Retry with
+            # control chars escaped so we still recover sku/brand instead of
+            # silently falling through to a weaker DOM path.
+            try:
+                data = json.loads(_escape_json_control_chars(raw))
+            except json.JSONDecodeError:
+                continue
         items: List[Dict[str, Any]] = []
         if isinstance(data, list):
             items = cast(List[Dict[str, Any]], data)
@@ -856,7 +1459,7 @@ def extract_json_ld_product(
             if not isinstance(item, dict):
                 continue
             t = item.get("@type")
-            if t != "Product" and (not isinstance(t, list) or "Product" not in t):
+            if not _json_ld_type_is_product(t):
                 continue
             if want_key is None:
                 return item
@@ -873,11 +1476,11 @@ def extract_json_ld_product(
 def _part_manufacturer_from_json_ld(item: Dict[str, Any]) -> Optional[str]:
     part_manufacturer = item.get("brand")
     if isinstance(part_manufacturer, str) and part_manufacturer.strip():
-        return part_manufacturer.strip()
+        return html.unescape(part_manufacturer.strip())
     if isinstance(part_manufacturer, dict):
         name = part_manufacturer.get("name")
         if isinstance(name, str) and name.strip():
-            return name.strip()
+            return html.unescape(name.strip())
     return None
 
 
@@ -1065,18 +1668,60 @@ def extract_sku_from_text(text: str) -> Optional[str]:
     return None
 
 
+# Pure-alpha words observed leaking into SKU slots from variant/option labels
+# on retailer pages whose ``SKU:`` field is empty. The page-wide text scan
+# would otherwise pick up the next-line dropdown label ("Fuel:", "Size:",
+# "Turbo:") and write it as a SKU — see sheepeyrace and mackin-ind for
+# concrete cases. Match is case-insensitive on the normalized (whitespace-
+# stripped) value. Real SKUs that happen to be one of these words are rare
+# enough that the false-positive cost is negligible — anything carrying a
+# digit, hyphen, or longer compound form bypasses this list.
+_ALPHA_OPTION_LABEL_DENYLIST = frozenset(
+    {
+        "fuel",
+        "turbo",
+        "core",
+        "size",
+        "color",
+        "colour",
+        "product",
+        "option",
+        "options",
+        "style",
+        "type",
+    }
+)
+
+
 def is_junk_part_number(part_number: Optional[str], part_manufacturer: Optional[str]) -> bool:
     """
     Reject part numbers that are almost certainly scraper noise rather than a real SKU:
-    empty, shorter than 4 chars, or equal to the manufacturer name (case/space-insensitive).
+    empty, equal to the manufacturer name (case/space-insensitive), a short
+    alphabetic-only token (≤3 chars containing no digits — almost always a brand
+    acronym mistakenly written into the SKU slot like "CSF"), or a pure-alpha
+    option-label word like "FUEL"/"SIZE"/"TURBO" leaked from a Wix/Shopify
+    variant dropdown when the page's SKU field was empty.
 
-    Used as a last-mile guard in ingest so a JSON-LD sku of "CSF" on a CSF-branded page
-    doesn't become the part's part_number and cause spurious cross-URL dedupe.
+    Numeric or alphanumeric short codes (e.g. "326", "608", "30074", "B1") are
+    NOT junk — Road Sport Supply, Girodisc, and other manufacturers ship real
+    catalog SKUs in this shape. Those would never collide with a brand name.
+
+    Used as a last-mile guard in ingest so a JSON-LD sku of "CSF" on a CSF-branded
+    page doesn't become the part's part_number and cause spurious cross-URL dedupe.
     """
     if not part_number or not part_number.strip():
         return True
     normalized = re.sub(r"\s+", "", part_number).lower()
-    if len(normalized) < 4:
+    # Short purely alphabetic tokens (no digits) are almost always brand acronyms
+    # leaking into the SKU slot. Anything containing a digit (or longer than 3
+    # chars) is allowed through — manufacturer-equality check below still catches
+    # full-name collisions like "ADRO" → manufacturer "Adro".
+    if len(normalized) < 4 and not any(c.isdigit() for c in normalized):
+        return True
+    # Generic option-label words observed leaking from dropdown selectors. Only
+    # rejects pure-alpha matches; anything with a digit or hyphen is allowed
+    # through (real SKUs like "TURBO-2" or "CORE-450" pass the filter).
+    if normalized.isalpha() and normalized in _ALPHA_OPTION_LABEL_DENYLIST:
         return True
     if part_manufacturer:
         manufacturer_key = re.sub(r"\s+", "", part_manufacturer).lower()
@@ -1356,6 +2001,19 @@ def _match_first_material(text: str) -> Optional[str]:
     return None
 
 
+def _match_first_material_with_span(text: str) -> Optional[Tuple[str, int, int]]:
+    """Like ``_match_first_material`` but returns the canonical plus matched span (start, end).
+
+    Used by ``extract_material`` for the body-sweep low-confidence tier so we
+    can inspect the immediate surrounding text and reject chrome neighborhoods.
+    """
+    for pattern, canonical in _MATERIAL_PATTERNS:
+        m = pattern.search(text)
+        if m is not None:
+            return (canonical, m.start(), m.end())
+    return None
+
+
 _MATERIAL_LABELED_RE = re.compile(r"material\s*[:=]?\s*([^\n<>]{1,80})", re.IGNORECASE)
 
 
@@ -1402,9 +2060,22 @@ def extract_material(html_text: str) -> Optional[Tuple[str, _Confidence]]:
         if canonical is not None:
             return (canonical, "medium")
 
-    canonical = _match_first_material(body_text)
-    if canonical is not None:
-        return (canonical, "low")
+    # Body sweep is the noisiest tier — keep walking past chrome neighborhoods
+    # so a footer "Aerospace-grade 6061-T6 forged aluminum hardware" line
+    # doesn't hijack the material on a wheel/brake/electronics page where the
+    # actual material isn't called out in the product copy.
+    cursor = 0
+    while cursor < len(body_text):
+        hit = _match_first_material_with_span(body_text[cursor:])
+        if hit is None:
+            break
+        canonical, span_start, span_end = hit
+        abs_start = cursor + span_start
+        abs_end = cursor + span_end
+        window = body_text[max(0, abs_start - 80):min(len(body_text), abs_end + 120)]
+        if not _is_chrome_text(window):
+            return (canonical, "low")
+        cursor = abs_end
 
     return None
 
@@ -1447,6 +2118,23 @@ def _match_first_finish(text: str) -> Optional[Tuple[str, bool]]:
     for pattern, canonical in _FINISH_COLORS:
         if pattern.search(text):
             return (canonical, False)
+    return None
+
+
+def _match_first_finish_with_span(text: str) -> Optional[Tuple[str, bool, int, int]]:
+    """Like ``_match_first_finish`` but returns the matched span for chrome filtering.
+
+    Treatments are preferred over colours, mirroring ``_match_first_finish``.
+    Used by the body-sweep tier in ``extract_finish``.
+    """
+    for pattern, canonical in _FINISH_TREATMENTS:
+        m = pattern.search(text)
+        if m is not None:
+            return (canonical, True, m.start(), m.end())
+    for pattern, canonical in _FINISH_COLORS:
+        m = pattern.search(text)
+        if m is not None:
+            return (canonical, False, m.start(), m.end())
     return None
 
 
@@ -1493,10 +2181,21 @@ def extract_finish(html_text: str) -> Optional[Tuple[str, _Confidence]]:
             canonical, is_treatment = hit
             return (canonical, "medium" if is_treatment else "low")
 
-    hit = _match_first_finish(body_text)
-    if hit is not None:
-        canonical, _ = hit
-        return (canonical, "low")
+    # Body sweep: walk past chrome neighborhoods so a footer "Cart × Black"
+    # nav-link or "Sign In" panel doesn't hand us a finish on a wheel/exhaust
+    # page. Mirror the chrome guard used by extract_material's low tier.
+    cursor = 0
+    while cursor < len(body_text):
+        hit = _match_first_finish_with_span(body_text[cursor:])
+        if hit is None:
+            break
+        canonical, _, span_start, span_end = hit
+        abs_start = cursor + span_start
+        abs_end = cursor + span_end
+        window = body_text[max(0, abs_start - 80):min(len(body_text), abs_end + 120)]
+        if not _is_chrome_text(window):
+            return (canonical, "low")
+        cursor = abs_end
 
     return None
 
@@ -1624,6 +2323,65 @@ def _split_sentences(text: str) -> List[str]:
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+|[\n\r]+", text) if s.strip()]
 
 
+# Site-chrome tokens that mean a candidate fitment-notes snippet is actually
+# header / nav / footer / cart text rather than product copy. Any case-insensitive
+# substring match disqualifies a candidate at all confidence tiers — better to
+# return None and let the consumer omit fitment_notes than to persist obvious
+# nav boilerplate. Keep this list conservative: each entry should be a phrase
+# that is overwhelmingly chrome and never appears in legitimate fitment prose.
+_FITMENT_CHROME_TOKENS: Tuple[str, ...] = (
+    "skip to content",
+    "skip to main content",
+    "sign in",
+    "sign up",
+    "create an account",
+    "my account",
+    "my cart",
+    "toggle nav",
+    "toggle menu",
+    "toggle navigation",
+    "open main menu",
+    "close main menu",
+    "shopping cart",
+    "advanced search",
+    "shop by vehicle",
+    "choose your car",
+    "select vehicle",
+    "wishlist",
+    "gift certificate",
+    "gift certificates",
+    "free shipping on orders",
+    "customer service",
+    "usd us dollars",
+    "british pound",
+    "request a quote",
+    "add to cart",
+    "remember me",
+    "anti-bot validation",
+    "privacy policy",
+    "terms of service",
+    "view cart",
+    "checkout",
+)
+
+
+def _is_chrome_text(text: str) -> bool:
+    """True if ``text`` is dominated by site-chrome (nav/header/footer) tokens.
+
+    Used by ``extract_fitment_notes`` to reject candidate snippets that came
+    from the page chrome rather than the product description. Cheap
+    case-insensitive substring scan over a small fixed lexicon — bounded
+    linear-time on input length (MEM029).
+    """
+    if not text:
+        return False
+    lowered = text.lower()
+    for token in _FITMENT_CHROME_TOKENS:
+        if token in lowered:
+            return True
+    return False
+
+
 def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
     """
     Capture the first prose chunk that mentions a chassis code (E46/F80/G82/...) and,
@@ -1633,6 +2391,9 @@ def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
       * high: chassis + year range in the same sentence.
       * medium: chassis present *or* year range present (not both in one sentence).
       * low: only a loose chassis-like token, no year context.
+
+    Snippets dominated by site-chrome tokens (Sign In / Toggle Nav / Add to Cart / ...)
+    are dropped at every tier — see ``_FITMENT_CHROME_TOKENS``.
     """
     capped = _cap_html(html_text)
     if capped is None:
@@ -1658,6 +2419,10 @@ def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
                 chassis_hit = True
                 break
         year_hit = bool(_YEAR_RANGE_RE.search(sent))
+        if not (chassis_hit or year_hit):
+            continue
+        if _is_chrome_text(sent):
+            continue
         if chassis_hit and year_hit:
             return (sent[:300], "high")
         if chassis_hit and best_medium is None:
@@ -1665,8 +2430,6 @@ def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
         elif year_hit and best_medium is None and chassis_hit is False:
             # year-only sentences are weaker context but still better than nothing
             best_low = best_low or sent[:300]
-        if not chassis_hit and not year_hit:
-            continue
         if best_low is None and chassis_hit:
             best_low = sent[:300]
 
@@ -1682,7 +2445,16 @@ def extract_fitment_notes(html_text: str) -> Optional[Tuple[str, _Confidence]]:
             # Grab a 200-char window around the hit for context.
             start = max(0, m.start() - 80)
             end = min(len(body_text), m.end() + 120)
-            return (body_text[start:end].strip()[:300], "low")
+            window = body_text[start:end].strip()[:300]
+            # Use a wider chrome-neighborhood window than the returned snippet
+            # so we still reject when the chrome tokens sit just outside the
+            # ±200 char window that bounds the returned text. Chrome tends to
+            # cluster in long uninterrupted nav blocks, so ±400 chars is a
+            # better signal that the hit is from page chrome rather than copy.
+            chrome_window = body_text[max(0, m.start() - 400):min(len(body_text), m.end() + 400)]
+            if _is_chrome_text(chrome_window):
+                continue
+            return (window, "low")
 
     return None
 

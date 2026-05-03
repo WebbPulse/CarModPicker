@@ -17,11 +17,19 @@ class TestNormalizePartManufacturer:
 
     def test_car_makes_are_dropped(self) -> None:
         # Title heuristic sometimes returns the lead token when the title opens
-        # with the target vehicle; IND isn't the manufacturer, and we don't know
-        # who is, so returning None is the honest answer.
-        assert _normalize_part_manufacturer("BMW") is None
+        # with the target vehicle. For makes without an OEM-promotion mapping,
+        # returning None is the honest answer.
         assert _normalize_part_manufacturer("Porsche") is None
-        assert _normalize_part_manufacturer("bmw") is None
+        assert _normalize_part_manufacturer("Toyota") is None
+
+    def test_bmw_is_promoted_to_genuine_bmw(self) -> None:
+        # IND publishes BMW M Performance / Motorsport / OEM parts under
+        # JSON-LD ``brand: BMW``; those are genuinely BMW-manufactured, so
+        # promote to the canonical "Genuine BMW" mfr row that other BMW
+        # adapters (Bimmerworld, Turner) already use.
+        assert _normalize_part_manufacturer("BMW") == "Genuine BMW"
+        assert _normalize_part_manufacturer("bmw") == "Genuine BMW"
+        assert _normalize_part_manufacturer("  BMW  ") == "Genuine BMW"
 
     def test_empty_is_passed_through(self) -> None:
         assert _normalize_part_manufacturer("") == ""

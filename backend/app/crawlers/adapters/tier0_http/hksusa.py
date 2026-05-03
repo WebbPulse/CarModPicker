@@ -99,10 +99,10 @@ def _unescape_rsc_string(raw: str) -> str:
     Values inside ``self.__next_f.push([1,"..."])`` are JSON embedded inside a
     JS string literal, so a text value like ``a "quoted" word`` reaches us as
     ``a \\"quoted\\" word``. Handle the common escapes (quote, backslash,
-    slash, newline, tab, carriage return) — remarks on this storefront is
-    plain prose, so we don't need a full JSON parser.
+    slash, newline, tab, carriage return) plus the ``\\uNNNN`` form (Strapi
+    emits ``\\u0026`` for ``&`` in remarks copy and short prose descriptions).
     """
-    return (
+    out = (
         raw.replace('\\"', '"')
         .replace("\\/", "/")
         .replace("\\n", " ")
@@ -110,6 +110,31 @@ def _unescape_rsc_string(raw: str) -> str:
         .replace("\\t", " ")
         .replace("\\\\", "\\")
     )
+    return _UNICODE_ESCAPE_RE.sub(lambda m: chr(int(m.group(1), 16)), out)
+
+
+# ``\uNNNN`` form (4 hex digits, case-insensitive). Strapi serializes things
+# like ``&`` → ``&`` and ``’`` → ``’`` in product copy.
+_UNICODE_ESCAPE_RE = re.compile(r"\\u([0-9a-fA-F]{4})")
+
+
+# Captured RSC string body. The page is JSON embedded in a JS string literal,
+# so every JSON-side ``"`` reaches us as 2 raw bytes ``\"`` (backslash +
+# quote). The terminator at this layer is the same 2-byte ``\"`` sequence,
+# AND the JS literal itself ends at any bare ``"``. There's no truly
+# unambiguous regex for this without a real JSON parser, so we run a tempered
+# scan that stops on either form: ``(?!\\")(?!")`` per char, capped at 2000.
+#
+# Practical caveats:
+# - JSON-escaped quotes (``\\\"`` = 4 raw chars) inside the prose terminate
+#   the capture early. HKS product descriptions almost never embed literal
+#   quotes; remarks copy contains none in the live corpus. Names are always
+#   short tokens. Acceptable.
+# - The previous shape ``[^"\\]{0,2000}`` halted at the FIRST raw ``\`` —
+#   Strapi emits ``&`` for ``&`` in remarks, so the negated class tripped
+#   on the leading ``\`` of every escape and the surrounding anchors
+#   backtracked to no match. This shape keeps the ``\`` legal inside the body.
+_RSC_STRING_BODY = r"(?:(?!\\\")[^\"]){0,2000}"
 
 
 def _extract_name_for_code(html_text: str, code: str) -> Optional[str]:
@@ -120,7 +145,7 @@ def _extract_name_for_code(html_text: str, code: str) -> Optional[str]:
     the code disambiguates the current product from related-product records
     that ride along on the same page.
     """
-    pattern = r'\\"name\\":\\"([^"\\]{1,300})\\",\\"code\\":\\"' + re.escape(code) + r'\\"'
+    pattern = r'\\"name\\":\\"(' + _RSC_STRING_BODY + r')\\",\\"code\\":\\"' + re.escape(code) + r'\\"'
     match = re.search(pattern, html_text)
     if not match:
         return None
@@ -130,14 +155,23 @@ def _extract_name_for_code(html_text: str, code: str) -> Optional[str]:
 
 def _extract_remarks_for_code(html_text: str, code: str) -> Optional[str]:
     """
-    Pull ``remarks`` (short plain-text note, e.g. box dimensions, racing-use
-    disclaimer, fitment note). It's the only human-readable copy on the page —
-    the ``product_description`` field is HTML wrapping product-sheet images
-    with no body text, so there's nothing else worth promoting to the catalog
-    description. Anchored on the URL's code so we don't pick up the remarks
-    off a related-product record.
+    Pull ``remarks`` for the URL's part code — the only reliable human-readable
+    copy on this storefront. The Strapi schema carries a parallel ``description``
+    field, but in the live corpus it's almost always either missing entirely or
+    a wrapper around an ``<img>`` figure with no body text; the prose copy
+    lives in ``remarks`` (box dimensions, racing-use disclaimer, fitment hint,
+    coil pack count, etc.).
+
+    Anchored on the URL's code so related-product records riding along on the
+    same page can't bleed in.
     """
-    pattern = r'\\"code\\":\\"' + re.escape(code) + r'\\",\\"remarks\\":\\"([^"\\]{0,2000})\\",\\"discontinued\\"'
+    pattern = (
+        r'\\"code\\":\\"'
+        + re.escape(code)
+        + r'\\",\\"remarks\\":\\"('
+        + _RSC_STRING_BODY
+        + r')\\",\\"discontinued\\"'
+    )
     match = re.search(pattern, html_text)
     if not match:
         return None

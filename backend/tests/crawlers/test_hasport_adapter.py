@@ -7,14 +7,18 @@ JSON-LD ``sku``, hardcoded ``"Hasport"`` manufacturer stamping, WooCommerce
 gallery anchor harvesting, and end-to-end Product parsing.
 """
 
+from typing import Optional
+
 from bs4 import BeautifulSoup
 
 from app.crawlers.adapters import adapter_name_for_product_url
 from app.crawlers.adapters.tier0_http.hasport import (
     HasportAdapter,
     _canonical_product_url,
+    _compose_name,
     _extract_gallery_images,
     _extract_leading_sku,
+    _extract_short_description,
     _is_product_url,
 )
 
@@ -36,6 +40,7 @@ def _product_html(
         "https://hasportperformance.com/wp-content/uploads/2019/09/fdstk-alt.jpg",
     ),
     url: str = SAMPLE_URL,
+    short_description: Optional[str] = None,
 ) -> str:
     """
     Minimal Hasport product page. Reproduces the real page's two JSON-LD
@@ -73,6 +78,7 @@ def _product_html(
       </header>
       <main>
         <h1 class="product_title entry-title">{name}</h1>
+        {('<div class="woocommerce-product-details__short-description">' + short_description + '</div>') if short_description else ''}
         <div class="woocommerce-product-gallery">
           <figure class="woocommerce-product-gallery__wrapper">{gallery_divs}</figure>
         </div>
@@ -284,3 +290,110 @@ class TestParseProductPage:
         # variant; skip it rather than fabricating a payload from DOM alone.
         html = '<html><body><h1 class="product_title">Stray</h1></body></html>'
         assert HasportAdapter().parse_product_page(html, SAMPLE_URL) is None
+
+
+class TestExtractShortDescription:
+    """``.woocommerce-product-details__short-description`` is the source for the descriptive text."""
+
+    def test_returns_block_text(self) -> None:
+        soup = BeautifulSoup(
+            '<html><body>'
+            '<div class="woocommerce-product-details__short-description">'
+            '  Rear Engine Bracket for 88-91 Civic/CRX  '
+            '</div></body></html>',
+            "html.parser",
+        )
+        assert _extract_short_description(soup) == "Rear Engine Bracket for 88-91 Civic/CRX"
+
+    def test_strips_inner_html(self) -> None:
+        # Real pages wrap copy in a ``<p>``; we want plain text, not markup.
+        soup = BeautifulSoup(
+            '<html><body>'
+            '<div class="woocommerce-product-details__short-description">'
+            '<p>K-series swap engine mount for <em>EG/EK</em> chassis</p>'
+            '</div></body></html>',
+            "html.parser",
+        )
+        assert _extract_short_description(soup) == "K-series swap engine mount for EG/EK chassis"
+
+    def test_missing_block_returns_none(self) -> None:
+        soup = BeautifulSoup("<html><body><h1>No description</h1></body></html>", "html.parser")
+        assert _extract_short_description(soup) is None
+
+    def test_empty_block_returns_none(self) -> None:
+        soup = BeautifulSoup(
+            '<html><body><div class="woocommerce-product-details__short-description">  </div></body></html>',
+            "html.parser",
+        )
+        assert _extract_short_description(soup) is None
+
+
+class TestComposeName:
+    """``_compose_name`` only kicks in when JSON-LD ``name`` is a bare SKU code."""
+
+    def test_bare_sku_with_short_description_composes(self) -> None:
+        # The real ``EFRB`` page: JSON-LD name is just the SKU, descriptive
+        # text only in the WooCommerce short-description block.
+        composed = _compose_name(
+            "EFRB",
+            "Rear Engine Bracket for 88-91 Civic/CRX with B-series swap cable transmission",
+        )
+        assert composed == (
+            "EFRB - Rear Engine Bracket for 88-91 Civic/CRX with "
+            "B-series swap cable transmission"
+        )
+
+    def test_bare_sku_without_short_description_left_as_sku(self) -> None:
+        # No short description available → return the SKU unchanged rather
+        # than fabricating a descriptive name. The downstream ingest still
+        # surfaces a name (the SKU itself), just not an enriched one.
+        assert _compose_name("EFRB", None) == "EFRB"
+        assert _compose_name("EFRB", "") == "EFRB"
+
+    def test_descriptive_name_preserved(self) -> None:
+        # ``"FDSTK Stock replacement mount kit ..."`` is already descriptive
+        # and must not be altered, even when a short-description block exists.
+        original = "FDSTK Stock replacement mount kit for 2006-2011 Civic Si"
+        assert _compose_name(original, "Mount kit for 2006-2011 Civic Si") == original
+
+    def test_dashed_sku_recognized(self) -> None:
+        # Hasport uses internal-dashed codes for some lines.
+        composed = _compose_name("DC2-K", "K-swap engine mount for 1994-2001 Integra DC2")
+        assert composed.startswith("DC2-K - K-swap engine mount")
+
+    def test_truncates_overlong_compose(self) -> None:
+        # Compose may emit very long names if the short-description is wordy;
+        # cap at the module's max so the catalog row stays readable.
+        long_desc = "X" * 400
+        composed = _compose_name("EFRB", long_desc)
+        assert len(composed) <= 200
+        assert composed.startswith("EFRB - ")
+        assert composed.endswith("…")
+
+
+class TestParseProductPageBareSkuName:
+    """End-to-end: the real ``EFRB`` shape (name == SKU) ingests with a composed name."""
+
+    def test_bare_sku_name_is_enriched(self) -> None:
+        # Mirror the real page: JSON-LD ``name`` is just ``"EFRB"`` and the
+        # descriptive copy lives only in the short-description block.
+        html = _product_html(
+            name="EFRB",
+            description="Rear Engine Bracket for 88-91 Civic/CRX with B-series swap cable transmission",
+            short_description="Rear Engine Bracket for 88-91 Civic/CRX with B-series swap cable transmission",
+        )
+        result = HasportAdapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.part_number == "EFRB"
+        assert result.name is not None
+        assert result.name.startswith("EFRB - Rear Engine Bracket for 88-91 Civic/CRX")
+
+    def test_bare_sku_name_without_short_desc_stays_as_sku(self) -> None:
+        # A page with no short-description block falls back to the bare SKU
+        # name. We don't synthesize anything from the JSON-LD description
+        # because we have no signal that it's a clean one-liner.
+        html = _product_html(name="EFRB", description="Long marketing copy goes here")
+        result = HasportAdapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.name == "EFRB"
+        assert result.part_number == "EFRB"

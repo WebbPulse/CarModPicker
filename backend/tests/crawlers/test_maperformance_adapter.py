@@ -4,6 +4,7 @@ from app.crawlers.adapters.tier0_http.maperformance import (
     MAPerformanceAdapter,
     _extract_product_group_from_json_ld,
     _payload_from_product_group,
+    _strip_map_supplier_prefix,
 )
 
 SAMPLE_URL = "https://www.maperformance.com/products/" "perrin-turbo-sump-restrictor-2018-2023-subaru-wrx-psp-eng-630"
@@ -76,7 +77,9 @@ class TestProductGroupExtraction:
         assert payload is not None
         assert payload.name.startswith("Perrin Turbo Sump Restrictor")
         assert payload.part_manufacturer == "Perrin Performance"
-        assert payload.part_number == "PER PSP-ENG-630"
+        # MAP's internal "PER PSP-ENG-630" is normalised to the manufacturer's
+        # real SKU "PSP-ENG-630" — what Perrin and every other retailer use.
+        assert payload.part_number == "PSP-ENG-630"
         assert payload.price_cents == 4845
         assert payload.product_url == SAMPLE_URL
         assert payload.image_urls and payload.image_urls[0].startswith(
@@ -98,7 +101,8 @@ class TestParseProductPage:
         assert result is not None
         assert result.name.startswith("Perrin Turbo Sump Restrictor")
         assert result.part_manufacturer == "Perrin Performance"
-        assert result.part_number == "PER PSP-ENG-630"
+        # PER prefix stripped → manufacturer SKU.
+        assert result.part_number == "PSP-ENG-630"
         assert result.price_cents == 4845
         assert result.gtin is None
         assert result.image_urls and len(result.image_urls) == 1
@@ -109,7 +113,8 @@ class TestParseProductPage:
         result = MAPerformanceAdapter().parse_product_page(html, SAMPLE_URL)
         assert result is not None
         assert result.part_manufacturer == "COBB Tuning"
-        assert result.part_number == "COB AP3-SUB-004"
+        # COB prefix stripped → COBB's actual AccessPort SKU.
+        assert result.part_number == "AP3-SUB-004"
 
     def test_missing_jsonld_falls_back_to_dom(self) -> None:
         # No JSON-LD at all — adapter should still pull title / description /
@@ -135,3 +140,41 @@ class TestParseProductPage:
         # No JSON-LD, no og:title, no h1 → cannot identify product.
         html = "<html><head></head><body><p>Out of stock.</p></body></html>"
         assert MAPerformanceAdapter().parse_product_page(html, SAMPLE_URL) is None
+
+
+class TestSupplierPrefixStrip:
+    """
+    MAP encodes the brand it buys from as a 2–4-letter prefix on every SKU
+    (``WHI W53382`` for Whiteline, ``WIS 6501M775`` for Wiseco). Stored
+    part_numbers must be the manufacturer's real SKU so build-list dedupe
+    matches across retailers.
+    """
+
+    def test_three_letter_prefix_stripped(self) -> None:
+        assert _strip_map_supplier_prefix("WHI W53382") == "W53382"
+
+    def test_two_letter_prefix_stripped(self) -> None:
+        assert _strip_map_supplier_prefix("KN 33-2304") == "33-2304"
+
+    def test_four_letter_prefix_stripped(self) -> None:
+        assert _strip_map_supplier_prefix("MISH MMTC-WRX-08") == "MMTC-WRX-08"
+
+    def test_pure_letter_tail_left_alone(self) -> None:
+        # When the tail has no digit, the leading word is more likely the
+        # actual SKU than a supplier prefix; keep the original.
+        assert _strip_map_supplier_prefix("ABC DEF") == "ABC DEF"
+
+    def test_no_prefix_passes_through(self) -> None:
+        assert _strip_map_supplier_prefix("PSP-ENG-630") == "PSP-ENG-630"
+
+    def test_lowercase_prefix_not_stripped(self) -> None:
+        # MAP's prefix is always uppercase; lowercase is part of the SKU.
+        assert _strip_map_supplier_prefix("ks 12345") == "ks 12345"
+
+    def test_none_passes_through(self) -> None:
+        assert _strip_map_supplier_prefix(None) is None
+
+    def test_five_letter_prefix_not_stripped(self) -> None:
+        # MAP prefixes max out at 4 letters; longer leading words are part
+        # of the SKU.
+        assert _strip_map_supplier_prefix("ABCDE 12345") == "ABCDE 12345"

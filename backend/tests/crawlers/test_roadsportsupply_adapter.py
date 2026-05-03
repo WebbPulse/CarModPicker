@@ -13,6 +13,7 @@ depend on live network access.
 from app.crawlers.adapters import adapter_name_for_product_url
 from app.crawlers.adapters.tier0_http.roadsportsupply import (
     RoadSportSupplyAdapter,
+    _compose_rss_part_number,
     _is_product_url,
     _is_products_child_sitemap,
     _price_cents_from_bcdata,
@@ -195,7 +196,10 @@ class TestParseProductPage:
         assert result is not None
         assert result.name == "323 Thrust Arm Bushing/Puck - Non Castor Adjustable - Front Axle"
         assert result.part_manufacturer == "RSS"
-        assert result.part_number == "323"
+        # Bare 3-digit RSS house SKU is brand-prefixed so it survives the
+        # downstream is_junk_part_number 4-char floor without losing the
+        # original code.
+        assert result.part_number == "RSS-323"
         assert result.price_cents == 29000
         assert result.product_url == SAMPLE_URL
         assert result.description is not None and "THRUST ARM" in result.description.upper()
@@ -262,3 +266,65 @@ class TestParseProductPage:
         # No JSON-LD, no og:title, no h1 → nothing to ingest.
         html = "<html><head></head><body><p>Out of stock.</p></body></html>"
         assert RoadSportSupplyAdapter().parse_product_page(html, SAMPLE_URL) is None
+
+
+class TestComposeRssPartNumber:
+    """RSS-house bare-numeric SKUs get brand-prefixed; everything else is unchanged."""
+
+    def test_three_digit_rss_sku_is_prefixed(self) -> None:
+        assert _compose_rss_part_number("323", "RSS") == "RSS-323"
+
+    def test_two_digit_rss_sku_is_prefixed(self) -> None:
+        # Real catalog has at least one 2-digit code; the prefix is what
+        # rescues it from the >=4-char junk filter.
+        assert _compose_rss_part_number("88", "RSS") == "RSS-88"
+
+    def test_dashed_short_sku_is_prefixed(self) -> None:
+        # The ``"395/10"`` style doubles as a code; treat the slash variant
+        # the same as the dash variant. Both are valid RSS internal codes.
+        assert _compose_rss_part_number("395/10", "RSS") == "RSS-395/10"
+        assert _compose_rss_part_number("395-10", "RSS") == "RSS-395-10"
+
+    def test_rss_manufacturing_brand_string_recognized(self) -> None:
+        # JSON-LD ``brand.name`` is sometimes the long form.
+        assert _compose_rss_part_number("376", "RSS Manufacturing") == "RSS-376"
+
+    def test_brand_match_is_case_insensitive(self) -> None:
+        assert _compose_rss_part_number("371", "rss") == "RSS-371"
+
+    def test_third_party_brand_left_unchanged(self) -> None:
+        # Sharkwerks / Cargraphic / Racetech SKUs are vendor-issued; we must
+        # not synthesize an "RSS-" prefix onto them, that would corrupt the
+        # vendor's identifier scheme.
+        assert _compose_rss_part_number("999", "Sharkwerks") == "999"
+        assert _compose_rss_part_number("100", "Cargraphic") == "100"
+
+    def test_long_or_alpha_sku_left_unchanged(self) -> None:
+        # 4+ char or alphanumeric SKUs already clear the junk filter; no
+        # prefix needed even on RSS-house pages.
+        assert _compose_rss_part_number("RT4119W", "RSS") == "RT4119W"
+        assert _compose_rss_part_number("4012", "RSS") == "4012"
+        assert _compose_rss_part_number("A1-066", "RSS") == "A1-066"
+
+    def test_none_sku_returns_none(self) -> None:
+        assert _compose_rss_part_number(None, "RSS") is None
+
+    def test_missing_brand_leaves_sku_unchanged(self) -> None:
+        # No brand context → don't fabricate a prefix.
+        assert _compose_rss_part_number("323", None) == "323"
+        assert _compose_rss_part_number("323", "") == "323"
+
+
+class TestParseProductPageRssShortSku:
+    """End-to-end: an RSS-house page with a 2-digit SKU survives the junk filter."""
+
+    def test_two_digit_rss_sku_emerges_prefixed(self) -> None:
+        # The earlier ``test_json_ld_primary_path`` covers the 3-digit case;
+        # this proves the rescue extends down to 2-char SKUs as well, since
+        # the prefix is what actually clears the floor (``"RSS-88"`` is 6
+        # chars).
+        page_url = "https://roadsportsupply.com/88-thrust-arm-puck/"
+        html = _product_html(name="88 Thrust Arm Puck", sku="88", url=page_url)
+        result = RoadSportSupplyAdapter().parse_product_page(html, page_url)
+        assert result is not None
+        assert result.part_number == "RSS-88"

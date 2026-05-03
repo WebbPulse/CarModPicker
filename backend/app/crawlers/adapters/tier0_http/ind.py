@@ -50,11 +50,16 @@ DEFAULT_START_URLS = [
     "https://ind-distribution.com/products/lck-bmw-m-carbon-bucket-seat-bolster-protector-set",
 ]
 
-# Car makes that the title heuristic sometimes picks when a product title leads
-# with the target vehicle (e.g. "BMW G87 M2 …"). IND carries dozens of third-
-# party manufacturers, so unlike ADRO we can't collapse these to a house brand —
-# the honest answer is "unknown", so we drop the value and let the description /
-# fallback heuristics try next.
+# Car makes the title/JSON-LD heuristic sometimes picks. IND publishes BMW
+# OEM/M Performance/Motorsport parts under JSON-LD ``brand: BMW`` — those are
+# genuinely BMW-manufactured, so we promote bare "BMW" to the canonical
+# "Genuine BMW" mfr row that other adapters (Bimmerworld, Turner) already use.
+# Other car makes that show up as a brand are either rare passthroughs from
+# the title heuristic on third-party items or don't have an OEM tuner-line
+# equivalent at IND; drop those so downstream heuristics can try next.
+_CAR_MAKE_TO_OEM_MFR: dict[str, str] = {
+    "bmw": "Genuine BMW",
+}
 _TITLE_CAR_MAKES = frozenset(
     {
         "bmw",
@@ -83,16 +88,19 @@ _TITLE_CAR_MAKES = frozenset(
 
 def _normalize_part_manufacturer(part_manufacturer: Optional[str]) -> Optional[str]:
     """
-    Trim whitespace; drop car-make values that the title heuristic may have
-    picked. Returns None rather than a coerced fallback so downstream heuristics
-    can try; JSON-LD brand (the primary path) always wins before we reach here.
+    Trim whitespace; collapse a bare car-make brand to the canonical OEM
+    manufacturer when one is defined (e.g. "BMW" → "Genuine BMW"). Drop the
+    value otherwise so downstream heuristics can try.
     """
     if not part_manufacturer:
         return part_manufacturer
     brand = part_manufacturer.strip()
     if not brand:
         return None
-    if brand.lower() in _TITLE_CAR_MAKES:
+    lowered = brand.lower()
+    if lowered in _CAR_MAKE_TO_OEM_MFR:
+        return _CAR_MAKE_TO_OEM_MFR[lowered]
+    if lowered in _TITLE_CAR_MAKES:
         return None
     return brand
 

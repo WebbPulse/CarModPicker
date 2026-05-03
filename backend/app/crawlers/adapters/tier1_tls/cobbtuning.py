@@ -232,6 +232,21 @@ _IMAGE_SKU_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Cobb's product names embed the SKU as the trailing parenthesised token —
+# every Accessport variant lands in the catalog with its name suffixed
+# ``... (AP3-MIT-002)`` / ``... (AP3-AU-SUB-006)``. JSON-LD is gone
+# post-migration and the image-filename convention only fires for products
+# whose hero image is named after the SKU; this regex picks up the rest.
+#
+# Shape: opening paren, one upper letter, then upper alphanumeric, then at
+# least one ``-``/``_``/``/``-separated alphanumeric segment, closing paren.
+# The segment requirement filters chassis-style codes like ``(Mk7)`` /
+# ``(8V)`` / ``(B58)`` (no separator) and bare numerics like ``(2024)``,
+# while still catching multi-segment SKUs ``(AP3-AU-SUB-006)``.
+_NAME_SKU_PARENS_RE = re.compile(
+    r"\(([A-Z][A-Z0-9]*(?:[-_/][A-Z0-9]+){1,5})\)"
+)
+
 
 def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
     """
@@ -298,6 +313,25 @@ def _extract_sku_from_image_urls(image_urls: List[str]) -> Optional[str]:
         if m:
             return m.group(1).upper()
     return None
+
+
+def _extract_sku_from_name_parens(name: Optional[str]) -> Optional[str]:
+    """
+    Pull a Cobb SKU out of the trailing parenthesised token in a product name
+    (``"... Accessport V3 (AP3-MIT-002)"`` → ``"AP3-MIT-002"``).
+
+    Used as a last-resort SKU recovery after the page-text, sku-class element
+    and image-filename paths have all missed. The regex requires at least one
+    ``-``/``_``/``/``-separated segment so chassis tokens like ``(Mk7)`` or
+    ``(B58)`` and year/displacement parens like ``(2024)`` don't get adopted
+    as part numbers.
+    """
+    if not name:
+        return None
+    m = _NAME_SKU_PARENS_RE.search(name)
+    if not m:
+        return None
+    return m.group(1)
 
 
 def _strip_site_prefix(title: str) -> str:
@@ -515,7 +549,9 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
         # SKU recovery. Order: explicit SKU text on the page → SKU-classed
         # element → Cobb's ``<SKU>_main.jpg`` image filename convention
         # (reliable post-migration since price/SKU are hydrated client-side
-        # and the image URL is the only server-rendered carrier). We skip the
+        # and the image URL is the only server-rendered carrier) → trailing
+        # parenthesised SKU token in the product name (``... (AP3-MIT-002)``)
+        # which Cobb uses on every Accessport variant. We skip the
         # title-first-word heuristic entirely — the new h1 tends to start
         # with model-year tokens ("Redline", "Gen2", "Subaru") that produce
         # garbage part numbers.
@@ -528,6 +564,10 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
             image_sku = _extract_sku_from_image_urls(dom_images)
             if image_sku:
                 part_number = normalize_part_number(image_sku)
+        if not part_number:
+            name_sku = _extract_sku_from_name_parens(str(name))
+            if name_sku:
+                part_number = normalize_part_number(name_sku)
 
         # No JSON-LD brand available. Skip the title-first-word heuristic
         # (which picks "Accessport" / "Stage" / "SF" as manufacturers on this

@@ -152,14 +152,49 @@ def _resolve_start_urls_env() -> Optional[List[str]]:
     return [u.strip() for u in raw.split(",") if u.strip()]
 
 
+def _is_truncated_pipe_title(value: str) -> bool:
+    """
+    True when og:title is the broken ``"<SKU> |"`` form Forgeline emits for
+    a chunk of finish/accessory/inner-shell pages — the right side of the
+    pipe (the human-readable description) is empty so the SKU code becomes
+    the whole displayed name.
+    """
+    stripped = value.strip()
+    if "|" not in stripped:
+        return False
+    left, _, right = stripped.partition("|")
+    return not right.strip() or not left.strip()
+
+
 def _extract_name(soup: BeautifulSoup) -> Optional[str]:
-    """``og:title`` (full "MODEL | Description") then ``h1.product_title`` (model only)."""
+    """
+    ``og:title`` first, but on the broken ``"<SKU> |"`` pages (finishes,
+    inner shells, hardware lines) the right side is empty so the SKU code
+    bleeds into ``parts.name``. Detect that shape and prefer
+    ``h1.product_title[title]`` — that attribute carries the title-cased
+    human-readable name that the H1 element text only renders in all-caps.
+    Falls back to the H1 text when neither is usable.
+    """
+    h1 = soup.find("h1", class_="product_title")
+    h1_title_attr: Optional[str] = None
+    if isinstance(h1, Tag):
+        attr = h1.get("title")
+        if isinstance(attr, str) and attr.strip():
+            h1_title_attr = attr.strip()
+
     og = soup.find("meta", property="og:title")
+    og_value: Optional[str] = None
     if isinstance(og, Tag):
         v = meta_content(og)
         if v and v.strip():
-            return v.strip()
-    h1 = soup.find("h1", class_="product_title")
+            og_value = v.strip()
+
+    if og_value and not _is_truncated_pipe_title(og_value):
+        return og_value
+    if h1_title_attr:
+        return h1_title_attr
+    if og_value:
+        return og_value
     if isinstance(h1, Tag):
         text = h1.get_text(strip=True)
         if text:

@@ -159,17 +159,32 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "lug nut",
         "lug bolt",
         "lug bolts",
-        "stud",
+        # ``stud`` alone fires on engine head studs, ARP rod studs, exhaust
+        # studs, etc. — the catalog audit (2026-05-02) found 42 BTR head-stud
+        # SKUs miscategorized as "wheels" via this keyword. Restrict to the
+        # wheel-specific phrases.
         "stud conversion",
         "stud conversion kit",
-        "hub",
+        "wheel stud",
+        "wheel studs",
+        "extended stud",
+        "extended studs",
+        # ``hub`` alone matches "supercharger hub", "fan hub", "Bosch ignition
+        # hub" — restrict to wheel-context phrases.
+        "wheel hub",
+        "wheel hubs",
         "hubcentric",
-        "spacer",
+        "hub centric",
+        "wheel spacer",
+        "wheel spacers",
+        # ``spacer`` alone matches engine, suspension, and exhaust spacers —
+        # the wheel-prefixed and hub-centric forms above are the unambiguous
+        # wheel signal.
         "center cap",
+        "centercap",
         "gram lights",
         "volk",
         "te37",
-        "work",
         "enkei",
         "bbs",
         "rotiform",

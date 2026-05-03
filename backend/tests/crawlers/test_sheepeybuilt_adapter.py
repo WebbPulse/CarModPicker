@@ -232,6 +232,55 @@ class TestParseProductPage:
         html = "<html><head></head><body><p>Out of stock.</p></body></html>"
         assert SheepeyBuiltAdapter().parse_product_page(html, SAMPLE_URL) is None
 
+    def test_empty_sku_label_does_not_leak_variant_label_as_part_number(self) -> None:
+        # Real bug: every Audi RS3 / RS Q3 / TT-RS ECU page on this storefront
+        # rendered the SKU sidebar as ``<p class="wt-product__sku">SKU:</p>``
+        # (empty value) followed by a fuel-grade option labelled
+        # ``FUEL: 93oct/98ron Gas …``. A page-wide ``SKU:`` regex captured
+        # ``FUEL`` from the next visible word, tagging the entire catalog with
+        # part_number='FUEL'. JSON-LD on these pages emits no ``sku`` (Shopify
+        # variant-keyed offers), so the adapter falls back to the DOM SKU
+        # element — which must return None when only the literal label is
+        # present rather than reaching across whitespace into the next field.
+        html = _product_html(
+            name="AUDI RS3 2.5 TFSI STAGE 2 [ECU] [19-20]",
+            brand="UNITRONIC",
+            sku="",
+        ).replace(
+            "</body>",
+            """
+            <p class="wt-product__sku"><span class="visually-hidden">SKU:</span></p>
+            <fieldset>
+              <legend>FUEL: </legend>
+              <label>93oct/98ron Gas</label>
+              <label>91oct/95ron Gas</label>
+            </fieldset>
+            </body>
+            """,
+        )
+        result = SheepeyBuiltAdapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert (
+            result.part_number is None
+        ), f"Expected no part_number when wt-product__sku is empty; got {result.part_number!r}"
+
+    def test_real_sku_in_dom_element_is_extracted(self) -> None:
+        # When the storefront actually populates ``.wt-product__sku``, the
+        # numeric SKU must come through (this is the PT6466 / NEXT GEN
+        # turbocharger case where the field is filled). JSON-LD lacks ``sku``
+        # so this exercises the DOM-element fallback specifically.
+        html = _product_html(
+            name="NEXT GEN PT6466 SCP-COVER",
+            brand="PRECISION TURBO",
+            sku="",
+        ).replace(
+            "</body>",
+            '<p class="wt-product__sku"><span class="visually-hidden">SKU:</span> 27304210139</p></body>',
+        )
+        result = SheepeyBuiltAdapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.part_number == "27304210139"
+
 
 class TestAdapterFetcherTier:
     """Sheepey starts on plain HTTP (tier0); promote to ``tls`` if Cloudflare fires."""

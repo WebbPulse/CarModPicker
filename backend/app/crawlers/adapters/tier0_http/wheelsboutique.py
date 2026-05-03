@@ -318,6 +318,23 @@ class WheelsBoutiqueAdapter(RetailerCrawlerAdapter):
             if _is_product_url(url):
                 yield url
 
+    def infer_category_for_part(self, parsed: ScrapedPayload) -> Optional[str]:
+        """Pin category from URL shape.
+
+        Wheel product titles are model codes (``"RS6.3"``, ``"S3-X3"``,
+        ``"HRE C103"``) with no ``"wheel"`` token in the name *or* the
+        description, so the universal keyword scorer routes them to ``other``.
+        The URL path is unambiguous — ``/wheels/<brand>/...`` is always a
+        wheel and ``/exhausts/<slug>`` is always an exhaust on this site —
+        so we override directly rather than expanding the keyword list.
+        """
+        path = (urlparse(parsed.product_url or "").path or "").lower()
+        if path.startswith("/wheels/"):
+            return "wheels"
+        if path.startswith("/exhausts/"):
+            return "exhaust"
+        return None
+
     def parse_product_page(self, html: str, url: str) -> Optional[ScrapedPayload]:
         """Parse a Wheels Boutique product page. Returns ``None`` for non-product URLs or when no name is found."""
         if not _is_product_url(url):

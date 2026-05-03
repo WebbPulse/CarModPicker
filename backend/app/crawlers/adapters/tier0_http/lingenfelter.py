@@ -141,6 +141,27 @@ DEFAULT_START_URLS = [
 # ``mage/gallery/gallery`` parser).
 _IMAGE_DATA_OPEN_RE = re.compile(r"image_data\d+\s*=\s*\[")
 
+# The Miva storefront emits the customer-facing part number in three places
+# besides the (often-junk) microdata ``itemprop=sku``:
+#   1. The URL slug:        /product/<CODE>.html
+#   2. JS init code:        productCode: '<CODE>',  (also code, item_id)
+#   3. Visible body text:   Part Number: <strong><CODE></strong>
+# The microdata ``sku`` / ``mpn`` are populated from an internal Miva row id
+# that on legacy SKUs is "230" or "-3", not the dealer-facing code. ``productCode``
+# is the most reliable single source — anchored to a string literal that varies
+# only by SKU value across every product page.
+_PRODUCT_CODE_JS_RE = re.compile(r"productCode\s*:\s*'([^']+)'")
+_PART_NUMBER_TEXT_RE = re.compile(
+    r"Part Number\s*:\s*<strong>\s*([^<\s][^<]*?)\s*</strong>",
+    re.IGNORECASE,
+)
+_URL_SLUG_PN_RE = re.compile(r"/product/([^/]+?)\.html\b")
+
+# Internal Miva row ids that leak through ``itemprop="sku" / "mpn"`` on some
+# legacy SKUs. Reject these in favor of the productCode / URL-slug path so
+# we don't dedupe two unrelated products onto a numeric "230" SKU.
+_MIVA_ROW_ID_RE = re.compile(r"^-?\d{1,4}$")
+
 
 def _is_product_url(url: str) -> bool:
     """
@@ -335,11 +356,53 @@ def _extract_part_number(product_scope: Tag) -> Optional[str]:
     meta tags), but for resold brands like Borla / Manley a future catalog
     change could split them — keep the MPN preference so cross-retailer
     dedupe on (manufacturer, part_number) stays stable with Summit / Jegs.
+
+    Returns ``None`` when the value looks like a Miva internal row id
+    (``"230"``, ``"-3"``) — those are rejected by the caller and replaced
+    by the ``productCode`` / URL-slug fallback. Cross-retailer dedupe must
+    not key on a numeric internal id that overlaps unrelated products.
     """
     mpn = _itemprop_content(product_scope, "mpn")
-    if mpn:
-        return mpn
-    return _itemprop_content(product_scope, "sku")
+    candidate = mpn or _itemprop_content(product_scope, "sku")
+    if not candidate:
+        return None
+    if _MIVA_ROW_ID_RE.match(candidate.strip()):
+        return None
+    return candidate
+
+
+def _extract_storefront_part_number(html_text: str, url: str) -> Optional[str]:
+    """
+    Recover the dealer-facing part number from the storefront, in priority
+    order:
+
+    1. ``productCode: '<CODE>'`` JS literal — emitted on every product page,
+       always equals the customer-facing SKU.
+    2. ``Part Number: <strong><CODE></strong>`` body text — visible label
+       shown to shoppers; identical to the productCode on every page sampled.
+    3. URL slug ``/product/<CODE>.html`` — canonical and stable, but slugs
+       can be SEO-friendly on a small subset of products so it's the last
+       resort.
+
+    Returns ``None`` only when none of the three is present, which would
+    mean the page isn't a real Miva product page (likely a CMS redirect).
+    """
+    m = _PRODUCT_CODE_JS_RE.search(html_text)
+    if m:
+        candidate = m.group(1).strip()
+        if candidate:
+            return candidate
+    m = _PART_NUMBER_TEXT_RE.search(html_text)
+    if m:
+        candidate = m.group(1).strip()
+        if candidate:
+            return candidate
+    m = _URL_SLUG_PN_RE.search(url)
+    if m:
+        candidate = m.group(1).strip()
+        if candidate:
+            return candidate
+    return None
 
 
 def _extract_description(product_scope: Tag) -> Optional[str]:
@@ -372,6 +435,40 @@ def _normalize_brand(raw_brand: Optional[str]) -> Optional[str]:
     return cleaned
 
 
+_LPE_TITLE_NOISE_TOKENS = frozenset(
+    {
+        # Adjectives / nouns observed leaking from the title-first-word
+        # heuristic on first-party LPE SKUs ("Smooth", "Heavy Duty Billet
+        # Output Basket", "Classic Edition"). Each of these appeared as a
+        # standalone manufacturer row in production (db audit 2026-05-02);
+        # collapse to the LPE first-party default instead.
+        "smooth",
+        "heavy",
+        "classic",
+        "harmonic",
+        "extension",
+        "fluid",
+        "amp",
+        "aux",
+        "green",
+        "cove",
+        "lsx",
+        "iat",
+        "ls1",
+        "ls2",
+        "ls3",
+        "ls7",
+        "ls9",
+        "lsa",
+        "lt1",
+        "lt2",
+        "lt4",
+        "edlebrock",  # common typo for Edelbrock — better to fall through to LPE than create a typo brand row
+        "becool",
+    }
+)
+
+
 def _resolve_brand(name: str, itemprop_brand: Optional[str]) -> str:
     """
     Title heuristic first (``part_manufacturer_from_title`` picks up
@@ -379,12 +476,17 @@ def _resolve_brand(name: str, itemprop_brand: Optional[str]) -> str:
     ``itemprop=brand`` is always LPE regardless of the actual manufacturer,
     so we only use it as a last-resort default when the title offers no
     brand signal. Normalize any Lingenfelter variant to the canonical name,
-    and reject GM/Cadillac/Hellcat car-model tokens the shared heuristic
-    doesn't know to skip (``"CTS-V"``, ``"ZL1"``, ``"Corvette"``).
+    reject GM/Cadillac/Hellcat car-model tokens the shared heuristic doesn't
+    know to skip (``"CTS-V"``, ``"ZL1"``, ``"Corvette"``), and reject the
+    LPE-specific noise tokens captured in ``_LPE_TITLE_NOISE_TOKENS``
+    (adjectives like "Smooth" / "Heavy" / "Classic" that lead first-party
+    title prose).
     """
     heuristic = part_manufacturer_from_title(name)
-    if heuristic and heuristic.strip().lower() in _LPE_CAR_MODEL_TOKENS:
-        heuristic = None
+    if heuristic:
+        cleaned = heuristic.strip().lower().rstrip(",.;:!?")
+        if cleaned in _LPE_CAR_MODEL_TOKENS or cleaned in _LPE_TITLE_NOISE_TOKENS:
+            heuristic = None
     normalized = _normalize_brand(heuristic)
     if normalized:
         return normalized
@@ -543,7 +645,15 @@ class LingenfelterAdapter(RetailerCrawlerAdapter):
         if not name or len(name) < 3:
             return None
 
-        part_number_raw = _extract_part_number(product_scope)
+        # Microdata ``mpn`` / ``sku`` is the right answer when it isn't a
+        # Miva-internal row id — it's the dealer-facing SKU and what Summit /
+        # Jegs re-list under. ``_extract_part_number`` returns None when the
+        # microdata value matches the row-id shape ("230", "-3"); in that
+        # case fall through to the storefront ``productCode`` / "Part Number:"
+        # body text / URL-slug chain so we still surface a usable PN rather
+        # than collapsing the whole SKU onto a numeric internal id.
+        microdata_pn = _extract_part_number(product_scope)
+        part_number_raw = microdata_pn or _extract_storefront_part_number(html, url)
         part_number = normalize_part_number(part_number_raw) if part_number_raw else None
 
         description = _extract_description(product_scope)

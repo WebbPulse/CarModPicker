@@ -205,6 +205,38 @@ def rescrape_crawled_page_from_archive(
     page.parse_status = "parsed"
     page.last_parsed_at = now
     db.commit()
+
+    # Variant ingest (mirrors runner.py): adapters that bundle multiple priced
+    # SKUs under one URL (Wix / Shopify multi-variant pages) emit extras via
+    # ``extract_variants``. Each lands as its own Part. Per-variant failures
+    # don't roll back the base part — that already committed above.
+    try:
+        variant_payloads = adapter.extract_variants(html, page.url, payload)
+    except Exception as ev:
+        log.warning("Archive rescrape: extract_variants raised on %s: %s", page.url, ev)
+        variant_payloads = []
+    for variant_payload in variant_payloads:
+        try:
+            variant_payload = adapter.apply_universal_extraction(html, variant_payload) or variant_payload
+            ingest_payload(
+                db,
+                variant_payload,
+                current_user=crawler_user,
+                default_category_id=default_category_id,
+                logger=log,
+                source="archive_rescrape",
+                adapter_name=adapter_key,
+                adapter=adapter,
+            )
+        except Exception as ev:
+            db.rollback()
+            log.warning(
+                "Archive rescrape: variant ingest failed for %s (variant_url=%s): %s",
+                page.url,
+                getattr(variant_payload, "product_url", "?"),
+                ev,
+            )
+
     return "parsed_ok", part.id, None
 
 

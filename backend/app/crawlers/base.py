@@ -718,21 +718,64 @@ def ingest_payload(
             )
         part_number_effective = None
 
-    # Infer category from name/description when possible; else use default
+    # Promote universal-extracted manufacturer_part_number into the part_number
+    # column when the adapter didn't capture one directly. Universal extraction
+    # writes the MPN to specs at high/medium confidence; without this hop it
+    # never reaches the canonical-linking key (manufacturer + part_number).
+    if not part_number_effective and isinstance(payload.specifications, dict):
+        spec_mpn = payload.specifications.get("manufacturer_part_number")
+        if isinstance(spec_mpn, str) and spec_mpn.strip():
+            candidate = spec_mpn.strip()
+            if not is_junk_part_number(candidate, part_manufacturer_name):
+                part_number_effective = candidate
+
+    # Infer category. Adapter override (``infer_category_for_part``) wins over
+    # the universal keyword-scoring pipeline so retailers like Wheels Boutique
+    # — whose wheel product titles are model codes ("RS6.3", "S3-X3") with no
+    # literal "wheel" token — can pin the category from URL shape. The slug
+    # must resolve to an active categories row; on miss we fall back to the
+    # universal scorer rather than silently dropping into default_category_id.
     category_id = default_category_id
-    inferred_name = infer_category(payload.name, payload.description)
-    if inferred_name:
-        cat = db.scalars(select(DBCategory).where(DBCategory.name == inferred_name, DBCategory.is_active)).first()
+    inferred_name: Optional[str] = None
+    adapter_category = adapter.infer_category_for_part(payload) if adapter is not None else None
+    if isinstance(adapter_category, str) and adapter_category.strip():
+        adapter_slug = adapter_category.strip()
+        cat = db.scalars(select(DBCategory).where(DBCategory.name == adapter_slug, DBCategory.is_active)).first()
         if cat:
             category_id = cat.id
-            logger.debug("Inferred category %s for part %s", inferred_name, (payload.name or "")[:50])
+            inferred_name = adapter_slug
+            logger.debug(
+                "adapter_category_inference_resolved",
+                extra={
+                    "adapter_name": getattr(type(adapter), "ADAPTER_NAME", "?")
+                    if adapter is not None
+                    else "?",
+                    "category": adapter_slug,
+                },
+            )
         else:
             logger.warning(
-                "Inferred category slug %r but no active row in categories with that name; "
-                "using default_category_id=%s.",
-                inferred_name,
-                default_category_id,
+                "Adapter %s returned unknown category slug %r; falling back to keyword scorer.",
+                getattr(type(adapter), "ADAPTER_NAME", "?") if adapter is not None else "?",
+                adapter_slug,
             )
+
+    if inferred_name is None:
+        inferred_name = infer_category(payload.name, payload.description)
+        if inferred_name:
+            cat = db.scalars(
+                select(DBCategory).where(DBCategory.name == inferred_name, DBCategory.is_active)
+            ).first()
+            if cat:
+                category_id = cat.id
+                logger.debug("Inferred category %s for part %s", inferred_name, (payload.name or "")[:50])
+            else:
+                logger.warning(
+                    "Inferred category slug %r but no active row in categories with that name; "
+                    "using default_category_id=%s.",
+                    inferred_name,
+                    default_category_id,
+                )
 
     # Infer car make/model/generation: adapter override wins over the universal pipeline (S04 T04).
     # The adapter hook returns triples (NOT car IDs) so adapters stay DB-free; the resolver

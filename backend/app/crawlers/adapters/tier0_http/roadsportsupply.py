@@ -102,6 +102,23 @@ _BCDATA_PRICE_RE = re.compile(
     re.DOTALL,
 )
 
+# RSS Manufacturing's first-party catalog uses bare 3-digit codes as their
+# real, public-facing part number (``"323"``, ``"376"``, ``"389"``). The
+# JSON-LD ``sku`` matches that code on every RSS-direct page. Downstream
+# ``is_junk_part_number`` rejects anything < 4 chars as scraper noise — so
+# without intervention RSS's authentic 3-digit codes get dropped on the
+# floor. Match that exact shape (1-3 ASCII digits with optional ``-`` /
+# ``/`` separators for the rare ``"395/10"`` style and prefix the brand
+# token to clear the length floor while preserving the original code.
+_SHORT_NUMERIC_SKU_RE = re.compile(r"^\d{1,3}(?:[-/]\d{1,3})?$")
+
+# Brand strings that identify RSS Manufacturing's house catalog. JSON-LD
+# ``brand.name`` on every house page resolves to one of these. Third-party
+# resold lines (Sharkwerks, Cargraphic, Racetech, …) get their own brand
+# string and are NOT prefixed — those SKUs are vendor-issued and the
+# vendor's identifier scheme is the authority for them.
+_RSS_BRAND_TOKENS = frozenset({"rss", "rss manufacturing"})
+
 DEFAULT_START_URLS = [
     "https://roadsportsupply.com/323-thrust-arm-bushing-puck-non-castor-adjustable-front-axle/",
 ]
@@ -233,6 +250,33 @@ def _price_cents_from_og(soup: BeautifulSoup) -> Optional[int]:
     return None
 
 
+def _compose_rss_part_number(
+    raw_sku: Optional[str], part_manufacturer: Optional[str]
+) -> Optional[str]:
+    """
+    Promote RSS Manufacturing's bare 3-digit SKUs (``"323"``, ``"389"``) to
+    the prefixed form (``"RSS-323"``) so they survive the downstream
+    ``is_junk_part_number`` 4-char floor without losing the original code.
+    Returns the input unchanged for any other shape — third-party resold
+    SKUs, already-prefixed codes, mixed alphanumerics, and Nones.
+
+    The prefix uses ``RSS-<sku>`` rather than ``RSS <sku>`` so the
+    resulting token is one identifier-like sequence (no spaces) and
+    matches how the rest of the catalog stores brand-prefixed codes.
+    """
+    if not raw_sku:
+        return raw_sku
+    sku = raw_sku.strip()
+    if not sku or not _SHORT_NUMERIC_SKU_RE.match(sku):
+        return raw_sku
+    if not part_manufacturer:
+        return raw_sku
+    brand_key = part_manufacturer.strip().lower()
+    if brand_key not in _RSS_BRAND_TOKENS:
+        return raw_sku
+    return f"RSS-{sku}"
+
+
 def _name_from_dom_fallback(soup: BeautifulSoup) -> Optional[str]:
     """
     Recover a product name when JSON-LD is missing. ``og:title`` first (cleanest,
@@ -317,6 +361,12 @@ class RoadSportSupplyAdapter(RetailerCrawlerAdapter):
                     part_manufacturer = part_manufacturer_fallback_from_title(payload.name)
 
                 part_number = normalize_part_number(payload.part_number) if payload.part_number else None
+                # Bare 3-digit RSS-house SKUs ("323", "389") are RSS's real,
+                # printed part numbers but get junk-rejected downstream
+                # (< 4 chars). Prefix to "RSS-323" so the code survives the
+                # floor while remaining recoverable. Third-party SKUs
+                # (Sharkwerks, Cargraphic, ...) are left untouched.
+                part_number = _compose_rss_part_number(part_number, part_manufacturer)
 
                 return ScrapedPayload(
                     name=payload.name,

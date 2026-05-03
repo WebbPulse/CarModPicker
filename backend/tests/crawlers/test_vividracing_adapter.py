@@ -132,7 +132,11 @@ class TestParseProductPage:
         result = VividRacingAdapter().parse_product_page(html, SAMPLE_URL)
         assert result is not None
         assert result.name.startswith("Agency Power")
-        assert result.part_manufacturer == "Agency"  # title heuristic picks first token
+        # Multi-word brand match in part_manufacturer_from_title catches the
+        # full "Agency Power" before the first-token scan would split it at
+        # the space — keeps the real brand intact instead of writing a junk
+        # "Agency" row.
+        assert result.part_manufacturer == "Agency Power"
         assert result.part_number == "AP-AIR-002"
         assert result.price_cents == 8900
 

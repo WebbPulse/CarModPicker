@@ -15,7 +15,7 @@ rather than the module-level ``fetch_page``. See ``crawlers/fetchers.py`` and
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, Iterator, Literal, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Literal, Optional
 
 from app.crawlers.base import ScrapedPayload
 from app.crawlers.fetchers import Fetcher, get_fetcher
@@ -285,6 +285,40 @@ class RetailerCrawlerAdapter(ABC):
         """
         ...
 
+    def extract_variants(
+        self,
+        html: str,
+        url: str,
+        base_payload: ScrapedPayload,
+    ) -> List[ScrapedPayload]:
+        """Yield additional ScrapedPayloads when one product page sells distinct SKUs.
+
+        Default returns ``[]`` — most pages are one part. Override on retailers
+        whose product pages bundle multiple priced variants (Wix retailers like
+        A90 Shop expose ``+$NN`` deltas on dropdown selections; Shopify pages
+        like AWE-Tuning expose multi-axis variant arrays). Each returned
+        payload becomes its own Part row, so the contract is:
+
+          * ``product_url`` must be UNIQUE per variant (typically
+            ``<base_url>?variant=<slug>``). The ingest layer dedupes on
+            ``part_listings.product_url``; reusing the base URL would refresh
+            the canonical row in place and overwrite earlier variants.
+          * ``part_number`` should be derived (``<base_pn>-<variant-slug>``)
+            when the page does not expose per-variant SKUs.
+          * ``price_cents`` should be the *resolved* variant price, not a delta.
+          * Other fields default to the base payload's values; the adapter
+            only needs to override what changes per variant.
+
+        The runner ingests each returned payload with the same
+        ``ingest_payload`` call used for ``base_payload``, including
+        ``apply_universal_extraction`` so universal fields appear on every
+        variant. Variant ingest failures are logged but do not abort the
+        page — the base part still lands.
+
+        Returning an empty list is the no-variants signal and is the default.
+        """
+        return []
+
     def infer_manufacturer_for_part(self, parsed: ScrapedPayload) -> Optional[str]:
         """Adapter-specific manufacturer inference hook (S03 T03).
 
@@ -299,6 +333,27 @@ class RetailerCrawlerAdapter(ABC):
         ``_predict_manufacturer`` and any future ingest call site) passes a
         parsed ``ScrapedPayload`` object today. Wiring is deferred to S07's
         backfill, which has parsed payloads in hand.
+        """
+        return None
+
+    def infer_category_for_part(self, parsed: ScrapedPayload) -> Optional[str]:
+        """Adapter-specific category override hook.
+
+        Default returns ``None`` (universal keyword-scoring pipeline runs).
+        Subclasses MAY override to return one of the active category slugs
+        (e.g. ``"wheels"``, ``"exhaust"``) when retailer-specific signals
+        outside the part name/description make the category obvious — for
+        example, Wheels Boutique URLs under ``/wheels/`` are wheels regardless
+        of whether the product title contains the literal word ``"wheel"``.
+
+        The slug must match an active row in the ``categories`` table; an
+        unknown / inactive slug falls through to the universal pipeline so a
+        typo can't drop a part into the default category. Returning ``None``
+        (or any non-string) hands control back to the keyword scorer.
+
+        Like ``infer_car_for_part``, this hook is load-bearing:
+        ``app.crawlers.base.ingest_payload`` calls it ahead of
+        ``infer_category`` with adapter-wins semantics.
         """
         return None
 

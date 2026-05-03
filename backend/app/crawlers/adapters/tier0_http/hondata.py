@@ -195,14 +195,33 @@ def _info_lines(soup: BeautifulSoup) -> List[str]:
     return lines
 
 
-def _extract_part_number(info_lines: List[str]) -> Optional[str]:
-    """Find ``Product Code: XYZ`` among the info ``<li>`` lines."""
+def _extract_part_number(info_lines: List[str], name: Optional[str] = None) -> Optional[str]:
+    """
+    Find ``Product Code: XYZ`` among the info ``<li>`` lines.
+
+    Reject the value when it equals the H1 (case/space-insensitive). Hondata's
+    OpenCart template falls back to echoing the product title into the
+    ``Product Code`` row whenever the storefront field is empty — the family
+    pages (``KPro``, ``S300``, ``CANBoost``, ``Injector Driver``,
+    ``Traction Control``) all hit this case and would otherwise tag distinct
+    chassis-specific products under the same fake SKU. A real Hondata SKU
+    looks like ``FP-ACRD-US`` / ``HON-FS-1.5-Denso`` and does not match the
+    long-form product name.
+    """
     for line in info_lines:
         m = re.match(r"^\s*Product\s*Code\s*:\s*(.+?)\s*$", line, re.IGNORECASE)
         if not m:
             continue
-        return normalize_part_number(m.group(1))
+        candidate = normalize_part_number(m.group(1))
+        if candidate and name and _values_match(candidate, name):
+            return None
+        return candidate
     return None
+
+
+def _values_match(a: str, b: str) -> bool:
+    """Case- and whitespace-insensitive equality. Used to detect SKU-as-title echoes."""
+    return re.sub(r"\s+", "", a).lower() == re.sub(r"\s+", "", b).lower()
 
 
 def _normalize_hondata_brand(raw: Optional[str]) -> Optional[str]:
@@ -374,7 +393,7 @@ class HondataAdapter(RetailerCrawlerAdapter):
             return None
 
         info_lines = _info_lines(soup)
-        part_number = _extract_part_number(info_lines)
+        part_number = _extract_part_number(info_lines, name=name)
         part_manufacturer = _extract_brand(info_lines) or _HONDATA_BRAND
         price_cents = _extract_price_cents(info_lines, soup)
         description = _extract_description(soup)

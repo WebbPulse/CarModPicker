@@ -46,6 +46,10 @@ bandit -r app
 # Crawler (run from backend/)
 python -m app.crawlers --adapter <name> [--limit N] [--delay SEC]
 # Required env: CRAWLER_USER_ID, CRAWLER_DEFAULT_CATEGORY_NAME
+
+# Targeted re-parse: after fixing an adapter, re-run it against the archived HTML
+# for one URL (no network fetch, uses S3/local archive). Exit 0 = parsed_ok.
+python -m app.crawlers --rescrape-url <product-url>
 ```
 
 ### Frontend (`frontend/`)

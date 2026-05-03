@@ -19,6 +19,7 @@ from app.crawlers.adapters.tier1_tls.cobbtuning import (
     CobbTuningAdapter,
     _extract_products_href,
     _extract_sku_from_image_urls,
+    _extract_sku_from_name_parens,
     _is_product_url,
     _strip_site_prefix,
 )
@@ -278,6 +279,64 @@ class TestDiscoveryHelpers:
 
         # No catalog image in list → None.
         assert _extract_sku_from_image_urls(["https://www.cobbtuning.com/logo.svg"]) is None
+
+    def test_extract_sku_from_name_parens_picks_up_accessport_skus(self) -> None:
+        # Every Accessport variant carries its SKU in the trailing parens.
+        # Cobb's post-migration pages emit no JSON-LD and the image-URL
+        # convention only fires for products whose hero image is named after
+        # the SKU; this fallback covers the rest.
+        assert _extract_sku_from_name_parens("Mitsubishi Accessport V3 (AP3-MIT-002)") == "AP3-MIT-002"
+        assert (
+            _extract_sku_from_name_parens("Nissan GT-R Accessport V3 (AP3-NIS-006)  w/TCM Flashing")
+            == "AP3-NIS-006"
+        )
+        # Multi-segment international SKU shape ``AP3-AU-SUB-NNN``.
+        assert (
+            _extract_sku_from_name_parens("Subaru International Accessport V3 (AP3-AU-SUB-006)")
+            == "AP3-AU-SUB-006"
+        )
+
+    def test_extract_sku_from_name_parens_ignores_chassis_and_year_tokens(self) -> None:
+        # Parenthesised chassis codes and bare numerics must NOT become SKUs.
+        # Accessport titles for Mk7/Mk7.5 platforms embed multiple ``(Mk7)``
+        # / ``(8V)`` parens that would pollute part_number if grabbed naively.
+        assert (
+            _extract_sku_from_name_parens(
+                "Accessport for Volkswagen (Mk7) Golf, (Mk7/Mk7.5) GTI, Audi A3 (8V)"
+            )
+            is None
+        )
+        assert _extract_sku_from_name_parens("Subaru Accessport V3 WRX 6MT / CVT 2022-2025") is None
+        # All-digit year/displacement parens are also rejected — the regex
+        # requires an alpha lead character.
+        assert _extract_sku_from_name_parens("Some Product (2024)") is None
+        assert _extract_sku_from_name_parens(None) is None
+        assert _extract_sku_from_name_parens("") is None
+
+    def test_post_migration_sku_in_name_recovered_when_image_filename_misses(self) -> None:
+        # Real-world shape from Cobb's Accessport pages: hero image is named
+        # ``accessport_v3_<vehicle>.jpg`` (no SKU), so the image-filename
+        # fallback misses. The product name's parenthesised SKU is what
+        # actually survives the migration. This is the core regression this
+        # fallback was added to fix — without it, every Accessport variant
+        # ingests with part_number=NULL.
+        html = """
+        <html><head>
+          <meta property="og:title" content="COBB Tuning - Mitsubishi Accessport V3">
+          <meta property="og:description" content="Accessport V3 for Mitsubishi.">
+          <meta property="og:image" content="https://www.cobbtuning.com/media/catalog/products/accessport_v3_mitsubishi.jpg">
+        </head><body>
+          <h1 class="page-title">COBB Tuning - Products</h1>
+          <h1 class="product--heading">Mitsubishi Accessport V3 (AP3-MIT-002)</h1>
+          <img src="https://www.cobbtuning.com/media/catalog/products/accessport_v3_mitsubishi.jpg">
+        </body></html>
+        """
+        url = "https://www.cobbtuning.com/products/accessport/mitsubishi-accessport-v3-ap3-mit-002"
+        result = CobbTuningAdapter().parse_product_page(html, url)
+        assert result is not None
+        assert result.name == "Mitsubishi Accessport V3 (AP3-MIT-002)"
+        assert result.part_number == "AP3-MIT-002"
+        assert result.part_manufacturer == "COBB Tuning"
 
 
 class TestAdapterFetcherTier:

@@ -10,7 +10,14 @@ from app.crawlers.adapters.tier1_tls.mackinindustries import (
 )
 
 ITEM_URL = "https://mackin-ind.com/item/57cr-glossy-gray/"
-PRODUCT_URL = "https://mackin-ind.com/product/rays-t-shirt-white/"
+# WooCommerce /product/ fixture. The slug used to be ``rays-t-shirt-white``
+# (matching a real Mackin SKU), but the parser now drops apparel/swag SKUs at
+# parse time so the catalog stays clean — that filter would short-circuit
+# every WooCommerce assertion below. Switched to a real wheel-accessory slug
+# (Rays Volk Racing locking-lugnut set) which exercises the same WooCommerce
+# price-on-sale + SKU-in-product_meta DOM shape without tripping the merch
+# rejector.
+PRODUCT_URL = "https://mackin-ind.com/product/volk-racing-locking-lugnut-set/"
 
 
 def _item_html(
@@ -62,11 +69,11 @@ def _item_html(
 
 def _product_html(
     *,
-    og_title: str = "RAYS T-Shirt (White) - Mackin Industries",
-    og_description: str = "FINAL SALE - CLEARANCE",
+    og_title: str = "Volk Racing Locking Lugnut Set - Mackin Industries",
+    og_description: str = "Volk Racing 12x1.5 locking lugnut set in Mag Blue.",
     og_image: str = "https://mackin-ind.com/wp-content/uploads/2022/01/41240443882_e52fd0e0a5_c.jpg",
-    h1: str = "RAYS T-Shirt (White)",
-    sku: str = "RAYSCONCEPTWS",
+    h1: str = "Volk Racing Locking Lugnut Set",
+    sku: str = "WK-VR-LLN-12150-MB",
     sale_current: str = "15.00",
     sale_original: str = "30.00",
 ) -> str:
@@ -318,7 +325,7 @@ class TestParseWooCommerceProductPage:
     def test_sku_extracted_from_product_meta(self) -> None:
         result = MackinIndustriesAdapter().parse_product_page(_product_html(), PRODUCT_URL)
         assert result is not None
-        assert result.part_number == "RAYSCONCEPTWS"
+        assert result.part_number == "WK-VR-LLN-12150-MB"
 
     def test_non_sale_single_price(self) -> None:
         # When a product isn't on sale, WooCommerce renders a single
@@ -348,7 +355,39 @@ class TestParseWooCommerceProductPage:
         result = MackinIndustriesAdapter().parse_product_page(_product_html(), PRODUCT_URL)
         assert result is not None
         assert not result.name.endswith("Mackin Industries")
-        assert result.name == "RAYS T-Shirt (White)"
+        assert result.name == "Volk Racing Locking Lugnut Set"
+
+
+class TestMerchandiseRejection:
+    """Mackin distributes RAYS-branded apparel and swag on the same /item/ URL
+    shape as the wheel catalog. The audit (2026-05-02) found 95 such SKUs
+    polluting "other" — folding chairs, polos, t-shirts, hats, lanyards,
+    license-plate frames. They round-trip the URL gate so we drop them at
+    parse time."""
+
+    def test_apparel_rejected_by_slug(self) -> None:
+        # Slug carries the type token even when og:title doesn't.
+        html = _item_html(og_title="Some Promo Item - Mackin Industries", h1="Some Promo Item")
+        url = "https://mackin-ind.com/item/rays-polo-shirt/"
+        assert MackinIndustriesAdapter().parse_product_page(html, url) is None
+
+    def test_apparel_rejected_by_title(self) -> None:
+        # Slug obscures the type ("windbreaker-bk"), but og:title gives it away.
+        html = _item_html(og_title="RAYS Windbreaker Jacket (BK)", h1="RAYS Windbreaker Jacket")
+        url = "https://mackin-ind.com/item/windbreaker-bk/"
+        assert MackinIndustriesAdapter().parse_product_page(html, url) is None
+
+    def test_real_part_with_sticker_in_name_kept(self) -> None:
+        # ``Sticker`` and ``decal`` are NOT in the merch list — the spoke
+        # sticker set is a wheel decal you apply to the spokes, not swag.
+        html = _item_html(
+            og_title="57Xtreme Optional Spoke Sticker Set - Mackin Industries",
+            h1="57Xtreme Optional Spoke Sticker Set",
+        )
+        url = "https://mackin-ind.com/item/57xtreme-optional-spoke-sticker-set/"
+        result = MackinIndustriesAdapter().parse_product_page(html, url)
+        assert result is not None
+        assert "Sticker" in result.name
 
 
 class TestAdapterFetcherTier:

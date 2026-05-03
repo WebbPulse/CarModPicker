@@ -428,12 +428,22 @@ def _extract_sku(soup: BeautifulSoup) -> Optional[str]:
     return None
 
 
-def _resolve_part_manufacturer(title: str, description: Optional[str]) -> Optional[str]:
+def _resolve_part_manufacturer(
+    title: str,
+    description: Optional[str],
+    part_number: Optional[str] = None,
+) -> Optional[str]:
     """
     Pick the part manufacturer from title tokens, with description fallback,
     and canonicalize Full-Race's house brand. Reseller SKUs (TiAL, Garrett,
     BorgWarner, Precision, MHI, AEM) keep their own identity via the shared
     first-token heuristic.
+
+    A Full-Race house SKU prefix (``FR-...``) trumps everything else when no
+    explicit brand was named in the title or description. This catches the
+    silicone coupler / hose / clamp catalog where titles read ``2.5" Silicone
+    Hump Hose`` with no brand token, even though the SKU (``FR-UNI-SIL-2.5H``)
+    proves it's an in-house part.
     """
     if re.match(r"^\s*full[\s-]race\b", title, re.IGNORECASE):
         return FULLRACE_HOUSE_BRAND
@@ -448,7 +458,12 @@ def _resolve_part_manufacturer(title: str, description: Optional[str]) -> Option
         brand = part_manufacturer_from_description(description, product_name=title)
         if brand:
             return brand
-    return part_manufacturer_fallback_from_title(title)
+    fallback = part_manufacturer_fallback_from_title(title)
+    if fallback:
+        return fallback
+    if part_number and re.match(r"^FR[-_]", part_number, re.IGNORECASE):
+        return FULLRACE_HOUSE_BRAND
+    return None
 
 
 class FullRaceAdapter(RetailerCrawlerAdapter):
@@ -487,7 +502,7 @@ class FullRaceAdapter(RetailerCrawlerAdapter):
         description = _extract_description(soup)
         price_cents = extract_dom_price(soup)
         part_number = _extract_sku(soup)
-        part_manufacturer = _resolve_part_manufacturer(title, description)
+        part_manufacturer = _resolve_part_manufacturer(title, description, part_number)
         image_urls = _extract_gallery_images(html, soup)
 
         return ScrapedPayload(

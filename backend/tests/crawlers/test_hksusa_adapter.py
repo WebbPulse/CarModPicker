@@ -144,6 +144,18 @@ class TestUnescapeRscString:
     def test_escaped_backslash(self) -> None:
         assert _unescape_rsc_string(r"path\\sep") == r"path\sep"
 
+    def test_unicode_escape_decoded(self) -> None:
+        # Strapi serializes ``&`` as ``&`` when emitting prose into the
+        # RSC stream. The decoder has to turn that back into ``&`` so the
+        # description doesn't ship as ``A & B`` to end users.
+        assert _unescape_rsc_string(r"Racing Suction & Cold Air Intake Box") == (
+            "Racing Suction & Cold Air Intake Box"
+        )
+
+    def test_unicode_escape_curly_apostrophe(self) -> None:
+        # The other common production case: ``'`` → ``’``.
+        assert _unescape_rsc_string(r"world’s best") == "world’s best"
+
 
 class TestParseProductPage:
     """End-to-end parsing against a shaped RSC-streaming product page."""
@@ -205,6 +217,26 @@ class TestParseProductPage:
         # Category pages render through the same app shell; guard against the
         # runner feeding us a category URL it scraped out of the sitemap.
         assert HKSUSAAdapter().parse_product_page(_product_html(), "https://hksusa.com/category/38") is None
+
+    def test_remarks_with_unicode_escape_recovered(self) -> None:
+        # Regression: when remarks contained any JSON-Unicode escape (``\uNNNN``,
+        # commonly ``&`` for ``&``), the previous body class ``[^"\\]``
+        # tripped on the leading ``\`` of the escape and the surrounding
+        # ``...","discontinued":...`` anchors backtracked to no match — so the
+        # description landed as NULL on every row with an ``&`` in it.
+        # Verify the decoded string reaches the payload AND the literal ``&``
+        # comes through (not the escape sequence).
+        remarks = r"Racing Suction (70020-AF108)  & Cold Air Intake Box (70026-AF005)"
+        result = HKSUSAAdapter().parse_product_page(
+            _product_html(remarks=remarks),
+            SAMPLE_URL,
+        )
+        assert result is not None
+        assert result.description is not None
+        assert "Racing Suction" in result.description
+        assert "Cold Air Intake Box" in result.description
+        assert "&" in result.description
+        assert "\\u0026" not in result.description
 
 
 class TestFetcherTier:

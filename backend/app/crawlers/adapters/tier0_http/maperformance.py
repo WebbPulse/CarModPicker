@@ -14,6 +14,14 @@ to use a fixed list.
 Brand: MAP carries many third-party brands (Perrin Performance, COBB, Cusco,
 Mishimoto, …). JSON-LD brand.name is reliable; we pass it through unchanged
 so each manufacturer keeps its identity in the catalog.
+
+Part numbers: MAP emits ``sku`` / ``mpn`` as their internal supplier code —
+a 2–4-letter uppercase prefix (the brand they buy from), a space, then the
+manufacturer's real SKU (``"WHI W53382"``, ``"WIS 6501M775"``,
+``"PER PSP-ENG-630"``). The leading prefix is meaningless to anyone looking
+the part up at another retailer or on the manufacturer's own site, so it is
+stripped here. The stored ``part_number`` matches what every other adapter
+records — and what the part shows up as on the manufacturer's product page.
 """
 
 import json
@@ -50,6 +58,29 @@ from app.crawlers.parsing import (
 MAPERFORMANCE_BASE = "https://www.maperformance.com"
 PRODUCT_PAGE_PATH = "/products/"
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
+
+# MAP's storefront emits ``sku`` / ``mpn`` as their internal code:
+# a 2–4-letter uppercase supplier prefix, a space, then the manufacturer's
+# real part number (e.g. ``"WHI W53382"``, ``"WIS 6501M775"``, ``"PER PSP-ENG-630"``).
+# The prefix encodes the brand MAP buys from (WHI=Whiteline, WIS=Wiseco,
+# PER=Perrin, …) and is meaningless to users searching for a manufacturer SKU
+# in another retailer's catalog. Strip it so the stored ``part_number`` is the
+# manufacturer's actual code, which matches what every other adapter records
+# and what shows up on the manufacturer's own product pages.
+_MAP_SUPPLIER_PREFIX_RE = re.compile(r"^[A-Z]{2,4} (?=\S*\d)")
+
+
+def _strip_map_supplier_prefix(value: Optional[str]) -> Optional[str]:
+    """
+    Drop MAP's leading supplier-code prefix from a SKU string. Returns the
+    input unchanged when there is no prefix or the tail does not look like a
+    real part number (must contain at least one digit, otherwise the prefix
+    is probably the actual SKU).
+    """
+    if not value:
+        return value
+    stripped = _MAP_SUPPLIER_PREFIX_RE.sub("", value)
+    return stripped if stripped else value
 
 DEFAULT_START_URLS = [
     "https://www.maperformance.com/products/perrin-turbo-sump-restrictor-2018-2023-subaru-wrx-psp-eng-630",
@@ -238,6 +269,8 @@ def _payload_from_product_group(group: Dict[str, Any], product_url: str) -> Opti
 
     variant = _first_variant(group) or {}
     sku_val = variant.get("sku") or variant.get("mpn") or group.get("productID")
+    if isinstance(sku_val, str):
+        sku_val = _strip_map_supplier_prefix(sku_val)
     part_number = normalize_part_number(sku_val) if isinstance(sku_val, str) else None
     price_cents = _offer_price_cents(variant) if variant else None
 
@@ -380,13 +413,14 @@ class MAPerformanceAdapter(RetailerCrawlerAdapter):
             if payload and payload.name:
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 image_urls = payload.image_urls or (dom_images[:12] if dom_images else None)
+                stripped_pn = _strip_map_supplier_prefix(payload.part_number) if payload.part_number else None
                 return ScrapedPayload(
                     name=payload.name,
                     product_url=url,
                     description=payload.description,
                     price_cents=price_cents,
                     part_manufacturer=payload.part_manufacturer,
-                    part_number=normalize_part_number(payload.part_number) if payload.part_number else None,
+                    part_number=normalize_part_number(stripped_pn) if stripped_pn else None,
                     image_urls=image_urls,
                     gtin=payload.gtin,
                 )
@@ -423,6 +457,7 @@ class MAPerformanceAdapter(RetailerCrawlerAdapter):
         part_number = extract_sku_from_text(soup.get_text())
         if not part_number:
             part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
+        part_number = _strip_map_supplier_prefix(part_number)
 
         part_manufacturer = part_manufacturer_from_title(str(name))
         if not part_manufacturer and description:

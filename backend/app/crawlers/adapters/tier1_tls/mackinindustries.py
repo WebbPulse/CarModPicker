@@ -114,18 +114,26 @@ DEFAULT_START_URLS = [
 #
 # Yokohama Wheel's sport line is Advan Racing. Advan-branded SKUs go under
 # Yokohama Wheel, not RAYS.
+# Token boundaries are ``[-\s]`` so the same patterns work against kebab-case
+# slugs (``advan-racing-gt``) and against space-separated text — H1 titles
+# (``ADVAN Racing GT BEYOND``) and prose body text (``...the VOLK RACING 21C
+# adopts a dimple design...``). The /item/ pages frequently lead the marketing
+# blurb with the umbrella brand even when the slug is just the model code,
+# so the description-body fallback in ``_extract_part_manufacturer`` needs
+# patterns that fire on whitespace-separated tokens too.
 _BRAND_MAP: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"(^|-)(advan|yokohama)(-|$)", re.IGNORECASE), "Yokohama Wheel"),
-    (re.compile(r"(^|-)(project-mu|projectmu)(-|$)", re.IGNORECASE), "Project Mu"),
-    (re.compile(r"(^|-)(kyo-ei|kyoei|kics|bull-lock|muteki)(-|$)", re.IGNORECASE), "KYO-EI"),
-    (re.compile(r"(^|-)(mxp)(-|$)", re.IGNORECASE), "MXP"),
-    (re.compile(r"(^|-)(wheel-mate)(-|$)", re.IGNORECASE), "Wheel Mate"),
+    (re.compile(r"(?:^|[-\s])(advan|yokohama)(?=[-\s]|$)", re.IGNORECASE), "Yokohama Wheel"),
+    (re.compile(r"(?:^|[-\s])(project[-\s]?mu)(?=[-\s]|$)", re.IGNORECASE), "Project Mu"),
+    (re.compile(r"(?:^|[-\s])(kyo[-\s]?ei|kics|bull[-\s]?lock|muteki)(?=[-\s]|$)", re.IGNORECASE), "KYO-EI"),
+    (re.compile(r"(?:^|[-\s])(mxp)(?=[-\s]|$)", re.IGNORECASE), "MXP"),
+    (re.compile(r"(?:^|[-\s])(wheel[-\s]mate)(?=[-\s]|$)", re.IGNORECASE), "Wheel Mate"),
     # RAYS umbrella (Volk Racing, Gram Lights, TE37, ZE40, 57*, 029*, G12, G25,
     # G-Games, gramlights, homura). Keep last so the more specific sub-brands
     # above win when both match (rare — distribution lines don't overlap).
     (
         re.compile(
-            r"(^|-)(rays|volk|gram-?lights|gramlights|te37|ze40|homura|g-?games" r"|g12|g25|57[a-z]*|029[a-z]*)(-|$)",
+            r"(?:^|[-\s])(rays|volk|gram[-\s]?lights|gramlights|te37|ze40|homura"
+            r"|g[-\s]?games|g12|g25|57[a-z]*|029[a-z]*)(?=[-\s]|$)",
             re.IGNORECASE,
         ),
         "RAYS",
@@ -143,6 +151,58 @@ def _is_product_url(url: str) -> bool:
     if host and not (host == MACKIN_HOST or host.endswith("." + MACKIN_HOST) or host in _ALIAS_HOSTS):
         return False
     return bool(_PRODUCT_PATH_RE.match(parsed.path or ""))
+
+
+# Mackin's catalog includes ~95 apparel/swag SKUs (RAYS-branded t-shirts, polos,
+# windbreakers, hats, folding chairs, towels, lanyards, license-plate frames,
+# stickers/decals, mousepads). They round-trip through the same /item/ URL
+# shape and JSON-LD graph as the wheel catalog so we can't reject them at the
+# URL gate, but they're not car parts and shouldn't enter the catalog. We match
+# on slug *and* title because the WordPress slug is reliably descriptive
+# (``/item/rays-polo-shirt/``, ``/item/advan-racing-gt-beyond-t-shirt/``) and
+# the og:title carries the same tokens after Yoast strips the site suffix.
+_MERCHANDISE_TOKEN_RE = re.compile(
+    r"\b("
+    r"t-?shirt|polo|hoodie|sweat-?shirt|jacket|windbreaker|"
+    r"hat|beanie|"
+    r"chair|folding-?chair|towel|"
+    r"keychain|lanyard|mousepad|mouse-?pad|"
+    r"pen|pencil|notebook|mug|"
+    r"flag|banner"
+    r")\b",
+    re.IGNORECASE,
+)
+# Note: ``sticker`` / ``decal`` / ``patch`` / ``cap`` are intentionally NOT in
+# the merchandise list. ``57Xtreme Optional Spoke Sticker Set`` is a wheel
+# decal, ``Hub Cap`` is a wheel center cap, and ``Domed Moon Cap`` is also a
+# wheel cap — all legitimate parts. The slug heuristic above is conservative
+# on purpose: false positives drop real parts from the catalog, which is
+# strictly worse than letting a few apparel SKUs through.
+
+
+def _is_merchandise(url: str, name: Optional[str]) -> bool:
+    """True if a Mackin product is apparel / swag rather than an automotive part.
+
+    Slug-first because the URL is the most stable signal — Mackin's WordPress
+    slugs ship the literal product type in kebab-case (``rays-polo-shirt``,
+    ``advan-racing-gt-beyond-t-shirt``, ``rays-official-folding-chair-type-s``).
+    Title is checked as a backup for the small set of slugs that compress the
+    type out (``windbreaker-bk`` keeps the type word but ``domed-moon-cap``
+    only resolves on title). 95 of 637 Mackin parts in the catalog today are
+    merch — dropping them removes a meaningful chunk of "other"-category noise
+    and prevents the wheel-name heuristic from accidentally tagging a t-shirt
+    with a wheel manufacturer.
+    """
+    try:
+        path = urlparse(url).path or ""
+    except ValueError:
+        path = ""
+    slug = path.rstrip("/").rsplit("/", 1)[-1].lower()
+    if slug and _MERCHANDISE_TOKEN_RE.search(slug):
+        return True
+    if name and _MERCHANDISE_TOKEN_RE.search(name):
+        return True
+    return False
 
 
 # Hostnames that redirect or alias to the canonical mackin-ind.com origin.
@@ -322,20 +382,42 @@ def _extract_price_cents(soup: BeautifulSoup) -> Optional[int]:
     return None
 
 
+_ITEM_PART_NUMBER_RE = re.compile(
+    r"Part\s*Number\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-_/.]{2,40})",
+    re.IGNORECASE,
+)
+
+
 def _extract_part_number(soup: BeautifulSoup) -> Optional[str]:
     """
-    /product/ (WooCommerce) only — the WooCommerce SKU lives in
-    ``<span class="sku">`` inside the product_meta block. /item/ pages
-    expose no SKU or MPN (distributor catalog), so we return None there.
+    Two surfaces:
+
+    - /product/ (WooCommerce): the SKU lives in ``<span class="sku">``
+      inside the product_meta block.
+    - /item/ (distributor catalog): no structured SKU element, but the
+      body almost always carries a literal ``"Part Number: <CODE>"`` line
+      (e.g. ``"Part Number: RK002"``, ``"Part Number: RAYSSNAPBACK2021PG"``).
+      Distributor customers order by that code, so it's the closest thing
+      to an MPN the page offers.
+
+    Compound codes like ``"49540R (Right) 49540L (Left)"`` keep only the
+    first token — downstream dedupe is keyed on a single SKU per part.
     """
     meta = soup.find(class_=re.compile(r"\bproduct_meta\b"))
-    if not isinstance(meta, Tag):
-        return None
-    sku = meta.find(class_=re.compile(r"\bsku\b"))
-    if isinstance(sku, Tag):
-        text = sku.get_text(strip=True)
-        if text and text.lower() != "n/a":
-            return normalize_part_number(text)
+    if isinstance(meta, Tag):
+        sku = meta.find(class_=re.compile(r"\bsku\b"))
+        if isinstance(sku, Tag):
+            text = sku.get_text(strip=True)
+            if text and text.lower() != "n/a":
+                return normalize_part_number(text)
+
+    body_text = soup.get_text(" ", strip=True)
+    if body_text:
+        m = _ITEM_PART_NUMBER_RE.search(body_text)
+        if m:
+            candidate = m.group(1).strip()
+            if candidate:
+                return normalize_part_number(candidate)
     return None
 
 
@@ -455,12 +537,18 @@ def _extract_part_manufacturer(
     *,
     url: str,
     name: Optional[str],
+    description: Optional[str] = None,
 ) -> Optional[str]:
     """
     /product/ pages may carry a WooCommerce Brands plugin anchor
     (``.pwb-product-brands-list a``); use it when present. Otherwise fall
-    back to the slug/title token map against Mackin's fixed distribution book.
-    Generic accessories (``wheel-rack``, ``magnetic-drain-bolt``) return None.
+    back to the slug/title token map against Mackin's fixed distribution book,
+    then to the description body and any in-article subhead text — Mackin's
+    /item/ pages routinely lead the marketing blurb with the umbrella brand
+    ("VOLK RACING 21C adopts a dimple design...", "ADVAN Racing GT BEYOND...")
+    even when the slug is just the model code. Generic accessories
+    (``wheel-rack``, ``magnetic-drain-bolt``) with no brand mention anywhere
+    return None.
     """
     pwb = soup.find(class_=re.compile(r"pwb-product-brands-list"))
     if isinstance(pwb, Tag):
@@ -471,7 +559,24 @@ def _extract_part_manufacturer(
                 return text
     slug = _slug_from_url(url)
     lowered_name = (name or "").lower()
-    return _brand_from_tokens(slug, lowered_name)
+    # Slug + name match first (highest precision — they describe THIS item).
+    candidate = _brand_from_tokens(slug, lowered_name)
+    if candidate:
+        return candidate
+    # Description body fallback — scope to the product detail article so we
+    # don't catch the sidebar BRANDS list (which lists every umbrella brand
+    # on every page) or footer-chrome text.
+    article = soup.find("article", class_=re.compile(r"\btype-(item|product)\b"))
+    if isinstance(article, Tag):
+        body_text = article.get_text(separator=" ", strip=True).lower()
+        candidate = _brand_from_tokens(body_text)
+        if candidate:
+            return candidate
+    if description:
+        candidate = _brand_from_tokens(description.lower())
+        if candidate:
+            return candidate
+    return None
 
 
 class MackinIndustriesAdapter(RetailerCrawlerAdapter):
@@ -590,10 +695,19 @@ class MackinIndustriesAdapter(RetailerCrawlerAdapter):
         if not name:
             return None
 
+        # Mackin sells RAYS- and Advan-branded apparel and swag (t-shirts,
+        # polos, hats, folding chairs, lanyards, etc.) on the same /item/ URL
+        # shape and JSON-LD graph as the wheel catalog. They round-trip the
+        # URL gate but are not automotive parts — drop them at parse time so
+        # the catalog stays clean and the wheel-name brand heuristic can't
+        # accidentally tag a t-shirt with a wheel manufacturer.
+        if _is_merchandise(url, name):
+            return None
+
         description = _extract_description(soup)
         price_cents = _extract_price_cents(soup)
         part_number = _extract_part_number(soup)
-        part_manufacturer = _extract_part_manufacturer(soup, url=url, name=name)
+        part_manufacturer = _extract_part_manufacturer(soup, url=url, name=name, description=description)
         image_urls = _extract_images(soup)
 
         return ScrapedPayload(

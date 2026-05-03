@@ -48,9 +48,19 @@ class TestIsJunkPartNumber:
         assert is_junk_part_number("", "CSF") is True
         assert is_junk_part_number("   ", "CSF") is True
 
-    def test_shorter_than_four_chars(self) -> None:
+    def test_short_alpha_only_is_junk(self) -> None:
+        # Alpha-only ≤3 char tokens are almost always brand acronyms in the SKU slot.
         assert is_junk_part_number("CSF", "CSF") is True
         assert is_junk_part_number("ABC", "Some Brand") is True
+
+    def test_short_numeric_is_real_sku(self) -> None:
+        # Road Sport Supply / Girodisc / others ship real 3-digit catalog SKUs
+        # like "326", "608", "302". A brand name cannot collide with a number,
+        # so the short-length floor only applies to alpha-only tokens.
+        assert is_junk_part_number("326", "RSS") is False
+        assert is_junk_part_number("608", "Cargraphic") is False
+        assert is_junk_part_number("B1", "Some Brand") is False  # alphanum
+        assert is_junk_part_number("30", None) is False
 
     def test_equals_manufacturer_case_and_space_insensitive(self) -> None:
         # JSON-LD sometimes puts the brand where the SKU should go.
@@ -63,6 +73,24 @@ class TestIsJunkPartNumber:
         assert is_junk_part_number("A14A10-1201", "ADRO") is False
         assert is_junk_part_number("FXXHHL", "ADRO") is False
 
-    def test_no_manufacturer_only_length_matters(self) -> None:
-        assert is_junk_part_number("AB", None) is True
+    def test_no_manufacturer_only_alpha_length_matters(self) -> None:
+        assert is_junk_part_number("AB", None) is True  # alpha-only, < 4
         assert is_junk_part_number("ABCD", None) is False
+        assert is_junk_part_number("12", None) is False  # numeric short OK
+
+    def test_option_label_words_are_junk(self) -> None:
+        # Pure-alpha option-label words ("FUEL", "SIZE", "TURBO", ...) leak from
+        # Wix/Shopify variant dropdowns when the page's SKU field is empty —
+        # see sheepeyrace and mackin-ind for concrete cases. Match is case-
+        # insensitive.
+        assert is_junk_part_number("FUEL", "Sheepey Race") is True
+        assert is_junk_part_number("Fuel", "Sheepey Race") is True
+        assert is_junk_part_number("TURBO", "Sheepey Race") is True
+        assert is_junk_part_number("CORE", "Sheepey Race") is True
+        assert is_junk_part_number("SIZE", "Mackin Industries") is True
+        assert is_junk_part_number("PRODUCT", "Mackin Industries") is True
+        assert is_junk_part_number("COLOR", "Mackin Industries") is True
+        # Anything carrying a digit or hyphen passes — real SKUs in the same
+        # neighborhood ("TURBO-2", "CORE-450") must not be rejected.
+        assert is_junk_part_number("TURBO-2", "Sheepey Race") is False
+        assert is_junk_part_number("CORE450", "Sheepey Race") is False

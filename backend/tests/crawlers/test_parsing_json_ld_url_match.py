@@ -82,6 +82,25 @@ def test_url_comparison_tolerates_scheme_host_case_and_trailing_slash() -> None:
     assert item["name"] == "Kit"
 
 
+def test_url_comparison_collapses_http_and_https() -> None:
+    # vividracing.com (and other legacy storefronts) emit JSON-LD with
+    # ``url`` set to ``http://...`` even though the canonical page is served
+    # over https. A strict scheme match would reject every Product on those
+    # sites, the adapter would fall through to the DOM/og fallback, and
+    # chassis tokens from the title (IS300, AE86, JZA80) would land in
+    # part_number via the title-shape heuristic.
+    html = _wrap("""
+        {"@context":"https://schema.org","@type":"Product","name":"Cusco Sway Bar",
+         "url":"http://www.vividracing.com/cusco-sway-bar-p-1825.html",
+         "sku":"195 311 B"}
+        """)
+    item = extract_json_ld_product(
+        html, product_url="https://www.vividracing.com/cusco-sway-bar-p-1825.html"
+    )
+    assert item is not None
+    assert item["sku"] == "195 311 B"
+
+
 def test_product_url_omitted_preserves_legacy_behavior() -> None:
     # No product_url passed → first Product wins, regardless of any declared
     # JSON-LD url. Keeps existing non-Chrome-extension callers that never

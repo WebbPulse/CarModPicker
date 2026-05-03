@@ -13,6 +13,7 @@ import os
 import re
 import time
 from typing import ClassVar, Iterator, List, Optional
+from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
@@ -46,6 +47,26 @@ SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 DEFAULT_START_URLS = [
     "https://studiorsr.com/products/studiorsr-gr86-roll-cage-roll-bar",
 ]
+
+
+def _is_product_url(url: str) -> bool:
+    """True only for canonical Shopify ``/products/<handle>`` pages.
+
+    StudioRSR's Shopify storefront also serves ``/collections/<vendor>``
+    landing pages (Lamborghini, Mercedes-Benz, Porsche). Those pages render an
+    og:title of just the vendor name (``"Lamborghini"``) and a "Recently
+    viewed" widget that gets picked up as a SKU — so when they leak through
+    into the parser they end up as nonsense rows like ``name="Lamborghini"
+    part_number="Recently"``. Gate strictly on ``/products/<handle>`` to keep
+    them out of the catalog. Collection pages with a nested
+    ``/collections/<vendor>/products/<handle>`` shape stay accepted because
+    Shopify renders the same product data on either path.
+    """
+    try:
+        path = urlparse(url).path or ""
+    except ValueError:
+        return False
+    return PRODUCT_PAGE_PATH in path
 
 
 def _normalize_part_manufacturer(part_manufacturer: Optional[str], product_name: str) -> Optional[str]:
@@ -235,7 +256,16 @@ class StudioRSRAdapter(RetailerCrawlerAdapter):
         """
         Parse Studio RSR product page. JSON-LD first, then DOM fallback using
         shared parsing helpers (meta_content, extract_dom_price, part_manufacturer_from_title).
+
+        Returns ``None`` for non-``/products/`` URLs (e.g. ``/collections/<vendor>``
+        landing pages). Without this gate, an extension capture or rescrape of
+        ``/collections/lamborghini`` parses as a "product" with name="Lamborghini"
+        and part_number="Recently" pulled from the storefront's "Recently viewed"
+        widget — pure noise in the catalog.
         """
+        if not _is_product_url(url):
+            return None
+
         soup = BeautifulSoup(html, "html.parser")
         dom_images = _extract_dom_images(soup)
         dom_price = extract_dom_price(soup)

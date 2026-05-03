@@ -14,6 +14,7 @@ from app.crawlers.adapters.tier0_http.greddy import (
     GReddyAdapter,
     _is_product_url,
     _normalize_part_manufacturer,
+    _strip_greddy_catalog_suffix,
 )
 
 SAMPLE_URL = "https://www.greddy.com/products/greddy-supreme-sp-cat-back-honda-ef-crx-civic"
@@ -121,6 +122,11 @@ class TestNormalizePartManufacturer:
             "Trust",
             "GReddy / Trust",
             "greddy/trust",
+            # Shopify storefront emits ``"brand": "CATALOG"`` on every product —
+            # an internal feed tag, not a real manufacturer. Collapses too.
+            "CATALOG",
+            "catalog",
+            "shopgreddy",
         ):
             assert _normalize_part_manufacturer(variant) == "GReddy", variant
 
@@ -254,6 +260,42 @@ class TestParseProductPage:
         # The two real product images should both make it through.
         assert any("product-hero" in u for u in result.image_urls)
         assert any("oil-cooler-side" in u for u in result.image_urls)
+
+
+class TestStripCatalogSuffix:
+    """
+    GReddy's storefront mirrors the part_number into JSON-LD ``sku`` with a
+    trailing ``" - CTLG"`` (catalog) marker. The suffix is internal feed
+    metadata; the adapter strips it before normalize so 800+ products don't
+    surface PNs like ``"16520701 - CTLG"``.
+    """
+
+    def test_strips_ctlg_suffix(self) -> None:
+        assert _strip_greddy_catalog_suffix("16520701 - CTLG") == "16520701"
+
+    def test_strips_full_catalog_suffix(self) -> None:
+        assert _strip_greddy_catalog_suffix("12058002 - CATALOG") == "12058002"
+
+    def test_case_insensitive(self) -> None:
+        assert _strip_greddy_catalog_suffix("12058002 - ctlg") == "12058002"
+        assert _strip_greddy_catalog_suffix("12058002-CTLG") == "12058002"
+
+    def test_no_suffix_returns_unchanged(self) -> None:
+        assert _strip_greddy_catalog_suffix("10158220") == "10158220"
+
+    def test_none_returns_none(self) -> None:
+        assert _strip_greddy_catalog_suffix(None) is None
+        assert _strip_greddy_catalog_suffix("") == ""
+
+    def test_full_page_strips_ctlg_from_jsonld_sku(self) -> None:
+        # End-to-end: a real product page where Shopify emits ``sku``
+        # carrying the ``" - CTLG"`` suffix. Adapter must strip before
+        # storing, so the part_number is just the bare code.
+        html = _product_html(brand="CATALOG", sku="16520701 - CTLG")
+        result = GReddyAdapter().parse_product_page(html, SAMPLE_URL)
+        assert result is not None
+        assert result.part_number == "16520701"
+        assert result.part_manufacturer == "GReddy"
 
 
 class TestAdapterFetcherTier:

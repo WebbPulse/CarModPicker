@@ -83,8 +83,31 @@ _GREDDY_BRAND_VARIANTS = frozenset(
         "trust greddy",
         "greddy / trust",
         "greddy/trust",
+        # GReddy's Shopify theme emits ``"brand": "CATALOG"`` on the JSON-LD
+        # block of every product (it's the storefront's internal product-feed
+        # tag, not a real brand). Collapse it to the canonical name so 870+
+        # parts don't end up under a junk "CATALOG" manufacturer row.
+        "catalog",
+        # Shopify ``vendor`` field on a handful of legacy SKUs reads the
+        # storefront slug ``"shopgreddy"`` rather than any of the regular
+        # brand spellings — same first-party catalog, fold to canonical.
+        "shopgreddy",
     }
 )
+
+# GReddy's parent SKU mirrors the part_number into the JSON-LD ``sku`` field
+# with a trailing ``" - CTLG"`` (catalog) marker — e.g. ``"16520701 - CTLG"``.
+# That suffix is internal feed metadata, not part of the part number, and must
+# be stripped before normalization or downstream consumers see noise.
+_GREDDY_PN_CATALOG_SUFFIX_RE = re.compile(r"\s*-\s*(?:CTLG|CATALOG)\s*$", re.IGNORECASE)
+
+
+def _strip_greddy_catalog_suffix(part_number: Optional[str]) -> Optional[str]:
+    """Drop GReddy's trailing ``" - CTLG"`` / ``" - CATALOG"`` marker."""
+    if not part_number:
+        return part_number
+    return _GREDDY_PN_CATALOG_SUFFIX_RE.sub("", part_number).strip() or None
+
 
 # Shopify CDN thumbnail / picker size suffix (file_300x300.jpg, file_64x64.webp)
 # — rejected so we keep full-resolution gallery media instead of the 56–192px
@@ -336,7 +359,11 @@ class GReddyAdapter(RetailerCrawlerAdapter):
         if item:
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:
-                part_number = normalize_part_number(payload.part_number) if payload.part_number else None
+                part_number = (
+                    normalize_part_number(_strip_greddy_catalog_suffix(payload.part_number))
+                    if payload.part_number
+                    else None
+                )
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 part_manufacturer = _normalize_part_manufacturer(payload.part_manufacturer)
                 image_urls = dom_images[:12] if dom_images else payload.image_urls
@@ -386,6 +413,10 @@ class GReddyAdapter(RetailerCrawlerAdapter):
                 part_number = normalize_part_number(sku_elem.get_text(strip=True))
         if not part_number:
             part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
+        # DOM-side ``" - CTLG"`` suffixes leak through the same way the JSON-LD
+        # ones do — the theme prints the SKU as ``"<code> - CTLG"`` in the
+        # product meta block too.
+        part_number = normalize_part_number(_strip_greddy_catalog_suffix(part_number))
 
         # No JSON-LD brand available. GReddy's catalog is overwhelmingly their
         # own hardware (intercoolers, intakes, oil coolers, exhausts, turbo

@@ -318,6 +318,19 @@ class Titan7Adapter(RetailerCrawlerAdapter):
     category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
+    # Real-corpus pattern: titan-7.com renders one ``<script type="application/ld+json">``
+    # ``Product`` block per supported chassis fitment on a single wheel-model URL,
+    # and abuses the schema.org ``sku`` field to hold the fitment label
+    # (e.g. ``"Acura Integra Type S '23-"``, ``"BMW G80 M3 / G82 M4 '21-"``,
+    # ``"Ford F150 Raptor 4 Wheels"``). ``extract_json_ld_product`` returns the
+    # first Product, so the same fitment label was being stored as ``part_number``
+    # for every wheel SKU on the page — and seven distinct wheel models on
+    # ``"Acura Integra Type S '23-"`` would all collide on that one bogus PN.
+    # Real Titan7 SKUs are unbroken alphanumeric blocks (``TACC58FADG4P``,
+    # ``TASLN35C1215B``, ``TR10-1995-5X1143-CB73``) — they never contain
+    # spaces. Reject any candidate that carries whitespace.
+    _FITMENT_LIKE_SKU_RE: ClassVar[re.Pattern[str]] = re.compile(r"\s")
+
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():
@@ -342,7 +355,10 @@ class Titan7Adapter(RetailerCrawlerAdapter):
         if item:
             payload = scraped_payload_from_json_ld(item, url)
             if payload and payload.name:
-                part_number = normalize_part_number(payload.part_number) if payload.part_number else None
+                raw_pn = payload.part_number
+                if raw_pn and self._FITMENT_LIKE_SKU_RE.search(raw_pn):
+                    raw_pn = None
+                part_number = normalize_part_number(raw_pn) if raw_pn else None
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 part_manufacturer = _normalize_part_manufacturer(payload.part_manufacturer)
                 image_urls = dom_images[:12] if dom_images else payload.image_urls

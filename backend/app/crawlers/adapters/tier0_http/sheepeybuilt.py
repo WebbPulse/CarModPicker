@@ -57,7 +57,6 @@ from app.crawlers.parsing import (
     extract_dom_price,
     extract_json_ld_product,
     extract_part_number_candidate_from_title,
-    extract_sku_from_text,
     meta_content,
     normalize_description_text,
     normalize_part_number,
@@ -280,6 +279,31 @@ def _extract_sheepey_images(soup: BeautifulSoup) -> List[str]:
     return ordered[:12]
 
 
+def _extract_sku_from_dom(soup: BeautifulSoup) -> Optional[str]:
+    """
+    Read the SKU from Sheepey's themed ``.wt-product__sku`` element only.
+
+    Why: this storefront often renders an empty ``SKU:`` label in the product
+    sidebar followed by a variant-option label like ``FUEL:`` or
+    ``12-inch SPAL fan and shroud:`` on the next line. A page-wide text scan
+    via ``extract_sku_from_text`` will greedily span that whitespace and capture
+    the option label as the SKU, tagging the entire RS3/RS Q3/TT-RS catalog
+    with ``part_number='FUEL'``. Scoping to the SKU element itself and
+    stripping the literal ``SKU:`` prefix gives us the real value when present
+    and an empty string when the field is unset.
+    """
+    sku_elem = soup.select_one(".wt-product__sku")
+    if not isinstance(sku_elem, Tag):
+        return None
+    raw = sku_elem.get_text(" ", strip=True)
+    if not raw:
+        return None
+    cleaned = re.sub(r"(?i)^\s*sku\s*:?\s*", "", raw).strip()
+    if not cleaned:
+        return None
+    return normalize_part_number(cleaned)
+
+
 def _is_product_url(url: str) -> bool:
     """
     True if ``url`` is a ``/products/<handle>`` page on sheepeyrace.com or
@@ -349,7 +373,7 @@ class SheepeyBuiltAdapter(RetailerCrawlerAdapter):
             if payload and payload.name:
                 part_number = normalize_part_number(payload.part_number) if payload.part_number else None
                 if not part_number:
-                    part_number = extract_sku_from_text(soup.get_text())
+                    part_number = _extract_sku_from_dom(soup)
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 part_manufacturer = _normalize_part_manufacturer(payload.part_manufacturer)
                 image_urls = dom_images[:12] if dom_images else payload.image_urls
@@ -392,11 +416,7 @@ class SheepeyBuiltAdapter(RetailerCrawlerAdapter):
                 if d and d.strip():
                     description = normalize_description_text(d, max_len=2000)
 
-        part_number = extract_sku_from_text(soup.get_text())
-        if not part_number:
-            sku_elem = soup.find(class_=re.compile(r"sku", re.I)) or soup.find(id=re.compile(r"sku", re.I))
-            if isinstance(sku_elem, Tag):
-                part_number = normalize_part_number(sku_elem.get_text(strip=True))
+        part_number = _extract_sku_from_dom(soup)
         if not part_number:
             part_number = normalize_part_number(extract_part_number_candidate_from_title(str(name)))
 
