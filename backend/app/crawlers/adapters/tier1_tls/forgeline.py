@@ -101,6 +101,15 @@ _MODEL_CODE_RE = re.compile(r"^[A-Z][A-Z0-9]{1,9}$")
 # or no suffix at all.
 _CATEGORY_BANNER_RE = re.compile(r"-title-\d", re.IGNORECASE)
 
+# Marketing template images that ship on every product page (vehicle-tailored
+# render and custom-finish render — neither is a real product photo). Filenames
+# contain ``forgelinevehicletailoredimage`` / ``forgelinecustomfinishingimage``
+# regardless of the product. ~430 URLs across 223 parts in the live catalog.
+_MARKETING_TEMPLATE_RE = re.compile(
+    r"forgeline(?:vehicletailoredimage|customfinishingimage)",
+    re.IGNORECASE,
+)
+
 # Strip Forgeline's CDN size suffixes when computing the dedup key. Two
 # patterns cover the live catalog: ``-medium_image-365x365`` (gallery
 # thumbs) and ``-large-<seq>-v<n>`` (lightbox originals).
@@ -311,6 +320,8 @@ def _extract_images(soup: BeautifulSoup) -> List[str]:
         if _PRODUCT_IMAGE_PATH not in path_only:
             return
         if _CATEGORY_BANNER_RE.search(path_only):
+            return
+        if _MARKETING_TEMPLATE_RE.search(path_only):
             return
         key = _image_dedup_key(u)
         if key in seen:
