@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from .api.endpoints import (
     app_settings,
     bug_reports,
+    build_list_labor_estimates,
     build_list_parts,
     build_list_phases,
     build_lists,
@@ -211,6 +212,12 @@ endpoint_registry.register_crud_endpoint(
     build_list_phases.router,
     entity_name="build-list-phases",
     description="Build list phase update/delete operations",
+)
+
+endpoint_registry.register_crud_endpoint(
+    build_list_labor_estimates.router,
+    entity_name="build-list-labor-estimates",
+    description="Build list labor estimate update/delete operations",
 )
 
 endpoint_registry.register_crud_endpoint(

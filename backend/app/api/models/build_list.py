@@ -9,6 +9,7 @@ from uuid6 import uuid7
 from app.db.base_class import Base
 
 if TYPE_CHECKING:
+    from .build_list_labor_estimate import BuildListLaborEstimate
     from .build_list_part import BuildListPart
     from .build_list_phase import BuildListPhase
     from .build_log import BuildLog
@@ -48,6 +49,13 @@ class BuildList(Base):
         cascade="all, delete-orphan",
         order_by="BuildListPhase.sort_order",
         lazy="raise",  # Phase 4 D-28 / DATA-10 — catches future N+1 regressions; paired with selectinload in callers
+    )
+    build_list_labor_estimates: Mapped[List["BuildListLaborEstimate"]] = relationship(
+        "BuildListLaborEstimate",
+        back_populates="build_list",
+        cascade="all, delete-orphan",
+        order_by="BuildListLaborEstimate.sort_order",
+        lazy="raise",
     )
     # votes and reports
     votes: Mapped[List["Vote"]] = relationship(

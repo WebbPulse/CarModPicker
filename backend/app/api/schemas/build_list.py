@@ -60,7 +60,15 @@ class BuildListReadWithVotes(BuildListRead):
     user_vote: Optional[str] = None  # 'upvote', 'downvote', or None
     total_cost_cents: Optional[int] = Field(
         None,
+        description="Combined cost: sum of (part qty * best price) plus all labor estimate costs",
+    )
+    total_parts_cost_cents: Optional[int] = Field(
+        None,
         description="Sum of (part quantity * best price) for all parts in the build list",
+    )
+    total_labor_cost_cents: Optional[int] = Field(
+        None,
+        description="Sum of all labor estimate costs for the build list",
     )
 
 

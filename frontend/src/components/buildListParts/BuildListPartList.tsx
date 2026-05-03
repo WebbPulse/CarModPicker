@@ -605,6 +605,11 @@ interface BuildListPartListProps {
   canEditPart?: (buildListPart: BuildListPartReadWithPart) => boolean;
   canDeletePart?: (buildListPart: BuildListPartReadWithPart) => boolean;
   emptyMessage?: string;
+  /**
+   * Optional sibling block rendered inside the same masonry layout as the part
+   * tables (e.g. labor estimates). Renders even when there are no parts.
+   */
+  trailingTile?: React.ReactNode;
 }
 
 const PHASE_ICON = '📋';
@@ -630,6 +635,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   canEditPart,
   canDeletePart,
   emptyMessage = 'No parts added to this build list yet.',
+  trailingTile,
 }) => {
   // Shared sort state across all groups. Resets on reload (component unmount).
   const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
@@ -818,7 +824,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     );
   }
 
-  if (buildListParts.length === 0) {
+  if (buildListParts.length === 0 && !trailingTile) {
     return (
       <Card>
         <div className="text-center py-8">
@@ -832,6 +838,15 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     <div className="space-y-3">
       {/* Parts grouped by category, phase, or purchased state — masonry: 2 cols on md+, 1 col below */}
       <div className="columns-1 md:columns-2 gap-4 [column-fill:_balance]">
+        {buildListParts.length === 0 && (
+          <div className="break-inside-avoid mb-4">
+            <Card>
+              <div className="text-center py-8">
+                <p className="text-gray-400 text-lg">{emptyMessage}</p>
+              </div>
+            </Card>
+          </div>
+        )}
         {displayGroups.map((group, index) => {
           const groupKey =
             viewMode === 'phase'
@@ -865,6 +880,9 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
             </div>
           );
         })}
+        {trailingTile && (
+          <div className="break-inside-avoid mb-4">{trailingTile}</div>
+        )}
       </div>
     </div>
   );

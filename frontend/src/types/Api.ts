@@ -193,8 +193,12 @@ export interface BuildListReadWithVotes extends BuildListRead {
   downvotes: number;
   total_votes: number;
   user_vote?: 'upvote' | 'downvote' | null;
-  /** Sum of (part quantity * best price) for all parts in the build list (cents). */
+  /** Combined cost: parts (qty * best price) + labor estimates (cents). */
   total_cost_cents?: number | null;
+  /** Sum of (part quantity * best price) for all parts in the build list (cents). */
+  total_parts_cost_cents?: number | null;
+  /** Sum of all labor estimate costs for the build list (cents). */
+  total_labor_cost_cents?: number | null;
 }
 
 export interface BuildListUpdate {
@@ -617,6 +621,33 @@ export interface BuildListPhaseCreate {
 
 export interface BuildListPhaseUpdate {
   name?: string | null;
+  sort_order?: number | null;
+}
+
+// Build list labor estimate (standalone non-part cost line item)
+export interface BuildListLaborEstimateRead {
+  id: string;
+  build_list_id: string;
+  build_list_phase_id?: string | null;
+  name: string;
+  description?: string | null;
+  cost_cents: number;
+  sort_order: number;
+}
+
+export interface BuildListLaborEstimateCreate {
+  name: string;
+  cost_cents?: number;
+  description?: string | null;
+  build_list_phase_id?: string | null;
+  sort_order?: number;
+}
+
+export interface BuildListLaborEstimateUpdate {
+  name?: string | null;
+  cost_cents?: number | null;
+  description?: string | null;
+  build_list_phase_id?: string | null;
   sort_order?: number | null;
 }
 

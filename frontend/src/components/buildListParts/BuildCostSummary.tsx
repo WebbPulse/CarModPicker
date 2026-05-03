@@ -1,9 +1,13 @@
 import React, { useMemo } from 'react';
-import type { BuildListPartReadWithPart } from '../../types/Api';
+import type {
+  BuildListLaborEstimateRead,
+  BuildListPartReadWithPart,
+} from '../../types/Api';
 import { Card } from '../ui/card';
 
 interface BuildCostSummaryProps {
   buildListParts: BuildListPartReadWithPart[];
+  laborEstimates?: BuildListLaborEstimateRead[];
   className?: string;
 }
 
@@ -17,33 +21,42 @@ const formatPrice = (priceInCents: number) => {
 
 const BuildCostSummary: React.FC<BuildCostSummaryProps> = ({
   buildListParts,
+  laborEstimates,
   className,
 }) => {
-  const { totalPrice, remainingPrice, purchasedPrice } = useMemo(() => {
-    let total = 0;
+  const { partsPrice, remainingPrice, purchasedPrice } = useMemo(() => {
+    let parts = 0;
     let remaining = 0;
     let purchased = 0;
     for (const part of buildListParts) {
       const cents = part.part.best_price_cents;
       if (cents == null) continue;
       const lineTotal = cents * (part.quantity || 1);
-      total += lineTotal;
+      parts += lineTotal;
       if (part.purchased) purchased += lineTotal;
       else remaining += lineTotal;
     }
     return {
-      totalPrice: total,
+      partsPrice: parts,
       remainingPrice: remaining,
       purchasedPrice: purchased,
     };
   }, [buildListParts]);
 
+  const laborPrice = useMemo(
+    () =>
+      (laborEstimates ?? []).reduce((sum, item) => sum + item.cost_cents, 0),
+    [laborEstimates]
+  );
+
+  const totalPrice = partsPrice + laborPrice;
   const purchasedCount = buildListParts.filter((p) => p.purchased).length;
   const remainingCount = buildListParts.length - purchasedCount;
+  // Progress bar tracks purchased parts only — labor doesn't have a purchased state.
   const purchaseProgress =
-    totalPrice === 0 ? 0 : Math.round((purchasedPrice / totalPrice) * 100);
+    partsPrice === 0 ? 0 : Math.round((purchasedPrice / partsPrice) * 100);
 
-  if (buildListParts.length === 0) return null;
+  if (buildListParts.length === 0 && laborPrice === 0) return null;
 
   return (
     <Card className={`bg-gray-800 ${className ?? ''}`}>
@@ -69,7 +82,24 @@ const BuildCostSummary: React.FC<BuildCostSummaryProps> = ({
           </p>
         </div>
 
-        {totalPrice > 0 && (purchasedCount > 0 || remainingCount > 0) && (
+        {laborPrice > 0 && (
+          <div className="space-y-1 text-sm pt-2 border-t border-gray-700">
+            <div className="flex justify-between items-baseline">
+              <span className="text-gray-400">Parts</span>
+              <span className="text-gray-200 font-medium tabular-nums">
+                {formatPrice(partsPrice)}
+              </span>
+            </div>
+            <div className="flex justify-between items-baseline">
+              <span className="text-gray-400">Labor</span>
+              <span className="text-gray-200 font-medium tabular-nums">
+                {formatPrice(laborPrice)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {partsPrice > 0 && (purchasedCount > 0 || remainingCount > 0) && (
           <div className="pt-2 border-t border-gray-700">
             <div className="flex justify-between items-center mb-1.5">
               <span className="text-xs text-gray-400">Purchase Progress</span>

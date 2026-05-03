@@ -4,6 +4,7 @@ from .associations.part_car import part_cars
 from .background_job import BackgroundJob
 from .bug_report import BugReport
 from .build_list import BuildList
+from .build_list_labor_estimate import BuildListLaborEstimate
 from .build_list_part import BuildListPart
 from .build_list_phase import BuildListPhase
 from .build_log import BuildLog, BuildLogPost
@@ -42,6 +43,7 @@ __all__ = [
     "CrawlerSchedule",
     "CrawlerScheduleAdapter",
     "PartManufacturer",
+    "BuildListLaborEstimate",
     "BuildListPart",
     "BuildListPhase",
     "Vote",

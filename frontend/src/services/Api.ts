@@ -10,6 +10,7 @@ export * from '../api/admin';
 export * from '../api/app_settings';
 export * from '../api/auth';
 export * from '../api/bug_reports';
+export * from '../api/build_list_labor_estimates';
 export * from '../api/build_list_parts';
 export * from '../api/build_list_phases';
 export * from '../api/build_lists';

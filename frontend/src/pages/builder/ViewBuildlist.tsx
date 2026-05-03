@@ -8,6 +8,7 @@ import apiClient, {
   buildListVotesApi,
 } from '../../services/Api';
 import type {
+  BuildListLaborEstimateRead,
   BuildListPartReadWithPart,
   BuildListRead,
   CarGenerationRead,
@@ -77,6 +78,15 @@ function ViewBuildList() {
   const handlePartsChange = useCallback(
     (parts: BuildListPartReadWithPart[]) => {
       setBuildListParts(parts);
+    },
+    []
+  );
+  const [laborEstimates, setLaborEstimates] = useState<
+    BuildListLaborEstimateRead[]
+  >([]);
+  const handleLaborEstimatesChange = useCallback(
+    (items: BuildListLaborEstimateRead[]) => {
+      setLaborEstimates(items);
     },
     []
   );
@@ -416,10 +426,11 @@ function ViewBuildList() {
             )}
           </div>
           <div className="min-w-0 space-y-2.5">
-            {buildListParts.length > 0 && (
+            {(buildListParts.length > 0 || laborEstimates.length > 0) && (
               <CardInfoItem label="Build Cost:">
                 <BuildCostSummary
                   buildListParts={buildListParts}
+                  laborEstimates={laborEstimates}
                   className="mt-1"
                 />
               </CardInfoItem>
@@ -557,7 +568,7 @@ function ViewBuildList() {
         </Dialog>
       )}
 
-      {/* Parts Section */}
+      {/* Parts + Labor Estimates Section (labor renders as a tile in the parts masonry) */}
       {buildList && (
         <BuildListParts
           buildListId={buildList.id}
@@ -565,6 +576,7 @@ function ViewBuildList() {
           canManageParts={canManage || false}
           refreshKey={partsRefreshTrigger}
           onPartsChange={handlePartsChange}
+          onLaborEstimatesChange={handleLaborEstimatesChange}
           {...(canManage && { onAddPartClick: openCreatePartDialog })}
           title={`Parts in ${buildList.name}`}
           emptyMessage="This build list currently has no parts."

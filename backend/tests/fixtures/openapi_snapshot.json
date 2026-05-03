@@ -1019,6 +1019,187 @@
         "title": "BuildListCreate",
         "type": "object"
       },
+      "BuildListLaborEstimateCreate": {
+        "properties": {
+          "build_list_phase_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional phase to group this labor item under",
+            "title": "Build List Phase Id"
+          },
+          "cost_cents": {
+            "default": 0,
+            "description": "Estimated cost in cents",
+            "minimum": 0.0,
+            "title": "Cost Cents",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional details about the labor item",
+            "title": "Description"
+          },
+          "name": {
+            "description": "Labor item name (e.g. 'Paint - bumper respray')",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sort_order": {
+            "default": 0,
+            "description": "Display order",
+            "minimum": 0.0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "BuildListLaborEstimateCreate",
+        "type": "object"
+      },
+      "BuildListLaborEstimateRead": {
+        "properties": {
+          "build_list_id": {
+            "format": "uuid",
+            "title": "Build List Id",
+            "type": "string"
+          },
+          "build_list_phase_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build List Phase Id"
+          },
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "build_list_id",
+          "name",
+          "cost_cents",
+          "sort_order"
+        ],
+        "title": "BuildListLaborEstimateRead",
+        "type": "object"
+      },
+      "BuildListLaborEstimateUpdate": {
+        "properties": {
+          "build_list_phase_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build List Phase Id"
+          },
+          "cost_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Cents"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "BuildListLaborEstimateUpdate",
+        "type": "object"
+      },
       "BuildListPartCreate": {
         "properties": {
           "build_list_phase_id": {
@@ -9871,6 +10052,148 @@
         ]
       }
     },
+    "/api/build-list-labor-estimates/count": {
+      "get": {
+        "description": "Total count of build list labor estimates (public read, same pattern as other /count endpoints).",
+        "operationId": "count_build_list_labor_estimates_api_build_list_labor_estimates_count_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Count Build List Labor Estimates Api Build List Labor Estimates Count Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Build list labor estimate count retrieved successfully"
+          }
+        },
+        "summary": "Count Build List Labor Estimates",
+        "tags": [
+          "build-list-labor-estimates"
+        ]
+      }
+    },
+    "/api/build-list-labor-estimates/{labor_estimate_id}": {
+      "delete": {
+        "description": "Delete a build list labor estimate. Only build list owner or admin.",
+        "operationId": "delete_build_list_labor_estimate_api_build_list_labor_estimates__labor_estimate_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "labor_estimate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Labor Estimate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildListLaborEstimateRead"
+                }
+              }
+            },
+            "description": "Build list labor estimate deleted successfully"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Build List Labor Estimate",
+        "tags": [
+          "build-list-labor-estimates"
+        ]
+      },
+      "put": {
+        "description": "Update a build list labor estimate. Only build list owner or admin.",
+        "operationId": "update_build_list_labor_estimate_api_build_list_labor_estimates__labor_estimate_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "labor_estimate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Labor Estimate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuildListLaborEstimateUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildListLaborEstimateRead"
+                }
+              }
+            },
+            "description": "Build list labor estimate updated successfully"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Update Build List Labor Estimate",
+        "tags": [
+          "build-list-labor-estimates"
+        ]
+      }
+    },
     "/api/build-list-parts/count": {
       "get": {
         "description": "Get total count of build list parts.",
@@ -11458,6 +11781,125 @@
           }
         ],
         "summary": "Remove Image From Build List",
+        "tags": [
+          "build-lists"
+        ]
+      }
+    },
+    "/api/build-lists/{build_list_id}/labor-estimates": {
+      "get": {
+        "description": "List labor estimates for a build list. Public read access.",
+        "operationId": "list_build_list_labor_estimates_api_build_lists__build_list_id__labor_estimates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "build_list_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Build List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BuildListLaborEstimateRead"
+                  },
+                  "title": "Response List Build List Labor Estimates Api Build Lists  Build List Id  Labor Estimates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Build list labor estimates retrieved successfully"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Build List Labor Estimates",
+        "tags": [
+          "build-lists"
+        ]
+      },
+      "post": {
+        "description": "Create a labor estimate for a build list. Only build list owner or admin.",
+        "operationId": "create_build_list_labor_estimate_api_build_lists__build_list_id__labor_estimates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "build_list_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Build List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuildListLaborEstimateCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildListLaborEstimateRead"
+                }
+              }
+            },
+            "description": "Build list labor estimate created successfully"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Build List Labor Estimate",
         "tags": [
           "build-lists"
         ]

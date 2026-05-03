@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.models.build_list import BuildList as DBBuildList
+from app.api.models.build_list_labor_estimate import BuildListLaborEstimate as DBBuildListLaborEstimate
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.car_generation import CarGeneration as DBCar
@@ -29,6 +30,10 @@ from app.api.schemas.build_list import (
     BuildListReadWithVotes,
     BuildListSetPrimaryImageRequest,
     BuildListUpdate,
+)
+from app.api.schemas.build_list_labor_estimate import (
+    BuildListLaborEstimateCreate,
+    BuildListLaborEstimateRead,
 )
 from app.api.schemas.build_list_phase import BuildListPhaseCreate, BuildListPhaseRead
 from app.api.services.build_list_service import BuildListService
@@ -113,14 +118,40 @@ async def read_build_lists_with_votes(
         .group_by(DBPartListing.part_id)
         .subquery()
     )
-    # Subquery: total cost per build list (sum of quantity * best_price per part)
-    total_cost_subq = (
+    # Subquery: parts cost per build list (sum of quantity * best_price per part)
+    parts_cost_subq = (
         select(
             DBBuildListPart.build_list_id,
-            func.sum(DBBuildListPart.quantity * func.coalesce(min_prices.c.min_price, 0)).label("total_cost_cents"),
+            func.sum(DBBuildListPart.quantity * func.coalesce(min_prices.c.min_price, 0)).label("parts_cost_cents"),
         )
         .outerjoin(min_prices, DBBuildListPart.part_id == min_prices.c.part_id)
         .group_by(DBBuildListPart.build_list_id)
+        .subquery()
+    )
+
+    # Subquery: labor cost per build list
+    labor_cost_subq = (
+        select(
+            DBBuildListLaborEstimate.build_list_id,
+            func.sum(DBBuildListLaborEstimate.cost_cents).label("labor_cost_cents"),
+        )
+        .group_by(DBBuildListLaborEstimate.build_list_id)
+        .subquery()
+    )
+
+    # Subquery: combined total (parts + labor) per build list, used for sorting/filtering
+    # This UNION-style approach keeps the logic in one column the existing joins reference.
+    total_cost_subq = (
+        select(
+            DBBuildList.id.label("build_list_id"),
+            (
+                func.coalesce(parts_cost_subq.c.parts_cost_cents, 0)
+                + func.coalesce(labor_cost_subq.c.labor_cost_cents, 0)
+            ).label("total_cost_cents"),
+        )
+        .select_from(DBBuildList)
+        .outerjoin(parts_cost_subq, DBBuildList.id == parts_cost_subq.c.build_list_id)
+        .outerjoin(labor_cost_subq, DBBuildList.id == labor_cost_subq.c.build_list_id)
         .subquery()
     )
 
@@ -286,6 +317,25 @@ async def read_build_lists_with_votes(
             int(row.total_cost_cents) if row.total_cost_cents is not None else None
         )
 
+    # Pull parts/labor breakdowns separately so the response can show the split.
+    parts_cost_dict: Dict[UUID, Optional[int]] = {}
+    parts_rows = db.execute(
+        select(parts_cost_subq.c.build_list_id, parts_cost_subq.c.parts_cost_cents).where(
+            parts_cost_subq.c.build_list_id.in_(build_list_ids)
+        )
+    ).all()
+    for row in parts_rows:
+        parts_cost_dict[row.build_list_id] = int(row.parts_cost_cents) if row.parts_cost_cents is not None else None
+
+    labor_cost_dict: Dict[UUID, Optional[int]] = {}
+    labor_rows = db.execute(
+        select(labor_cost_subq.c.build_list_id, labor_cost_subq.c.labor_cost_cents).where(
+            labor_cost_subq.c.build_list_id.in_(build_list_ids)
+        )
+    ).all()
+    for row in labor_rows:
+        labor_cost_dict[row.build_list_id] = int(row.labor_cost_cents) if row.labor_cost_cents is not None else None
+
     # Build vote count dictionaries
     vote_counts = db.execute(
         select(
@@ -330,6 +380,8 @@ async def read_build_lists_with_votes(
         build_list_dict["total_votes"] = build_list_dict["upvotes"] + build_list_dict["downvotes"]
         build_list_dict["user_vote"] = user_votes_dict.get(build_list.id, None)
         build_list_dict["total_cost_cents"] = total_cost_cents_dict.get(build_list.id)
+        build_list_dict["total_parts_cost_cents"] = parts_cost_dict.get(build_list.id)
+        build_list_dict["total_labor_cost_cents"] = labor_cost_dict.get(build_list.id)
         build_list_with_votes = BuildListReadWithVotes(**build_list_dict)
         build_lists_data.append(build_list_with_votes)
 
@@ -441,6 +493,90 @@ async def create_build_list_phase(
 
     logger.info(f"User {current_user.id} created phase {db_phase.id} for build list {build_list_id}")
     return BuildListPhaseRead.model_validate(db_phase)
+
+
+@router.get(
+    "/{build_list_id}/labor-estimates",
+    response_model=List[BuildListLaborEstimateRead],
+    responses=standard_responses(
+        success_description="Build list labor estimates retrieved successfully",
+        not_found=True,
+    ),
+)
+async def list_build_list_labor_estimates(
+    build_list_id: UUID,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+) -> List[BuildListLaborEstimateRead]:
+    """List labor estimates for a build list. Public read access."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    estimates = list(
+        db.scalars(
+            select(DBBuildListLaborEstimate)
+            .where(DBBuildListLaborEstimate.build_list_id == build_list_id)
+            .order_by(DBBuildListLaborEstimate.sort_order, DBBuildListLaborEstimate.id)
+        ).all()
+    )
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
+    logger.info(f"{user_info}: Retrieved {len(estimates)} labor estimates for build list {build_list_id}")
+    return [BuildListLaborEstimateRead.model_validate(e) for e in estimates]
+
+
+@router.post(
+    "/{build_list_id}/labor-estimates",
+    response_model=BuildListLaborEstimateRead,
+    responses=standard_responses(
+        success_description="Build list labor estimate created successfully",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def create_build_list_labor_estimate(
+    build_list_id: UUID,
+    body: BuildListLaborEstimateCreate,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListLaborEstimateRead:
+    """Create a labor estimate for a build list. Only build list owner or admin."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+
+    if body.build_list_phase_id is not None:
+        phase = db.get(DBBuildListPhase, body.build_list_phase_id)
+        if phase is None or phase.build_list_id != build_list_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phase does not belong to this build list",
+            )
+
+    # Next sort_order: max + 1 (mirrors phase auto-numbering)
+    max_order = db.scalar(
+        select(func.coalesce(func.max(DBBuildListLaborEstimate.sort_order), -1)).where(
+            DBBuildListLaborEstimate.build_list_id == build_list_id
+        )
+    )
+    sort_order = (max_order + 1) if max_order is not None else 0
+
+    db_estimate = DBBuildListLaborEstimate(
+        build_list_id=build_list_id,
+        build_list_phase_id=body.build_list_phase_id,
+        name=body.name,
+        description=body.description,
+        cost_cents=body.cost_cents,
+        sort_order=body.sort_order if body.sort_order != 0 else sort_order,
+    )
+    db.add(db_estimate)
+    db.commit()
+    db.refresh(db_estimate)
+
+    logger.info(f"User {current_user.id} created labor estimate {db_estimate.id} for build list {build_list_id}")
+    return BuildListLaborEstimateRead.model_validate(db_estimate)
 
 
 # Add custom endpoints specific to build lists

@@ -5,6 +5,8 @@
 import { apiClient } from './client';
 import type {
   BuildListCreate,
+  BuildListLaborEstimateCreate,
+  BuildListLaborEstimateRead,
   BuildListPhaseCreate,
   BuildListPhaseRead,
   BuildListRead,
@@ -75,6 +77,20 @@ export const buildListsApi = {
   createPhase: (buildListId: string, data: BuildListPhaseCreate) =>
     apiClient.post<BuildListPhaseRead>(
       `/build-lists/${buildListId}/phases`,
+      data
+    ),
+
+  // Labor estimates (non-part costs like paint, install, fabrication)
+  getLaborEstimates: (buildListId: string) =>
+    apiClient.get<BuildListLaborEstimateRead[]>(
+      `/build-lists/${buildListId}/labor-estimates`
+    ),
+  createLaborEstimate: (
+    buildListId: string,
+    data: BuildListLaborEstimateCreate
+  ) =>
+    apiClient.post<BuildListLaborEstimateRead>(
+      `/build-lists/${buildListId}/labor-estimates`,
       data
     ),
 

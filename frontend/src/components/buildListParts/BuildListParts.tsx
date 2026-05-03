@@ -11,6 +11,7 @@ import {
   categoriesApi,
 } from '../../services/Api';
 import type {
+  BuildListLaborEstimateRead,
   BuildListPartReadWithPart,
   BuildListPartUpdate,
   BuildListPhaseRead,
@@ -31,6 +32,7 @@ import { Input } from '../ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import BuildListPartList from './BuildListPartList';
 import EditBuildListPartForm from './EditBuildListPartForm';
+import LaborEstimatesSection from './LaborEstimatesSection';
 
 interface BuildListPartsProps {
   buildListId: string;
@@ -39,6 +41,7 @@ interface BuildListPartsProps {
   refreshKey: number;
   onAddPartClick?: () => void;
   onPartsChange?: (parts: BuildListPartReadWithPart[]) => void;
+  onLaborEstimatesChange?: (items: BuildListLaborEstimateRead[]) => void;
   title?: string;
   emptyMessage?: string;
 }
@@ -64,6 +67,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   refreshKey,
   onAddPartClick,
   onPartsChange,
+  onLaborEstimatesChange,
   title = 'Parts in Build List',
   emptyMessage = 'No parts added to this build list yet.',
 }) => {
@@ -618,6 +622,14 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         // Pass individual permission check functions
         canEditPart={canEditBuildListPart}
         canDeletePart={canDeleteBuildListPart}
+        trailingTile={
+          <LaborEstimatesSection
+            buildListId={buildListId}
+            canManage={canManageParts}
+            phases={phasesList}
+            {...(onLaborEstimatesChange && { onLaborEstimatesChange })}
+          />
+        }
       />
 
       {editingPart && (
