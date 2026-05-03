@@ -1,12 +1,16 @@
 """Tests for suncoastparts.com adapter: product URL pattern, sitemap parsing, and Miva OG+gallery parsing."""
 
+from bs4 import BeautifulSoup
+
 from app.crawlers.adapters.tier1_tls.suncoastparts import (
     SuncoastPartsAdapter,
+    _extract_breadcrumb_fitment,
     _extract_gallery_urls_from_js,
     _extract_product_urls_from_sitemap,
     _is_product_url,
     _normalize_graphics_url,
     _sku_from_url,
+    _triples_for_chassis,
 )
 
 SAMPLE_URL = "https://www.suncoastparts.com/product/99755922100041.html"
@@ -258,3 +262,137 @@ class TestAdapterFetcherTier:
 
     def test_declares_tls_tier(self) -> None:
         assert SuncoastPartsAdapter.FETCHER_TIER == "tls"
+
+
+def _breadcrumb_html(*cells: str) -> str:
+    """
+    Build a Suncoast-shape breadcrumb container with one ``<li>`` per cell.
+    Mirrors the live ``x-collapsing-breadcrumbs__list`` markup so the
+    extractor's class-based lookup matches.
+    """
+    items = "".join(f"<li>{c}</li>" for c in cells)
+    return (
+        '<nav class="o-wrapper x-collapsing-breadcrumbs t-breadcrumbs">'
+        f'<ul class="o-list-inline x-collapsing-breadcrumbs__list">{items}</ul>'
+        "</nav>"
+    )
+
+
+class TestBreadcrumbFitmentExtraction:
+    """The Suncoast breadcrumb is the only on-page source of chassis-code fitment."""
+
+    def test_extracts_model_and_chassis_from_porsche_911_breadcrumb(self) -> None:
+        # Real shape: ``Home | 911 Carrera Models | 2005-2008 (997) | Carrera ...``
+        html = _breadcrumb_html(
+            "Home", "911 Carrera Models", "2005-2008 (997)", "Carrera - Carrera 4", "Engine", "Air Filter"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        assert _extract_breadcrumb_fitment(soup) == ("911 Carrera Models", "997")
+
+    def test_extracts_boxster_986(self) -> None:
+        html = _breadcrumb_html("Home", "Boxster", "1997-2004 (986)", "Boxster (2.5 or 2.7 Liter)", "Engine")
+        soup = BeautifulSoup(html, "html.parser")
+        assert _extract_breadcrumb_fitment(soup) == ("Boxster", "986")
+
+    def test_collapses_subvariant_chassis_code(self) -> None:
+        # Real Suncoast Cayman 987.2 page — facelift maps to parent 987.
+        html = _breadcrumb_html("Home", "Cayman", "2009-2012 (987.2)", "Cayman S (3.4 Liter)", "Exterior")
+        soup = BeautifulSoup(html, "html.parser")
+        assert _extract_breadcrumb_fitment(soup) == ("Cayman", "987")
+
+    def test_returns_none_for_non_vehicle_breadcrumb(self) -> None:
+        # Suncoast Platz / Selection Merchandise pages have no year-chassis cell.
+        html = _breadcrumb_html("Home", "Selection Merchandise", "For Men", "Jackets & Pullovers", "Mens AHEAD Jacket")
+        soup = BeautifulSoup(html, "html.parser")
+        assert _extract_breadcrumb_fitment(soup) is None
+
+    def test_returns_none_when_breadcrumb_missing(self) -> None:
+        soup = BeautifulSoup("<html><body><p>nothing</p></body></html>", "html.parser")
+        assert _extract_breadcrumb_fitment(soup) is None
+
+
+class TestTriplesForChassis:
+    """Chassis → (Make, Model, Generation) mapping. DB-aligned strings."""
+
+    def test_911_carrera_997_maps_to_porsche_911_997(self) -> None:
+        assert _triples_for_chassis("911 Carrera Models", "997") == [("Porsche", "911", "997")]
+
+    def test_boxster_986_maps_to_porsche_boxster_986(self) -> None:
+        assert _triples_for_chassis("Boxster", "986") == [("Porsche", "Boxster", "986")]
+
+    def test_cayman_987_maps_to_porsche_cayman_987(self) -> None:
+        # Boxster + Cayman share the 987 chassis code; the model cell picks Cayman.
+        assert _triples_for_chassis("Cayman", "987") == [("Porsche", "Cayman", "987")]
+
+    def test_718_chassis_maps_to_982_generation(self) -> None:
+        # Both 718 Boxster and 718 Cayman live in the DB under one ``Porsche|718|982`` row.
+        assert _triples_for_chassis("718 Boxster", "718") == [("Porsche", "718", "982")]
+
+    def test_cayenne_955_maps_to_9pa(self) -> None:
+        # 955 (2004-2006) and 957 (2007-2010) both collapse to the 9PA generation row.
+        assert _triples_for_chassis("Cayenne", "955") == [("Porsche", "Cayenne", "9PA")]
+        assert _triples_for_chassis("Cayenne", "957") == [("Porsche", "Cayenne", "9PA")]
+        assert _triples_for_chassis("Cayenne", "958") == [("Porsche", "Cayenne", "92A")]
+
+    def test_unknown_chassis_returns_empty(self) -> None:
+        # Carrera GT, 918, Macan — intentionally unmapped; hand off to universal pipeline.
+        assert _triples_for_chassis("Carrera GT", "980") == []
+        assert _triples_for_chassis("Macan", "95B") == []
+
+    def test_unknown_model_returns_empty(self) -> None:
+        # Chassis code looks Porsche-shaped but the model cell doesn't match
+        # any of the recognised platforms.
+        assert _triples_for_chassis("Suncoast Platz", "997") == []
+
+
+class TestInferCarForPartOverride:
+    """End-to-end: parse_product_page stashes breadcrumb hint, infer_car_for_part resolves it."""
+
+    def _html_with_breadcrumb(self, *breadcrumb_cells: str) -> str:
+        # Splice a real Suncoast breadcrumb into the standard product fixture
+        # so parse_product_page emits a payload AND the override has data.
+        crumbs = _breadcrumb_html(*breadcrumb_cells)
+        return _product_html().replace("</body>", crumbs + "</body>")
+
+    def test_returns_porsche_996_triple_for_996_breadcrumb(self) -> None:
+        html = self._html_with_breadcrumb(
+            "Home", "911 Carrera Models", "1999-2004 (996)", "Carrera - Carrera 4", "Engine"
+        )
+        adapter = SuncoastPartsAdapter()
+        payload = adapter.parse_product_page(html, SAMPLE_URL)
+        assert payload is not None
+        assert adapter.infer_car_for_part(payload) == [("Porsche", "911", "996")]
+
+    def test_returns_boxster_986_triple(self) -> None:
+        html = self._html_with_breadcrumb(
+            "Home", "Boxster", "1997-2004 (986)", "Boxster (2.5 or 2.7 Liter)", "Engine"
+        )
+        adapter = SuncoastPartsAdapter()
+        payload = adapter.parse_product_page(html, SAMPLE_URL)
+        assert payload is not None
+        assert adapter.infer_car_for_part(payload) == [("Porsche", "Boxster", "986")]
+
+    def test_returns_cayman_987_triple_from_subvariant(self) -> None:
+        html = self._html_with_breadcrumb(
+            "Home", "Cayman", "2009-2012 (987.2)", "Cayman S (3.4 Liter)", "Exterior"
+        )
+        adapter = SuncoastPartsAdapter()
+        payload = adapter.parse_product_page(html, SAMPLE_URL)
+        assert payload is not None
+        assert adapter.infer_car_for_part(payload) == [("Porsche", "Cayman", "987")]
+
+    def test_unmapped_chassis_falls_through_to_universal(self) -> None:
+        # Carrera GT — chassis 980, no recognised mapping; override returns
+        # None so the universal phrase-triple pipeline takes over.
+        html = self._html_with_breadcrumb("Home", "Carrera GT", "2004-2006 (980)", "Engine")
+        adapter = SuncoastPartsAdapter()
+        payload = adapter.parse_product_page(html, SAMPLE_URL)
+        assert payload is not None
+        assert adapter.infer_car_for_part(payload) is None
+
+    def test_no_breadcrumb_returns_none(self) -> None:
+        # Standard product fixture has no breadcrumb — override must hand off.
+        adapter = SuncoastPartsAdapter()
+        payload = adapter.parse_product_page(_product_html(), SAMPLE_URL)
+        assert payload is not None
+        assert adapter.infer_car_for_part(payload) is None

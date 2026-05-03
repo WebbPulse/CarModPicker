@@ -613,6 +613,13 @@ class LingenfelterAdapter(RetailerCrawlerAdapter):
     category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
+    # TODO(S04 T04 / fitment): Add an ``infer_car_for_part`` override mirroring
+    # ``BrianTooleyRacingAdapter._classify_engine_family`` once Lingenfelter
+    # exposes a structured ``Engine Type`` spec row. Their Miva product pages
+    # don't render one — engine signal lives only in the schema.org
+    # description, which the universal phrase-triple pipeline already covers.
+    # Don't build from scratch against unstructured text.
+
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs. Env override wins; sitemap next; fixed fallback last."""
         env_urls = _resolve_start_urls_env()
