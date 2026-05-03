@@ -132,6 +132,49 @@ DEFAULT_START_URLS = [
     "https://www.good-win-racing.com/Mazda-Performance-Part/61-3447.html",
 ]
 
+# Map Good-Win category-browse path segments to our category slugs. The
+# segment is the third path component of
+# ``/Mazda-Performance-Parts/<chassis>/<category>[/<sub>].html``. Source:
+# /sitemap.xml category urlset (2026-05-02 audit). Unmapped segments
+# fall through to the universal keyword scorer.
+_GOODWIN_CATEGORY_MAP: dict[str, Optional[str]] = {
+    "brakes": "brakes",
+    "brake": "brakes",
+    "exhaust": "exhaust",
+    "exhausts": "exhaust",
+    "suspension": "suspension",
+    "coilovers": "suspension",
+    "springs": "suspension",
+    "swaybars": "suspension",
+    "engine": "engine",
+    "intake": "engine",
+    "intakes": "engine",
+    "intercooler": "engine",
+    "intercoolers": "engine",
+    "turbo": "engine",
+    "turbos": "engine",
+    "supercharger": "engine",
+    "superchargers": "engine",
+    "wheels": "wheels",
+    "tires": "wheels",
+    "wheels-tires": "wheels",
+    "interior": "interior",
+    "seats": "interior",
+    "shift-knobs": "interior",
+    "exterior": "body",
+    "body": "body",
+    "lighting": "lighting",
+    "lights": "lighting",
+    "drivetrain": "drivetrain",
+    "differential": "drivetrain",
+    "clutch": "drivetrain",
+    "transmission": "drivetrain",
+    "apparel": "accessories",
+    "gear": "accessories",
+    "accessories": "accessories",
+    "decals": "accessories",
+}
+
 
 def _is_product_url(url: str) -> bool:
     """True if ``url`` is a Good-Win product SKU page (``/Mazda-Performance-Part/<sku>.html``).
@@ -232,6 +275,43 @@ class GoodWinRacingAdapter(RetailerCrawlerAdapter):
     ADAPTER_NAME: ClassVar[str] = "goodwinracing"
     category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "tls"
+
+    def infer_category_for_part(self, parsed: ScrapedPayload) -> Optional[str]:
+        """Pin category from the referrer category URL when present.
+
+        Good-Win product URLs (``/Mazda-Performance-Part/<sku>.html``)
+        carry no category context themselves, but the discovery walk
+        records a referrer (``CRAWLER_GOODWINRACING_REFERRER`` env var
+        or the category-page URL we harvested the link from). When the
+        referrer matches the canonical category-browse shape
+        ``/Mazda-Performance-Parts/<chassis>/<category>[/<sub>].html``,
+        the second-to-last path segment maps cleanly to our slugs.
+
+        Falls through to the universal keyword scorer for products
+        seeded directly (env override, smoke tests) where no referrer
+        is available.
+        """
+        # Read referrer from specifications if a future extension surfaces
+        # it; today there's no plumbing, so we infer from product_url
+        # alone — Good-Win's singular product path lacks category info,
+        # so this hook is a no-op until the discovery walk wires the
+        # referrer through. Keeping the slug-mapping table here so
+        # follow-up wiring is one-line.
+        url = (parsed.product_url or "").lower()
+        if "/mazda-performance-parts/" not in url:
+            return None
+        # Path shape: /Mazda-Performance-Parts/<chassis>/<category>[/<sub>].html
+        try:
+            path = urlparse(url).path
+        except ValueError:
+            return None
+        segments = [s for s in path.split("/") if s]
+        # segments[0] = "Mazda-Performance-Parts", segments[1] = chassis,
+        # segments[2] = <category>[.html or /sub.html]
+        if len(segments) < 3:
+            return None
+        category_seg = segments[2].removesuffix(".html").lower()
+        return _GOODWIN_CATEGORY_MAP.get(category_seg)
 
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs. Env override wins; otherwise walk sitemap + categories."""
