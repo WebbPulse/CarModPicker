@@ -157,7 +157,41 @@ def upgrade() -> None:
         loser_ids = [c.id for c in candidates[1:]]
 
         for loser_id in loser_ids:
-            # Reattach part_listings from loser → winner.
+            # Resolve (part_id, retailer_id) collisions before reattaching:
+            # if winner already has a listing at retailer R and loser also
+            # has one, fold the loser's price_history into the winner's
+            # listing and drop the loser's listing. Otherwise the bulk
+            # UPDATE below would violate uq_part_listing_part_retailer.
+            collisions = bind.execute(
+                sa.text(
+                    """
+                    SELECT loser_pl.id   AS loser_listing_id,
+                           winner_pl.id  AS winner_listing_id
+                    FROM part_listings loser_pl
+                    JOIN part_listings winner_pl
+                      ON winner_pl.part_id = :winner
+                     AND winner_pl.retailer_id = loser_pl.retailer_id
+                    WHERE loser_pl.part_id = :loser
+                    """
+                ),
+                {"winner": winner_id, "loser": loser_id},
+            ).all()
+            for coll in collisions:
+                bind.execute(
+                    sa.text(
+                        "UPDATE part_price_history SET part_listing_id = :winner_pl "
+                        "WHERE part_listing_id = :loser_pl"
+                    ),
+                    {
+                        "winner_pl": coll.winner_listing_id,
+                        "loser_pl": coll.loser_listing_id,
+                    },
+                )
+                bind.execute(
+                    sa.text("DELETE FROM part_listings WHERE id = :loser_pl"),
+                    {"loser_pl": coll.loser_listing_id},
+                )
+            # Reattach surviving part_listings from loser → winner.
             bind.execute(
                 sa.text(
                     "UPDATE part_listings SET part_id = :winner WHERE part_id = :loser"
