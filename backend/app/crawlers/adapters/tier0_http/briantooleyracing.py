@@ -304,6 +304,29 @@ class BrianTooleyRacingAdapter(RetailerCrawlerAdapter):
     category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
+    def infer_category_for_part(self, parsed: ScrapedPayload) -> Optional[str]:
+        """Pin category to ``engine`` unless a more-specific keyword fires.
+
+        BTR's catalog is exclusively LS / LT engine internals (camshafts,
+        valve springs, head studs, rod sets, oil pumps, timing kits) —
+        the universal keyword scorer was sending a chunk of them to
+        ``other`` because product titles often lead with the platform
+        ("LS3 Stage 3", "Gen V LT1") and the description mentions the
+        engine series rather than the part class. Tier-2 audit
+        (2026-05-02): pin the default here, and let the universal
+        scorer override only when a more-specific category clearly
+        applies (e.g. an LS swap clutch fork → drivetrain).
+        """
+        from app.core.category_inference import infer_category
+
+        inferred = infer_category(parsed.name, parsed.description)
+        # Only defer to the universal scorer when it picked a non-default,
+        # non-engine slug — anything else (other / engine) falls through
+        # to our pinned default.
+        if inferred and inferred not in ("other", "engine"):
+            return inferred
+        return "engine"
+
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs. Env override wins; sitemap next; fixed fallback last."""
         env_urls = _resolve_start_urls_env()

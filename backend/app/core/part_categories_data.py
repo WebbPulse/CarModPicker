@@ -91,11 +91,18 @@ PART_CATEGORIES: list[PartCategoryData] = [
         "sort_order": 9,
     },
     {
+        "name": "accessories",
+        "display_name": "Accessories & Apparel",
+        "description": "Apparel, badges, decals, license plate frames, keychains, detailing supplies",
+        "icon": "🎽",
+        "sort_order": 10,
+    },
+    {
         "name": "other",
         "display_name": "Other",
         "description": "Parts that don't fit other categories",
         "icon": "📦",
-        "sort_order": 10,
+        "sort_order": 11,
     },
 ]
 

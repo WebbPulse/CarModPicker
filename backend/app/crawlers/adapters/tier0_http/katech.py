@@ -296,6 +296,22 @@ class KatechAdapter(RetailerCrawlerAdapter):
     category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
+    def infer_category_for_part(self, parsed: ScrapedPayload) -> Optional[str]:
+        """Pin category to ``engine`` unless a more-specific slug applies.
+
+        Katech ships engine builds, internals (pistons, rods, cams, head
+        studs), and dyno/tuning services — every SKU is engine-domain.
+        Tier-2 audit (2026-05-02): default here so platform-named
+        products ("LS7 7.0L Stage 2") that don't surface a part-class
+        keyword still land in ``engine`` instead of ``other``.
+        """
+        from app.core.category_inference import infer_category
+
+        inferred = infer_category(parsed.name, parsed.description)
+        if inferred and inferred not in ("other", "engine"):
+            return inferred
+        return "engine"
+
     def discover_product_urls(self) -> Iterator[str]:
         env_urls = _resolve_start_urls_env()
         if env_urls is not None:
