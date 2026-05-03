@@ -266,14 +266,6 @@ class TexasSpeedAdapter(RetailerCrawlerAdapter):
     category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "tls"
 
-    # TODO(S04 T04 / fitment): Add an ``infer_car_for_part`` override mirroring
-    # ``BrianTooleyRacingAdapter._classify_engine_family`` once Texas Speed
-    # exposes a structured ``Engine Type`` spec row. The current Hyva product
-    # pages don't render one — engine-family signal lives only in the title /
-    # description ("Gen V LT", "Gen III/IV LS", "LSA"), which the universal
-    # phrase-triple pipeline already handles. Avoid building from scratch
-    # against unstructured text; revisit when (or if) TS adds a spec table.
-
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs. Env override wins; otherwise walk the sitemap and

@@ -10,18 +10,11 @@ gallery. These tests run against synthetic HTML modeled on real page
 fixtures.
 """
 
-from bs4 import BeautifulSoup
-
 from app.crawlers.adapters import adapter_name_for_product_url
 from app.crawlers.adapters.tier0_http import briantooleyracing as btr_mod
 from app.crawlers.adapters.tier0_http.briantooleyracing import (
     BrianTooleyRacingAdapter,
-    _classify_engine_family,
     _discover_via_sitemap,
-    _ENGINE_FAMILY_TRIPLES,
-    _ENGINE_GEN_III_IV_LS,
-    _ENGINE_GEN_V_LT,
-    _extract_engine_type,
     _extract_gallery_full_urls,
     _is_product_url,
     _strip_trailing_mpn,
@@ -384,139 +377,3 @@ class TestDiscoverProductUrls:
         adapter = BrianTooleyRacingAdapter()
         urls = list(adapter.discover_product_urls())
         assert urls == list(btr_mod.DEFAULT_START_URLS)
-
-
-def _spec_table(*rows: tuple[str, str]) -> str:
-    """
-    Build a Magento ``additional-attributes`` spec table fragment.
-
-    Each row is ``(label, value)`` and renders as ``<tr><th>label</th><td>value</td></tr>``
-    inside the BTR-shape table. The extractor only cares about the
-    ``Engine Type`` row; padding rows exercise the label-match scan.
-    """
-    body = "".join(
-        f'<tr><th class="col label">{label}</th><td class="col data">{value}</td></tr>'
-        for label, value in rows
-    )
-    return f'<table class="data table additional-attributes"><tbody>{body}</tbody></table>'
-
-
-class TestExtractEngineType:
-    """The ``Engine Type`` cell in the BTR additional-attributes table is the fitment signal."""
-
-    def test_extracts_gen_v_lt(self) -> None:
-        html = "<html><body>" + _spec_table(("Brand", "BTR"), ("Engine Type", "Gen V LT")) + "</body></html>"
-        soup = BeautifulSoup(html, "html.parser")
-        assert _extract_engine_type(soup) == "Gen V LT"
-
-    def test_extracts_gen_iii_iv_ls(self) -> None:
-        # BTR ships both ``Gen III/Gen IV LS`` and the rarer ``Gen III/IV LS``.
-        html = "<html><body>" + _spec_table(("Engine Type", "Gen III/Gen IV LS")) + "</body></html>"
-        soup = BeautifulSoup(html, "html.parser")
-        assert _extract_engine_type(soup) == "Gen III/Gen IV LS"
-
-    def test_returns_none_when_table_missing(self) -> None:
-        soup = BeautifulSoup("<html><body><p>no table</p></body></html>", "html.parser")
-        assert _extract_engine_type(soup) is None
-
-    def test_returns_none_when_engine_type_row_missing(self) -> None:
-        html = "<html><body>" + _spec_table(("Brand", "BTR"), ("Length", "24.0")) + "</body></html>"
-        soup = BeautifulSoup(html, "html.parser")
-        assert _extract_engine_type(soup) is None
-
-
-class TestClassifyEngineFamily:
-    """Engine-type free text → normalised family key. Conservative match."""
-
-    def test_gen_v_lt_canonical(self) -> None:
-        assert _classify_engine_family("Gen V LT") == _ENGINE_GEN_V_LT
-
-    def test_gen_iii_gen_iv_ls(self) -> None:
-        assert _classify_engine_family("Gen III/Gen IV LS") == _ENGINE_GEN_III_IV_LS
-
-    def test_gen_iii_iv_ls_short_form(self) -> None:
-        # The collapsed ``Gen III/IV LS`` spelling appears on a small slice
-        # of older BTR pages — must hit the same family.
-        assert _classify_engine_family("Gen III/IV LS") == _ENGINE_GEN_III_IV_LS
-
-    def test_lsa_does_not_classify(self) -> None:
-        # LSA is too narrow to fan out to the full LS-platform set; let the
-        # universal pipeline handle it.
-        assert _classify_engine_family("LSA") is None
-
-    def test_none_passthrough(self) -> None:
-        assert _classify_engine_family(None) is None
-        assert _classify_engine_family("") is None
-
-
-class TestEngineFamilyTriples:
-    """LS-platform and LT-platform fan-outs against DB-aligned car_generations rows."""
-
-    def test_gen_v_lt_fans_out_to_camaro_6th_and_corvette_c7_c8(self) -> None:
-        triples = _ENGINE_FAMILY_TRIPLES[_ENGINE_GEN_V_LT]
-        assert ("Chevrolet", "Camaro", "6th Gen") in triples
-        assert ("Chevrolet", "Corvette", "C7") in triples
-        assert ("Chevrolet", "Corvette", "C8") in triples
-        assert ("Cadillac", "CTS-V", "3rd Gen") in triples
-
-    def test_gen_iii_iv_ls_fans_out_to_ls_platform_set(self) -> None:
-        triples = _ENGINE_FAMILY_TRIPLES[_ENGINE_GEN_III_IV_LS]
-        assert ("Chevrolet", "Camaro", "4th Gen") in triples
-        assert ("Chevrolet", "Camaro", "5th Gen") in triples
-        assert ("Chevrolet", "Corvette", "C5") in triples
-        assert ("Chevrolet", "Corvette", "C6") in triples
-        assert ("Cadillac", "CTS-V", "1st Gen") in triples
-        assert ("Cadillac", "CTS-V", "2nd Gen") in triples
-        # GTO 2004-2006 is the ``Holden`` row; Trans Am rides on Firebird 4th Gen.
-        assert ("Pontiac", "GTO", "Holden") in triples
-        assert ("Pontiac", "Firebird", "4th Gen") in triples
-
-
-class TestInferCarForPartOverride:
-    """End-to-end: parse_product_page stashes engine family, infer_car_for_part fans out."""
-
-    def _html_with_engine_type(self, engine_type: str) -> str:
-        # Splice a real BTR additional-attributes spec table into the
-        # standard product fixture.
-        table = _spec_table(("Brand", "BTR"), ("Engine Type", engine_type))
-        return _product_html().replace("</body>", table + "</body>")
-
-    def test_gen_v_lt_attaches_camaro_6th_and_c7_c8(self) -> None:
-        adapter = BrianTooleyRacingAdapter()
-        payload = adapter.parse_product_page(self._html_with_engine_type("Gen V LT"), SAMPLE_URL)
-        assert payload is not None
-        triples = adapter.infer_car_for_part(payload)
-        assert triples is not None
-        assert ("Chevrolet", "Camaro", "6th Gen") in triples
-        assert ("Chevrolet", "Corvette", "C7") in triples
-        assert ("Chevrolet", "Corvette", "C8") in triples
-
-    def test_gen_iii_iv_ls_attaches_ls_platform_set(self) -> None:
-        adapter = BrianTooleyRacingAdapter()
-        payload = adapter.parse_product_page(
-            self._html_with_engine_type("Gen III/Gen IV LS"), SAMPLE_URL
-        )
-        assert payload is not None
-        triples = adapter.infer_car_for_part(payload)
-        assert triples is not None
-        # Sample of the LS fan-out — full set is asserted in TestEngineFamilyTriples.
-        assert ("Chevrolet", "Camaro", "4th Gen") in triples
-        assert ("Chevrolet", "Corvette", "C5") in triples
-        assert ("Chevrolet", "Corvette", "C6") in triples
-        assert ("Cadillac", "CTS-V", "1st Gen") in triples
-
-    def test_no_engine_type_returns_none(self) -> None:
-        # Standard product fixture has no spec table — override must hand off
-        # to the universal pipeline rather than over-attributing.
-        adapter = BrianTooleyRacingAdapter()
-        payload = adapter.parse_product_page(_product_html(), SAMPLE_URL)
-        assert payload is not None
-        assert adapter.infer_car_for_part(payload) is None
-
-    def test_lsa_engine_type_returns_none(self) -> None:
-        # LSA is too narrow for the LS fan-out; classify_engine_family
-        # returns None so the override falls through.
-        adapter = BrianTooleyRacingAdapter()
-        payload = adapter.parse_product_page(self._html_with_engine_type("LSA"), SAMPLE_URL)
-        assert payload is not None
-        assert adapter.infer_car_for_part(payload) is None

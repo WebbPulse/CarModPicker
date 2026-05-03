@@ -51,16 +51,13 @@ display reads cleanly without guessing at a split.
 """
 
 import json
-import logging
 import os
 import re
-from typing import ClassVar, Iterator, List, Optional, Tuple
+from typing import ClassVar, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import defusedxml.ElementTree as ET
 from bs4 import BeautifulSoup, Tag
-
-logger = logging.getLogger(__name__)
 
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import ScrapedPayload, fetch_page
@@ -291,111 +288,6 @@ def _strip_trailing_mpn(name: str, mpn: Optional[str]) -> str:
     return trimmed or name
 
 
-# ---------------------------------------------------------------------------
-# Engine-family fitment extraction (Tier-2)
-# ---------------------------------------------------------------------------
-#
-# BTR product pages render a Magento additional-attributes spec table:
-#
-#     <table class="data table additional-attributes">
-#       <tr><th class="col label">Engine Type</th><td class="col data">Gen V LT</td></tr>
-#       ...
-#     </table>
-#
-# The ``Engine Type`` row carries the engine-family classification BTR uses
-# across its catalog. Two values cover ~all BTR fitment that maps cleanly to
-# CarMods's ``car_generations`` rows:
-#
-#   * ``Gen III/Gen IV LS`` (and the rarer ``Gen III/IV LS``) — LS-platform
-#     valvetrain. Fits the F-body Camaro 4th Gen, Camaro 5th Gen, C5/C6
-#     Corvette, CTS-V Gen 1/2, GTO 2004-2006 (DB row "Holden"), and Pontiac
-#     Firebird (Trans Am trim ships under the Firebird car_model row).
-#   * ``Gen V LT`` — LT-platform valvetrain. Fits Camaro 6th Gen, C7 + C8
-#     Corvette, CTS-V Gen 3.
-#
-# Other ``Engine Type`` values seen in production (``LSA``, ``LS3``, etc.) are
-# narrower than a single car_generation and would over-attribute on a naive
-# fan-out — we leave those to the universal phrase-triple pipeline. Be
-# conservative; never silently universal-flag.
-#
-# The override stashes the engine family on the payload via setattr so it
-# survives ``apply_universal_extraction`` without flowing through
-# specifications (which would fail Pydantic ``extra='forbid'`` validation
-# under the universal CategorySpec).
-
-_ENGINE_TYPE_LABEL_RE = re.compile(r"^\s*engine\s*type\s*$", re.IGNORECASE)
-# Tolerate both ``Gen III/Gen IV LS`` and ``Gen III/IV LS`` spellings; case-insensitive.
-_GEN_III_IV_LS_RE = re.compile(
-    r"\bgen\s*iii(?:\s*/\s*(?:gen\s*)?iv)?\s*ls\b",
-    re.IGNORECASE,
-)
-_GEN_V_LT_RE = re.compile(r"\bgen\s*v\s*lt\b", re.IGNORECASE)
-
-_ENGINE_GEN_III_IV_LS = "GEN_III_IV_LS"
-_ENGINE_GEN_V_LT = "GEN_V_LT"
-
-# Engine-family → list of (Make, Model, Generation) triples. Names MUST match
-# car_generations / car_models / car_makes rows verbatim — verified against
-# the live local DB before commit.
-_ENGINE_FAMILY_TRIPLES: dict[str, list[Tuple[str, str, str]]] = {
-    _ENGINE_GEN_III_IV_LS: [
-        ("Chevrolet", "Camaro", "4th Gen"),
-        ("Chevrolet", "Camaro", "5th Gen"),
-        ("Chevrolet", "Corvette", "C5"),
-        ("Chevrolet", "Corvette", "C6"),
-        ("Cadillac", "CTS-V", "1st Gen"),
-        ("Cadillac", "CTS-V", "2nd Gen"),
-        # GTO 2004-2006 lives in the DB as ``Pontiac | GTO | Holden`` (the
-        # Holden Monaro-derived chassis); no separate "2004-2006" row exists.
-        ("Pontiac", "GTO", "Holden"),
-        # Pontiac Trans Am is a Firebird trim — the 4th-gen Firebird
-        # (1993-2002) is the LS-era car. Earlier gens are pre-LS.
-        ("Pontiac", "Firebird", "4th Gen"),
-    ],
-    _ENGINE_GEN_V_LT: [
-        ("Chevrolet", "Camaro", "6th Gen"),
-        ("Chevrolet", "Corvette", "C7"),
-        ("Chevrolet", "Corvette", "C8"),
-        ("Cadillac", "CTS-V", "3rd Gen"),
-        # Camaro ZL1 and Z/28 are 6th-gen trims, not separate car_models —
-        # they're already covered by the Camaro 6th Gen row above.
-    ],
-}
-
-
-def _extract_engine_type(soup: BeautifulSoup) -> Optional[str]:
-    """
-    Return the ``Engine Type`` cell value from the BTR additional-attributes
-    table, or ``None`` when absent.
-    """
-    table = soup.find("table", class_=lambda c: bool(c) and "additional-attributes" in (c if isinstance(c, list) else [c]))
-    if not isinstance(table, Tag):
-        return None
-    for tr in table.find_all("tr"):
-        th = tr.find("th")
-        if not isinstance(th, Tag):
-            continue
-        if not _ENGINE_TYPE_LABEL_RE.match(th.get_text(" ", strip=True)):
-            continue
-        td = tr.find("td")
-        if not isinstance(td, Tag):
-            continue
-        value = td.get_text(" ", strip=True)
-        return value or None
-    return None
-
-
-def _classify_engine_family(engine_type: Optional[str]) -> Optional[str]:
-    """Map a free-text ``Engine Type`` cell to a normalised family key. Conservative."""
-    if not engine_type:
-        return None
-    if _GEN_V_LT_RE.search(engine_type):
-        return _ENGINE_GEN_V_LT
-    if _GEN_III_IV_LS_RE.search(engine_type):
-        return _ENGINE_GEN_III_IV_LS
-    return None
-
-
 class BrianTooleyRacingAdapter(RetailerCrawlerAdapter):
     """
     Brian Tooley Racing adapter. Magento storefront; plain HTTP fetches.
@@ -475,7 +367,7 @@ class BrianTooleyRacingAdapter(RetailerCrawlerAdapter):
         gallery_images = _extract_gallery_full_urls(html)
         image_urls = gallery_images or (payload.image_urls or None)
 
-        out = ScrapedPayload(
+        return ScrapedPayload(
             name=clean_name,
             product_url=url,
             description=description,
@@ -485,38 +377,3 @@ class BrianTooleyRacingAdapter(RetailerCrawlerAdapter):
             image_urls=image_urls[:12] if image_urls else None,
             gtin=payload.gtin,
         )
-
-        # Stash engine-family hint on the payload so the
-        # ``infer_car_for_part`` override can resolve it without re-parsing
-        # the HTML. setattr on the dataclass is safe — it isn't frozen and
-        # ingest_payload only reads declared fields. Spec validation never
-        # sees this attribute (would fail ``extra='forbid'`` if it did).
-        family = _classify_engine_family(_extract_engine_type(soup))
-        if family is not None:
-            out._btr_engine_family = family  # type: ignore[attr-defined]
-        return out
-
-    def infer_car_for_part(
-        self, parsed: ScrapedPayload
-    ) -> Optional[List[Tuple[str, str, str]]]:
-        """
-        Adapter-wins car-inference for BTR (S04 T04).
-
-        Reads the engine-family hint stashed by ``parse_product_page`` and
-        fans out to the LS-platform or LT-platform car_generation set.
-        Conservative: narrower ``Engine Type`` values (``LSA``, ``LS3``,
-        ``LS6`` ...) hand off to the universal phrase-triple pipeline rather
-        than over-attributing.
-        """
-        family = getattr(parsed, "_btr_engine_family", None)
-        if not family:
-            return None
-        triples = _ENGINE_FAMILY_TRIPLES.get(family)
-        if not triples:
-            logger.warning(
-                "briantooleyracing: unknown engine family %r url=%s",
-                family,
-                parsed.product_url,
-            )
-            return None
-        return list(triples)
