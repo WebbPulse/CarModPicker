@@ -486,25 +486,6 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
             if payload and payload.name:
                 description = payload.description
                 part_number = normalize_part_number(payload.part_number) if payload.part_number else None
-                # JSON-LD-driven SKU recovery when ``sku`` is missing/false-y on
-                # the JSON-LD item (Cobb's catalog frequently emits
-                # ``"sku": false`` and stuffs the real code into ``productID``,
-                # e.g. ``"productID": "COBB_NylonWasher-Kit"``). Fall back to
-                # image-URL filename, name-parens, then JSON-LD productID — the
-                # same order the DOM path uses, with productID acting as the
-                # JSON-LD-only last resort.
-                if not part_number:
-                    image_sku = _extract_sku_from_image_urls(payload.image_urls or dom_images)
-                    if image_sku:
-                        part_number = normalize_part_number(image_sku)
-                if not part_number:
-                    name_sku = _extract_sku_from_name_parens(payload.name)
-                    if name_sku:
-                        part_number = normalize_part_number(name_sku)
-                if not part_number:
-                    product_id = item.get("productID")
-                    if isinstance(product_id, str) and product_id.strip():
-                        part_number = normalize_part_number(product_id)
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 part_manufacturer = payload.part_manufacturer or _DEFAULT_MANUFACTURER
                 image_urls = payload.image_urls or (dom_images[:12] if dom_images else None)

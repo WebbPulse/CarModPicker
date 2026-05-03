@@ -277,7 +277,8 @@ def _extract_brand(url: str, name: Optional[str], description: Optional[str]) ->
     Exhaust products: Wheels Boutique's exhaust taxonomy today is iPE-only,
     and the vendor embeds the literal ``iPE`` token in every exhaust
     description. Detect the token on the page; return None when absent so
-    the ingest path stores the part under ``Unknown`` rather than guessing.
+    ingest stores the part with ``part_manufacturer_id = NULL`` rather than
+    guessing.
     """
     path = urlparse(url).path or ""
     if path.lower().startswith("/wheels/"):

@@ -1641,30 +1641,6 @@ def normalize_part_number(raw: Optional[str]) -> Optional[str]:
     return s
 
 
-def part_number_canonical(raw: Optional[str]) -> Optional[str]:
-    """
-    Build the canonical dedup key for a part number: strip prefixes, drop every
-    non-alphanumeric character, and uppercase the result. Returns ``None`` for
-    empty input, results shorter than 4 characters, or values that match the
-    car/model blacklist.
-
-    The raw ``parts.part_number`` column keeps the human-readable form (the
-    return value of ``normalize_part_number``); this canonical form is stored
-    in ``part_number_normalized`` and used for equality matching so that
-    styling drift (``"AEM-30-2400"`` vs ``"AEM 30/2400"``) collapses into a
-    single dedup key.
-    """
-    normalized = normalize_part_number(raw)
-    if not normalized:
-        return None
-    canonical = re.sub(r"[^A-Za-z0-9]", "", normalized).upper()
-    if not canonical or len(canonical) < 4:
-        return None
-    if canonical.lower() in _PART_NUMBER_CAR_MODEL_BLACKLIST:
-        return None
-    return canonical
-
-
 def extract_sku_from_text(text: str) -> Optional[str]:
     """
     Find SKU/part number from body text. Tries "SKU: X", "SKU: X - Y", "Part #: X".
@@ -1717,60 +1693,6 @@ _ALPHA_OPTION_LABEL_DENYLIST = frozenset(
 )
 
 
-# Car-make tokens that leak into synthesized part numbers (chassis-leakage:
-# ``"Toyota-Supra-A91-Pure800"``, ``"Subaru-WRX-STi-Tune"``). When any of these
-# tokens appears as a whole word inside the candidate, the value is almost
-# certainly a title-shape concatenation rather than a real SKU. Match is
-# case-insensitive and word-boundary-scoped on the original (non-collapsed)
-# value so legitimate codes that happen to embed these substrings as part of
-# a longer alphanumeric run (``"TOYO225"``, ``"INFINITRONIC"``) survive.
-_PART_NUMBER_MAKE_TOKEN_DENYLIST = frozenset(
-    {
-        "toyota",
-        "subaru",
-        "honda",
-        "nissan",
-        "ford",
-        "chevrolet",
-        "chevy",
-        "mazda",
-        "bmw",
-        "audi",
-        "porsche",
-        "mitsubishi",
-        "lexus",
-        "infiniti",
-        "acura",
-        "volkswagen",
-        "vw",
-        "hyundai",
-        "kia",
-        "genesis",
-        "tesla",
-    }
-)
-
-_PART_NUMBER_MAKE_TOKEN_RE = re.compile(
-    r"\b(?:" + "|".join(sorted(_PART_NUMBER_MAKE_TOKEN_DENYLIST, key=len, reverse=True)) + r")\b",
-    re.IGNORECASE,
-)
-
-# Price-shape: a bare decimal with two trailing digits (``"15109.14"``,
-# ``"99.95"``). The crawler occasionally writes a stringified price into the
-# SKU slot when JSON-LD ``offers.price`` is mis-mapped onto ``sku``.
-_PART_NUMBER_PRICE_SHAPE_RE = re.compile(r"^\d+\.\d{2}$")
-
-# Suspicious-length cap for SKU-shaped values. Real SKUs almost never run past
-# 40 chars; the worst offenders we've seen are bundle-list concatenations
-# ("Item1+Item2+Item3" from a multi-product variant string).
-_PART_NUMBER_LENGTH_CAP = 40
-
-# Pure-numeric GTIN (UPC/EAN) shapes. UPC-A is 12 digits, EAN-13 is 13. When a
-# candidate matches one of these and the part has no GTIN yet, the value is
-# moved to the gtin column instead of dropped — see ``gtin_candidate_for_pn``.
-_PART_NUMBER_GTIN_RE = re.compile(r"^\d{12,13}$")
-
-
 def is_junk_part_number(part_number: Optional[str], part_manufacturer: Optional[str]) -> bool:
     """
     Reject part numbers that are almost certainly scraper noise rather than a real SKU:
@@ -1784,28 +1706,12 @@ def is_junk_part_number(part_number: Optional[str], part_manufacturer: Optional[
     NOT junk — Road Sport Supply, Girodisc, and other manufacturers ship real
     catalog SKUs in this shape. Those would never collide with a brand name.
 
-    Suspicious-pattern guards (added with the canonical-PN refactor):
-
-    - **Bundle/list concatenations** — > 40 chars containing whitespace or ``+``
-      almost always come from a mis-mapped variant string (``"Item A + Item B
-      + Item C"``). Real SKUs that long don't carry separators.
-    - **Price-shape** — bare ``\\d+\\.\\d{{2}}`` is a stringified price, never
-      a SKU.
-    - **GTIN-shape** — pure 12/13-digit values are UPC/EAN codes; ingest
-      promotes them to the ``gtin`` column instead of writing them as a part
-      number. The dedicated promotion helper handles that hand-off; this
-      function still rejects them as part-number junk.
-    - **Make tokens** — title-shape synthesized SKUs (``"Toyota-Supra-A91-
-      Pure800"``) are dropped when any of the make tokens appears as a whole
-      word.
-
     Used as a last-mile guard in ingest so a JSON-LD sku of "CSF" on a CSF-branded
     page doesn't become the part's part_number and cause spurious cross-URL dedupe.
     """
     if not part_number or not part_number.strip():
         return True
-    raw = part_number.strip()
-    normalized = re.sub(r"\s+", "", raw).lower()
+    normalized = re.sub(r"\s+", "", part_number).lower()
     # Short purely alphabetic tokens (no digits) are almost always brand acronyms
     # leaking into the SKU slot. Anything containing a digit (or longer than 3
     # chars) is allowed through — manufacturer-equality check below still catches
@@ -1821,40 +1727,7 @@ def is_junk_part_number(part_number: Optional[str], part_manufacturer: Optional[
         manufacturer_key = re.sub(r"\s+", "", part_manufacturer).lower()
         if manufacturer_key and normalized == manufacturer_key:
             return True
-    # Bundle/list leakage: a long string carrying whitespace or ``+`` is the
-    # signature of a multi-product concatenation, not a real SKU.
-    if len(raw) > _PART_NUMBER_LENGTH_CAP and (
-        any(c.isspace() for c in raw) or "+" in raw
-    ):
-        return True
-    # Price-shape (``"15109.14"``).
-    if _PART_NUMBER_PRICE_SHAPE_RE.match(raw):
-        return True
-    # GTIN-shape (12/13 digit pure numeric). Belongs in ``gtin``, not
-    # ``part_number``. Caller is expected to first attempt GTIN promotion via
-    # ``gtin_candidate_for_pn``; the rejection here is the no-op fallback when
-    # the gtin slot is already populated.
-    if _PART_NUMBER_GTIN_RE.match(raw):
-        return True
-    # Make-token leakage (``"Toyota-Supra-A91-Pure800"`` and friends).
-    if _PART_NUMBER_MAKE_TOKEN_RE.search(raw):
-        return True
     return False
-
-
-def gtin_candidate_for_pn(part_number: Optional[str]) -> Optional[str]:
-    """
-    Return a normalized GTIN string when ``part_number`` looks like a 12- or
-    13-digit pure-numeric value (UPC-A / EAN-13), otherwise ``None``. Caller
-    promotes the result into the ``gtin`` column when that slot is empty.
-    Whitespace is stripped; non-digit characters disqualify the candidate.
-    """
-    if not part_number or not part_number.strip():
-        return None
-    raw = part_number.strip()
-    if _PART_NUMBER_GTIN_RE.match(raw):
-        return raw
-    return None
 
 
 # ---------------------------------------------------------------------------

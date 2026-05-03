@@ -39,12 +39,6 @@ class Part(Base):
         Uuid(as_uuid=True), ForeignKey("part_manufacturers.id"), nullable=True, index=True
     )
     part_number: Mapped[Optional[str]] = mapped_column(nullable=True)
-    #: Canonical alphanumeric-uppercase form of ``part_number`` used for dedup.
-    #: Computed via :func:`app.crawlers.parsing.part_number_canonical` — strips
-    #: separators and uppercases so ``"AEM-30-2400"`` and ``"AEM 30/2400"`` map
-    #: to the same key. Indexed jointly with ``part_manufacturer_id`` for the
-    #: linker's primary lookup path.
-    part_number_normalized: Mapped[Optional[str]] = mapped_column(nullable=True)
     gtin: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)
     specifications: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
