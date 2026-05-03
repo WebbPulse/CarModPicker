@@ -473,10 +473,13 @@ export const adminApi = {
   /**
    * Admin extraction-health snapshot — compliance counts, per-tier coverage
    * gradient, and 7-day per-adapter failure rates. Backend handler is mounted
-   * at `/admin/extraction-health/` (router prefix + `@router.get("/")`); FastAPI
-   * resolves the no-slash form via redirect. Sources failure-rate from
-   * `crawled_pages.parse_status` (D009) — works in dev/test without IAM.
+   * at `/admin/extraction-health/` (router prefix + `@router.get("/")`). Call
+   * with the trailing slash: FastAPI's no-slash 307 redirect points at the
+   * upstream (localhost:8000), which is cross-origin from the Vite dev server
+   * (localhost:4000), and browsers drop the Authorization header on cross-origin
+   * redirects → 401. Sources failure-rate from `crawled_pages.parse_status`
+   * (D009) — works in dev/test without IAM.
    */
   getExtractionHealth: () =>
-    apiClient.get<ExtractionHealthResponse>('/admin/extraction-health'),
+    apiClient.get<ExtractionHealthResponse>('/admin/extraction-health/'),
 };

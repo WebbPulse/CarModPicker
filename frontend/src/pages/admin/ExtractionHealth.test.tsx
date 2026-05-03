@@ -122,7 +122,7 @@ describe('ExtractionHealth page', () => {
 
     // The api client was called against the documented endpoint.
     expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
-      '/admin/extraction-health'
+      '/admin/extraction-health/'
     );
 
     // Failure-rate table renders both rows; sorted by rate desc — adapter-b
@@ -169,7 +169,7 @@ describe('ExtractionHealth page', () => {
 
     // No data fetch should fire for a non-admin caller.
     expect(vi.mocked(apiClient.get)).not.toHaveBeenCalledWith(
-      '/admin/extraction-health'
+      '/admin/extraction-health/'
     );
   });
 });

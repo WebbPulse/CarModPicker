@@ -678,7 +678,7 @@ describe('adminApi — extraction health', () => {
     vi.clearAllMocks();
   });
 
-  it('getExtractionHealth GETs /admin/extraction-health and returns the typed payload', async () => {
+  it('getExtractionHealth GETs /admin/extraction-health/ and returns the typed payload', async () => {
     const payload: ExtractionHealthResponse = {
       compliance: {
         compliant: 108,
@@ -720,7 +720,7 @@ describe('adminApi — extraction health', () => {
     const result = await adminApi.getExtractionHealth();
 
     expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
-      '/admin/extraction-health'
+      '/admin/extraction-health/'
     );
     expect(result.data).toEqual(payload);
     expect(result.data.compliance.compliant).toBe(108);
