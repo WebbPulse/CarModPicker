@@ -320,6 +320,37 @@ class TestImages:
         response = client.delete(f"{settings.API_STR}/images/delete?file_key={file_key}", headers=headers)
         assert response.status_code == 403
 
+    def test_delete_image_admin_can_delete_other_users(
+        self, client: TestClient, test_admin_user: DBUser, db_session: Session
+    ) -> None:
+        """Admins can delete any user's image (moderation / cleanup)."""
+        import hashlib
+
+        # Create a regular user whose image the admin will delete
+        username = get_unique_name("victim")
+        victim = DBUser(
+            username=username,
+            email=f"{username}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            email_verified=True,
+            disabled=False,
+        )
+        db_session.add(victim)
+        db_session.commit()
+        db_session.refresh(victim)
+
+        victim_hash = hashlib.sha256(str(victim.id).encode()).hexdigest()[:16]
+        file_key = f"user/{victim_hash}/test-image.jpg"
+
+        token = get_auth_token(client, test_admin_user.username)
+        headers = get_auth_headers(token)
+        response = client.delete(f"{settings.API_STR}/images/delete?file_key={file_key}", headers=headers)
+
+        # 200 if storage succeeds in test, 503/500 if storage backend unavailable.
+        # The key assertion: NOT 403 — admin must pass the ownership gate.
+        assert response.status_code != 403, f"Admin should be authorized; got {response.status_code}: {response.text}"
+        assert response.status_code in [200, 500, 503], f"Unexpected status: {response.text}"
+
     def test_get_bucket_object_count_admin_only(
         self, client: TestClient, test_user: DBUser, db_session: Session, mock_s3: Dict[str, Any]
     ) -> None:

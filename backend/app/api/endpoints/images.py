@@ -297,8 +297,10 @@ async def delete_image(
     # Validate file key format and security
     storage_service.validate_file_key(file_key)
 
-    # Verify ownership before allowing deletion
-    if not storage_service.verify_file_key_ownership(file_key, current_user.id):
+    # Verify ownership before allowing deletion. Admins may delete any image to
+    # support moderation / cleanup of UGC and orphaned uploads.
+    is_owner = storage_service.verify_file_key_ownership(file_key, current_user.id)
+    if not is_owner and not current_user.is_admin:
         logger.warning(f"User {current_user.id} attempted to delete file_key they don't own: {file_key}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -309,7 +311,8 @@ async def delete_image(
         success = storage_service.delete_image(file_key)
 
         if success:
-            logger.info(f"User {current_user.id} deleted image: {file_key}")
+            actor = "Admin" if current_user.is_admin and not is_owner else "User"
+            logger.info(f"{actor} {current_user.id} deleted image: {file_key}")
             return {"message": "Image deleted successfully", "file_key": file_key}
         else:
             raise HTTPException(
