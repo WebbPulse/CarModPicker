@@ -145,61 +145,6 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "washer fluid",
         "washer fluid cap",
         "retaining kit",
-        # Engine internals — Tier-2 audit (2026-05-02). The catch-all
-        # ``other`` was 18.6% of the catalog because pistons, gaskets,
-        # cams, valve-train, head/main/rod studs, AN fittings, and
-        # silicone-hose plumbing fell through the keyword scorer. These
-        # belong to the ``engine`` bucket per the catalog audit; if a
-        # future ``plumbing`` category is split out, AN fittings + hoses
-        # move there.
-        "piston",
-        "pistons",
-        "piston ring",
-        "i-beam",
-        "h-beam",
-        "head gasket",
-        "gasket set",
-        "oil pump",
-        "oil pan",
-        "oil drain",
-        "oil feed",
-        "camshaft",
-        "camshafts",
-        "cam gear",
-        "cam sprocket",
-        "timing chain",
-        "timing belt",
-        "timing kit",
-        "tensioner",
-        "valve spring",
-        "valve springs",
-        "valve retainer",
-        "valve retainers",
-        "valve seat",
-        "valve guide",
-        "pushrod",
-        "lifter",
-        "rocker arm",
-        "main bearing",
-        "rod bearing",
-        "cam bearing",
-        "crankshaft",
-        "crank pulley",
-        "cylinder head",
-        "block",
-        "head stud",
-        "head studs",
-        "main stud",
-        "main studs",
-        "rod stud",
-        "rod studs",
-        "nitrous",
-        "water methanol",
-        "silicone hose",
-        "coupler",
-        "t-bolt clamp",
-        "an fitting",
-        "hose end",
     ],
     "wheels": [
         "wheel",
@@ -391,37 +336,6 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "short shift kit",
         "shift kit",
     ],
-    "accessories": [
-        # Apparel / branded swag / cosmetic + detailing supplies. Tier-2
-        # audit (2026-05-02) split these out of ``other`` so the
-        # catch-all reflects truly-uncategorized parts. ``accessories``
-        # iterates LAST so existing categories (body, interior, etc.)
-        # win on score ties — e.g. ``"GR Badge"`` keeps routing to
-        # ``body`` rather than ``accessories`` because both score 3 and
-        # ``body`` is encountered first in the loop. Overlap entries
-        # (``decal`` / ``badge`` / ``floor mat``) are intentionally
-        # duplicated; the body/interior versions still win for parts
-        # whose context surfaces additional keywords from those
-        # categories (door decals → body via ``door``-adjacent terms).
-        "t-shirt",
-        "hat",
-        "cap",
-        "keychain",
-        "keyring",
-        "lanyard",
-        "decal",
-        "sticker",
-        "emblem",
-        "badge",
-        "license plate frame",
-        "license plate relocator",
-        "floor mat",
-        "mud flap",
-        "wax",
-        "polish",
-        "cleaner",
-        "microfiber",
-    ],
 }
 
 # Minimum total score to return a category; else return "other"
@@ -430,32 +344,9 @@ MIN_SCORE = 1
 # Weight for matches in the part name (description weight is 1)
 NAME_WEIGHT = 2
 
-# When text contains "steering wheel(s)" or a wheel-detailing accessory phrase
-# (``wheel cleaner``/``wheel polish``/``wheel wax``), don't count plain
-# ``wheel``/``wheels`` toward the wheels category — the product is interior
-# (steering) or accessories (detailing), not a road wheel.
-STEERING_WHEEL_PHRASES = (
-    "steering wheel",
-    "steering wheels",
-    "wheel cleaner",
-    "wheel polish",
-    "wheel wax",
-)
+# When text contains "steering wheel(s)", don't count "wheel"/"wheels" toward wheels category
+STEERING_WHEEL_PHRASES = ("steering wheel", "steering wheels")
 WHEELS_AMBIGUOUS_KEYWORDS = frozenset({"wheel", "wheels"})
-
-# Tier-2 audit (2026-05-02): when the engine-specific phrase ``valve spring(s)``
-# is present, suppress suspension's plain ``spring``/``springs`` so a valve-train
-# product doesn't tie or beat engine on score. Same pattern as the steering-wheel
-# guard above.
-VALVE_SPRING_PHRASES = ("valve spring", "valve springs")
-SUSPENSION_AMBIGUOUS_KEYWORDS = frozenset({"spring", "springs"})
-
-# Tier-2 audit (2026-05-02): when an accessories-specific license-plate phrase
-# is present (``license plate frame``/``license plate relocator``), suppress
-# body's plain ``license plate`` keyword so an apparel/accessory plate frame
-# doesn't tie body on score (body would otherwise win because it iterates first).
-LICENSE_PLATE_ACCESSORY_PHRASES = ("license plate frame", "license plate relocator")
-BODY_AMBIGUOUS_LICENSE_KEYWORDS = frozenset({"license plate"})
 
 
 def _score_text(text: str, keywords: list[str]) -> int:
@@ -483,32 +374,6 @@ def _score_text_wheels_aware(text: str, keywords: list[str], context: str) -> in
     return _score_text(text, keywords)
 
 
-def _score_text_suspension_aware(text: str, keywords: list[str], context: str) -> int:
-    """
-    Score for suspension category: exclude plain ``spring``/``springs`` when context
-    contains ``valve spring(s)`` (those are valve-train → engine, not suspension).
-    """
-    if not text and not context:
-        return _score_text(text, keywords)
-    lower_context = (context or "").lower()
-    if any(phrase in lower_context for phrase in VALVE_SPRING_PHRASES):
-        keywords = [kw for kw in keywords if kw not in SUSPENSION_AMBIGUOUS_KEYWORDS]
-    return _score_text(text, keywords)
-
-
-def _score_text_body_aware(text: str, keywords: list[str], context: str) -> int:
-    """
-    Score for body category: exclude plain ``license plate`` when context contains a
-    more-specific accessories phrase (``license plate frame``/``license plate relocator``).
-    """
-    if not text and not context:
-        return _score_text(text, keywords)
-    lower_context = (context or "").lower()
-    if any(phrase in lower_context for phrase in LICENSE_PLATE_ACCESSORY_PHRASES):
-        keywords = [kw for kw in keywords if kw not in BODY_AMBIGUOUS_LICENSE_KEYWORDS]
-    return _score_text(text, keywords)
-
-
 def infer_category(
     name: Optional[str],
     description: Optional[str],
@@ -533,12 +398,6 @@ def infer_category(
         if category == "wheels":
             name_score = _score_text_wheels_aware(name, keywords, combined) * NAME_WEIGHT
             desc_score = _score_text_wheels_aware(description, keywords, combined)
-        elif category == "suspension":
-            name_score = _score_text_suspension_aware(name, keywords, combined) * NAME_WEIGHT
-            desc_score = _score_text_suspension_aware(description, keywords, combined)
-        elif category == "body":
-            name_score = _score_text_body_aware(name, keywords, combined) * NAME_WEIGHT
-            desc_score = _score_text_body_aware(description, keywords, combined)
         else:
             name_score = _score_text(name, keywords) * NAME_WEIGHT
             desc_score = _score_text(description, keywords)

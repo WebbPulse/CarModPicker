@@ -202,48 +202,6 @@ class TestInferCategory:
             == "exhaust"
         )
 
-    def test_engine_internals_extension(self) -> None:
-        """Tier-2 audit (2026-05-02): pistons, gaskets, valve-train, AN fittings → engine."""
-        # Pistons
-        assert infer_category("Wiseco K617M85 Forged Pistons", None) == "engine"
-        assert infer_category("Pistons Set", "Forged piston set with rings.") == "engine"
-        # Head gasket / gasket set
-        assert infer_category("Cometic MLS Head Gasket", "Multi-layer steel head gasket.") == "engine"
-        assert infer_category("Mahle Engine Gasket Set", None) == "engine"
-        # Valve-train
-        assert infer_category("BTR LS Stage 3 Camshaft", "Hydraulic roller camshaft.") == "engine"
-        assert infer_category("Valve Spring Kit", "Dual valve springs and retainers.") == "engine"
-        assert infer_category("Timing Chain Kit", "Replacement timing chain.") == "engine"
-        # Studs
-        assert infer_category("ARP Head Stud Kit", "ARP2000 head stud set.") == "engine"
-        assert infer_category("ARP Main Studs", None) == "engine"
-        assert infer_category("Connecting Rod Stud Kit", None) == "engine"
-        # Plumbing — AN fittings + silicone hoses → engine (per Tier-2 audit)
-        assert infer_category("Vibrant -8 AN Fitting Straight", "AN fitting straight.") == "engine"
-        assert infer_category("Silicone Hose 3-inch", "Reinforced silicone coupler.") == "engine"
-        # Crankshaft / oil pump / cylinder head
-        assert infer_category("Forged Crankshaft", "Stroker crank.") == "engine"
-        assert infer_category("Melling High-Volume Oil Pump", None) == "engine"
-        assert infer_category("CNC-Ported Cylinder Head", "LS3 cylinder head with valves.") == "engine"
-
-    def test_accessories_category(self) -> None:
-        """Tier-2 audit (2026-05-02): apparel + cosmetic supplies → accessories."""
-        # Apparel
-        assert infer_category("Brand T-Shirt Black L", "Cotton t-shirt with logo.") == "accessories"
-        assert infer_category("Snapback Hat", "Embroidered hat.") == "accessories"
-        assert infer_category("Keychain Metal", None) == "accessories"
-        assert infer_category("Lanyard", "Branded lanyard.") == "accessories"
-        # License plate frame / relocator. ``body`` carries ``license plate``
-        # and ``bumper`` already; we don't fight it for relocator brackets
-        # whose description references the bumper. Plain titles still hit
-        # the more-specific accessories phrase.
-        assert infer_category("License Plate Frame Carbon", None) == "accessories"
-        assert infer_category("License Plate Relocator Bracket", None) == "accessories"
-        # Detailing
-        assert infer_category("Microfiber Towel Pack", None) == "accessories"
-        assert infer_category("Wax & Polish Bundle", "Carnauba wax + polish.") == "accessories"
-        assert infer_category("Wheel Cleaner Spray", "Acid-free wheel cleaner.") == "accessories"
-
     def test_universal_export_category_fixes(self) -> None:
         """Parts from universal/unassociated export: fix injectors→engine, intake muffler→engine, rocker→body."""
         # Fuel injectors -> engine (not exhaust; "tip" in Extended Tip was matching exhaust)
