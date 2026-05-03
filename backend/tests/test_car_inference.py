@@ -1,7 +1,5 @@
 """Tests for car make/model/generation inference from part name and description."""
 
-import pytest
-
 from app.core.car_inference import infer_car_generations
 
 

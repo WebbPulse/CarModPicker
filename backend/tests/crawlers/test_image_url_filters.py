@@ -14,10 +14,8 @@ photo survives. Inline HTML fixtures only — no MinIO / archive fetch.
 
 import importlib.util
 import json
-import re
 from pathlib import Path
-from typing import List, Optional
-
+from typing import List
 
 # --- studiorsr -------------------------------------------------------------
 
@@ -203,8 +201,9 @@ def test_forgeline_drops_marketing_template_renders() -> None:
 
 
 def test_hksusa_returns_none_when_og_image_is_brand_logo() -> None:
-    from app.crawlers.adapters.tier0_http.hksusa import _extract_hero_image
     from bs4 import BeautifulSoup
+
+    from app.crawlers.adapters.tier0_http.hksusa import _extract_hero_image
 
     soup = BeautifulSoup(
         '<html><head><meta property="og:image" content="https://hksusa.com/_next/static/hks_logo.png"></head><body></body></html>',
@@ -220,8 +219,9 @@ def test_hksusa_returns_none_when_og_image_is_brand_logo() -> None:
 
 
 def test_hksusa_keeps_real_product_image() -> None:
-    from app.crawlers.adapters.tier0_http.hksusa import _extract_hero_image
     from bs4 import BeautifulSoup
+
+    from app.crawlers.adapters.tier0_http.hksusa import _extract_hero_image
 
     soup = BeautifulSoup(
         '<html><head><meta property="og:image" content="https://cheerful-bouquet-91c8f27a22.media.strapiapp.com/11003_AN_020_6.JPG"></head><body></body></html>',
@@ -305,8 +305,7 @@ def test_bcracing_drops_catalog_hero_placeholders() -> None:
     # Both hero placeholders are denied → image_urls collapses to None
     # (don't emit an empty array — see filter docstring).
     assert result.image_urls is None or all(
-        "BR_Series_Coilover" not in u and "Rear_Height_Adjuster" not in u
-        for u in result.image_urls
+        "BR_Series_Coilover" not in u and "Rear_Height_Adjuster" not in u for u in result.image_urls
     )
 
 
@@ -331,9 +330,7 @@ def test_filter_payload_image_urls_drops_data_uris_and_blanks() -> None:
 def test_filter_payload_image_urls_rewrites_http_to_https() -> None:
     from app.crawlers.base import filter_payload_image_urls
 
-    out = filter_payload_image_urls(
-        ["http://cdn.example.com/photo.jpg"], part_name="Brake Kit"
-    )
+    out = filter_payload_image_urls(["http://cdn.example.com/photo.jpg"], part_name="Brake Kit")
     assert out == ["https://cdn.example.com/photo.jpg"]
 
 
@@ -341,16 +338,9 @@ def test_filter_payload_image_urls_drops_svg_unless_decal_sticker_logo() -> None
     from app.crawlers.base import filter_payload_image_urls
 
     # SVG dropped for a generic part name.
-    assert (
-        filter_payload_image_urls(
-            ["https://cdn.example.com/icon.svg"], part_name="Catback Exhaust"
-        )
-        is None
-    )
+    assert filter_payload_image_urls(["https://cdn.example.com/icon.svg"], part_name="Catback Exhaust") is None
     # SVG kept when the part name advertises a decal/sticker/logo.
-    out = filter_payload_image_urls(
-        ["https://cdn.example.com/team-decal.svg"], part_name="Window Decal Sheet"
-    )
+    out = filter_payload_image_urls(["https://cdn.example.com/team-decal.svg"], part_name="Window Decal Sheet")
     assert out == ["https://cdn.example.com/team-decal.svg"]
 
 
@@ -372,10 +362,14 @@ def test_filter_payload_image_urls_is_idempotent() -> None:
     ]
     once = filter_payload_image_urls(raw, part_name="Coilover Kit")
     twice = filter_payload_image_urls(once, part_name="Coilover Kit")
-    assert once == twice == [
-        "https://cdn.example.com/a.jpg",
-        "https://cdn.example.com/b.jpg",
-    ]
+    assert (
+        once
+        == twice
+        == [
+            "https://cdn.example.com/a.jpg",
+            "https://cdn.example.com/b.jpg",
+        ]
+    )
 
 
 # --- migration helper ------------------------------------------------------
@@ -384,18 +378,11 @@ def test_filter_payload_image_urls_is_idempotent() -> None:
 # package and importing by module path keeps this self-contained — we don't
 # need to spin up the env / DB to test the helper.
 
-_MIGRATION_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "alembic"
-    / "versions"
-    / "ea29b2450841_strip_junk_image_urls.py"
-)
+_MIGRATION_PATH = Path(__file__).resolve().parents[2] / "alembic" / "versions" / "ea29b2450841_strip_junk_image_urls.py"
 
 
 def _load_migration_module():
-    spec = importlib.util.spec_from_file_location(
-        "ea29b2450841_strip_junk_image_urls", _MIGRATION_PATH
-    )
+    spec = importlib.util.spec_from_file_location("ea29b2450841_strip_junk_image_urls", _MIGRATION_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -454,10 +441,14 @@ def test_migration_clean_url_list_is_idempotent() -> None:
     ]
     once = mod._clean_url_list(raw)
     twice = mod._clean_url_list(once)
-    assert once == twice == [
-        "https://cdn.example.com/a.jpg",
-        "https://cdn.example.com/b.jpg",
-    ]
+    assert (
+        once
+        == twice
+        == [
+            "https://cdn.example.com/a.jpg",
+            "https://cdn.example.com/b.jpg",
+        ]
+    )
 
 
 def test_migration_clean_url_list_returns_none_for_empty_input() -> None:

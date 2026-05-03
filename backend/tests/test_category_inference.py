@@ -1,7 +1,5 @@
 """Tests for category inference from part name and description."""
 
-import pytest
-
 from app.core.category_inference import infer_category
 
 

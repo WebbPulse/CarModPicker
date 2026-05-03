@@ -243,9 +243,7 @@ _IMAGE_SKU_RE = re.compile(
 # The segment requirement filters chassis-style codes like ``(Mk7)`` /
 # ``(8V)`` / ``(B58)`` (no separator) and bare numerics like ``(2024)``,
 # while still catching multi-segment SKUs ``(AP3-AU-SUB-006)``.
-_NAME_SKU_PARENS_RE = re.compile(
-    r"\(([A-Z][A-Z0-9]*(?:[-_/][A-Z0-9]+){1,5})\)"
-)
+_NAME_SKU_PARENS_RE = re.compile(r"\(([A-Z][A-Z0-9]*(?:[-_/][A-Z0-9]+){1,5})\)")
 
 
 # Generic AccessPort beauty-shot filenames that COBB inlines as marketing
@@ -522,7 +520,8 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
                 # same order the DOM path uses, with productID acting as the
                 # JSON-LD-only last resort.
                 if not part_number:
-                    image_sku = _extract_sku_from_image_urls(payload.image_urls or dom_images)
+                    image_pool = payload.image_urls or _extract_dom_images(soup, page_sku="AP3-PROBE")
+                    image_sku = _extract_sku_from_image_urls(image_pool)
                     if image_sku:
                         part_number = normalize_part_number(image_sku)
                 if not part_number:
@@ -541,9 +540,7 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
                 # JSON-LD image lists are also vulnerable to the same generic
                 # accessport_v3_*.jpg leak — apply the deny filter post-hoc.
                 jsonld_images = [
-                    u
-                    for u in (payload.image_urls or [])
-                    if not _is_accessport_marketing_image(u, page_sku=part_number)
+                    u for u in (payload.image_urls or []) if not _is_accessport_marketing_image(u, page_sku=part_number)
                 ]
                 image_urls = jsonld_images or (dom_images[:12] if dom_images else None)
                 return ScrapedPayload(
