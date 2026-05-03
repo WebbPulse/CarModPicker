@@ -234,3 +234,83 @@ def test_ambiguity_resolution_pins_current_behavior(
 def test_vector_count_meets_floor() -> None:
     """Plan 04-06 D-37 requires at least 20 vectors."""
     assert len(AMBIGUITY_VECTORS) >= 20, f"Expected >=20 ambiguity vectors; got {len(AMBIGUITY_VECTORS)}"
+
+
+# ---------------------------------------------------------------------------
+# Tier-1 audit (2026-05) false-positive purge regression tests.
+#
+# The audit found ``_build_phrase_triples`` was splitting gen_name strings like
+# ``Turbo/Shelby``, ``BE/BH``, ``R/T Turbo``, ``E36/7 E36/8`` and ``V1`` into
+# 1-2 char tokens that matched English words and SKU fragments inside product
+# titles. The fix:
+#   * Adds the offending whole-gen-name strings + their generic alpha
+#     components to ``AMBIGUOUS_STANDALONE_CODES``.
+#   * Adds a ``_is_too_short_to_dispatch`` length filter that drops pure-alpha
+#     < 4 chars and pure-digit < 3 chars (always rejects single digits).
+#
+# These tests pin the post-fix behavior so the Tier-1 cleanup migration does
+# not silently regress.
+# ---------------------------------------------------------------------------
+
+
+class TestTier1AuditFalsePositivePurge:
+    def test_garrett_turbo_supercore_no_dodge_daytona(self) -> None:
+        """'turbo' inside a generic part title must NOT fire Dodge Daytona Turbo/Shelby."""
+        result = infer_car_generations(
+            "Garrett G30-770 Supercore",
+            "High-flow turbo upgrade for street and track use.",
+        )
+        assert ("Dodge", "Daytona", "Turbo/Shelby") not in result
+        assert ("Dodge", "Stealth", "R/T Turbo") not in result
+
+    def test_kw_v3_must_be_installed_no_subaru_legacy_be_bh(self) -> None:
+        """'V3 must be installed' product copy must NOT fire Subaru Legacy BE/BH."""
+        result = infer_car_generations("KW V3 must be installed", "", None)
+        assert ("Subaru", "Legacy", "BE/BH") not in result
+        assert ("Subaru", "Legacy GT", "BE/BH") not in result
+        assert ("Volvo", "S40", "V1") not in result
+        assert ("Volvo", "V40", "V1") not in result
+
+    def test_borgwarner_k27_turbo_no_daytona_no_z3m(self) -> None:
+        """'K27 Turbo' must NOT fire Daytona Turbo/Shelby OR BMW Z3 M E36/7 / E36/8."""
+        result = infer_car_generations("BorgWarner K27 Turbo", "", None)
+        assert ("Dodge", "Daytona", "Turbo/Shelby") not in result
+        assert ("Dodge", "Stealth", "R/T Turbo") not in result
+        assert ("BMW", "Z3 M", "E36/7") not in result
+        assert ("BMW", "Z3 M", "E36/8") not in result
+        assert ("BMW", "Z3", "E36/7 E36/8") not in result
+
+    def test_e92_m3_still_attributes_correctly(self) -> None:
+        """Positive case: an explicit 'E92 M3' title must still resolve to BMW M3 E90/E92/E93."""
+        result = infer_car_generations("BMW E92 M3 Carbon Fiber Trunk Spoiler", None)
+        assert ("BMW", "M3", "E90/E92/E93") in result
+
+    def test_explicit_legacy_be_bh_phrase_still_matches(self) -> None:
+        """Positive case: 'Subaru Legacy BE/BH' as a full phrase must still match."""
+        result = infer_car_generations("Subaru Legacy BE/BH 2.0L Engine Mount", None)
+        assert ("Subaru", "Legacy", "BE/BH") in result
+
+    def test_pure_digit_single_char_never_dispatches(self) -> None:
+        """Bare '7' / '8' tokens must never fire BMW Z3 E36/7 / E36/8."""
+        result = infer_car_generations("Random product with 7 ports and 8 channels", None)
+        assert ("BMW", "Z3 M", "E36/7") not in result
+        assert ("BMW", "Z3 M", "E36/8") not in result
+        assert ("BMW", "Z3", "E36/7 E36/8") not in result
+
+    def test_dodge_stealth_rt_turbo_no_random_r_t(self) -> None:
+        """Generic 'R' or 'T' tokens must NOT fire Dodge Stealth R/T Turbo."""
+        result = infer_car_generations("Some R-spec T-bracket clamp", None)
+        assert ("Dodge", "Stealth", "R/T Turbo") not in result
+
+    def test_aria_battery_no_miata_nb_nc_nd(self) -> None:
+        """Generic '... ND ...' / '... NC ...' fragments must NOT fire Miata generations."""
+        result = infer_car_generations("AntiGravity ATX-30-HD Battery Replacement", None)
+        assert ("Mazda", "Miata", "ND") not in result
+        assert ("Mazda", "Miata", "NC") not in result
+        assert ("Mazda", "Miata", "NB") not in result
+
+    def test_kw_rs_no_subaru_wrx_va_vb(self) -> None:
+        """'VA' / 'VB' as state-abbrev / SKU prefix must NOT fire Subaru WRX VA/VB."""
+        result = infer_car_generations("KW RS Coilovers Universal Fit", None)
+        assert ("Subaru", "WRX", "VA") not in result
+        assert ("Subaru", "WRX", "VB") not in result

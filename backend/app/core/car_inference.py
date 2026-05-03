@@ -162,6 +162,76 @@ AMBIGUOUS_STANDALONE_CODES: frozenset[str] = frozenset(
         "VF",  # Holden VF / Chevy SS VF ↔ "automotiVE" fragments
         "VR6",  # VW Corrado VR6 ↔ VR6 engine family on Golf/Jetta/Passat/R32
         "T6",  # Ford Ranger T6 ↔ "6061-T6" aircraft aluminum tempering spec
+        # --- Tier-1 audit (2026-05) FALSE-POSITIVE PURGE ---------------------
+        # Whole-gen-name slash-split offenders. Worst absolute offenders found in
+        # the live DB audit (62% of attributed parts had at least one FP). Adding
+        # the WHOLE gen_name suppresses the per-component standalone emission
+        # entirely; rely on "make model gen_name" / "model gen_name" full phrases
+        # plus CAR_ALIASES for legitimate matches.
+        "Turbo/Shelby",  # Dodge Daytona — components "turbo"/"shelby" hit ~2,900 parts
+        "R/T Turbo",  # Dodge Stealth — component "r" / "t turbo" too generic (~2,080 parts)
+        "BE/BH",  # Subaru Legacy / Legacy GT — "be"/"bh" hit ~6,448 parts
+        "E36/7",  # BMW Z3 M — bare "7" hit ~3,000 parts
+        "E36/8",  # BMW Z3 M — bare "8" same lineage
+        "E36/7 E36/8",  # BMW Z3 (combined gen_name) — splits to "7 E36"/"8"
+        "V1",  # Volvo S40 / V40 — bare "v1" hit ~456 parts
+        # English-word-shaped components from the slash-splits above.
+        "Turbo",
+        "Shelby",
+        "BE",
+        "BH",
+        "R",  # Dodge Stealth R/T Turbo component — single-letter, must never fire
+        "T",  # Dodge Stealth R/T Turbo component — single-letter, must never fire
+        "7",  # BMW Z3 E36/7 component — single-digit, must never fire
+        "8",  # BMW Z3 E36/8 component — single-digit, must never fire
+        # Audit-flagged 2-3 char alpha codes shared with brand SKU prefixes,
+        # English words, or other common product-text fragments. Each requires
+        # a "make model" or "model gen_name" full phrase to fire.
+        "DB5",  # Aston Martin DB5
+        "DB6",  # Aston Martin DB6
+        "DB7",  # Aston Martin DB7
+        "DB9",  # Aston Martin DB9
+        "DBS",  # Aston Martin DBS — collides with "ABS" / "DBS" wheel SKU prefixes
+        "GLH",  # Dodge Omni GLH — collides with brand SKUs
+        "GTB",  # Ferrari 296/488 GTB — collides with retailer SKU "GTB-XXX"
+        "ZRC",  # Lexus RC / RC F — collides with retailer SKU prefix
+        "CXD",  # Subaru SVX
+        "FY",  # Audi SQ5 FY — 2-char code, frequent SKU/brand collision
+        "RG",  # Genesis G70 RG
+        "DH",  # Genesis G80 DH
+        "RW",  # Honda CR-V RW
+        "YH",  # Honda Element YH
+        "GK",  # Hyundai Tiburon GK
+        "XD",  # Hyundai Elantra XD
+        "JS",  # Hyundai Veloster JS — also "JS Performance" / JavaScript fragments
+        "NE",  # Hyundai Ioniq 5 N NE — 2-char prefix collision
+        "CK",  # Kia Stinger CK
+        "TF",  # Kia Optima SX TF
+        "JF",  # Kia Optima SX JF
+        "VT",  # Lamborghini Diablo VT — collides with "VTec", "VT" brand
+        "SV",  # Lamborghini Diablo SV — collides with "SV" trims, "Land Rover SV"
+        "NB",  # Mazda Miata NB — 2-char alpha
+        "NC",  # Mazda Miata NC
+        "ND",  # Mazda Miata ND — collides with "and", "second", "Found"
+        "SA",  # Mazda RX-7 SA
+        "FB",  # Mazda RX-7 FB — collides with "FB" SKU codes
+        "FC",  # Mazda RX-7 FC
+        "FD",  # Mazda RX-7 FD
+        "JC",  # Mazda Cosmo JC
+        "GG",  # Mazda6 GG/GY component
+        "GY",  # Mazda6 GG/GY component
+        "GH",  # Mazda6 GH component
+        "GJ",  # Mazda6 GJ/GL / Subaru Impreza GP/GJ
+        "GL",  # Mazda6 GL component
+        "CS",  # Mitsubishi Lancer CS — collides with "CS" trims, "carbon stainless"
+        "CJ",  # Mitsubishi Lancer CJ
+        "VA",  # Subaru WRX VA — collides with state abbrev / "VA" SKU
+        "VB",  # Subaru WRX VB
+        "GF",  # Subaru Impreza GC/GF component
+        "GP",  # Subaru Impreza GP/GJ component
+        "SF",  # Subaru Forester SF
+        "SG",  # Subaru Forester SG
+        "SJ",  # Subaru Forester SJ
     }
 )
 """Generation codes that must NOT fire on their own because they collide with
@@ -197,11 +267,46 @@ Known counterexamples:
 """
 
 
+def _is_too_short_to_dispatch(component: str) -> bool:
+    """
+    Generic length-based filter for slash-split gen-name components.
+
+    Tier-1 audit (2026-05) found that splitting gen_names like ``Turbo/Shelby``,
+    ``R/T Turbo``, ``E36/7 E36/8`` and ``BE/BH`` produced 1-2 char and 1-2 digit
+    standalone phrases that matched English words and SKU fragments inside
+    product titles, attributing ~62% of parts to false-positive generations.
+
+    Rules (mirrors the audit prescription):
+        * Pure-digit single chars (``"7"``, ``"8"``) — ALWAYS too short.
+        * Pure-digit components shorter than 3 chars — too short.
+        * Pure-alphabetic components shorter than 4 chars — too short
+          (catches ``"R"``, ``"T"``, ``"BE"``, ``"BH"`` etc.).
+
+    Mixed alphanumeric components (e.g. ``"V1"``, ``"NA1"``, ``"TB1"``,
+    ``"NA2"``, ``"E36"``) are NOT filtered here — those are handled by adding
+    to ``AMBIGUOUS_STANDALONE_CODES`` if they cause real-world FPs.
+    """
+    if not component:
+        return True
+    if component.isdigit() and len(component) < 3:
+        return True
+    if component.isalpha() and len(component) < 4:
+        return True
+    return False
+
+
 def _build_phrase_triples() -> list[tuple[str, str, str, str]]:
     """
     Build (phrase, make, model, generation_name) from canonical data.
     Phrase is normalized (lowercase, single spaces) for matching.
     Skips standalone generation codes that are highly ambiguous (e.g. GR, Mk5, B5).
+
+    Two-layer filter for individual slash-split components:
+        1. ``AMBIGUOUS_STANDALONE_CODES`` — explicit deny-list keyed by exact
+           component / gen_name string.
+        2. ``_is_too_short_to_dispatch`` — generic length-based filter that
+           drops pure-alpha < 4 chars and pure-digit < 3 chars (Tier-1 audit
+           false-positive guard).
     """
     triples: list[tuple[str, str, str, str]] = []
     for make, models in CAR_GENERATIONS.items():
@@ -222,8 +327,13 @@ def _build_phrase_triples() -> list[tuple[str, str, str, str]]:
                     continue
                 components = [c.strip() for c in gen_name.split("/") if c.strip()]
                 for component in components:
-                    if len(component) <= 6 and component not in AMBIGUOUS_STANDALONE_CODES:
-                        triples.append((component.lower(), make, model, gen_name))
+                    if len(component) > 6:
+                        continue
+                    if component in AMBIGUOUS_STANDALONE_CODES:
+                        continue
+                    if _is_too_short_to_dispatch(component):
+                        continue
+                    triples.append((component.lower(), make, model, gen_name))
     return triples
 
 
