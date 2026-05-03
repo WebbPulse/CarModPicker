@@ -96,10 +96,10 @@ Brand strategy: **hybrid pass-through**
      abbreviations used as title leaders), plus the generic makes that
      could show up in cross-platform kits.
 3. If (1) returned a blocklisted / car-make token AND neither the title nor
-   the URL indicate house-brand, drop to ``None`` so ingest falls back to
-   ``"Unknown"`` rather than creating a ``"Mitsubishi"`` or ``"Evo"``
-   manufacturer row alongside real brands. Multi-brand pass-through — we
-   NEVER blanket-coerce a non-house product to ``"Buschur Racing"``.
+   the URL indicate house-brand, drop to ``None`` so ingest stores
+   ``part_manufacturer_id = NULL`` rather than creating a ``"Mitsubishi"``
+   or ``"Evo"`` manufacturer row alongside real brands. Multi-brand
+   pass-through — we NEVER blanket-coerce a non-house product to ``"Buschur Racing"``.
 4. As a final hint, the SKU suffix (``10170-JE`` → JE, ``10171-WIS`` →
    Wiseco) can upgrade a missing brand; this is a weak signal (the suffix
    is short and ambiguous) so we only map a small known-suffix set.
