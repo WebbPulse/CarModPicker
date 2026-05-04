@@ -2886,6 +2886,169 @@ def infer_car_generations(
     return result
 
 
+# Canonical year-range extractor (issue #5). Replaces the 5 near-duplicate
+# _extract_*_year_range helpers that each adapter had to maintain. Handles:
+#   - 4-digit year ranges:        "2015-2018", "2015 - 2018"
+#   - 2-digit-tail year ranges:   "2015-23", "2003-09" (century-inferred)
+#   - 2-digit-pair year ranges:   "92-95", "08-14" (century-inferred from MY rules)
+#   - Open-ended:                 "2003+", "(2015+)" (-> end = current_year + 1)
+#   - Single year:                "2015", "(2015)" (returned as (Y, Y))
+#   - Model-year prefix:          "MY2010", "MY 2010"
+#   - Half model years:           "2010.5-2012", "1998.5+"
+# Returns a list of (start_year, end_year) tuples in title order. Returns []
+# if no plausible range is found. Year validity gate: 1960-current_year+1.
+import datetime as _dt
+
+_YEAR_LO: int = 1960
+_YEAR_HI_OFFSET: int = 1  # current_year + 1 to allow MY-ahead-of-CY
+
+# Allow en-dash, em-dash, hyphen-minus, and "to" as range separators.
+_RANGE_SEP = r"\s*(?:[-–—]|to)\s*"
+# YYYY-YYYY (with optional .5 on either side)
+_YYYY_YYYY_RE = re.compile(
+    rf"\b((?:19|20)\d{{2}})(?:\.5)?{_RANGE_SEP}((?:19|20)\d{{2}})(?:\.5)?\b"
+)
+# YYYY-YY (4-digit start, 2-digit tail)
+_YYYY_YY_RE = re.compile(
+    rf"\b((?:19|20)\d{{2}})(?:\.5)?{_RANGE_SEP}(\d{{2}})(?!\d)"
+)
+# YY-YY (both 2-digit). Constrained: standalone token form to avoid matching
+# arbitrary numbers. Requires non-digit-or-dot lookbehind to prevent matching
+# inside larger digit sequences or decimal numbers.
+_YY_YY_RE = re.compile(
+    rf"(?<![\d.])(\d{{2}}){_RANGE_SEP}(\d{{2}})(?!\d)"
+)
+# Open-ended: YYYY+. Lookbehind allows a "MY" prefix without a word boundary
+# (so "MY2015+" matches as well as " 2015+").
+_YYYY_PLUS_RE = re.compile(
+    r"(?:(?<=\s)|(?<=^)|(?<=\()|(?<=MY))((?:19|20)\d{2})(?:\.5)?\s*\+"
+)
+# Single year. Conservative: the year must be standalone (not part of a longer
+# digit sequence and not part of a word like "2015th"). Includes optional MY
+# prefix with an optional space ("MY2010", "MY 2010"). Same-shape lookbehind
+# as YYYY_PLUS_RE so a leading "MY" doesn't block the match.
+_SINGLE_YEAR_RE = re.compile(
+    r"(?:(?<=\s)|(?<=^)|(?<=\()|(?<=MY)|(?<=MY ))((?:19|20)\d{2})(?:\.5)?(?!\d)",
+    re.IGNORECASE,
+)
+
+
+def _validate_year_range(y1: int, y2: int) -> Optional[tuple[int, int]]:
+    """Return (y1, y2) clamped+ordered if plausible, else None."""
+    cy = _dt.datetime.now(_dt.timezone.utc).year
+    hi = cy + _YEAR_HI_OFFSET
+    if not (_YEAR_LO <= y1 <= hi):
+        return None
+    if not (_YEAR_LO <= y2 <= hi):
+        return None
+    if y1 > y2:
+        return None
+    return (y1, y2)
+
+
+def _infer_century(start_year: int, two_digit_tail: int) -> int:
+    """Convert a 2-digit year tail into a 4-digit year using the start year's century.
+    If the inferred year is less than start_year (e.g. start=1995, tail=04 would
+    naively give 1904), bump to the next century (-> 2004)."""
+    century = (start_year // 100) * 100
+    candidate = century + two_digit_tail
+    if candidate < start_year:
+        candidate += 100
+    return candidate
+
+
+def _infer_yy_yy_century(yy1: int, yy2: int) -> Optional[tuple[int, int]]:
+    """A 2-digit-pair like '92-95' or '08-14' needs century inference.
+    Heuristic: 60-99 -> 19xx, 00-59 -> 20xx (covers MY 1960 forward; 60+ years
+    of cars). Both years must satisfy plausibility individually."""
+    def _y(yy: int) -> int:
+        return 1900 + yy if 60 <= yy <= 99 else 2000 + yy
+
+    y1, y2 = _y(yy1), _y(yy2)
+    return _validate_year_range(y1, y2)
+
+
+def extract_year_ranges(text: Optional[str]) -> list[tuple[int, int]]:
+    """Extract every plausible (start_year, end_year) range from ``text``.
+
+    Single-year tokens come back as ``(Y, Y)``. Open-ended ``YYYY+`` comes
+    back as ``(Y, current_year + 1)``. Same-tuple duplicates are de-duped
+    while preserving first-seen order; overlapping forms (e.g. a YYYY-YYYY
+    range whose start year *also* matches the single-year regex) are
+    handled by extracting the longer-form ranges first and then masking
+    the matched spans before searching for shorter forms.
+
+    Designed as the single source of truth for year-range parsing across
+    adapters. Replaces _extract_steeda_year_range, _extract_hasport_year_ranges,
+    _extract_perrin_year_range, _extract_mishimoto_year_range, and
+    _extract_leading_year_range (driveshaftshop), each of which had a
+    near-duplicate version of this logic.
+    """
+    if not text:
+        return []
+    cy = _dt.datetime.now(_dt.timezone.utc).year
+    open_ended_hi = cy + _YEAR_HI_OFFSET
+
+    seen: set[tuple[int, int]] = set()
+    out: list[tuple[int, int]] = []
+
+    # We process longer / more-specific forms first and mask the consumed
+    # spans before attempting shorter forms, so a YYYY-YYYY range doesn't
+    # also yield two single-year matches at its boundaries.
+    masked = list(text)
+
+    def _mask(start: int, end: int) -> None:
+        for i in range(start, end):
+            masked[i] = " "
+
+    def _emit(rng: Optional[tuple[int, int]]) -> None:
+        if rng is None:
+            return
+        if rng in seen:
+            return
+        seen.add(rng)
+        out.append(rng)
+
+    # 1. YYYY-YYYY (longest, most specific)
+    for m in _YYYY_YYYY_RE.finditer(text):
+        y1, y2 = int(m.group(1)), int(m.group(2))
+        _emit(_validate_year_range(y1, y2))
+        _mask(m.start(), m.end())
+
+    masked_text = "".join(masked)
+
+    # 2. YYYY-YY
+    for m in _YYYY_YY_RE.finditer(masked_text):
+        y1 = int(m.group(1))
+        tail = int(m.group(2))
+        y2 = _infer_century(y1, tail)
+        _emit(_validate_year_range(y1, y2))
+        _mask(m.start(), m.end())
+    masked_text = "".join(masked)
+
+    # 3. YY-YY (both 2-digit, century-inferred)
+    for m in _YY_YY_RE.finditer(masked_text):
+        yy1 = int(m.group(1))
+        yy2 = int(m.group(2))
+        _emit(_infer_yy_yy_century(yy1, yy2))
+        _mask(m.start(), m.end())
+    masked_text = "".join(masked)
+
+    # 4. YYYY+ (open-ended)
+    for m in _YYYY_PLUS_RE.finditer(masked_text):
+        y1 = int(m.group(1))
+        _emit(_validate_year_range(y1, open_ended_hi))
+        _mask(m.start(), m.end())
+    masked_text = "".join(masked)
+
+    # 5. Single year (returned as (Y, Y))
+    for m in _SINGLE_YEAR_RE.finditer(masked_text):
+        y = int(m.group(1))
+        _emit(_validate_year_range(y, y))
+
+    return out
+
+
 def generations_for_make_model_year_range(
     make: str,
     model: str,
