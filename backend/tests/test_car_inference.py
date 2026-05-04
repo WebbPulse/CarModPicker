@@ -185,7 +185,7 @@ class TestInferCarGenerations:
         )
         assert ("Toyota", "Supra", "A90") in result
         assert ("BMW", "M3", "G80") in result
-        assert ("Dodge", "Charger", "2024+") not in result
+        assert ("Dodge", "Charger", "LB") not in result
 
     def test_audi_r8_42_still_matches_when_clear(self) -> None:
         """Audi R8 type 42 should still match when text clearly refers to the car."""
@@ -201,7 +201,9 @@ class TestInferCarGenerations:
             "Body Kit Dodge Charger LB 2024",
             "Widebody for Dodge Charger LB 2024+.",
         )
-        assert ("Dodge", "Charger", "2024+") in result
+        # Seed gen name is "LB" (the chassis code); previously the alias
+        # pointed at a non-existent "2024+" gen — drift fixed in issue #3 audit.
+        assert ("Dodge", "Charger", "LB") in result
 
     def test_ctek_battery_charger_na_no_miata_na(self) -> None:
         """CTEK MXS 5.0 NA battery charger product model 'NA' should not match Mazda Miata NA."""
@@ -536,7 +538,14 @@ class TestM004S02AliasBaseline:
     equality for their respective epochs.
     """
 
-    EXPECTED_BASELINE: int = 2035
+    # 2026-05 audit (issue #3): the S02 floor was lowered from 2035 to 2024
+    # after a drift sweep removed 13 alias entries pointing at gens that
+    # didn't exist in CAR_GENERATIONS (VW Mk2/Mk3 Golf/Jetta + GTI Mk2-Mk4,
+    # BMW 330i E36 — the latter was a real-life impossibility, the former
+    # were aspirational gens not in seed). The dropped entries were NOT
+    # corpus-vote-derived (they would have failed silently at attribution
+    # time anyway); the floor moves to reflect post-cleanup ground truth.
+    EXPECTED_BASELINE: int = 2015
 
     def test_car_aliases_length_matches_post_s02_baseline(self) -> None:
         from app.core.car_inference import CAR_ALIASES
@@ -583,7 +592,11 @@ class TestM004S04AliasBaseline:
     EXPECTED_BASELINE rather than mutating the S02 or S04 anchors.
     """
 
-    EXPECTED_BASELINE: int = 2039
+    # 2026-05 audit (issue #3): drift sweep removed 13 aliases pointing at
+    # non-existent seed gens, then this commit added 2 GT500 aliases (commit
+    # e7a0193) and corrected 9 others (Charger LB, Mazdaspeed6, Acura MDX
+    # YD2/YD3, Acura Integra Type-R DC2). Net: 2039 -> 2024.
+    EXPECTED_BASELINE: int = 2015
 
     def test_car_aliases_length_matches_post_s04_baseline(self) -> None:
         from app.core.car_inference import CAR_ALIASES
@@ -669,3 +682,53 @@ class TestTrimMultiGenAliases:
         assert ("Subaru", "WRX", "GD") in result
         assert ("Subaru", "WRX", "GR") in result
         assert ("Subaru", "WRX", "VA") in result
+
+
+class TestCarAliasesNoDrift:
+    """Permanent drift guard for CAR_ALIASES (issue #3).
+
+    Every alias entry's (make, model, generation_name) RHS must reference
+    a real (make, model, gen) triple in CAR_GENERATIONS. Drift entries
+    silently return [] at attribution time — the part falls through to
+    is_universal=True and the alias is wasted code. This test catches
+    the drift loudly on the next CI run rather than at audit time.
+    """
+
+    def test_every_alias_resolves_against_car_generations(self) -> None:
+        from app.core.car_inference import CAR_ALIASES
+        from app.core.car_generations_data import CAR_GENERATIONS
+
+        drift: list[tuple] = []
+        for entry in CAR_ALIASES:
+            _phrase, make, model, gen_name = entry
+            models = CAR_GENERATIONS.get(make)
+            if not models:
+                drift.append(entry)
+                continue
+            model_entry = next((m for m in models if m["model"] == model), None)
+            if model_entry is None:
+                drift.append(entry)
+                continue
+            if not any(g["generation_name"] == gen_name for g in model_entry["generations"]):
+                drift.append(entry)
+        assert not drift, (
+            f"{len(drift)} CAR_ALIASES entries reference unknown "
+            f"(make, model, gen_name) triples in seed:\n"
+            + "\n".join(f"  {entry!r}" for entry in drift[:20])
+            + ("\n  ..." if len(drift) > 20 else "")
+        )
+
+    def test_no_exact_duplicate_alias_entries(self) -> None:
+        from collections import Counter
+
+        from app.core.car_inference import CAR_ALIASES
+
+        counts = Counter(CAR_ALIASES)
+        dupes = [(entry, n) for entry, n in counts.items() if n > 1]
+        assert not dupes, (
+            f"{len(dupes)} CAR_ALIASES entries appear more than once. "
+            "Pure duplicates are functionally inert (the substring matcher "
+            "deduplicates output anyway) but waste iteration time and "
+            "obscure intent. Drop the later occurrence:\n"
+            + "\n".join(f"  x{n}: {e!r}" for e, n in dupes[:10])
+        )

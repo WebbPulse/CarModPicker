@@ -546,8 +546,8 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("3rd gen rx-7", "Mazda", "RX-7", "FD"),
     ("3rd gen rx7", "Mazda", "RX-7", "FD"),
     # Dodge Charger 2024+
-    ("charger lb", "Dodge", "Charger", "2024+"),
-    ("dodge charger lb", "Dodge", "Charger", "2024+"),
+    ("charger lb", "Dodge", "Charger", "LB"),
+    ("dodge charger lb", "Dodge", "Charger", "LB"),
     # Lamborghini Huracán EVO
     ("huracan evo", "Lamborghini", "Huracán", "EVO"),
     ("huracán evo", "Lamborghini", "Huracán", "EVO"),
@@ -694,8 +694,11 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("m3 e36", "BMW", "M3", "E36"),
     ("e36 3 series", "BMW", "3 Series", "E36"),
     ("3 series e36", "BMW", "3 Series", "E36"),
-    ("e36 330i", "BMW", "330i", "E36"),
-    ("330i e36", "BMW", "330i", "E36"),
+    # NOTE: "330i E36" was previously aliased to BMW 330i E36 — but BMW
+    # didn't make a 330i in the E36 era (the E36 6-cyl options were 320i /
+    # 325i / 328i; the 330i nameplate started with E46 in 2001). Alias
+    # removed to fix drift; if a real "E36 330i" title appears it likely
+    # refers to a swap or a typo and falls through to the universal pipeline.
     # BMW Z4 M E85/E86 (product titles: "E46 M3 / E8x Z4M"; E8x is retailer typo for E85)
     ("e8x z4m", "BMW", "Z4 M", "E85/E86"),
     ("e8x z4 m", "BMW", "Z4 M", "E85/E86"),
@@ -1959,7 +1962,7 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("mazdaspeed3", "Mazda", "Mazda3", "BK"),
     ("mazdaspeed 2.0 fs turbo", "Mazda", "Mazdaspeed Protegé", "BJ"),
     ("mazda b2600", "Mazda", "B-Series Truck", "5th Gen"),
-    ("2005-2007 mazdaspeed 6", "Mazda", "Mazda6", "1st Gen"),
+    ("2005-2007 mazdaspeed 6", "Mazda", "Mazda6", "GG/GY"),
     # Audi S2 B4 — often grouped with RS2 in product titles ("S2/RS2", "B4 S2/RS2")
     ("audi s2", "Audi", "S2", "B4"),
     ("s2 coupe audi", "Audi", "S2", "B4"),
@@ -2016,13 +2019,10 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("04-21 subaru sti", "Subaru", "WRX", "GR"),
     ("04-21 subaru sti", "Subaru", "WRX", "VA"),
     # Subaru WRX/STI sub-chassis codes used in product titles
-    ("wrx gda", "Subaru", "WRX", "GD"),
-    ("wrx gdb", "Subaru", "WRX", "GD"),
     ("sti gde", "Subaru", "WRX", "GD"),
     ("sti gdf", "Subaru", "WRX", "GD"),
     ("wrx gh8", "Subaru", "WRX", "GR"),
     ("wrx gh", "Subaru", "WRX", "GR"),
-    ("sti grb", "Subaru", "WRX", "GR"),
     ("wrx vab", "Subaru", "WRX", "VA"),
     ("wrx vaf", "Subaru", "WRX", "VA"),
     ("sti vab", "Subaru", "WRX", "VA"),
@@ -2075,8 +2075,6 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("2006-2017 subaru wrx", "Subaru", "WRX", "GD"),
     ("2006-2017 subaru wrx", "Subaru", "WRX", "GR"),
     ("2006-2017 subaru wrx", "Subaru", "WRX", "VA"),
-    ("04-21 sti", "Subaru", "WRX", "GR"),
-    ("04-21 sti", "Subaru", "WRX", "VA"),
     ("02-07 subaru wrx / sti", "Subaru", "WRX", "GD"),
     ("2002-2007 subaru wrx / sti", "Subaru", "WRX", "GD"),
     ("2002-2007 wrx/sti", "Subaru", "WRX", "GD"),
@@ -2330,7 +2328,6 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("hyundai veloster", "Hyundai", "Veloster", "FS"),
     ("hyundai veloster", "Hyundai", "Veloster", "JS"),
     ("veloster turbo", "Hyundai", "Veloster", "FS"),
-    ("veloster n", "Hyundai", "Veloster", "JS"),
     # Acura TL year-range aliases
     ("96-98 acura tl", "Acura", "TL", "1st Gen"),
     ("98-01 acura tl", "Acura", "TL", "2nd Gen"),
@@ -2356,15 +2353,16 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("acura integra / rsx", "Acura", "RSX", "DC5"),
     ("acura integra/rsx", "Acura", "RSX", "DC5"),
     ("02-06 acura integra / rsx", "Acura", "RSX", "DC5"),
-    ("02-06 acura rsx", "Acura", "RSX", "DC5"),
     # Acura Integra year-range aliases (gen names "3rd Gen"/"4th Gen" rarely appear in product text)
     ("94-01 acura integra", "Acura", "Integra", "3rd Gen"),
     ("97-01 acura integra", "Acura", "Integra", "3rd Gen"),
     ("02-06 acura integra", "Acura", "Integra", "4th Gen"),
     ("acura integra", "Acura", "Integra", "3rd Gen"),  # broad: 3rd+4th most common
     ("acura integra", "Acura", "Integra", "4th Gen"),
-    ("acura integra type-r", "Acura", "Integra Type R", "DC2"),
-    ("integra type-r", "Acura", "Integra Type R", "DC2"),
+    # Integra Type R is a trim of the 3rd Gen Integra (DC2 chassis), MY1997-2001.
+    # Seed has Integra with gens 1st-5th; DC2 = 3rd Gen.
+    ("acura integra type-r", "Acura", "Integra", "3rd Gen"),
+    ("integra type-r", "Acura", "Integra", "3rd Gen"),
     # Acura Integra 5th Gen (2023+) — 5th Gen exists in seed but "acura integra" alias
     # above broad-fires 3rd+4th; explicit 5th-Gen aliases needed for modern Integra.
     ("2022 acura integra", "Acura", "Integra", "5th Gen"),
@@ -2416,11 +2414,15 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("honda fit", "Honda", "Fit", "2nd Gen"),  # broad
     ("honda fit", "Honda", "Fit", "3rd Gen"),
     # Acura MDX year-range aliases
-    ("07-13 acura mdx", "Acura", "MDX", "YD2"),
-    ("14-20 acura mdx", "Acura", "MDX", "YD3"),
-    ("14-21 acura mdx", "Acura", "MDX", "YD3"),
-    ("acura mdx", "Acura", "MDX", "YD2"),  # broad
-    ("acura mdx", "Acura", "MDX", "YD3"),
+    # MDX gen mapping: YD1 = 1st Gen (2001-2006), YD2 = 2nd Gen (2007-2013),
+    # YD3 = 3rd Gen (2014-2020), YD4 = 4th Gen (2022+). Seed uses 1st/2nd/3rd/4th
+    # Gen names; aliases below were previously written against the chassis
+    # codes which weren't seed gen_names. Drift fixed.
+    ("07-13 acura mdx", "Acura", "MDX", "2nd Gen"),
+    ("14-20 acura mdx", "Acura", "MDX", "3rd Gen"),
+    ("14-21 acura mdx", "Acura", "MDX", "3rd Gen"),
+    ("acura mdx", "Acura", "MDX", "2nd Gen"),  # broad
+    ("acura mdx", "Acura", "MDX", "3rd Gen"),
     # Acura RLX year-range aliases
     ("14-20 acura rlx", "Acura", "RLX", "KC2"),
     ("acura rlx", "Acura", "RLX", "KC2"),
@@ -2670,28 +2672,20 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("02-04 volkswagen passat w8", "Volkswagen", "Passat", "B5/B5.5"),
     ("passat w8", "Volkswagen", "Passat", "B5/B5.5"),
     ("passat 3bs", "Volkswagen", "Passat", "B5/B5.5"),
-    ("85-99 volkswagen jetta", "Volkswagen", "Jetta", "Mk2"),
-    ("85-99 volkswagen jetta", "Volkswagen", "Jetta", "Mk3"),
-    ("vw jetta mk2 / mk3", "Volkswagen", "Jetta", "Mk2"),
-    ("vw jetta mk2 / mk3", "Volkswagen", "Jetta", "Mk3"),
+    # VW classic Golf/GTI/Jetta — seed only covers Golf Mk1+, Jetta Mk4+,
+    # GTI Mk5+. Aliases referencing pre-seed gens (Jetta Mk2/Mk3, GTI Mk2/Mk3/Mk4)
+    # were drift bugs and have been removed. Surviving entries below cover
+    # only the seed-resolvable combinations. If a future seed change adds
+    # the missing gens, restore the relevant aliases in the same PR.
     ("84-97 volkswagen golf", "Volkswagen", "Golf", "Mk2"),
     ("84-97 volkswagen golf", "Volkswagen", "Golf", "Mk3"),
     ("1987-1992 vw golf", "Volkswagen", "Golf", "Mk2"),
-    ("1987-1992 vw golf/gti/jetta", "Volkswagen", "Golf", "Mk2"),
-    ("1987-1992 vw golf/gti/jetta", "Volkswagen", "GTI", "Mk2"),
-    ("1987-1992 vw golf/gti/jetta", "Volkswagen", "Jetta", "Mk2"),
-    ("1987-1992 vw jetta", "Volkswagen", "Jetta", "Mk2"),
     ("1993-1998 vw golf", "Volkswagen", "Golf", "Mk3"),
-    ("1993-1998 vw golf/gti/jetta", "Volkswagen", "Golf", "Mk3"),
-    ("1993-1998 vw golf/gti/jetta", "Volkswagen", "GTI", "Mk3"),
-    ("1993-1998 vw golf/gti/jetta", "Volkswagen", "Jetta", "Mk3"),
     ("1999-2005 volkswagen golf", "Volkswagen", "Golf", "Mk4"),
-    ("1999-2005 vw golf/gti/jetta", "Volkswagen", "Golf", "Mk4"),
-    ("1999-2005 vw golf/gti/jetta", "Volkswagen", "GTI", "Mk4"),
-    ("1999-2005 vw golf/gti/jetta", "Volkswagen", "Jetta", "Mk4"),
-    ("1999-2005 vw golf/gti/jetta/beetle", "Volkswagen", "Golf", "Mk4"),
-    ("1999-2005 vw golf/gti/jetta/beetle", "Volkswagen", "GTI", "Mk4"),
-    ("1999-2005 vw golf/gti/jetta/beetle", "Volkswagen", "Jetta", "Mk4"),
+    ("1999-2005 vw golf/jetta", "Volkswagen", "Golf", "Mk4"),
+    ("1999-2005 vw golf/jetta", "Volkswagen", "Jetta", "Mk4"),
+    ("1999-2005 vw golf/jetta/beetle", "Volkswagen", "Golf", "Mk4"),
+    ("1999-2005 vw golf/jetta/beetle", "Volkswagen", "Jetta", "Mk4"),
     # Subaru Legacy year-range aliases — generation codes use "/" ("BE/BH") which fails substring
     # matching when product titles space-pad the slash ("Legacy (BE / BH)").
     ("00-04 subaru legacy", "Subaru", "Legacy", "BE/BH"),
@@ -2699,10 +2693,8 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("subaru legacy be/bh", "Subaru", "Legacy", "BE/BH"),
     ("05-09 subaru legacy", "Subaru", "Legacy", "BL/BP"),
     ("subaru legacy bl / bp", "Subaru", "Legacy", "BL/BP"),
-    ("10-14 subaru legacy", "Subaru", "Legacy", "BM/BR"),
     ("subaru legacy bm9", "Subaru", "Legacy", "BM/BR"),
     ("subaru legacy bm / br", "Subaru", "Legacy", "BM/BR"),
-    ("15-19 subaru legacy", "Subaru", "Legacy", "BN/BS"),
     ("subaru legacy bn9", "Subaru", "Legacy", "BN/BS"),
     ("subaru legacy bn / bs", "Subaru", "Legacy", "BN/BS"),
     # Subaru Impreza base (non-WRX) year-range aliases
