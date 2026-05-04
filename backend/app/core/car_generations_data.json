@@ -2423,6 +2423,64 @@
       "model": "Suburban"
     }
   ],
+  "Chrysler": [
+    {
+      "generations": [
+        {
+          "description": "Modern Chrysler 300 / 300C on the LX rear-wheel-drive platform shared with Dodge Charger / Magnum. 5.7L Hemi (300C) and 6.1L Hemi (SRT8) variants are the enthusiast-focused trims. Strong aftermarket for suspension, exhaust, and supercharger kits. Final US MY 2010 before LD redesign.",
+          "end_year": 2010,
+          "generation_name": "LX",
+          "start_year": 2005
+        },
+        {
+          "description": "Refreshed Chrysler 300 / 300C on the LD platform (LX evolution). Continued 5.7L Hemi and 6.4L Hemi (SRT8 / SRT) variants. Final US MY 2023 before discontinuation.",
+          "end_year": 2023,
+          "generation_name": "LD",
+          "start_year": 2011
+        }
+      ],
+      "model": "300"
+    },
+    {
+      "generations": [
+        {
+          "description": "Retro-styled compact wagon on the PT platform. Naturally aspirated 2.4L I4 base; 2.4L turbo (GT) variant offered. Final US MY 2010.",
+          "end_year": 2010,
+          "generation_name": "PT",
+          "start_year": 2001
+        }
+      ],
+      "model": "PT Cruiser"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mid-size sedan replacing the Sebring on the JS platform. 2.4L I4 and 3.6L Pentastar V6. Final US MY 2014 before redesign.",
+          "end_year": 2014,
+          "generation_name": "JS",
+          "start_year": 2011
+        },
+        {
+          "description": "Second-generation Chrysler 200 on the CUSW platform. 2.4L Tigershark I4 standard, 3.6L Pentastar V6 optional. Discontinued; final US MY 2017.",
+          "end_year": 2017,
+          "generation_name": "UF",
+          "start_year": 2015
+        }
+      ],
+      "model": "200"
+    },
+    {
+      "generations": [
+        {
+          "description": "Chrysler-badged Mitsubishi Starion sold in the US under the Conquest name. 2.6L turbo I4 (G54B). Rear-wheel-drive sport coupe popular with the Mitsubishi tuning community. Final US MY 1989.",
+          "end_year": 1989,
+          "generation_name": "1st Gen",
+          "start_year": 1984
+        }
+      ],
+      "model": "Conquest"
+    }
+  ],
   "Datsun": [
     {
       "generations": [
@@ -6585,6 +6643,86 @@
         }
       ],
       "model": "Skyline"
+    }
+  ],
+  "Plymouth": [
+    {
+      "generations": [
+        {
+          "description": "First-generation Plymouth Barracuda on the A-body platform. Often referred to as the 'fish-bowl' fastback. Slant-six and 273 V8 power.",
+          "end_year": 1966,
+          "generation_name": "1st Gen",
+          "start_year": 1964
+        },
+        {
+          "description": "Second-generation Barracuda on the redesigned A-body. Notchback, fastback, and convertible body styles. 273/340/383 V8 options including the Formula S package.",
+          "end_year": 1969,
+          "generation_name": "2nd Gen",
+          "start_year": 1967
+        },
+        {
+          "description": "Third-generation Barracuda on the E-body platform shared with Dodge Challenger. Big-block era including 340, 383, 440, and 426 Hemi 'Cuda variants. Iconic American muscle car. Final MY 1974.",
+          "end_year": 1974,
+          "generation_name": "E-body",
+          "start_year": 1970
+        }
+      ],
+      "model": "Barracuda"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth Belvedere mid-size sedan/coupe/wagon on the B-body platform. Donor for the original GTX performance variant. Final MY 1970 before consolidation under Satellite/Road Runner naming.",
+          "end_year": 1970,
+          "generation_name": "B-body",
+          "start_year": 1962
+        }
+      ],
+      "model": "Belvedere"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth GTX performance variant of the Belvedere/Satellite. 440 Super Commando and 426 Hemi V8 options. 'Gentleman's muscle car' positioning. Final MY 1971.",
+          "end_year": 1971,
+          "generation_name": "B-body",
+          "start_year": 1967
+        }
+      ],
+      "model": "GTX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth Road Runner muscle coupe on the B-body platform. Cartoon-themed budget muscle car with 383 / 440 / 426 Hemi options. Iconic in muscle car era. Continued on later platforms until final MY 1980.",
+          "end_year": 1975,
+          "generation_name": "B-body",
+          "start_year": 1968
+        }
+      ],
+      "model": "Road Runner"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth Duster compact coupe on the A-body platform. Slant-six standard, 340/360 V8 in 340/Twister/Feather Duster variants. Final MY 1976 before nameplate retirement.",
+          "end_year": 1976,
+          "generation_name": "A-body",
+          "start_year": 1970
+        }
+      ],
+      "model": "Duster"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth Laser - badge-engineered Mitsubishi Eclipse / Eagle Talon DSM coupe (1G). 4G63T turbo all-wheel-drive variants are popular in the DSM tuning community. Final MY 1994.",
+          "end_year": 1994,
+          "generation_name": "1G",
+          "start_year": 1990
+        }
+      ],
+      "model": "Laser"
     }
   ],
   "Pontiac": [
