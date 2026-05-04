@@ -78,6 +78,7 @@ from xml.etree.ElementTree import Element
 import defusedxml.ElementTree as ET
 from bs4 import BeautifulSoup, Tag
 
+from app.core.car_inference import generations_for_make_model_year_range
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
@@ -484,6 +485,244 @@ def _looks_like_mishimoto_sku(sku: Optional[str]) -> bool:
     return bool(_MISHIMOTO_SKU_RE.match(sku.strip()))
 
 
+# Mishimoto product titles encode fitment as a ", fits <Make> <Model token(s)>
+# [<engine/trim qualifiers>] <year-range>" suffix. The universal pipeline only
+# matches single make+model phrases adjacent to each other and so misses these
+# whenever the engine token sits between make+model and the year (or whenever
+# the model is a sub-trim like "Mustang EcoBoost"). The hook below extracts
+# the suffix, identifies the make, finds the trailing year-range, and pattern-
+# matches the model against a make-scoped dictionary.
+#
+# Engine-platform titles ("fits Dodge 5.9L Cummins 1994-2002", "fits Ford
+# 6.7L Powerstroke 2017+") have no vehicle model token — they fit a family of
+# trucks across nameplates. We can't attribute them to a single car_generations
+# row, so the hook returns None and the part stays universal. This is the
+# correct behavior given the schema; engine-platform attribution would need a
+# separate "engines" table that doesn't exist today.
+_MISHIMOTO_FITS_RE = re.compile(r",\s*fits\s+(.+)$", re.IGNORECASE)
+
+# Year-range shapes — accept YYYY-YYYY, YYYY-YY (two-digit tail), YYYY.5-YYYY
+# (mid-MY Cummins/Duramax introductions), and YYYY+ for open-ended ranges.
+_MISHIMOTO_YEAR_RANGE_RE = re.compile(
+    r"\b((?:19|20)\d{2})(?:\.5)?\s*[-–—]\s*((?:19|20)?\d{2})(?:\.5)?\b"
+)
+_MISHIMOTO_YEAR_OPEN_RE = re.compile(r"\b((?:19|20)\d{2})\s*\+")
+
+# Make-token aliases. "Chevy" is Chevrolet; "GM" is treated as Chevrolet for
+# attribution because seed lacks a separate GM row and shared C/K/Duramax
+# fitments overlap Chevy + GMC at the platform level. The hook only fires when
+# a model token resolves anyway, so this fallback can't over-attribute.
+_MISHIMOTO_MAKE_ALIASES: dict[str, str] = {
+    "chevrolet": "Chevrolet",
+    "chevy": "Chevrolet",
+    "gm": "Chevrolet",
+    "gmc": "GMC",
+    "dodge": "Dodge",
+    "ford": "Ford",
+    "jeep": "Jeep",
+    "mazda": "Mazda",
+    "nissan": "Nissan",
+    "subaru": "Subaru",
+    "toyota": "Toyota",
+    "honda": "Honda",
+    "acura": "Acura",
+    "hyundai": "Hyundai",
+    "scion": "Scion",
+    "volkswagen": "Volkswagen",
+    "vw": "Volkswagen",
+    "bmw": "BMW",
+    "mini": "Mini",
+}
+
+# Model-token patterns scoped per canonical make. Each pattern resolves to a
+# (model_name) string that exists in CAR_GENERATIONS — year-narrow then drops
+# off-window gens. Sub-trims map to their parent model so a single regex covers
+# "Mustang", "Mustang EcoBoost", and "Mustang 5.0L".
+_MISHIMOTO_MODEL_PATTERNS: dict[str, tuple[tuple[re.Pattern[str], str], ...]] = {
+    "Ford": (
+        (re.compile(r"\bF-?150\s*Raptor\b", re.IGNORECASE), "F-150 Raptor"),
+        (re.compile(r"\bRaptor\b", re.IGNORECASE), "F-150 Raptor"),
+        (re.compile(r"\bF-?150\b", re.IGNORECASE), "F-150"),
+        (re.compile(r"\b(F-?2[05]0|F-?3[05]0|F-?4[05]0|Super\s*Duty)\b", re.IGNORECASE), "F-Series Super Duty"),
+        (re.compile(r"\bMustang\b", re.IGNORECASE), "Mustang"),
+        (re.compile(r"\bFiesta\s*ST\b", re.IGNORECASE), "Fiesta ST"),
+        (re.compile(r"\bFiesta\b", re.IGNORECASE), "Fiesta"),
+        (re.compile(r"\bFocus\s*RS\b", re.IGNORECASE), "Focus RS"),
+        (re.compile(r"\bFocus\s*ST\b", re.IGNORECASE), "Focus ST"),
+        (re.compile(r"\bFocus\b", re.IGNORECASE), "Focus"),
+        (re.compile(r"\bBronco\s*Sport\b", re.IGNORECASE), "Bronco Sport"),
+        (re.compile(r"\bBronco\b", re.IGNORECASE), "Bronco"),
+        (re.compile(r"\bRanger\b", re.IGNORECASE), "Ranger"),
+        (re.compile(r"\bMaverick\b", re.IGNORECASE), "Maverick"),
+        (re.compile(r"\bThunderbird\b", re.IGNORECASE), "Thunderbird"),
+    ),
+    "Chevrolet": (
+        (re.compile(r"\bCamaro\b", re.IGNORECASE), "Camaro"),
+        (re.compile(r"\bCorvette\b", re.IGNORECASE), "Corvette"),
+        (re.compile(r"\bSilverado\b", re.IGNORECASE), "Silverado"),
+        (re.compile(r"\bSuburban\b", re.IGNORECASE), "Suburban"),
+        (re.compile(r"\bTahoe\b", re.IGNORECASE), "Tahoe"),
+    ),
+    "GMC": (
+        (re.compile(r"\bSierra\b", re.IGNORECASE), "Sierra"),
+        (re.compile(r"\bYukon\b", re.IGNORECASE), "Yukon"),
+    ),
+    "Dodge": (
+        (re.compile(r"\bChallenger\b", re.IGNORECASE), "Challenger"),
+        (re.compile(r"\bCharger\b", re.IGNORECASE), "Charger"),
+        (re.compile(r"\bDurango\b", re.IGNORECASE), "Durango"),
+        (re.compile(r"\bMagnum\b", re.IGNORECASE), "Magnum"),
+        (re.compile(r"\bViper\b", re.IGNORECASE), "Viper"),
+    ),
+    "Jeep": (
+        # Wrangler sub-platforms (JL/JK/TJ/YJ) appear in titles — match on
+        # "Wrangler" plus optional platform code; year-narrow picks the gen.
+        (re.compile(r"\bWrangler\b", re.IGNORECASE), "Wrangler"),
+        (re.compile(r"\bGrand\s+Cherokee\b", re.IGNORECASE), "Grand Cherokee"),
+        (re.compile(r"\bCherokee\b", re.IGNORECASE), "Cherokee"),
+    ),
+    "Mazda": (
+        (re.compile(r"\bMiata\b", re.IGNORECASE), "Miata"),
+        (re.compile(r"\bRX-?7\b", re.IGNORECASE), "RX-7"),
+        (re.compile(r"\bRX-?8\b", re.IGNORECASE), "RX-8"),
+        (re.compile(r"\bMazda\s*3\b", re.IGNORECASE), "Mazda3"),
+        (re.compile(r"\bMazda\s*6\b", re.IGNORECASE), "Mazda6"),
+    ),
+    "Nissan": (
+        (re.compile(r"\b240SX\b", re.IGNORECASE), "240SX"),
+        (re.compile(r"\b300ZX\b", re.IGNORECASE), "300ZX"),
+        (re.compile(r"\b350Z\b", re.IGNORECASE), "350Z"),
+        (re.compile(r"\b370Z\b", re.IGNORECASE), "370Z"),
+        (re.compile(r"\bGT-?R\b", re.IGNORECASE), "GT-R"),
+    ),
+    "Subaru": (
+        (re.compile(r"\bWRX\b", re.IGNORECASE), "WRX"),
+        (re.compile(r"\bSTI\b", re.IGNORECASE), "WRX"),
+        (re.compile(r"\bImpreza\b", re.IGNORECASE), "Impreza"),
+        (re.compile(r"\bForester\s*XT\b", re.IGNORECASE), "Forester XT"),
+        (re.compile(r"\bForester\b", re.IGNORECASE), "Forester"),
+        (re.compile(r"\bOutback\s*XT\b", re.IGNORECASE), "Outback XT"),
+        (re.compile(r"\bOutback\b", re.IGNORECASE), "Outback"),
+        (re.compile(r"\bCrosstrek\b", re.IGNORECASE), "Crosstrek"),
+        (re.compile(r"\bBRZ\b", re.IGNORECASE), "BRZ"),
+    ),
+    "Toyota": (
+        (re.compile(r"\bSupra\b", re.IGNORECASE), "Supra"),
+        (re.compile(r"\bMR2\b", re.IGNORECASE), "MR2"),
+        (re.compile(r"\bGR\s*Corolla\b", re.IGNORECASE), "GR Corolla"),
+        (re.compile(r"\bGR\s*Yaris\b", re.IGNORECASE), "GR Yaris"),
+        (re.compile(r"\bGR\s*86\b", re.IGNORECASE), "GR86"),
+        (re.compile(r"\bTacoma\b", re.IGNORECASE), "Tacoma"),
+        (re.compile(r"\bTundra\b", re.IGNORECASE), "Tundra"),
+        (re.compile(r"\b4Runner\b", re.IGNORECASE), "4Runner"),
+        (re.compile(r"(?<![\d-])\b86\b(?![\d-])", re.IGNORECASE), "86"),
+        (re.compile(r"\bCelica\b", re.IGNORECASE), "Celica"),
+        (re.compile(r"\bCorolla\b", re.IGNORECASE), "Corolla"),
+        (re.compile(r"\bCamry\b", re.IGNORECASE), "Camry"),
+    ),
+    "Honda": (
+        (re.compile(r"\bCivic\s*Type\s*R\b", re.IGNORECASE), "Civic Type R"),
+        (re.compile(r"\bCivic\b", re.IGNORECASE), "Civic"),
+        (re.compile(r"\bAccord\b", re.IGNORECASE), "Accord"),
+        (re.compile(r"\bS2000\b", re.IGNORECASE), "S2000"),
+        (re.compile(r"\bNSX\b", re.IGNORECASE), "NSX"),
+    ),
+    "Acura": (
+        (re.compile(r"\bIntegra\b", re.IGNORECASE), "Integra"),
+        (re.compile(r"\bRSX\b", re.IGNORECASE), "RSX"),
+        (re.compile(r"\bTL\b", re.IGNORECASE), "TL"),
+        (re.compile(r"\bTSX\b", re.IGNORECASE), "TSX"),
+        (re.compile(r"\bMDX\b", re.IGNORECASE), "MDX"),
+    ),
+    "Hyundai": (
+        (re.compile(r"\bGenesis\s*Coupe\b", re.IGNORECASE), "Genesis Coupe"),
+        (re.compile(r"\bElantra\s*N\b", re.IGNORECASE), "Elantra N"),
+        (re.compile(r"\bElantra\b", re.IGNORECASE), "Elantra"),
+        (re.compile(r"\bVeloster\b", re.IGNORECASE), "Veloster"),
+        (re.compile(r"\bKona\s*N\b", re.IGNORECASE), "Kona N"),
+        (re.compile(r"\bTiburon\b", re.IGNORECASE), "Tiburon"),
+    ),
+    "Scion": (
+        (re.compile(r"\bFR-?S\b", re.IGNORECASE), "FR-S"),
+        (re.compile(r"\btC\b", re.IGNORECASE), "tC"),
+    ),
+    "BMW": (
+        (re.compile(r"\bM3\b", re.IGNORECASE), "M3"),
+        (re.compile(r"\bM4\b", re.IGNORECASE), "M4"),
+    ),
+}
+
+
+def _extract_mishimoto_year_range(text: str) -> Optional[tuple[int, int]]:
+    """
+    Pull a (start_year, end_year) from a Mishimoto fits-suffix. Supports
+    canonical YYYY-YYYY, YYYY-YY two-digit tails (carry the century), the
+    YYYY.5 mid-MY notation Mishimoto uses for Cummins/Duramax introductions
+    (we coerce to the integer year), and open-ended YYYY+. Returns ``None``
+    when no shape matches.
+    """
+    m = _MISHIMOTO_YEAR_RANGE_RE.search(text)
+    if m:
+        try:
+            y1 = int(m.group(1))
+            tail = m.group(2)
+            y2 = int(tail) if len(tail) == 4 else (y1 // 100) * 100 + int(tail)
+            if y2 < y1:
+                y2 += 100
+        except ValueError:
+            return None
+        if y1 < 1960 or y1 > 2030 or y2 < y1 or y2 > 2035:
+            return None
+        return (y1, y2)
+    m = _MISHIMOTO_YEAR_OPEN_RE.search(text)
+    if m:
+        try:
+            y1 = int(m.group(1))
+        except ValueError:
+            return None
+        if y1 < 1960 or y1 > 2030:
+            return None
+        return (y1, 9999)
+    return None
+
+
+def _extract_mishimoto_make(fits_tail: str) -> Optional[str]:
+    """
+    Read the first non-empty token of the fits suffix and resolve it through
+    the make-alias dictionary. Mishimoto sometimes writes ``"Chevrolet/GMC"``
+    or ``"Chevy"`` so we split on common separators and try each alias before
+    giving up.
+    """
+    # Take the leading token(s) up to the next separator. "Chevrolet/GMC" must
+    # split into ["Chevrolet", "GMC"] so either resolves; "Chevy Monte Carlo"
+    # must split into ["Chevy", "Monte", ...] so the first token resolves.
+    leading = fits_tail.strip().split()
+    if not leading:
+        return None
+    first = leading[0]
+    for token in re.split(r"[/&,]", first):
+        token = token.strip().lower()
+        if token in _MISHIMOTO_MAKE_ALIASES:
+            return _MISHIMOTO_MAKE_ALIASES[token]
+    return None
+
+
+def _extract_mishimoto_model(fits_tail: str, make: str) -> Optional[str]:
+    """
+    Walk the make-scoped pattern dictionary and return the canonical model
+    name for the first match, or None if no pattern fires. Pattern order is
+    significant: sub-trims (Civic Type R, Focus RS, F-150 Raptor) come before
+    their parent model so they win when both tokens are present.
+    """
+    patterns = _MISHIMOTO_MODEL_PATTERNS.get(make)
+    if not patterns:
+        return None
+    for pattern, model_name in patterns:
+        if pattern.search(fits_tail):
+            return model_name
+    return None
+
+
 class MishimotoAdapter(RetailerCrawlerAdapter):
     """
     Mishimoto adapter. Magento 2 + Hyva storefront, plain HTTP suffices.
@@ -501,7 +740,6 @@ class MishimotoAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "mishimoto"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:
@@ -613,3 +851,45 @@ class MishimotoAdapter(RetailerCrawlerAdapter):
             image_urls=image_urls,
             gtin=None,
         )
+
+    def infer_car_for_part(
+        self, parsed: ScrapedPayload
+    ) -> Optional[List[tuple[str, str, str]]]:
+        """
+        Extract make/model/generation triples from the ", fits <Make>
+        <Model> ... <year-range>" suffix on Mishimoto product titles.
+
+        Returns ``None`` (NOT empty list) when:
+          * the title has no fits suffix
+          * the make token doesn't resolve to a known nameplate
+          * no model pattern fires for the resolved make
+          * no year-range token is extractable
+
+        ``None`` causes the ingest layer to fall through to the universal
+        keyword pipeline; an empty list would short-circuit ingest to
+        ``is_universal=True``, which is wrong for these inputs because the
+        universal pipeline can still rescue some titles.
+
+        Engine-platform titles (``"fits Dodge 5.9L Cummins 1994-2002"``,
+        ``"fits Ford 6.7L Powerstroke 2017+"``) deliberately don't resolve:
+        no model token fires for the make, so the hook punts. There's no
+        car_generations row representing "any truck with a 5.9L Cummins".
+        """
+        name = parsed.name or ""
+        if not name:
+            return None
+        m = _MISHIMOTO_FITS_RE.search(name)
+        if not m:
+            return None
+        fits_tail = m.group(1)
+        make = _extract_mishimoto_make(fits_tail)
+        if make is None:
+            return None
+        model = _extract_mishimoto_model(fits_tail, make)
+        if model is None:
+            return None
+        year_range = _extract_mishimoto_year_range(fits_tail)
+        if year_range is None:
+            return None
+        triples = generations_for_make_model_year_range(make, model, year_range)
+        return triples or None
