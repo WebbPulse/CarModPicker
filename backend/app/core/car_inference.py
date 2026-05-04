@@ -2977,6 +2977,104 @@ def narrow_triples_by_year_range(
     return out
 
 
+def _load_engine_platforms() -> dict:
+    """Load engine_platforms_data.json and validate every fitment against CAR_GENERATIONS.
+
+    Each fitment's (make, model, gen_name) must exist in the seed; otherwise
+    the engine platform would resolve to no car_generation IDs at runtime
+    and the part would fall through to is_universal=True silently. Failing
+    loudly at import time is the correct trade-off — the data file is
+    in-tree and any breakage means a seed/engine-data mismatch that needs
+    fixing in the same PR.
+    """
+    import json as _json
+    from importlib.resources import files as _files
+
+    raw = _json.loads(
+        _files("app.core").joinpath("engine_platforms_data.json").read_text(encoding="utf-8")
+    )
+    for engine_name, payload in raw.items():
+        for fitment in payload.get("fitments", []):
+            make = fitment["make"]
+            model = fitment["model"]
+            gen_name = fitment["gen_name"]
+            models = CAR_GENERATIONS.get(make)
+            if not models:
+                raise RuntimeError(
+                    f"engine_platforms[{engine_name!r}] references unknown make {make!r}"
+                )
+            model_entry = next((m for m in models if m["model"] == model), None)
+            if model_entry is None:
+                raise RuntimeError(
+                    f"engine_platforms[{engine_name!r}] references unknown "
+                    f"({make!r}, {model!r}) — model not in seed"
+                )
+            if not any(g["generation_name"] == gen_name for g in model_entry["generations"]):
+                raise RuntimeError(
+                    f"engine_platforms[{engine_name!r}] references unknown "
+                    f"({make!r}, {model!r}, {gen_name!r}) — generation not in seed"
+                )
+    return raw
+
+
+# Module-level: built once at import. Each entry is engine_name -> {family, displacement,
+# description, phrases (list[str]), fitments (list[{make, model, gen_name}])}.
+ENGINE_PLATFORMS: dict = _load_engine_platforms()
+
+# Phrase -> engine_name lookup, sorted longest-first so "5.9l cummins" wins over "cummins".
+# Phrases are all lowercase per the loader's convention.
+_ENGINE_PHRASE_INDEX: list[tuple[str, str]] = sorted(
+    [
+        (phrase.lower(), engine_name)
+        for engine_name, payload in ENGINE_PLATFORMS.items()
+        for phrase in payload.get("phrases", [])
+    ],
+    key=lambda x: -len(x[0]),
+)
+
+
+def infer_car_generations_via_engine(
+    name: Optional[str],
+    description: Optional[str] = None,
+) -> list[tuple[str, str, str]]:
+    """Return car triples for parts that reference an engine platform by name.
+
+    A title like "6.7L Cummins Boost Pipe" with no make/model token still
+    has a deterministic fitment: the cars that came with that engine.
+    Walks ENGINE_PLATFORMS, matches phrases against the combined
+    name+description (lowercased), and returns the union of every matched
+    engine's fitment list as (make, model, gen_name) triples — same shape
+    that ``infer_car_generations`` returns, so callers can treat the two
+    interchangeably.
+
+    Designed as a fallback after ``infer_car_generations`` returns []. If
+    a title contains both an engine name AND a make/model token (e.g.
+    "Ram 2500 6.7L Cummins"), the universal pipeline already resolves it
+    and this function is not consulted.
+    """
+    if not name and not description:
+        return []
+    combined = re.sub(r"\s{2,}", " ", f"{name or ''} {description or ''}".lower()).strip()
+    if not combined:
+        return []
+    matched_engines: set[str] = set()
+    for phrase, engine_name in _ENGINE_PHRASE_INDEX:
+        if phrase in combined:
+            matched_engines.add(engine_name)
+    if not matched_engines:
+        return []
+    seen: set[tuple[str, str, str]] = set()
+    triples: list[tuple[str, str, str]] = []
+    for engine_name in matched_engines:
+        for fitment in ENGINE_PLATFORMS[engine_name].get("fitments", []):
+            triple = (fitment["make"], fitment["model"], fitment["gen_name"])
+            if triple in seen:
+                continue
+            seen.add(triple)
+            triples.append(triple)
+    return triples
+
+
 def resolve_car_triples_to_ids(
     db: "Session",
     triples: list[tuple[str, str, str]],

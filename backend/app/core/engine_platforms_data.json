@@ -1,0 +1,206 @@
+{
+  "Cummins 5.9L": {
+    "family": "Cummins",
+    "displacement": "5.9L",
+    "description": "Cummins B-series 5.9L diesel I6 in 2nd Gen (1994-1998 12-valve, 1998.5-2002 24-valve ISB) and 3rd Gen (2003-2007.5 24-valve common-rail) Dodge Ram 2500/3500 HD trucks. Final 5.9L MY 2007.5 before the 6.7L took over.",
+    "phrases": [
+      "5.9 cummins",
+      "5.9l cummins",
+      "cummins 5.9",
+      "cummins 5.9l",
+      "cummins 12v",
+      "cummins 24v",
+      "5.9l 12v",
+      "5.9l 24v",
+      "isb 5.9"
+    ],
+    "fitments": [
+      { "make": "Dodge", "model": "Ram 2500", "gen_name": "2nd Gen" },
+      { "make": "Dodge", "model": "Ram 2500", "gen_name": "3rd Gen" },
+      { "make": "Dodge", "model": "Ram 3500", "gen_name": "2nd Gen" },
+      { "make": "Dodge", "model": "Ram 3500", "gen_name": "3rd Gen" }
+    ]
+  },
+  "Cummins 6.7L": {
+    "family": "Cummins",
+    "displacement": "6.7L",
+    "description": "Cummins ISB 6.7L diesel I6 introduced MY2007.5. Standard in Ram 2500/3500 HD trucks from 3rd Gen partway, all of 4th and 5th Gen.",
+    "phrases": [
+      "6.7 cummins",
+      "6.7l cummins",
+      "cummins 6.7",
+      "cummins 6.7l"
+    ],
+    "fitments": [
+      { "make": "Dodge", "model": "Ram 2500", "gen_name": "3rd Gen" },
+      { "make": "Dodge", "model": "Ram 2500", "gen_name": "4th Gen" },
+      { "make": "Dodge", "model": "Ram 2500", "gen_name": "5th Gen" },
+      { "make": "Dodge", "model": "Ram 3500", "gen_name": "3rd Gen" },
+      { "make": "Dodge", "model": "Ram 3500", "gen_name": "4th Gen" },
+      { "make": "Dodge", "model": "Ram 3500", "gen_name": "5th Gen" }
+    ]
+  },
+  "Powerstroke 6.0L": {
+    "family": "Powerstroke",
+    "displacement": "6.0L",
+    "description": "Ford Powerstroke 6.0L diesel V8 (Navistar-built). MY2003-2007 in F-Series Super Duty 1st Gen (1999-2007). Known for emissions-era reliability issues and the favorite engine of the diesel-tuning aftermarket.",
+    "phrases": [
+      "6.0 powerstroke",
+      "6.0l powerstroke",
+      "powerstroke 6.0",
+      "powerstroke 6.0l",
+      "6.0 power stroke",
+      "6.0l power stroke"
+    ],
+    "fitments": [
+      { "make": "Ford", "model": "F-Series Super Duty", "gen_name": "1st Gen" }
+    ]
+  },
+  "Powerstroke 6.4L": {
+    "family": "Powerstroke",
+    "displacement": "6.4L",
+    "description": "Ford Powerstroke 6.4L diesel V8 (Navistar-built). Replaced the 6.0L for MY2008-2010 in F-Series Super Duty 2nd Gen.",
+    "phrases": [
+      "6.4 powerstroke",
+      "6.4l powerstroke",
+      "powerstroke 6.4",
+      "powerstroke 6.4l",
+      "6.4 power stroke",
+      "6.4l power stroke"
+    ],
+    "fitments": [
+      { "make": "Ford", "model": "F-Series Super Duty", "gen_name": "2nd Gen" }
+    ]
+  },
+  "Powerstroke 6.7L": {
+    "family": "Powerstroke",
+    "displacement": "6.7L",
+    "description": "Ford Powerstroke 6.7L diesel V8 (Ford-built 'Scorpion'). Introduced MY2011 in F-Series Super Duty 3rd Gen, continued through 4th and 5th Gen.",
+    "phrases": [
+      "6.7 powerstroke",
+      "6.7l powerstroke",
+      "powerstroke 6.7",
+      "powerstroke 6.7l",
+      "6.7 power stroke",
+      "6.7l power stroke"
+    ],
+    "fitments": [
+      { "make": "Ford", "model": "F-Series Super Duty", "gen_name": "3rd Gen" },
+      { "make": "Ford", "model": "F-Series Super Duty", "gen_name": "4th Gen" },
+      { "make": "Ford", "model": "F-Series Super Duty", "gen_name": "5th Gen" }
+    ]
+  },
+  "HEMI 6.1L": {
+    "family": "HEMI",
+    "displacement": "6.1L",
+    "description": "Mopar Gen III HEMI 6.1L V8 (425 hp). MY2005-2010 in SRT8 trims of the Mopar LX-platform sedans + Grand Cherokee WK SRT8 + Magnum SRT8.",
+    "phrases": [
+      "6.1 hemi",
+      "6.1l hemi",
+      "hemi 6.1",
+      "hemi 6.1l",
+      "srt8 6.1",
+      "6.1 srt8"
+    ],
+    "fitments": [
+      { "make": "Chrysler", "model": "300", "gen_name": "LX" },
+      { "make": "Dodge", "model": "Charger", "gen_name": "LX" },
+      { "make": "Dodge", "model": "Challenger", "gen_name": "3rd Gen" },
+      { "make": "Dodge", "model": "Magnum", "gen_name": "SRT-8" },
+      { "make": "Jeep", "model": "Grand Cherokee", "gen_name": "WK" }
+    ]
+  },
+  "HEMI 6.4L": {
+    "family": "HEMI",
+    "displacement": "6.4L",
+    "description": "Mopar Gen III HEMI 6.4L (392) V8. 470-485 hp depending on application. MY2011+ in SRT/Scat Pack trims of the LX/LD platform, Durango SRT 392, Grand Cherokee SRT WK2, Ram 1500 4th Gen Power Wagon.",
+    "phrases": [
+      "6.4 hemi",
+      "6.4l hemi",
+      "hemi 6.4",
+      "hemi 6.4l",
+      "392 hemi",
+      "hemi 392",
+      "srt 392"
+    ],
+    "fitments": [
+      { "make": "Chrysler", "model": "300", "gen_name": "LD" },
+      { "make": "Dodge", "model": "Charger", "gen_name": "LX" },
+      { "make": "Dodge", "model": "Charger", "gen_name": "LD" },
+      { "make": "Dodge", "model": "Challenger", "gen_name": "3rd Gen" },
+      { "make": "Dodge", "model": "Durango", "gen_name": "SRT 392" },
+      { "make": "Dodge", "model": "Ram 1500", "gen_name": "4th Gen" },
+      { "make": "Jeep", "model": "Grand Cherokee", "gen_name": "WK2" }
+    ]
+  },
+  "HEMI 6.2L Hellcat": {
+    "family": "HEMI",
+    "displacement": "6.2L",
+    "description": "Mopar Gen III HEMI 6.2L supercharged V8 (Hellcat / Demon / Redeye / TRX / Trackhawk). 707-840+ hp depending on tune. MY2015+ across the SRT Hellcat / SRT Demon / Trackhawk / TRX trims.",
+    "phrases": [
+      "6.2 hellcat",
+      "6.2l hellcat",
+      "hellcat hemi",
+      "hellcat 6.2",
+      "demon hemi",
+      "trackhawk hemi",
+      "trx hemi"
+    ],
+    "fitments": [
+      { "make": "Dodge", "model": "Charger", "gen_name": "LD" },
+      { "make": "Dodge", "model": "Challenger", "gen_name": "3rd Gen" },
+      { "make": "Dodge", "model": "Durango", "gen_name": "SRT Hellcat" },
+      { "make": "Dodge", "model": "Ram 1500", "gen_name": "5th Gen" },
+      { "make": "Jeep", "model": "Grand Cherokee", "gen_name": "WK2" }
+    ]
+  },
+  "HEMI 5.7L": {
+    "family": "HEMI",
+    "displacement": "5.7L",
+    "description": "Mopar Gen III HEMI 5.7L V8. The 'truck Hemi' from MY2003 in Ram 1500, then expanded to LX-platform sedans, Magnum, Grand Cherokee, Durango, Wrangler V8 conversions, and others. Multiple sub-variants (Eagle / VVT / eTorque) over a 20-year run.",
+    "phrases": [
+      "5.7 hemi",
+      "5.7l hemi",
+      "hemi 5.7",
+      "hemi 5.7l"
+    ],
+    "fitments": [
+      { "make": "Chrysler", "model": "300", "gen_name": "LX" },
+      { "make": "Chrysler", "model": "300", "gen_name": "LD" },
+      { "make": "Dodge", "model": "Charger", "gen_name": "LX" },
+      { "make": "Dodge", "model": "Charger", "gen_name": "LD" },
+      { "make": "Dodge", "model": "Challenger", "gen_name": "3rd Gen" },
+      { "make": "Dodge", "model": "Ram 1500", "gen_name": "3rd Gen" },
+      { "make": "Dodge", "model": "Ram 1500", "gen_name": "4th Gen" },
+      { "make": "Dodge", "model": "Ram 1500", "gen_name": "5th Gen" },
+      { "make": "Dodge", "model": "Ram 2500", "gen_name": "3rd Gen" },
+      { "make": "Dodge", "model": "Ram 2500", "gen_name": "4th Gen" },
+      { "make": "Jeep", "model": "Grand Cherokee", "gen_name": "WK" },
+      { "make": "Jeep", "model": "Grand Cherokee", "gen_name": "WK2" }
+    ]
+  },
+  "4G63": {
+    "family": "Mitsubishi 4G6",
+    "displacement": "2.0L",
+    "description": "Mitsubishi 4G63T turbocharged DOHC I4. The DSM tuner platform engine: Eclipse GSX/GS-T 1G/2G, Galant VR-4, Plymouth Laser 1G, Eagle Talon (Eagle not currently in seed). Lancer Evolution I-IX. Final OEM 4G63 MY2007 (Evo IX); Evo X moved to 4B11T.",
+    "phrases": [
+      "4g63",
+      "4g63t"
+    ],
+    "fitments": [
+      { "make": "Mitsubishi", "model": "Eclipse", "gen_name": "1st Gen" },
+      { "make": "Mitsubishi", "model": "Eclipse", "gen_name": "2nd Gen" },
+      { "make": "Mitsubishi", "model": "Galant VR-4", "gen_name": "1st Gen" },
+      { "make": "Mitsubishi", "model": "Lancer Evolution", "gen_name": "I" },
+      { "make": "Mitsubishi", "model": "Lancer Evolution", "gen_name": "II" },
+      { "make": "Mitsubishi", "model": "Lancer Evolution", "gen_name": "III" },
+      { "make": "Mitsubishi", "model": "Lancer Evolution", "gen_name": "IV" },
+      { "make": "Mitsubishi", "model": "Lancer Evolution", "gen_name": "V" },
+      { "make": "Mitsubishi", "model": "Lancer Evolution", "gen_name": "VI" },
+      { "make": "Mitsubishi", "model": "Lancer Evolution", "gen_name": "VII" },
+      { "make": "Mitsubishi", "model": "Lancer Evolution", "gen_name": "VIII" },
+      { "make": "Mitsubishi", "model": "Lancer Evolution", "gen_name": "IX" },
+      { "make": "Plymouth", "model": "Laser", "gen_name": "1G" }
+    ]
+  }
+}

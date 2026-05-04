@@ -39,7 +39,11 @@ from app.api.services.part_listing_service import (
     get_or_create_curated_part_manufacturer,
     get_or_create_retailer,
 )
-from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
+from app.core.car_inference import (
+    infer_car_generations,
+    infer_car_generations_via_engine,
+    resolve_car_triples_to_ids,
+)
 from app.core.category_inference import infer_category
 
 if TYPE_CHECKING:
@@ -876,6 +880,13 @@ def ingest_payload(
         triples = adapter_triples
     else:
         triples = infer_car_generations(payload.name, payload.description, payload.product_url)
+        # Engine-platform fallback: a title like "6.7L Cummins Boost Pipe" with no
+        # make/model token still has a deterministic fitment (every Ram HD that
+        # came with that engine). Only consulted when the universal pipeline came
+        # up empty — if the title already mentions a vehicle the universal phrase
+        # match will have produced more specific triples than the engine fallback.
+        if not triples:
+            triples = infer_car_generations_via_engine(payload.name, payload.description)
     inferred_car_ids = resolve_car_triples_to_ids(db, triples) if triples else []
     if inferred_car_ids:
         logger.debug(
