@@ -343,6 +343,22 @@ PHRASE_TRIPLES: list[tuple[str, str, str, str]] = sorted(_build_phrase_triples()
 
 # Aliases: phrase -> (make, model, generation_name). Used when product text uses
 # nicknames (MKV Supra, GR Supra, G82, etc.). Order: longer phrases first for specificity.
+#
+# Trim-vs-model decision rule (so adapters don't all reinvent it):
+#   - A trim gets its own model row in car_generations_data.json ONLY when it has
+#     a genuinely distinct production window from the base model AND retailers
+#     consistently treat it as a separate fitment token. Examples that DO get
+#     their own model row: Forester XT, Outback XT, GR86, GR Corolla.
+#   - Otherwise, the trim is mapped here as alias(es) pointing at the base
+#     model's generation(s). Examples: WRX STI -> WRX, GT500 -> Mustang,
+#     Boss 302 -> Mustang, SVT Cobra -> Mustang, GT350 -> Mustang.
+#   - When a trim spans multiple generations (WRX STI: GD/GR/VA, GT500:
+#     5th Gen/6th Gen), emit one alias entry per generation. Adapter hooks layer
+#     year-range narrowing on top via narrow_triples_by_year_range.
+#   - Single-token chassis-style trim names (just "STI", just "GT500") are
+#     intentionally NOT added unless the token is unambiguous in context — see
+#     AMBIGUOUS_STANDALONE_CODES and the "STI alone is too short/ambiguous"
+#     note on the Subaru block below.
 CAR_ALIASES: list[tuple[str, str, str, str]] = [
     # Toyota Supra A90
     ("mkv supra", "Toyota", "Supra", "A90"),
@@ -1184,7 +1200,12 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("sn95 mustang", "Ford", "Mustang", "4th Gen"),
     ("sn95", "Ford", "Mustang", "4th Gen"),
     ("5.0 mustang", "Ford", "Mustang", "6th Gen"),  # Coyote 5.0L era; older 5.0 is "fox body"
-    ("gt500", "Ford", "Mustang", "6th Gen"),  # 2007-2014 GT500 = 5th Gen; 2020+ = 6th Gen — default to 6th
+    # GT500 spans 2007-2014 (5th Gen / S197) and 2020-2022 (6th Gen / S550).
+    # Map both so year-narrowing in adapter hooks resolves to the correct gen;
+    # without an explicit year a GT500 part is genuinely ambiguous between the two.
+    ("gt500", "Ford", "Mustang", "5th Gen"),
+    ("gt500", "Ford", "Mustang", "6th Gen"),
+    ("shelby gt500", "Ford", "Mustang", "5th Gen"),
     ("shelby gt500", "Ford", "Mustang", "6th Gen"),
     # Ford Mustang trim names — "dark horse" (S650), GT350 (S550 only), Boss 302 (5th Gen), Bullitt, Mach 1
     ("dark horse", "Ford", "Mustang", "7th Gen"),

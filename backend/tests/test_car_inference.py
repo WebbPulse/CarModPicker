@@ -583,7 +583,7 @@ class TestM004S04AliasBaseline:
     EXPECTED_BASELINE rather than mutating the S02 or S04 anchors.
     """
 
-    EXPECTED_BASELINE: int = 2037
+    EXPECTED_BASELINE: int = 2039
 
     def test_car_aliases_length_matches_post_s04_baseline(self) -> None:
         from app.core.car_inference import CAR_ALIASES
@@ -640,3 +640,32 @@ class TestParensAdjacencyLimitation:
         # so the (ONLY) insert prevents resolution.
         result = infer_car_generations("Brand-New Catback — Nissan (ONLY) GT-R Variant", None)
         assert not any(make == "Nissan" and model == "GT-R" for make, model, _ in result)
+
+
+class TestTrimMultiGenAliases:
+    """Pin the trim-vs-model rule documented at the top of CAR_ALIASES.
+
+    Trims that span multiple generations (WRX STI: GD/GR/VA, GT500:
+    5th/6th Gen) emit one alias entry per generation. Adapter hooks layer
+    year-range narrowing on top to pick the right gen for a specific part.
+    """
+
+    def test_gt500_resolves_to_both_5th_and_6th_gen(self) -> None:
+        # 2007-2014 GT500 = 5th Gen, 2020-2022 GT500 = 6th Gen.
+        # Without an explicit year a GT500 part is ambiguous and should match both.
+        result = infer_car_generations("Ford Mustang GT500 Strut Bar", None)
+        assert ("Ford", "Mustang", "5th Gen") in result
+        assert ("Ford", "Mustang", "6th Gen") in result
+
+    def test_shelby_gt500_resolves_to_both_5th_and_6th_gen(self) -> None:
+        result = infer_car_generations("Shelby GT500 Carbon Hood", None)
+        assert ("Ford", "Mustang", "5th Gen") in result
+        assert ("Ford", "Mustang", "6th Gen") in result
+
+    def test_wrx_sti_still_resolves_to_gd_gr_va(self) -> None:
+        # Regression check: the trim-vs-model docstring shouldn't have
+        # disturbed the existing STI multi-gen mapping.
+        result = infer_car_generations("Subaru WRX STI Cat-Back Exhaust", None)
+        assert ("Subaru", "WRX", "GD") in result
+        assert ("Subaru", "WRX", "GR") in result
+        assert ("Subaru", "WRX", "VA") in result
