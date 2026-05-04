@@ -732,3 +732,139 @@ class TestCarAliasesNoDrift:
             "obscure intent. Drop the later occurrence:\n"
             + "\n".join(f"  x{n}: {e!r}" for e, n in dupes[:10])
         )
+
+
+class TestUniversalPipelineYearNarrowing:
+    """infer_car_generations now narrows triples by the title's year range when the
+    text contains a single coherent fitment span. These tests pin the new contract
+    plus its safety rails (multi-fitment titles untouched; empty-narrow falls back
+    to unfiltered)."""
+
+    def test_year_range_narrows_civic_to_one_gen(self) -> None:
+        # Title carries one range (2012-2015). Universal pipeline matches every
+        # Civic gen via "Honda Civic"; narrow to the gen overlapping 2012-2015.
+        result = infer_car_generations(
+            "2012-2015 Honda Civic Si RDX Injector Plug N Play Clips", None
+        )
+        assert ("Honda", "Civic", "9th Gen") in result
+        assert ("Honda", "Civic", "8th Gen") not in result
+        assert ("Honda", "Civic", "10th Gen") not in result
+
+    def test_individual_years_merge_into_one_span(self) -> None:
+        # "2012, 2013, 2014, 2015" reads as five single-year ranges to the
+        # extractor; the merge step collapses them to one (2012-2015) span.
+        result = infer_car_generations(
+            "Honda Civic Si",
+            "Fits 2012, 2013, 2014, 2015 Honda Civic Si.",
+        )
+        assert ("Honda", "Civic", "9th Gen") in result
+        assert ("Honda", "Civic", "8th Gen") not in result
+        assert ("Honda", "Civic", "10th Gen") not in result
+
+    def test_adjacent_ranges_merge_into_one_span(self) -> None:
+        # 2008-2014 abuts 2015-2018 with one year gap. The merge step treats
+        # them as one fitment span (2008-2018), so narrowing still applies.
+        result = infer_car_generations(
+            "Subaru WRX Coilover Kit",
+            "For 2008-2014 and 2015-2018 Subaru WRX.",
+        )
+        # WRX VA (2015-2021) and GR (2022+) — only VA overlaps 2008-2018.
+        # GD (2002-2007) is outside the merged span entirely.
+        assert ("Subaru", "WRX", "VA") in result
+        assert ("Subaru", "WRX", "GD") not in result
+
+    def test_disjoint_ranges_skip_narrowing(self) -> None:
+        # Two chassis windows separated by >1 year. With the skip-policy, both
+        # alias matches survive; with naive narrowing, one would be wrongly dropped.
+        # Supra A80 (1993-2002) and A90 (2019+) are 17 years apart — clearly
+        # disjoint. A title spanning both is multi-fitment and cannot be safely
+        # narrowed.
+        result = infer_car_generations(
+            "Toyota Supra Coilover Kit",
+            "Fits 1993-1998 MK4 A80 Supra and 2020-2023 MKV A90 Supra.",
+        )
+        # Both alias-matched gens must remain; narrowing to one would be wrong.
+        assert ("Toyota", "Supra", "A80") in result
+        assert ("Toyota", "Supra", "A90") in result
+
+    def test_open_ended_year_range_narrows(self) -> None:
+        # "2017+" is parsed as (2017, current_year+1). FK8 Civic Type R (2017-2021)
+        # overlaps; FK7 Civic (2017-2021) overlaps; older Civic gens (8th/9th)
+        # don't.
+        result = infer_car_generations("Honda Civic Si 2017+ intake", None)
+        # 9th gen ends 2015; should be narrowed out.
+        assert ("Honda", "Civic", "9th Gen") not in result
+        # 10th gen (2016-2021) overlaps 2017+.
+        assert ("Honda", "Civic", "10th Gen") in result
+
+    def test_incidental_year_falls_back_to_unfiltered(self) -> None:
+        # Title contains a year that doesn't overlap any matched-model gen.
+        # The fallback kicks in: keep the unnarrowed triples rather than
+        # falling through to is_universal. Better to over-attribute than to
+        # silently drop a confident match.
+        result = infer_car_generations(
+            "K20A2 Engine Block since 2002 - For Civic Type R FK8",
+            None,
+        )
+        # FK8 Civic Type R is 2017-2021; the (2002, 2002) range doesn't overlap.
+        # Without the fallback, narrowing would empty the result.
+        assert ("Honda", "Civic Type R", "FK8") in result
+
+    def test_no_year_range_returns_full_triples(self) -> None:
+        # No year token at all — narrowing is a no-op.
+        result = infer_car_generations("Honda Civic Si Cold Air Intake", None)
+        # Every Civic gen still present (this is the pre-change behavior).
+        gens = {gen for make, model, gen in result if make == "Honda" and model == "Civic"}
+        assert "8th Gen" in gens
+        assert "9th Gen" in gens
+        assert "10th Gen" in gens
+
+    def test_no_match_with_year_range_still_empty(self) -> None:
+        # When no make/model matches at all, year-range narrowing has nothing
+        # to narrow. Result stays empty.
+        result = infer_car_generations(
+            "Random Universal Hardware 2015-2020 Mounting Bracket", None
+        )
+        assert result == []
+
+
+class TestMergeYearRanges:
+    """Pin the merge policy in isolation — it's the lever that decides whether a
+    title is one fitment span or many."""
+
+    def test_overlapping_ranges_merge(self) -> None:
+        from app.core.car_inference import _merge_year_ranges
+
+        assert _merge_year_ranges([(2010, 2014), (2012, 2018)]) == [(2010, 2018)]
+
+    def test_adjacent_one_year_gap_merges(self) -> None:
+        from app.core.car_inference import _merge_year_ranges
+
+        # 2014-2015 = 1 year gap, treated as one block.
+        assert _merge_year_ranges([(2010, 2014), (2015, 2018)]) == [(2010, 2018)]
+
+    def test_two_year_gap_stays_disjoint(self) -> None:
+        from app.core.car_inference import _merge_year_ranges
+
+        # 2014-2016 = 2 year gap, disjoint.
+        assert _merge_year_ranges([(2010, 2014), (2016, 2018)]) == [
+            (2010, 2014),
+            (2016, 2018),
+        ]
+
+    def test_unsorted_input_handled(self) -> None:
+        from app.core.car_inference import _merge_year_ranges
+
+        assert _merge_year_ranges([(2015, 2018), (2010, 2014)]) == [(2010, 2018)]
+
+    def test_single_year_ranges_collapse(self) -> None:
+        from app.core.car_inference import _merge_year_ranges
+
+        assert _merge_year_ranges([(2012, 2012), (2013, 2013), (2014, 2014)]) == [
+            (2012, 2014)
+        ]
+
+    def test_empty_input(self) -> None:
+        from app.core.car_inference import _merge_year_ranges
+
+        assert _merge_year_ranges([]) == []

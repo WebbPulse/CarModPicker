@@ -2868,6 +2868,15 @@ def infer_car_generations(
 
     Returns unique list of triples that can be resolved to car IDs via resolve_car_triples_to_ids().
     Order: aliases first (more specific), then phrase triples from canonical data.
+
+    Year-range narrowing is applied automatically when the combined text contains exactly one
+    coherent fitment span (overlapping/adjacent ranges merge into one span). Multiple disjoint
+    spans (multi-fitment titles like "2003-2007 LX, 2009-2014 LD") leave triples unfiltered —
+    the title is too ambiguous to safely narrow, since each phrase match could legitimately
+    belong to either span. If narrowing would strip every triple (e.g. a single year token like
+    "since 2002" that doesn't overlap any matched-model generation), the unnarrowed triples are
+    kept rather than falling through to is_universal — the year token in that case is more
+    likely an incidental year (release date, spec callout) than a fitment year.
     """
     name = (name or "").strip()
     description = (description or "").strip()
@@ -2910,7 +2919,14 @@ def infer_car_generations(
             seen.add((make, model, gen_name))
             result.append((make, model, gen_name))
 
-    return result
+    if not result:
+        return result
+
+    # Year-range narrowing. Forward to a private helper so the policy
+    # (single-coherent-span only; preserve triples on empty narrow) lives
+    # next to the merge logic. extract_year_ranges and narrow_triples_by_year_range
+    # are defined later in the module — late binding makes the references safe.
+    return _maybe_narrow_by_combined_year_ranges(result, combined)
 
 
 # Canonical year-range extractor (issue #5). Replaces the 5 near-duplicate
@@ -3354,6 +3370,63 @@ def narrow_triples_by_year_range(
                 break
             break
     return out
+
+
+def _merge_year_ranges(
+    ranges: list[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    """Merge overlapping or adjacent year-ranges into disjoint spans.
+
+    Two ranges merge when they overlap OR sit within one year of each other
+    (so 2010-2014 and 2015-2018 become 2010-2018 — a single coherent fitment
+    block, not two disjoint mentions). Returns the merged spans sorted by
+    start year. Used by ``_maybe_narrow_by_combined_year_ranges`` to decide
+    whether a title carries one fitment span (narrow) or several (skip).
+    """
+    if not ranges:
+        return []
+    ordered = sorted(ranges)
+    merged: list[tuple[int, int]] = [ordered[0]]
+    for start, end in ordered[1:]:
+        last_start, last_end = merged[-1]
+        # Adjacent (gap of 1 year) and overlapping ranges are the same fitment span.
+        if start <= last_end + 1:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def _maybe_narrow_by_combined_year_ranges(
+    triples: list[tuple[str, str, str]],
+    combined_text: str,
+) -> list[tuple[str, str, str]]:
+    """Narrow ``triples`` by the year-range(s) found in ``combined_text``, if safe.
+
+    Policy:
+    1. Extract every (start, end) year range from the text via the canonical helper.
+    2. Merge overlapping/adjacent ranges. A single merged span = a coherent fitment
+       window (even if expressed as "2012, 2013, 2014, 2015" or "2012-2014 / 2015").
+    3. With exactly one merged span, narrow triples to those that overlap it.
+    4. With two-or-more disjoint spans, skip narrowing — the title carries multiple
+       fitment windows and we can't tell which triples belong to which.
+    5. If narrowing would empty the result, return the unnarrowed triples instead.
+       The year token is then more likely incidental (release year, spec callout,
+       "since 2002") than a fitment year. This costs some over-attribution but
+       avoids regressing parts that the universal pipeline got right pre-narrowing.
+
+    The 5 adapters with their own infer_car_for_part hooks (Steeda, Hasport,
+    Perrin, Mishimoto, Driveshaftshop) bypass this entirely because they
+    short-circuit infer_car_generations at the call site in crawlers/base.py.
+    """
+    ranges = extract_year_ranges(combined_text)
+    if not ranges:
+        return triples
+    merged = _merge_year_ranges(ranges)
+    if len(merged) != 1:
+        return triples
+    narrowed = narrow_triples_by_year_range(triples, merged[0])
+    return narrowed if narrowed else triples
 
 
 def _load_engine_platforms() -> dict:
