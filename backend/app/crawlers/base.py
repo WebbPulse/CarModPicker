@@ -24,7 +24,6 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 from uuid import UUID
 
-import pydantic
 import requests
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -42,8 +41,6 @@ from app.api.services.part_listing_service import (
 )
 from app.core.car_inference import infer_car_generations, resolve_car_triples_to_ids
 from app.core.category_inference import infer_category
-from app.core.cloudwatch_emf import emit_extraction_failure
-from app.crawlers.specs import default_registry
 
 if TYPE_CHECKING:
     # Forward-ref only — adapters/base.py imports ``ScrapedPayload`` from this
@@ -449,11 +446,6 @@ class ScrapedPayload:
     part_number: Optional[str] = None
     image_urls: Optional[List[str]] = None
     gtin: Optional[str] = None
-    #: Optional structured spec block (matches Part.specifications JSON shape and
-    #: PartCreate.specifications). Populated by adapters or universal extraction
-    #: when a category schema (per app.crawlers.specs) applies; left None when
-    #: the category has no registered schema or extraction failed validation.
-    specifications: Optional[Dict[str, Any]] = None
 
 
 def _origin_from_url(url: str) -> str:
@@ -734,10 +726,8 @@ def ingest_payload(
     Resolve retailer and part_manufacturer, then create or update global part + PartListing/PartPriceHistory
     using the same dedup logic as the API (URL, part_manufacturer+part_number, GTIN).
 
-    ``adapter_name`` is used purely for observability: it labels the WARN log and
-    the ``ExtractionFailureRate`` EMF metric emitted when ``payload.specifications``
-    fails Pydantic validation against the SpecRegistry-resolved schema. Defaults
-    to ``"unknown"`` so log lines are never bare for legacy callers.
+    ``adapter_name`` is retained for call-site compatibility but is currently
+    unused; it formerly labeled the spec-validation WARN log + EMF metric.
 
     ``adapter`` is the optional adapter instance whose ``infer_car_for_part``
     hook is consulted ahead of the universal ``infer_car_generations`` pipeline
@@ -746,6 +736,7 @@ def ingest_payload(
     pipeline fires as before. Defaults to ``None`` so legacy callers (and
     tests that don't supply an adapter) keep the T03 behavior unchanged.
     """
+    _ = adapter_name  # retained for call-site compatibility (formerly used by spec-validation WARN log)
     domain = domain_from_url(payload.product_url)
     if not domain:
         raise ValueError(f"Cannot derive domain from product_url: {payload.product_url}")
@@ -818,25 +809,6 @@ def ingest_payload(
                 payload.product_url,
             )
         part_number_effective = None
-
-    # Promote universal-extracted manufacturer_part_number into the part_number
-    # column when the adapter didn't capture one directly. Universal extraction
-    # writes the MPN to specs at high/medium confidence; without this hop it
-    # never reaches the canonical-linking key (manufacturer + part_number).
-    if not part_number_effective and isinstance(payload.specifications, dict):
-        spec_mpn = payload.specifications.get("manufacturer_part_number")
-        if isinstance(spec_mpn, str) and spec_mpn.strip():
-            candidate = spec_mpn.strip()
-            # Spec-side GTIN promotion mirrors the payload-side check above:
-            # an MPN that looks like a UPC/EAN belongs in ``gtin``, not in the
-            # part_number slot.
-            if not gtin_effective:
-                promoted = gtin_candidate_for_pn(candidate)
-                if promoted is not None:
-                    gtin_effective = promoted
-                    candidate = ""
-            if candidate and not is_junk_part_number(candidate, part_manufacturer_name):
-                part_number_effective = candidate
 
     # Infer category. Adapter override (``infer_category_for_part``) wins over
     # the universal keyword-scoring pipeline so retailers like Wheels Boutique
@@ -912,52 +884,6 @@ def ingest_payload(
             (payload.name or "")[:50],
         )
 
-    # Validate ScrapedPayload.specifications against the SpecRegistry-resolved schema.
-    # Pass-through cases: no spec block, no inferred slug, no bridged sub-slug, or
-    # no model registered for that sub-slug — all proceed with the raw spec block
-    # (None or as-extracted dict). On Pydantic ValidationError: drop to None,
-    # WARN with structured context (both inferred_name and bridged_subslug for
-    # S04's per-sub-category granularity), emit ExtractionFailureRate metric.
-    # The part still ingests — fail-soft is the contract (MEM015).
-    #
-    # The bridge (M002/S02) maps DB category names like "suspension" /
-    # "engine" / "wheels" to SpecRegistry sub-slugs like "coilover" / "turbo"
-    # / "universal", so the validation hook actually fires across the catalog
-    # instead of always hitting the no-model pass-through (MEM010/MEM016/MEM020).
-    log_adapter_name = adapter_name or "unknown"
-    bridged_subslug: Optional[str] = None
-    if payload.specifications is not None and inferred_name:
-        # Lazy import: keep specs.category_bridge out of the import graph at
-        # module load — it pulls re/typing only, but the lazy import mirrors
-        # the convention the rest of this file uses for crawlers.specs lookups.
-        from app.crawlers.specs.category_bridge import category_to_subslug
-
-        bridged_subslug = category_to_subslug(
-            inferred_name,
-            name=payload.name,
-            description=payload.description,
-        )
-        spec_model = default_registry.resolve(bridged_subslug) if bridged_subslug else None
-        if spec_model is not None:
-            try:
-                validated = spec_model.model_validate(payload.specifications)
-                validated_specifications: Optional[Dict[str, Any]] = validated.model_dump(exclude_none=True)
-            except pydantic.ValidationError as e:
-                logger.warning(
-                    "spec validation failed: adapter=%s category=%s subslug=%s url=%s errors=%s",
-                    log_adapter_name,
-                    inferred_name,
-                    bridged_subslug,
-                    payload.product_url,
-                    e.errors()[:3],
-                )
-                emit_extraction_failure(adapter_name=log_adapter_name)
-                validated_specifications = None
-        else:
-            validated_specifications = payload.specifications
-    else:
-        validated_specifications = payload.specifications
-
     # Cross-adapter image hygiene: drop data:URIs / .svg icons, force https,
     # collapse empty arrays to None. See ``filter_payload_image_urls``.
     filtered_image_urls = filter_payload_image_urls(payload.image_urls, part_name=payload.name)
@@ -974,7 +900,6 @@ def ingest_payload(
         gtin=gtin_effective,
         retailer_id=retailer.id,
         price_cents=payload.price_cents,
-        specifications=validated_specifications,
     )
 
     # Every ingest produces its own Part row. PartService.create runs the canonical

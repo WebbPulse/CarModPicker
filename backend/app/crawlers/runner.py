@@ -586,9 +586,6 @@ def run_crawler(
                     if len(parse_miss_urls) < _MAX_SAMPLES:
                         parse_miss_urls.append({"url": url})
                     continue
-                enriched = adapter.apply_universal_extraction(html, payload)
-                assert enriched is not None  # apply_universal_extraction returns its input when non-None
-                payload = enriched
                 arch_url = canonicalize_url(url)
                 html_utf8, _, html_sha = crawl_html_fingerprint(html)
                 existing = db.scalars(select(DBCrawledPage).where(DBCrawledPage.url == arch_url)).first()
@@ -638,7 +635,6 @@ def run_crawler(
                     variant_payloads = []
                 for variant_payload in variant_payloads:
                     try:
-                        variant_payload = adapter.apply_universal_extraction(html, variant_payload) or variant_payload
                         ingest_payload(
                             db,
                             variant_payload,

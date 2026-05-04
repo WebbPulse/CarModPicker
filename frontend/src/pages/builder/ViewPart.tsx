@@ -603,19 +603,6 @@ function ViewPart() {
               </p>
             </CardInfoItem>
           )}
-          {part.specifications &&
-            Object.keys(part.specifications).length > 0 && (
-              <CardInfoItem label="Specifications:">
-                <div className="space-y-1">
-                  {Object.entries(part.specifications).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="font-medium">{key}:</span>
-                      <span>{String(value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardInfoItem>
-            )}
           {itemOwner && !itemOwner.is_service_account && (
             <CardInfoItem label="Created by:">
               <Link

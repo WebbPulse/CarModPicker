@@ -613,18 +613,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       "title": "Source",
       "type": "string"
     },
-    "specifications": {
-      "anyOf": [
-        {
-          "additionalProperties": true,
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "title": "Specifications"
-    },
     "updated_at": {
       "format": "date-time",
       "title": "Updated At",
@@ -847,18 +835,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       "title": "Source",
       "type": "string"
     },
-    "specifications": {
-      "anyOf": [
-        {
-          "additionalProperties": true,
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "title": "Specifications"
-    },
     "updated_at": {
       "format": "date-time",
       "title": "Updated At",
@@ -1051,18 +1027,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       ],
       "description": "Retailer ID when product_url is from a known retailer",
       "title": "Retailer Id"
-    },
-    "specifications": {
-      "anyOf": [
-        {
-          "additionalProperties": true,
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "title": "Specifications"
     }
   },
   "required": [
@@ -1211,18 +1175,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
     "source": {
       "title": "Source",
       "type": "string"
-    },
-    "specifications": {
-      "anyOf": [
-        {
-          "additionalProperties": true,
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "title": "Specifications"
     },
     "updated_at": {
       "format": "date-time",

@@ -263,7 +263,6 @@ class TexasSpeedAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "texasspeed"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "tls"
 
     # TODO(S04 T04 / fitment): Add an ``infer_car_for_part`` override mirroring

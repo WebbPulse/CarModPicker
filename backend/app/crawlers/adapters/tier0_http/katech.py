@@ -293,7 +293,6 @@ class KatechAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "katech"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def infer_category_for_part(self, parsed: ScrapedPayload) -> Optional[str]:

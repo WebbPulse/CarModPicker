@@ -350,7 +350,6 @@ class DeatschwerksAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "deatschwerks"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

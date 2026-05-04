@@ -19,6 +19,11 @@ class BuildListCreate(BaseModel):
         max_length=MAX_IMAGES_PER_BUILDLIST,
         description="Images: file keys (from images/upload) and/or external URLs; max 12. First entry is the primary/display image.",
     )
+    base_price_cents: int = Field(
+        0,
+        ge=0,
+        description="Donor car purchase price in cents. Folded into total build cost.",
+    )
 
 
 # Schema for request body when updating a build list (all fields optional)
@@ -31,6 +36,11 @@ class BuildListUpdate(BaseModel):
         max_length=MAX_IMAGES_PER_BUILDLIST,
         description="Images: file keys and/or external URLs; max 12. First entry is the primary/display image.",
     )
+    base_price_cents: Optional[int] = Field(
+        None,
+        ge=0,
+        description="Donor car purchase price in cents. Folded into total build cost.",
+    )
 
 
 # Schema for response body when reading a build list
@@ -41,6 +51,7 @@ class BuildListRead(BaseModel):
     car_id: Optional[UUID] = None
     user_id: UUID
     image_urls: Optional[List[str]] = None
+    base_price_cents: int = 0
     created_at: datetime
     updated_at: datetime
 

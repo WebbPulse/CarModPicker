@@ -399,7 +399,6 @@ class DinanAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "dinan"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "browser"
 
     def discover_product_urls(self) -> Iterator[str]:

@@ -32,6 +32,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [basePriceDollars, setBasePriceDollars] = useState<string>('');
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [selectedMake, setSelectedMake] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('');
@@ -133,11 +134,24 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
       return;
     }
 
+    const trimmedBasePrice = basePriceDollars.trim();
+    const parsedBaseDollars =
+      trimmedBasePrice === '' ? 0 : Number(trimmedBasePrice);
+    if (!Number.isFinite(parsedBaseDollars) || parsedBaseDollars < 0) {
+      setFormMessage({
+        type: 'error',
+        text: 'Base car price must be a non-negative number.',
+      });
+      return;
+    }
+    const basePriceCents = Math.round(parsedBaseDollars * 100);
+
     const payload: BuildListCreate = {
       name: name.trim(),
       description: description.trim() || null,
       car_id: selectedGeneration.id,
       image_urls: imageFileKey ? [imageFileKey] : null,
+      base_price_cents: basePriceCents,
     };
 
     const result = await executeCreateBuildList(payload);
@@ -151,6 +165,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
       // Reset form
       setName('');
       setDescription('');
+      setBasePriceDollars('');
       setImageFileKey(null);
       setSelectedMake('');
       setSelectedModel('');
@@ -366,6 +381,36 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                 onChange={(e) => setDescription(e.target.value)}
                 disabled={isLoading}
               />
+            </div>
+            <div>
+              <label
+                htmlFor="buildlist-base-price"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
+                Base Car Price (Optional)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                  $
+                </span>
+                <Input
+                  id="buildlist-base-price"
+                  name="buildlist-base-price"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={basePriceDollars}
+                  onChange={(e) => setBasePriceDollars(e.target.value)}
+                  disabled={isLoading}
+                  placeholder="0.00"
+                  className="pl-7"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Purchase price of the donor car. Included in the build's total
+                cost.
+              </p>
             </div>
             <ImageUpload
               currentImageUrl={imageFileKey}

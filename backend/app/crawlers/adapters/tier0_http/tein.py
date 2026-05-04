@@ -414,15 +414,7 @@ class TeinAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "tein"
-    category_targets: ClassVar[list[str]] = ["coilover", "universal"]
     FETCHER_TIER = "http"
-    # Tein product-line pages embed a price table with ``<th>Part No.</th>``
-    # immediately followed by ``<th>MSRP</th>``. The universal MPN extractor's
-    # labeled-row regex matches "Part No." and captures the next alphanumeric
-    # token in the body text, which is "MSRP" — a label, not a SKU. Per the
-    # adapter contract this site is built-to-fitment and never publishes a
-    # per-SKU MPN we can scrape, so we hard-suppress the universal MPN hop.
-    suppress_universal: ClassVar[list[str]] = ["manufacturer_part_number"]
 
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product-line URLs. Env override wins; otherwise the baked-in list."""

@@ -14,7 +14,7 @@ interface ReportDialogProps {
 const REPORT_REASONS = [
   { display: 'Inappropriate content', value: 'inappropriate' },
   { display: 'Spam or misleading information', value: 'spam' },
-  { display: 'Incorrect specifications', value: 'inaccurate' },
+  { display: 'Incorrect details', value: 'inaccurate' },
   { display: 'Duplicate part', value: 'duplicate' },
   { display: 'Other', value: 'other' },
 ];

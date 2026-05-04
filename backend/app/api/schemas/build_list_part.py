@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -65,7 +65,6 @@ class CreatePartAndAddToBuildListRequest(BaseModel):
     part_manufacturer_id: UUID
     part_number: str | None = None
     gtin: str | None = Field(None, description="UPC/EAN/GTIN for dedup (digits only stored)")
-    specifications: dict[str, Any] | None = None
     retailer_id: UUID | None = None
     price_cents: int | None = Field(None, ge=0, le=2147483647, description="Price in cents for this retailer")
 

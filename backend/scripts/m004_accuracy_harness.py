@@ -5,8 +5,8 @@ Canonical entry point for the M004 accuracy gate. Run as
 
 What it does
 ------------
-For each requested signal (``car``, ``manufacturer``, ``category``,
-``spec_field_level``, ``spec_part_level``) the harness:
+For each requested signal (``car``, ``manufacturer``, ``category``) the
+harness:
 
 1. Loads a corpus — either the locked, hand/bootstrap-labeled gold set under
    ``.gsd/milestones/M004/gold-set/parts.json`` (``--corpus gold``) or the
@@ -81,8 +81,6 @@ ALL_SIGNALS: tuple[str, ...] = (
     "car",
     "manufacturer",
     "category",
-    "spec_field_level",
-    "spec_part_level",
 )
 
 # CLI --signal values map to which harness signals to run.
@@ -90,7 +88,6 @@ _SIGNAL_GROUPS: dict[str, tuple[str, ...]] = {
     "car": ("car",),
     "manufacturer": ("manufacturer",),
     "category": ("category",),
-    "spec": ("spec_field_level", "spec_part_level"),
     "all": ALL_SIGNALS,
 }
 
@@ -121,7 +118,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--signal",
         choices=sorted(_SIGNAL_GROUPS.keys()),
         default="all",
-        help="Signal(s) to score. 'spec' covers both spec_field_level and spec_part_level.",
+        help="Signal(s) to score.",
     )
     p.add_argument(
         "--corpus",
@@ -183,55 +180,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Override the --corpus full cursor file location.",
     )
     return p
-
-
-# ---------------------------------------------------------------------------
-# Universal spec-field set (for spec_field_level / spec_part_level scoring)
-# ---------------------------------------------------------------------------
-
-UNIVERSAL_SPEC_FIELDS: tuple[str, ...] = (
-    "weight_grams",
-    "material",
-    "finish",
-    "warranty_days",
-    "fitment_notes",
-)
-
-
-def _spec_fields_for_category(
-    category: Optional[str],
-    *,
-    name: str = "",
-    description: str = "",
-) -> tuple[str, ...]:
-    """Resolve the field set to score for a part's category.
-
-    Routes through ``category_to_subslug`` + ``default_registry.resolve``;
-    falls back to the five universal fields when no spec class is registered
-    for the resolved sub-slug. We deliberately use ``model_fields`` (Pydantic
-    v2) rather than hand-listing per-spec fields so the harness automatically
-    picks up new category-specific fields as they're added downstream.
-
-    The returned tuple excludes ``*_confidence`` companions — those are
-    metadata, not measurable values.
-    """
-    try:
-        from app.crawlers.specs import default_registry
-        from app.crawlers.specs.category_bridge import category_to_subslug
-    except Exception:  # noqa: BLE001 — defensive; predictor imports are best-effort
-        return UNIVERSAL_SPEC_FIELDS
-
-    subslug = category_to_subslug(category, name=name, description=description)
-    if subslug is None:
-        return UNIVERSAL_SPEC_FIELDS
-    spec_cls = default_registry.resolve(subslug)
-    if spec_cls is None:
-        return UNIVERSAL_SPEC_FIELDS
-
-    fields = tuple(
-        f for f in spec_cls.model_fields.keys() if not f.endswith("_confidence")
-    )
-    return fields or UNIVERSAL_SPEC_FIELDS
 
 
 # ---------------------------------------------------------------------------
@@ -328,28 +276,6 @@ def _predict_category(
     return cat
 
 
-def _predict_specifications(
-    part_id: str, html: str
-) -> dict[str, Any]:
-    from app.crawlers.parsing import extract_universal_fields
-
-    raw, _ = _safe_predict(
-        "extract_universal_fields",
-        part_id,
-        extract_universal_fields,
-        html,
-    )
-    if not raw:
-        return {}
-    out: dict[str, Any] = {}
-    for field, payload in raw.items():
-        if isinstance(payload, tuple) and len(payload) >= 1:
-            out[field] = payload[0]
-        else:
-            out[field] = payload
-    return out
-
-
 # ---------------------------------------------------------------------------
 # Gold-set iteration
 # ---------------------------------------------------------------------------
@@ -403,8 +329,6 @@ def _score_row(
         score_car,
         score_category,
         score_manufacturer,
-        score_spec_field_level,
-        score_spec_part_level,
     )
 
     part_id = str(row["part_id"])
@@ -412,7 +336,6 @@ def _score_row(
     description = row.get("raw_description") or ""
     html = _row_html(row)
     url = _row_url(row)
-    truth_specs = row.get("truth_specifications") or {}
     truth_category = row.get("truth_category")
 
     out: dict[str, Any] = {"part_id": part_id}
@@ -433,20 +356,6 @@ def _score_row(
         predicted = _predict_category(part_id, name, description)
         out["category"] = score_category(predicted, truth_category)
 
-    if "spec_field_level" in signals or "spec_part_level" in signals:
-        fields = _spec_fields_for_category(
-            truth_category, name=name, description=description
-        )
-        predicted_specs = _predict_specifications(part_id, html)
-        if "spec_field_level" in signals:
-            out["spec_field_level"] = score_spec_field_level(
-                predicted_specs, truth_specs, fields
-            )
-        if "spec_part_level" in signals:
-            out["spec_part_level"] = score_spec_part_level(
-                predicted_specs, truth_specs, fields
-            )
-
     return out
 
 
@@ -463,8 +372,6 @@ def _aggregate(
         aggregate_car,
         aggregate_category,
         aggregate_manufacturer,
-        aggregate_spec_field_level,
-        aggregate_spec_part_level,
     )
 
     envelopes: dict[str, dict[str, Any]] = {}
@@ -476,10 +383,6 @@ def _aggregate(
             envelopes[signal] = aggregate_manufacturer(per_signal)
         elif signal == "category":
             envelopes[signal] = aggregate_category(per_signal)
-        elif signal == "spec_field_level":
-            envelopes[signal] = aggregate_spec_field_level(per_signal)
-        elif signal == "spec_part_level":
-            envelopes[signal] = aggregate_spec_part_level(per_signal)
         else:  # pragma: no cover — guarded by CLI choices
             raise ValueError(f"unknown signal {signal!r}")
     return envelopes
@@ -541,7 +444,6 @@ _GUARDED_METRICS: tuple[str, ...] = (
     "precision",
     "recall",
     "f1",
-    "all_fields_correct_rate",
 )
 
 
@@ -758,7 +660,6 @@ def _iter_full_corpus(
                 "truth_car_triples": truth.get("car_triples") or [],
                 "truth_manufacturer": truth.get("manufacturer"),
                 "truth_category": truth.get("category"),
-                "truth_specifications": truth.get("specifications") or {},
             }
             emitted += 1
             cursor["last_page_id"] = page.id

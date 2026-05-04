@@ -8,12 +8,14 @@ with DSS-specific nested-priceSpecification extraction, description-embedded
 from app.crawlers.adapters import adapter_name_for_product_url
 from app.crawlers.adapters.tier0_http.driveshaftshop import (
     DriveshaftShopAdapter,
+    _extract_leading_year_range,
     _is_numeric_only_product_slug,
     _is_product_child_sitemap,
     _part_number_from_description,
     _price_cents_from_price_specification,
     _strip_site_suffix,
 )
+from app.crawlers.base import ScrapedPayload
 
 SAMPLE_URL = "https://driveshaftshop.com/product/2020-2023-g80-bmw-m3-axles/"
 
@@ -291,3 +293,101 @@ class TestParseProductPage:
         # Graph has only a WebPage node, no Product.
         html = _product_page_html(include_product=False)
         assert DriveshaftShopAdapter().parse_product_page(html, SAMPLE_URL) is None
+
+
+class TestExtractLeadingYearRange:
+    def test_canonical_yyyy_yyyy(self) -> None:
+        assert _extract_leading_year_range("2009-2014 Dodge Charger ...") == (2009, 2014)
+
+    def test_two_digit_tail_carries_century(self) -> None:
+        assert _extract_leading_year_range("2005-08 Charger 5.7L Magnum") == (2005, 2008)
+
+    def test_open_ended_with_plus(self) -> None:
+        # DSS sometimes writes "2009-2015+ STi" — the regex caps at the
+        # canonical year-range portion and the trailing + is ignored.
+        assert _extract_leading_year_range("2009-2015+ STi Direct Fit Axles") == (2009, 2015)
+
+    def test_unicode_dash(self) -> None:
+        assert _extract_leading_year_range("2002–2003 Volkswagen GTI 337") == (2002, 2003)
+
+    def test_no_leading_year_returns_none(self) -> None:
+        # Spec-only listings (driveshaft lengths, transmission yokes) have
+        # no leading year prefix and must fall through to the universal
+        # pipeline, not be misidentified as fitment.
+        assert _extract_leading_year_range("Strange PowerGlide TH350 Yoke") is None
+        assert _extract_leading_year_range('29.5"') is None
+        assert _extract_leading_year_range("Carbon Dirt Track Driveshaft") is None
+
+    def test_implausible_range_rejected(self) -> None:
+        assert _extract_leading_year_range("1850-1900 Random") is None
+
+    def test_year_in_middle_not_extracted(self) -> None:
+        # A year somewhere later in the title is not a fitment signal here
+        # (the leading-anchor convention is what makes DSS titles parseable).
+        assert _extract_leading_year_range("Universal 2020-2023 Aluminum Driveshaft") is None
+
+
+class TestInferCarForPart:
+    """End-to-end car-inference: leading year-range + universal phrase
+    pipeline + year-range narrowing."""
+
+    def _payload(self, name: str, *, description: str = "") -> ScrapedPayload:
+        return ScrapedPayload(
+            name=name,
+            product_url="https://driveshaftshop.com/product/x/",
+            description=description or None,
+        )
+
+    def test_gtr_year_narrows_universal_match(self) -> None:
+        # 2008-2014 Nissan GT-R falls inside the R35 window. The universal
+        # pipeline emits the GT-R R35 triple; year-narrowing keeps it because
+        # the R35 window (2007+) overlaps 2008-2014.
+        # NOTE: parenthesized inserts ("(ONLY)") between make and model break
+        # the universal pipeline's adjacency requirement, so we use a clean
+        # phrase here. The hook returns None on parens-broken titles, which
+        # is the correct fall-through behavior.
+        adapter = DriveshaftShopAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("2008-2014 Nissan GT-R 1400HP+ Pro-Level Rear Axle Kit")
+        )
+        assert triples is not None
+        assert ("Nissan", "GT-R", "R35") in triples
+
+    def test_parenthesized_insert_breaks_universal_adjacency(self) -> None:
+        # Documents a known limitation: the universal phrase pipeline
+        # requires make+model adjacency (``"Nissan GT-R"``). DSS occasionally
+        # inserts qualifiers like ``"(ONLY)"`` between them, which breaks
+        # the match. The hook correctly returns None so ingest tries the
+        # universal pipeline against a different field (description / URL).
+        adapter = DriveshaftShopAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("2008-2014 Nissan (ONLY) GT-R 1400HP+ Pro-Level Rear Axle Kit")
+        )
+        assert triples is None
+
+    def test_no_leading_year_returns_none(self) -> None:
+        # Spec listings without a year prefix must punt to the universal
+        # pipeline rather than emit fitment.
+        adapter = DriveshaftShopAdapter()
+        assert adapter.infer_car_for_part(self._payload("Strange Yoke")) is None
+        assert adapter.infer_car_for_part(self._payload('29.5"')) is None
+
+    def test_universal_pipeline_returns_no_match(self) -> None:
+        # Year prefix present but the universal pipeline can't find any
+        # make/model phrase the title — return None so ingest tries again.
+        adapter = DriveshaftShopAdapter()
+        assert (
+            adapter.infer_car_for_part(
+                self._payload("2005-2008 Random Chassis Some-Model Driveshaft")
+            )
+            is None
+        )
+
+    def test_empty_name_returns_none(self) -> None:
+        adapter = DriveshaftShopAdapter()
+        assert (
+            adapter.infer_car_for_part(
+                ScrapedPayload(name="", product_url="https://driveshaftshop.com/product/x/")
+            )
+            is None
+        )

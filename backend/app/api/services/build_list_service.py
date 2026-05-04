@@ -285,6 +285,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
             description=original_build_list.description,
             car_id=original_build_list.car_id,
             image_urls=original_build_list.image_urls,
+            base_price_cents=original_build_list.base_price_cents,
             user_id=current_user.id,
         )
         db.add(new_build_list)

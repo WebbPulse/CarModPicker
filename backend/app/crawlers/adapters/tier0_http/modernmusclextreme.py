@@ -402,7 +402,6 @@ class ModernMuscleXtremeAdapter(RetailerCrawlerAdapter):
 
     # Plain requests works; MMX is ASP.NET / AbleCommerce, no Cloudflare.
     ADAPTER_NAME: ClassVar[str] = "modernmusclextreme"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

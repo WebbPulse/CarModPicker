@@ -1,6 +1,6 @@
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import JSON, ForeignKey, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -46,7 +46,6 @@ class Part(Base):
     #: linker's primary lookup path.
     part_number_normalized: Mapped[Optional[str]] = mapped_column(nullable=True)
     gtin: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)
-    specifications: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     canonical_part_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid(as_uuid=True),

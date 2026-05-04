@@ -191,7 +191,6 @@ class RoadRaceEngineeringAdapter(RetailerCrawlerAdapter):
     # Default Tier 0 — plain HTTP is enough (no Cloudflare, no JS
     # challenge). Left explicit so the choice is documented on the class.
     ADAPTER_NAME: ClassVar[str] = "roadraceengineering"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

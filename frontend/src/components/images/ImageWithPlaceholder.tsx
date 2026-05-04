@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Car } from 'lucide-react';
 
 interface ImageWithPlaceholderProps {
   /** The primary image URL to display. */
@@ -40,9 +41,14 @@ const ImageWithPlaceholder: React.FC<ImageWithPlaceholderProps> = ({
   if (!srcUrl || loadError) {
     return (
       <div
-        className={`${containerClassName} flex items-center justify-center border border-gray-600 bg-gray-800/50 p-2`}
+        className={`${containerClassName} flex flex-col items-center justify-center gap-2 border border-gray-600 bg-gray-800/50 p-2`}
       >
-        <p className={fallbackTextClassName}>{fallbackText}</p>
+        <Car
+          aria-hidden="true"
+          className="h-1/2 max-h-24 w-auto text-gray-500"
+          strokeWidth={1.5}
+        />
+        <p className={`${fallbackTextClassName} text-xs`}>{fallbackText}</p>
       </div>
     );
   }

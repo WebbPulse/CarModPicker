@@ -479,8 +479,6 @@ class BurgerMotorsportsAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "burgermotorsports"
-    category_targets: ClassVar[list[str]] = ["universal"]
-
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs discovered from ``/sitemap.xml``. Set

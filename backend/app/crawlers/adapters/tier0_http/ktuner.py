@@ -241,8 +241,6 @@ class KTunerAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "ktuner"
-    category_targets: ClassVar[list[str]] = ["universal"]
-
     def discover_product_urls(self) -> Iterator[str]:
         """Yield one URL per product, distinguished by a ``?sku=<slug>``
         query param so canonicalized URLs stay unique and the runner

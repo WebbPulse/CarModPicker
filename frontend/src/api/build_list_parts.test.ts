@@ -24,7 +24,6 @@ describe('buildListPartsApi', () => {
       is_universal: false,
       part_manufacturer_id: 'mfg-id',
       part_number: 'PN-001',
-      specifications: { weight: '1kg' },
       retailer_id: null,
       price_cents: 5000,
       product_url: null,

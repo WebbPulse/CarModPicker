@@ -5,8 +5,12 @@ collapse, and image dedup across BC Stencil size variants.
 """
 
 from app.crawlers.adapters import adapter_name_for_product_url
+from app.core.car_inference import generations_for_make_model_year_range
+from app.crawlers.base import ScrapedPayload
 from app.crawlers.adapters.tier0_http.steeda import (
     SteedaAdapter,
+    _extract_steeda_model,
+    _extract_year_range,
     _image_dedup_key,
     _is_products_child_sitemap,
     _mpn_from_json_ld,
@@ -331,3 +335,160 @@ class TestAdapterFetcherTier:
 
     def test_declares_http_tier(self) -> None:
         assert SteedaAdapter.FETCHER_TIER == "http"
+
+
+class TestExtractYearRange:
+    def test_canonical_yyyy_yyyy(self) -> None:
+        assert _extract_year_range("Steeda Mustang GT (2015-2023)") == (2015, 2023)
+
+    def test_open_ended_yyyy_plus(self) -> None:
+        assert _extract_year_range("Some Bronco Part (2021+)") == (2021, 9999)
+
+    def test_single_year(self) -> None:
+        assert _extract_year_range("Bilstein F-150 Front Shock (1997)") == (1997, 1997)
+
+    def test_unicode_dash(self) -> None:
+        assert _extract_year_range("Steeda IRS Brackets (1999–2004)") == (1999, 2004)
+
+    def test_two_digit_tail_carries_century(self) -> None:
+        assert _extract_year_range("Cams (2005-10)") == (2005, 2010)
+
+    def test_no_year_tag_returns_none(self) -> None:
+        assert _extract_year_range("Steeda Mustang Suspension Kit") is None
+
+    def test_implausible_range_rejected(self) -> None:
+        assert _extract_year_range("(1850-1900)") is None
+        assert _extract_year_range("(2050-2099)") is None
+
+
+class TestExtractSteedaModel:
+    def test_mustang(self) -> None:
+        assert _extract_steeda_model("Steeda Mustang GT Subframe") == ("Ford", "Mustang")
+
+    def test_shelby_gt350_maps_to_mustang(self) -> None:
+        assert _extract_steeda_model("Steeda Shelby GT350 H-Pipe") == ("Ford", "Mustang")
+
+    def test_cobra_maps_to_mustang(self) -> None:
+        assert _extract_steeda_model("Steeda Cobra Mustang IRS Subframe Brackets") == ("Ford", "Mustang")
+
+    def test_f150(self) -> None:
+        assert _extract_steeda_model("Bilstein F-150 2WD Shock") == ("Ford", "F-150")
+
+    def test_raptor_maps_to_f150(self) -> None:
+        assert _extract_steeda_model("AWE Raptor Performance Exhaust") == ("Ford", "F-150")
+
+    def test_super_duty_maps_to_super_duty(self) -> None:
+        assert _extract_steeda_model("AlphaRex Super Duty Headlights") == ("Ford", "F-Series Super Duty")
+
+    def test_f250_maps_to_super_duty(self) -> None:
+        assert _extract_steeda_model("KYB F-250 Front Shock") == ("Ford", "F-Series Super Duty")
+
+    def test_bronco(self) -> None:
+        assert _extract_steeda_model("Whipple Bronco 2.7L EcoBoost Stage 1 Kit") == ("Ford", "Bronco")
+
+    def test_explorer(self) -> None:
+        assert _extract_steeda_model("MRT Explorer Extreme Axle-Back") == ("Ford", "Explorer")
+
+    def test_no_match_returns_none(self) -> None:
+        assert _extract_steeda_model("Mishimoto Aluminum Catch Can") is None
+
+
+class TestIntersectGenerations:
+    """Steeda's hook delegates to the shared
+    ``generations_for_make_model_year_range`` helper; these tests anchor
+    the contract for the inputs Steeda actually emits."""
+
+    def test_mustang_2015_2023_returns_6th_gen(self) -> None:
+        assert generations_for_make_model_year_range("Ford", "Mustang", (2015, 2023)) == [
+            ("Ford", "Mustang", "6th Gen"),
+        ]
+
+    def test_mustang_2011_2014_returns_5th_gen(self) -> None:
+        assert generations_for_make_model_year_range("Ford", "Mustang", (2011, 2014)) == [
+            ("Ford", "Mustang", "5th Gen"),
+        ]
+
+    def test_mustang_overlap_two_generations(self) -> None:
+        # 2003-2007 spans tail of 4th Gen (1994-2004) and head of 5th Gen.
+        assert generations_for_make_model_year_range("Ford", "Mustang", (2003, 2007)) == [
+            ("Ford", "Mustang", "4th Gen"),
+            ("Ford", "Mustang", "5th Gen"),
+        ]
+
+    def test_f150_2021_open_ended(self) -> None:
+        # (2021, 9999) overlaps 14th Gen (2021-2024). 15th Gen exists in
+        # the live DB but is not present in the declarative
+        # ``car_generations_data`` snapshot today, so it is correctly absent.
+        assert generations_for_make_model_year_range("Ford", "F-150", (2021, 9999)) == [
+            ("Ford", "F-150", "14th Gen"),
+        ]
+
+    def test_explorer_returns_empty_when_no_overlap(self) -> None:
+        # Static data has no Explorer generation overlapping 2020-2026,
+        # so the helper returns []; the hook then returns None and ingest
+        # falls back to the universal pipeline.
+        assert generations_for_make_model_year_range("Ford", "Explorer", (2020, 2026)) == []
+
+
+class TestInferCarForPart:
+    """End-to-end: model + year-range in title → resolved triples."""
+
+    def _payload(self, name: str) -> ScrapedPayload:
+        return ScrapedPayload(name=name, product_url=f"https://www.steeda.com/{name[:20]}")
+
+    def test_mustang_year_range_resolves(self) -> None:
+        adapter = SteedaAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("Steeda Mustang GT Ultimate Induction Pack (2011-2014)")
+        )
+        assert triples == [("Ford", "Mustang", "5th Gen")]
+
+    def test_f150_year_range_resolves(self) -> None:
+        adapter = SteedaAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("Bilstein F-150 4WD B8 5100 Rear Shock (2015-2019)")
+        )
+        assert triples == [("Ford", "F-150", "13th Gen")]
+
+    def test_f250_routes_to_super_duty(self) -> None:
+        adapter = SteedaAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("KYB F-250 Excel-G Front Shock (2008-2021)")
+        )
+        # 2008-2021 spans 2nd, 3rd, and 4th gen Super Duty.
+        assert triples == [
+            ("Ford", "F-Series Super Duty", "2nd Gen"),
+            ("Ford", "F-Series Super Duty", "3rd Gen"),
+            ("Ford", "F-Series Super Duty", "4th Gen"),
+        ]
+
+    def test_bronco_open_ended_range(self) -> None:
+        adapter = SteedaAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("Ford Performance Bronco Modular Bumper Red Tow Hooks (2021+)")
+        )
+        assert triples == [("Ford", "Bronco", "6th Gen")]
+
+    def test_no_year_tag_returns_none(self) -> None:
+        adapter = SteedaAdapter()
+        assert adapter.infer_car_for_part(self._payload("Steeda Mustang Decal")) is None
+
+    def test_no_known_model_returns_none(self) -> None:
+        # Generic third-party item without a model token — the hook must
+        # punt to the universal pipeline rather than guess.
+        adapter = SteedaAdapter()
+        assert adapter.infer_car_for_part(self._payload("Mishimoto Catch Can (2018-2023)")) is None
+
+    def test_explorer_with_no_db_rows_returns_none(self) -> None:
+        # Title matches Explorer but the model has no generation entries
+        # in our table; the hook returns None so ingest tries the universal
+        # pipeline rather than emitting an unresolvable triple.
+        adapter = SteedaAdapter()
+        assert (
+            adapter.infer_car_for_part(self._payload("MRT Explorer Extreme Axle-Back (2020-2026)"))
+            is None
+        )
+
+    def test_empty_name_returns_none(self) -> None:
+        adapter = SteedaAdapter()
+        assert adapter.infer_car_for_part(ScrapedPayload(name="", product_url="https://x")) is None

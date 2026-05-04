@@ -76,8 +76,6 @@ class TestBootstrapFromFixtures:
             # html_excerpt must be a string and non-empty for these fixtures.
             assert isinstance(row["html_excerpt"], str)
             assert row["html_excerpt"]
-            # truth_specifications must be a dict (possibly empty).
-            assert isinstance(row["truth_specifications"], dict)
             # truth_car_triples must be a list (empty in this iteration).
             assert isinstance(row["truth_car_triples"], list)
 
@@ -236,7 +234,6 @@ class TestMalformedFileFailsLoud:
                 "truth_car_triples": [],
                 "truth_manufacturer": None,
                 "truth_category": None,
-                "truth_specifications": {},
                 "labeled_at": "2026-04-27T00:00:00Z",
                 "labeled_by": "human",
             }
@@ -261,7 +258,6 @@ class TestMalformedFileFailsLoud:
                 "truth_car_triples": [],
                 "truth_manufacturer": None,
                 "truth_category": None,
-                "truth_specifications": {},
                 "labeled_at": "2026-04-27T00:00:00Z",
                 "labeled_by": "robot",  # invalid
             }

@@ -24,6 +24,8 @@ export interface VehicleFilterSectionProps {
   hideUniversalOption?: boolean;
 }
 
+const UNIVERSAL_OPTION_VALUE = '__universal__';
+
 const sectionTitleClass =
   'text-xs font-medium text-gray-500 uppercase tracking-wider pb-2 mb-3 border-b border-gray-700/60';
 const optionButtonClass = (active: boolean) =>
@@ -66,96 +68,89 @@ const VehicleFilterSection: React.FC<VehicleFilterSectionProps> = (props) => {
             setSelectedGeneration(null);
           }}
           className={optionButtonClass(
-            !showUniversalParts && !selectedGeneration
+            !showUniversalParts && !selectedGeneration && !selectedMake
           )}
         >
           All Vehicles
         </button>
 
-        {!showUniversalParts && (
-          <>
-            {isLoadingMakes ? (
-              <div className="flex justify-center py-3">
-                <Spinner />
-              </div>
-            ) : (
-              <select
-                value={selectedMake}
-                onChange={(e) => {
-                  setSelectedMake(e.target.value);
-                  setSelectedModel('');
-                  setSelectedGeneration(null);
-                }}
-                className={inputClass}
-              >
-                <option value="">Select Make</option>
-                {availableMakes.map((make) => (
-                  <option key={make} value={make}>
-                    {make}
-                  </option>
-                ))}
-              </select>
+        {isLoadingMakes ? (
+          <div className="flex justify-center py-3">
+            <Spinner />
+          </div>
+        ) : (
+          <select
+            value={showUniversalParts ? UNIVERSAL_OPTION_VALUE : selectedMake}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === UNIVERSAL_OPTION_VALUE) {
+                setShowUniversalParts(true);
+                setSelectedMake('');
+                setSelectedModel('');
+                setSelectedGeneration(null);
+              } else {
+                setShowUniversalParts(false);
+                setSelectedMake(value);
+                setSelectedModel('');
+                setSelectedGeneration(null);
+              }
+            }}
+            className={inputClass}
+          >
+            <option value="">Select Make</option>
+            {!hideUniversalOption && (
+              <option value={UNIVERSAL_OPTION_VALUE}>Universal Parts</option>
             )}
-
-            {selectedMake && (
-              <>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => {
-                    setSelectedModel(e.target.value);
-                    setSelectedGeneration(null);
-                  }}
-                  className={inputClass}
-                >
-                  <option value="">Select Model</option>
-                  {uniqueModels.map((model) => (
-                    <option key={model} value={model}>
-                      {model}
-                    </option>
-                  ))}
-                </select>
-
-                {selectedModel && (
-                  <div className="space-y-2">
-                    {isLoadingCars ? (
-                      <div className="flex justify-center py-3">
-                        <Spinner />
-                      </div>
-                    ) : (
-                      generations.map((car) => (
-                        <button
-                          key={car.id}
-                          type="button"
-                          onClick={() => setSelectedGeneration(car)}
-                          className={optionButtonClass(
-                            selectedGeneration?.id === car.id
-                          )}
-                        >
-                          {carGenerationDisplayName(car)} (
-                          {formatCarYearRange(car.start_year, car.end_year)})
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </>
+            {availableMakes.map((make) => (
+              <option key={make} value={make}>
+                {make}
+              </option>
+            ))}
+          </select>
         )}
 
-        {!hideUniversalOption && (
-          <button
-            type="button"
-            onClick={() => {
-              setShowUniversalParts(true);
-              setSelectedMake('');
-              setSelectedModel('');
-              setSelectedGeneration(null);
-            }}
-            className={optionButtonClass(showUniversalParts)}
-          >
-            Universal Parts
-          </button>
+        {!showUniversalParts && selectedMake && (
+          <>
+            <select
+              value={selectedModel}
+              onChange={(e) => {
+                setSelectedModel(e.target.value);
+                setSelectedGeneration(null);
+              }}
+              className={inputClass}
+            >
+              <option value="">Select Model</option>
+              {uniqueModels.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+
+            {selectedModel && (
+              <div className="space-y-2">
+                {isLoadingCars ? (
+                  <div className="flex justify-center py-3">
+                    <Spinner />
+                  </div>
+                ) : (
+                  generations.map((car) => (
+                    <button
+                      key={car.id}
+                      type="button"
+                      onClick={() => setSelectedGeneration(car)}
+                      className={optionButtonClass(
+                        selectedGeneration?.id === car.id
+                      )}
+                    >
+                      {carGenerationDisplayName(car)} (
+                      {formatCarYearRange(car.start_year, car.end_year)})
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

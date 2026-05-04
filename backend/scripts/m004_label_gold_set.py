@@ -136,7 +136,6 @@ REQUIRED_ROW_KEYS: tuple[str, ...] = (
     "truth_car_triples",
     "truth_manufacturer",
     "truth_category",
-    "truth_specifications",
     "labeled_at",
     "labeled_by",
 )
@@ -200,11 +199,6 @@ def _validate_row(row: Any, *, where: str) -> None:
         raise GoldSetLoadError(
             f"{where}: truth_car_triples must be a list, got "
             f"{type(row['truth_car_triples']).__name__}"
-        )
-    if not isinstance(row["truth_specifications"], dict):
-        raise GoldSetLoadError(
-            f"{where}: truth_specifications must be a dict, got "
-            f"{type(row['truth_specifications']).__name__}"
         )
 
 
@@ -271,7 +265,6 @@ def _build_bootstrap_row(
         "truth_car_triples": list(truth.get("car_triples", [])),
         "truth_manufacturer": truth.get("manufacturer"),
         "truth_category": truth.get("category"),
-        "truth_specifications": dict(truth.get("specifications", {})),
         "labeled_at": _now_iso(),
         "labeled_by": "bootstrap-ground-truth",
     }

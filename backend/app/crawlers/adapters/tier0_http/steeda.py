@@ -57,13 +57,14 @@ import json
 import os
 import re
 import time
-from typing import Any, ClassVar, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
 from bs4 import BeautifulSoup, Tag
 
+from app.core.car_inference import generations_for_make_model_year_range
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
@@ -465,6 +466,101 @@ def _merge_image_urls(primary: List[str], secondary: List[str]) -> List[str]:
     return ordered
 
 
+# Steeda product titles encode fitment as ``<Brand> <Model> ... (YYYY-YYYY)``
+# (~88% of the catalog) or, less frequently, ``(YYYY+)`` / ``(YYYY)``. The
+# JSON-LD block does not carry isCompatibleWith / vehicleConfiguration, and
+# the universal keyword scorer misses these because the model token can
+# appear anywhere in the title. ``infer_car_for_part`` below extracts the
+# (model, year-range) pair from the title and intersects against the
+# DB-resident generation windows for each known model.
+#
+# Sub-trim handling:
+#   * "Cobra", "Shelby GT350", "Shelby GT500", "GT500", "GT350" → Mustang
+#   * "Raptor" → F-150
+#   * "F-250", "F-350", "Super Duty" → F-Series Super Duty
+# Models without a matching ``car_models`` row in the DB (Fusion, Edge,
+# Expedition, Transit) are intentionally left out — emitting a triple
+# whose model name doesn't resolve would be a no-op at
+# ``resolve_car_triples_to_ids`` and would also block fall-through to the
+# universal pipeline. Better to return None and let the keyword scorer try.
+_STEEDA_MODEL_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    # Mustang sub-trims first so they win over a bare "Mustang" check.
+    (re.compile(r"\b(Shelby\s+GT\s*[35]00|GT\s*350R?|GT\s*500|Cobra)\b", re.IGNORECASE), "Ford", "Mustang"),
+    (re.compile(r"\bMustang\b", re.IGNORECASE), "Ford", "Mustang"),
+    # F-150 sub-trims (Raptor) before F-150 itself.
+    (re.compile(r"\bRaptor\b", re.IGNORECASE), "Ford", "F-150"),
+    (re.compile(r"\bF-?150\b", re.IGNORECASE), "Ford", "F-150"),
+    # F-250 / F-350 / Super Duty all roll up to F-Series Super Duty.
+    (re.compile(r"\b(F-?2[05]0|F-?3[05]0|F-?4[05]0|Super\s*Duty)\b", re.IGNORECASE), "Ford", "F-Series Super Duty"),
+    (re.compile(r"\bExplorer\b", re.IGNORECASE), "Ford", "Explorer"),
+    (re.compile(r"\bBronco\b", re.IGNORECASE), "Ford", "Bronco"),
+    (re.compile(r"\bRanger\b", re.IGNORECASE), "Ford", "Ranger"),
+    (re.compile(r"\bMaverick\b", re.IGNORECASE), "Ford", "Maverick"),
+    (re.compile(r"\bFocus\b", re.IGNORECASE), "Ford", "Focus"),
+    (re.compile(r"\bFiesta\b", re.IGNORECASE), "Ford", "Fiesta"),
+)
+
+# Year-range shapes seen in the catalog: ``(2015-2023)`` (~88%),
+# ``(2015+)`` (~1.4%), or a bare ``(2015)``. Anything else is left to the
+# universal pipeline.
+_STEEDA_YEAR_RANGE_RE = re.compile(r"\((\d{4})\s*[-–—]\s*(\d{2,4})\)")
+_STEEDA_YEAR_OPEN_RE = re.compile(r"\((\d{4})\s*\+\)")
+_STEEDA_YEAR_SINGLE_RE = re.compile(r"\((\d{4})\)")
+
+
+def _extract_year_range(name: str) -> Optional[Tuple[int, int]]:
+    """
+    Pull a (start_year, end_year) range from a Steeda title's parenthesized
+    year tag. Open-ended ``(YYYY+)`` returns ``(start, 9999)``; bare
+    ``(YYYY)`` returns ``(year, year)``. Returns ``None`` when no shape
+    matches so the caller falls through to the universal pipeline.
+    """
+    m = _STEEDA_YEAR_RANGE_RE.search(name)
+    if m:
+        try:
+            y1 = int(m.group(1))
+            tail = m.group(2)
+            y2 = int(tail) if len(tail) == 4 else (y1 // 100) * 100 + int(tail)
+            if y2 < y1:
+                y2 += 100
+        except ValueError:
+            return None
+        if y1 < 1960 or y1 > 2030 or y2 < y1 or y2 > 2035:
+            return None
+        return (y1, y2)
+    m = _STEEDA_YEAR_OPEN_RE.search(name)
+    if m:
+        try:
+            y1 = int(m.group(1))
+        except ValueError:
+            return None
+        if y1 < 1960 or y1 > 2030:
+            return None
+        return (y1, 9999)
+    m = _STEEDA_YEAR_SINGLE_RE.search(name)
+    if m:
+        try:
+            y1 = int(m.group(1))
+        except ValueError:
+            return None
+        if y1 < 1960 or y1 > 2030:
+            return None
+        return (y1, y1)
+    return None
+
+
+def _extract_steeda_model(name: str) -> Optional[Tuple[str, str]]:
+    """
+    Walk the model patterns in priority order. Returns the first
+    (make, model) pair whose token appears in ``name``; ``None`` when no
+    known model token matches (third-party generic items like AN fittings).
+    """
+    for pat, make, model in _STEEDA_MODEL_PATTERNS:
+        if pat.search(name):
+            return (make, model)
+    return None
+
+
 class SteedaAdapter(RetailerCrawlerAdapter):
     """
     Steeda (steeda.com) adapter.
@@ -486,7 +582,6 @@ class SteedaAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "steeda"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:
@@ -585,3 +680,36 @@ class SteedaAdapter(RetailerCrawlerAdapter):
             image_urls=dom_images if dom_images else None,
             gtin=gtin,
         )
+
+    def infer_car_for_part(
+        self, parsed: ScrapedPayload
+    ) -> Optional[List[Tuple[str, str, str]]]:
+        """
+        Extract Ford make/model/generation triples from the parenthesized
+        year tag in ``parsed.name``. Returns ``None`` when no shape matches
+        so the ingest layer falls through to the universal keyword pipeline
+        (NOT an empty list, which would short-circuit ingest to
+        ``is_universal=True``).
+
+        Two signals must both fire:
+
+        1. A known Ford model token appears in the title (Mustang, F-150,
+           Bronco, Explorer, …). Sub-trims (Shelby GT350, Raptor, F-250)
+           map to their parent model row in ``car_models``.
+        2. A ``(YYYY-YYYY)`` / ``(YYYY+)`` / ``(YYYY)`` year tag is
+           extractable. The intersection with the model's DB-resident
+           generation windows yields the triple set.
+        """
+        name = parsed.name or ""
+        if not name:
+            return None
+        model_match = _extract_steeda_model(name)
+        if model_match is None:
+            return None
+        year_range = _extract_year_range(name)
+        if year_range is None:
+            return None
+        triples = generations_for_make_model_year_range(
+            model_match[0], model_match[1], year_range
+        )
+        return triples or None

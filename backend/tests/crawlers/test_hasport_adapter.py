@@ -17,10 +17,14 @@ from app.crawlers.adapters.tier0_http.hasport import (
     _canonical_product_url,
     _compose_name,
     _extract_gallery_images,
+    _extract_hasport_models,
+    _extract_hasport_year_ranges,
     _extract_leading_sku,
     _extract_short_description,
     _is_product_url,
+    _yy_to_yyyy,
 )
+from app.crawlers.base import ScrapedPayload
 
 SAMPLE_URL = "https://hasportperformance.com/products/fdstk/"
 
@@ -397,3 +401,145 @@ class TestParseProductPageBareSkuName:
         assert result is not None
         assert result.name == "EFRB"
         assert result.part_number == "EFRB"
+
+
+class TestYyToYyyy:
+    def test_pre_70_resolves_to_2000s(self) -> None:
+        assert _yy_to_yyyy(5) == 2005
+        assert _yy_to_yyyy(22) == 2022
+
+    def test_post_70_resolves_to_1900s(self) -> None:
+        assert _yy_to_yyyy(84) == 1984
+        assert _yy_to_yyyy(99) == 1999
+
+    def test_anchor_carries_century(self) -> None:
+        # 92-95 anchored at 1992 → 1995, NOT 2095.
+        assert _yy_to_yyyy(95, anchor=1992) == 1995
+
+    def test_anchor_bumps_century_when_end_before_start(self) -> None:
+        # 92-00: anchor=1992, 00 in same century is 1900 (before 1992) so
+        # bump to 2000.
+        assert _yy_to_yyyy(0, anchor=1992) == 2000
+
+
+class TestExtractHasportYearRanges:
+    def test_yy_yy_2digit(self) -> None:
+        assert _extract_hasport_year_ranges("for 96-98 Civic") == [(1996, 1998)]
+
+    def test_yy_yy_century_cross(self) -> None:
+        assert _extract_hasport_year_ranges("for 92-00 Civic") == [(1992, 2000)]
+
+    def test_yyyy_yyyy_4digit(self) -> None:
+        assert _extract_hasport_year_ranges("for 2012-2014 Civic SI") == [(2012, 2014)]
+
+    def test_4digit_takes_precedence_over_2digit_suffix(self) -> None:
+        # ``2012-2014`` must NOT be re-extracted as ``12-14``.
+        assert _extract_hasport_year_ranges("FERR for 2022-2026 Civic") == [(2022, 2026)]
+
+    def test_multiple_ranges(self) -> None:
+        # Multi-model titles carry one range per model.
+        ranges = _extract_hasport_year_ranges("for 92-00 Civic and 94-01 Integra")
+        assert (1992, 2000) in ranges
+        assert (1994, 2001) in ranges
+
+    def test_no_year_in_name(self) -> None:
+        assert _extract_hasport_year_ranges("Urethane mount bushings") == []
+        assert _extract_hasport_year_ranges("Hasport Logo T-Shirt") == []
+
+
+class TestExtractHasportModels:
+    def test_civic_honda(self) -> None:
+        assert _extract_hasport_models("96-98 Civic") == [("Honda", "Civic")]
+
+    def test_integra_acura(self) -> None:
+        # Integra is sold as Acura — not Honda.
+        assert _extract_hasport_models("92-00 Integra") == [("Acura", "Integra")]
+
+    def test_rsx_acura(self) -> None:
+        assert _extract_hasport_models("DC5RR for 2002-2006 RSX") == [("Acura", "RSX")]
+
+    def test_multi_model(self) -> None:
+        models = _extract_hasport_models("92-00 Civic and 94-01 Integra")
+        assert ("Honda", "Civic") in models
+        assert ("Acura", "Integra") in models
+
+    def test_no_model_token(self) -> None:
+        assert _extract_hasport_models("Urethane mount bushings") == []
+        assert _extract_hasport_models("KSP - K-series shifter plate") == []
+
+
+class TestInferCarForPart:
+    """End-to-end car-inference for Hasport titles."""
+
+    def _payload(self, name: str) -> ScrapedPayload:
+        return ScrapedPayload(name=name, product_url=f"https://hasportperformance.com/products/x/")
+
+    def test_civic_only_resolves_one_gen(self) -> None:
+        adapter = HasportAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("EKWK-1 - K Series Wiring Conversion for 96-98 Civic")
+        )
+        assert triples == [("Honda", "Civic", "6th Gen")]
+
+    def test_civic_century_cross_two_gens(self) -> None:
+        # 92-00 spans Civic 5th (1992-1995) + 6th (1996-2000).
+        adapter = HasportAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("EKBLINK - Shift Linkage for 92-00 Civic")
+        )
+        assert triples == [
+            ("Honda", "Civic", "5th Gen"),
+            ("Honda", "Civic", "6th Gen"),
+        ]
+
+    def test_civic_and_crx_share_year_range(self) -> None:
+        # 84-87 Civic and CRX — both 3rd Gen Civic / 1st Gen CRX.
+        adapter = HasportAdapter()
+        triples = adapter.infer_car_for_part(self._payload("AFD2 for 84-87 Civic and CRX"))
+        assert triples is not None
+        assert ("Honda", "Civic", "3rd Gen") in triples
+        assert ("Honda", "CRX", "1st Gen") in triples
+
+    def test_modern_4digit_year(self) -> None:
+        adapter = HasportAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("FERR Replacement Rear Mount for 2022-2026 Civic")
+        )
+        assert triples == [("Honda", "Civic", "11th Gen")]
+
+    def test_integra_routes_to_acura(self) -> None:
+        adapter = HasportAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("DAK - K-Series Swap Mount Kit for 90-93 Integra")
+        )
+        assert triples == [("Acura", "Integra", "2nd Gen")]
+
+    def test_rsx_routes_to_acura(self) -> None:
+        adapter = HasportAdapter()
+        triples = adapter.infer_car_for_part(
+            self._payload("DC5AMB - Auto to Manual conversion bracket for 2002-2006 RSX")
+        )
+        assert triples == [("Acura", "RSX", "DC5")]
+
+    def test_no_model_returns_none(self) -> None:
+        # Generic items without a model token must punt to the universal pipeline.
+        adapter = HasportAdapter()
+        assert adapter.infer_car_for_part(self._payload("Urethane mount bushings")) is None
+        assert adapter.infer_car_for_part(self._payload("Hasport Logo T-Shirt")) is None
+
+    def test_no_year_returns_none(self) -> None:
+        # Model token but no year — caller must fall through.
+        adapter = HasportAdapter()
+        assert (
+            adapter.infer_car_for_part(self._payload("DCAMH Auto to Manual Conversion Mount"))
+            is None
+        )
+
+    def test_empty_name_returns_none(self) -> None:
+        adapter = HasportAdapter()
+        assert (
+            adapter.infer_car_for_part(
+                ScrapedPayload(name="", product_url="https://hasportperformance.com/x/")
+            )
+            is None
+        )

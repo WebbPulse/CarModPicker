@@ -46,6 +46,7 @@ export const mockBuildList: BuildListRead = {
   car_id: '22222222-2222-7222-8222-222222222222',
   user_id: '11111111-1111-7111-8111-111111111111',
   image_urls: ['https://example.com/build.jpg'],
+  base_price_cents: 0,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };
@@ -63,7 +64,6 @@ export const mockPart: PartRead = {
   is_universal: false,
   part_manufacturer: 'TestPartManufacturer',
   part_number: 'TP001',
-  specifications: { weight: '2.5kg', material: 'aluminum' },
   is_verified: true,
   source: 'user',
   edit_count: 0,

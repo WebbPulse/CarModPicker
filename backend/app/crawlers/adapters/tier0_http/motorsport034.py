@@ -316,8 +316,6 @@ class Motorsport034Adapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "034motorsport"
-    category_targets: ClassVar[list[str]] = ["universal"]
-
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield product URLs from /media/sitemaps/sitemap.xml. Set

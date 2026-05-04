@@ -210,7 +210,6 @@ class FortuneAutoAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "fortuneauto"
-    category_targets: ClassVar[list[str]] = ["coilover", "universal"]
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

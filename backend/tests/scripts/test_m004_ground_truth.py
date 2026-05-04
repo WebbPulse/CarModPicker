@@ -15,8 +15,8 @@ T03-PLAN.md:
 * harness never raises out of ``truth_from_html``
 
 The output dict shape is the public contract scoring depends on, so every
-test asserts the four required keys (car_triples / manufacturer / category /
-specifications) regardless of which branch fired.
+test asserts the three required keys (car_triples / manufacturer / category)
+regardless of which branch fired.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from scripts.m004_ground_truth import (
 # Output-shape contract: every call returns the same four keys.
 # ---------------------------------------------------------------------------
 
-REQUIRED_KEYS = {"car_triples", "manufacturer", "category", "specifications"}
+REQUIRED_KEYS = {"car_triples", "manufacturer", "category"}
 
 
 def _assert_shape(out: dict) -> None:
@@ -50,7 +50,6 @@ def _assert_shape(out: dict) -> None:
         assert all(isinstance(p, str) for p in triple)
     assert out["manufacturer"] is None or isinstance(out["manufacturer"], str)
     assert out["category"] is None or isinstance(out["category"], str)
-    assert isinstance(out["specifications"], dict)
 
 
 # ---------------------------------------------------------------------------
@@ -173,8 +172,6 @@ class TestTruthFromHtmlWellFormedJsonLd:
         _assert_shape(out)
         assert out["manufacturer"] == "Bilstein"
         assert out["category"] == "Suspension > Coilovers"
-        # weight pulled from JSON-LD by the universal extractors → 12kg = 12000g
-        assert out["specifications"].get("weight_grams") == pytest.approx(12000.0)
 
     def test_brand_as_bare_string(self) -> None:
         html = """
@@ -285,7 +282,6 @@ class TestTruthFromHtmlEmptyOrNone:
         assert out["car_triples"] == []
         assert out["manufacturer"] is None
         assert out["category"] is None
-        assert out["specifications"] == {}
 
     def test_none_html_returns_empty_truth(self) -> None:
         # Per the defensive contract, None input must NOT raise.
@@ -316,7 +312,6 @@ class TestTruthFromHtmlOversized:
             out = truth_from_html(html)
         _assert_shape(out)
         assert out["manufacturer"] is None
-        assert out["specifications"] == {}
         # Log carries the structured failure reason.
         assert any(
             "truth_extraction_skipped" in r.message or "truth_extraction_skipped" in str(r)

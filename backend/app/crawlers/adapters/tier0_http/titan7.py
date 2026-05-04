@@ -315,7 +315,6 @@ class Titan7Adapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "titan7"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     # Real-corpus pattern: titan-7.com renders one ``<script type="application/ld+json">``

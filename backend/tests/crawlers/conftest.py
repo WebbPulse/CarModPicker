@@ -60,7 +60,6 @@ def make_scraped_payload() -> Callable[..., ScrapedPayload]:
         part_number: Optional[str] = None,
         image_urls: Optional[list[str]] = None,
         gtin: Optional[str] = None,
-        specifications: Optional[dict[str, Any]] = None,
         **overrides: Any,
     ) -> ScrapedPayload:
         return ScrapedPayload(
@@ -72,7 +71,6 @@ def make_scraped_payload() -> Callable[..., ScrapedPayload]:
             part_number=part_number,
             image_urls=image_urls,
             gtin=gtin,
-            specifications=specifications,
             **overrides,
         )
 

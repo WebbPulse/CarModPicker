@@ -59,7 +59,7 @@ ProgressCallback = Callable[[int, int, dict[str, int]], None]
 #
 # The DB pool budget can be huge in dev (DB_POOL_SIZE+OVERFLOW-RESERVE = 144
 # with the local-dev settings), but the rescrape worker is GIL-bound: each
-# page's parse_product_page / apply_universal_extraction / variant ingest
+# page's parse_product_page / variant ingest
 # spends most of its wall time in pure-Python BeautifulSoup + regex work.
 # Throwing 144 threads at a single GIL just adds context-switch overhead and
 # parks ~120 connections idle-in-transaction (observed in pg_stat_activity:
@@ -181,10 +181,6 @@ def rescrape_crawled_page_from_archive(
         db.commit()
         return "parse_failed", None, f"Parser '{adapter_key}' returned no payload"
 
-    enriched = adapter.apply_universal_extraction(html, payload)
-    assert enriched is not None  # apply_universal_extraction returns its input when non-None
-    payload = enriched
-
     # Pin url/id to locals before ingest_payload — if it raises mid-flush the
     # session is rolled back and any lazy load on ``page`` would then raise
     # PendingRollbackError, crashing the worker before parse_status is marked.
@@ -251,7 +247,6 @@ def rescrape_crawled_page_from_archive(
         variant_payloads = []
     for variant_payload in variant_payloads:
         try:
-            variant_payload = adapter.apply_universal_extraction(html, variant_payload) or variant_payload
             ingest_payload(
                 db,
                 variant_payload,

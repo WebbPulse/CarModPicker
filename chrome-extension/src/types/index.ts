@@ -71,7 +71,6 @@ export interface PartCreate {
   is_universal?: boolean;
   part_manufacturer_id: string; // Required - part manufacturer (e.g. HKS, Borla)
   part_number?: string | null;
-  specifications?: Record<string, unknown> | null;
   retailer_id?: string | null; // Optional - store/site where part is sold
   price_cents?: number | null; // Optional - for PartListing/price history when retailer_id set
 }

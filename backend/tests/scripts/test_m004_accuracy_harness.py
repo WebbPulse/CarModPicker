@@ -51,7 +51,6 @@ def _row(
     html_excerpt: str,
     truth_manufacturer: str | None,
     truth_category: str | None,
-    truth_specifications: dict[str, Any],
     truth_car_triples: list[list[str]] | None = None,
 ) -> dict[str, Any]:
     return {
@@ -65,7 +64,6 @@ def _row(
         "truth_car_triples": truth_car_triples or [],
         "truth_manufacturer": truth_manufacturer,
         "truth_category": truth_category,
-        "truth_specifications": truth_specifications,
         "labeled_at": "2026-01-01T00:00:00+00:00",
         "labeled_by": "human",
     }
@@ -98,7 +96,6 @@ def low_score_gold_set(tmp_path: Path) -> Path:
             ),
             truth_manufacturer="DefinitelyNotMatchingBrandA",
             truth_category="suspension",
-            truth_specifications={},
         ),
         _row(
             part_id="lowscore-row-002",
@@ -110,7 +107,6 @@ def low_score_gold_set(tmp_path: Path) -> Path:
             html_excerpt='<html><body></body></html>',
             truth_manufacturer="DefinitelyNotMatchingBrandB",
             truth_category="brakes",
-            truth_specifications={},
         ),
         _row(
             part_id="lowscore-row-003",
@@ -122,7 +118,6 @@ def low_score_gold_set(tmp_path: Path) -> Path:
             html_excerpt='<html><body></body></html>',
             truth_manufacturer="DefinitelyNotMatchingBrandC",
             truth_category="exhaust",
-            truth_specifications={},
         ),
     ]
     out = tmp_path / "low_parts.json"
@@ -151,7 +146,6 @@ def tiny_gold_set(tmp_path: Path) -> Path:
             ),
             truth_manufacturer="KW",
             truth_category="suspension",
-            truth_specifications={"material": "stainless steel"},
         ),
         _row(
             part_id="test-row-002",
@@ -167,7 +161,6 @@ def tiny_gold_set(tmp_path: Path) -> Path:
             ),
             truth_manufacturer="Brembo",
             truth_category="brakes",
-            truth_specifications={},
         ),
         _row(
             part_id="test-row-003",
@@ -182,7 +175,6 @@ def tiny_gold_set(tmp_path: Path) -> Path:
             ),
             truth_manufacturer="Borla",
             truth_category="exhaust",
-            truth_specifications={},
         ),
     ]
     out = tmp_path / "parts.json"
@@ -221,8 +213,8 @@ class TestGoldCorpusSmoke:
             f"harness exited {result.returncode}\nstdout={result.stdout}\nstderr={result.stderr}"
         )
         lines = _parse_stdout_lines(result.stdout)
-        # Five signals: car, manufacturer, category, spec_field_level, spec_part_level
-        assert len(lines) == 5, f"expected 5 signal lines, got {len(lines)}: {lines}"
+        # Three signals: car, manufacturer, category
+        assert len(lines) == 3, f"expected 3 signal lines, got {len(lines)}: {lines}"
 
         # Every line should carry harness_version, signal, sample_size,
         # generated_at, and validate against the locked schema.

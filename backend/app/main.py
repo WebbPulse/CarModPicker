@@ -31,7 +31,6 @@ from .api.endpoints import (
 )
 from .api.endpoints.admin import crawlers as admin_crawlers
 from .api.endpoints.admin import db_ops as admin_db_ops
-from .api.endpoints.admin import extraction_health as admin_extraction_health
 from .api.endpoints.admin import jobs as admin_jobs
 from .api.endpoints.admin import parts as admin_parts
 from .api.endpoints.admin import stats as admin_stats
@@ -358,13 +357,6 @@ endpoint_registry.register_endpoint(
     tags=["admin"],
     description="Admin canonical parts management (lookup, link, unlink, rescan)",
 )
-endpoint_registry.register_endpoint(
-    admin_extraction_health.router,
-    prefix="/admin/extraction-health",
-    tags=["admin"],
-    description="Admin extraction health (compliance, coverage, failure-rate)",
-)
-
 # Global app settings (public read, admin write)
 endpoint_registry.register_endpoint(
     app_settings.router,

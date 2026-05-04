@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
@@ -50,7 +50,6 @@ class PartCreate(BaseModel):
         None,
         description="UPC/EAN/GTIN barcode for dedup (digits only stored); e.g. 012345678901",
     )
-    specifications: Optional[Dict[str, Any]] = None
     retailer_id: Optional[UUID] = Field(None, description="Retailer ID when product_url is from a known retailer")
     price_cents: Optional[int] = Field(
         None, ge=0, le=2147483647, description="Price in cents for this retailer (creates/updates listing)"
@@ -78,7 +77,6 @@ class PartUpdate(BaseModel):
     part_manufacturer_id: Optional[UUID] = None
     part_number: Optional[str] = None
     gtin: Optional[str] = None
-    specifications: Optional[Dict[str, Any]] = None
 
 
 class PartRead(BaseModel):
@@ -96,7 +94,6 @@ class PartRead(BaseModel):
     part_manufacturer_id: Optional[UUID] = None
     part_number: Optional[str] = None
     gtin: Optional[str] = Field(None, description="UPC/EAN/GTIN (digits only)")
-    specifications: Optional[Dict[str, Any]] = None
     canonical_part_id: Optional[UUID] = Field(
         None,
         description=(

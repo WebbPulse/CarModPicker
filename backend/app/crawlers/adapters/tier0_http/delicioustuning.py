@@ -607,7 +607,6 @@ class DeliciousTuningAdapter(RetailerCrawlerAdapter):
     # Default Tier 0 — plain HTTP is enough (no Cloudflare, no JS challenge).
     # Left explicit so the choice is documented on the class itself.
     ADAPTER_NAME: ClassVar[str] = "delicioustuning"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

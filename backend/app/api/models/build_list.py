@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import JSON, ForeignKey, Uuid
+from sqlalchemy import JSON, BigInteger, ForeignKey, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from uuid6 import uuid7
 
@@ -30,6 +30,8 @@ class BuildList(Base):
         Uuid(as_uuid=True), ForeignKey("car_generations.id"), nullable=True, index=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    # Purchase price of the donor car, in cents. Folded into total build cost.
+    base_price_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"), default=0)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))

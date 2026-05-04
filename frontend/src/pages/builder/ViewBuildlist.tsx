@@ -426,11 +426,14 @@ function ViewBuildList() {
             )}
           </div>
           <div className="min-w-0 space-y-2.5">
-            {(buildListParts.length > 0 || laborEstimates.length > 0) && (
+            {(buildListParts.length > 0 ||
+              laborEstimates.length > 0 ||
+              buildList.base_price_cents > 0) && (
               <CardInfoItem label="Build Cost:">
                 <BuildCostSummary
                   buildListParts={buildListParts}
                   laborEstimates={laborEstimates}
+                  basePriceCents={buildList.base_price_cents}
                   className="mt-1"
                 />
               </CardInfoItem>

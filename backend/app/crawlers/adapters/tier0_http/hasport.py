@@ -52,13 +52,14 @@ the DOM gallery is empty.
 
 import os
 import re
-from typing import ClassVar, Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional, Tuple
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
 from bs4 import BeautifulSoup, Tag
 
+from app.core.car_inference import generations_for_make_model_year_range
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import ScrapedPayload, fetch_page
 from app.crawlers.parsing import (
@@ -301,6 +302,137 @@ def _extract_gallery_images(soup: BeautifulSoup) -> List[str]:
     return out
 
 
+# Hasport's catalog is Honda-only (with Acura sub-makes for Integra/RSX/NSX).
+# Titles encode fitment as a 2-digit year-pair embedded in the description
+# (``"K Series Wiring Conversion for 92-95 Civic / 94-99 Integra"``,
+# ``"Engine Mount kit B-series engine with 3 bolt left hand mount for 96-00 Civic"``,
+# ``"K-Series Swap Mount Kit for 90-93 Integra"``). About 75% of the
+# universal-flagged catalog uses ``YY-YY``; ~12% use ``YYYY-YYYY`` for newer
+# parts (``"FG4STK - Mount kit for 2012-2014 Civic SI"``,
+# ``"FERR Replacement Rear Mount for 2022-2026 Civic"``).
+#
+# Multiple model tokens may appear in one title (``"92-95 Civic / 94-99
+# Integra"``); each year-range/model pair is matched independently so we
+# emit triples for both. The ``infer_car_for_part`` hook iterates the
+# title once with a combined regex and accumulates into a deduped triple
+# list.
+#
+# Acura sub-make handling: Integra, RSX, and NSX are sold as Acura in the US.
+# CR-V/Civic/Accord/etc map to Honda. The static
+# ``car_generations_data`` rows mirror the make split.
+_HASPORT_MODEL_TOKENS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    # Acura first so "Integra" doesn't accidentally swap to Honda Integra.
+    (re.compile(r"\bIntegra\b", re.IGNORECASE), "Acura", "Integra"),
+    (re.compile(r"\bRSX\b", re.IGNORECASE), "Acura", "RSX"),
+    (re.compile(r"\bNSX\b", re.IGNORECASE), "Acura", "NSX"),
+    (re.compile(r"\bTL\b", re.IGNORECASE), "Acura", "TL"),
+    (re.compile(r"\bTSX\b", re.IGNORECASE), "Acura", "TSX"),
+    # Honda
+    (re.compile(r"\bCivic\b", re.IGNORECASE), "Honda", "Civic"),
+    (re.compile(r"\bAccord\b", re.IGNORECASE), "Honda", "Accord"),
+    (re.compile(r"\bPrelude\b", re.IGNORECASE), "Honda", "Prelude"),
+    (re.compile(r"\bS2000\b", re.IGNORECASE), "Honda", "S2000"),
+    (re.compile(r"\bCRX\b", re.IGNORECASE), "Honda", "CRX"),
+    (re.compile(r"\bCR-?Z\b", re.IGNORECASE), "Honda", "CR-Z"),
+    (re.compile(r"\bCR-?V\b", re.IGNORECASE), "Honda", "CR-V"),
+    (re.compile(r"\bElement\b", re.IGNORECASE), "Honda", "Element"),
+    (re.compile(r"\bFit\b"), "Honda", "Fit"),  # case-sensitive — "fit" is a common verb
+)
+
+# Year-range patterns: "92-95" (canonical 2-digit), "01-05", "2012-2014"
+# (newer parts), "2022-2026". The 2-digit form needs century resolution
+# (`92` → 1992, `01` → 2001) and pair-aware (``92-00`` is 1992-2000).
+_HASPORT_YY_YY_RE = re.compile(r"\b(\d{2})\s*[-–—]\s*(\d{2})\b")
+_HASPORT_YYYY_YYYY_RE = re.compile(r"\b(\d{4})\s*[-–—]\s*(\d{4})\b")
+_HASPORT_YYYY_YY_RE = re.compile(r"\b(\d{4})\s*[-–—]\s*(\d{2})\b")
+
+
+def _yy_to_yyyy(yy: int, anchor: Optional[int] = None) -> int:
+    """
+    Resolve a 2-digit year to 4 digits. ``anchor`` is the previous year
+    in a range pair: when present, prefer the same century; if that
+    yields an end-before-start, bump up by 100.
+
+    Without an anchor: years 70+ → 19xx (Hasport's earliest titles are
+    84-87 Civic), years <70 → 20xx.
+    """
+    if anchor is None:
+        return 1900 + yy if yy >= 70 else 2000 + yy
+    century = (anchor // 100) * 100
+    candidate = century + yy
+    if candidate < anchor:
+        candidate += 100
+    return candidate
+
+
+def _extract_hasport_year_ranges(name: str) -> list[Tuple[int, int]]:
+    """
+    Return every year-range tuple extracted from ``name``. Tries
+    ``YYYY-YYYY``, then ``YYYY-YY``, then ``YY-YY``. Multiple ranges in
+    one title (``"92-95 Civic / 94-99 Integra"``) all come back so each
+    can be paired with its corresponding model token.
+    """
+    out: list[Tuple[int, int]] = []
+    seen: set[Tuple[int, int]] = set()
+
+    def add(y1: int, y2: int) -> None:
+        if y1 < 1960 or y1 > 2030 or y2 < y1 or y2 > 2035:
+            return
+        if (y1, y2) in seen:
+            return
+        seen.add((y1, y2))
+        out.append((y1, y2))
+
+    for m in _HASPORT_YYYY_YYYY_RE.finditer(name):
+        try:
+            add(int(m.group(1)), int(m.group(2)))
+        except ValueError:
+            continue
+    for m in _HASPORT_YYYY_YY_RE.finditer(name):
+        try:
+            y1 = int(m.group(1))
+            y2 = _yy_to_yyyy(int(m.group(2)), anchor=y1)
+            add(y1, y2)
+        except ValueError:
+            continue
+    # YY-YY last so 4-digit matches above don't get re-matched as their
+    # 2-digit suffix.
+    for m in _HASPORT_YY_YY_RE.finditer(name):
+        # Skip if the surrounding chars indicate a 4-digit year was already
+        # matched: ``2012-2014`` re-matches as ``12-14`` here.
+        start, end = m.span()
+        if start > 0 and name[start - 1].isdigit():
+            continue
+        if end < len(name) and name[end].isdigit():
+            continue
+        try:
+            y1_raw = int(m.group(1))
+            y2_raw = int(m.group(2))
+            y1 = _yy_to_yyyy(y1_raw)
+            y2 = _yy_to_yyyy(y2_raw, anchor=y1)
+            add(y1, y2)
+        except ValueError:
+            continue
+    return out
+
+
+def _extract_hasport_models(name: str) -> list[Tuple[str, str]]:
+    """
+    Return every (make, model) pair whose token appears in ``name``,
+    deduped, in priority order. Multi-model titles (``"92-95 Civic /
+    94-99 Integra"``) yield both pairs.
+    """
+    out: list[Tuple[str, str]] = []
+    seen: set[Tuple[str, str]] = set()
+    for pat, make, model in _HASPORT_MODEL_TOKENS:
+        if (make, model) in seen:
+            continue
+        if pat.search(name):
+            seen.add((make, model))
+            out.append((make, model))
+    return out
+
+
 class HasportAdapter(RetailerCrawlerAdapter):
     """
     Hasport Performance adapter. WordPress/WooCommerce storefront, plain HTTP.
@@ -319,7 +451,6 @@ class HasportAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "hasport"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:
@@ -379,3 +510,38 @@ class HasportAdapter(RetailerCrawlerAdapter):
             image_urls=image_urls[:12] if image_urls else None,
             gtin=payload.gtin,
         )
+
+    def infer_car_for_part(
+        self, parsed: ScrapedPayload
+    ) -> Optional[List[Tuple[str, str, str]]]:
+        """
+        Pair year-ranges with model tokens in the title and intersect each
+        pair against the static generation windows. Multi-model titles
+        (``"92-95 Civic / 94-99 Integra"``) emit triples for both. Single
+        model with multiple year ranges (``"FERR Replacement Rear Mount
+        for 2022-2026 Civic"``) intersects against the single model.
+
+        Returns ``None`` (NOT empty list) when no pair fires so ingest
+        falls through to the universal pipeline. Generic items without a
+        model token (``"Urethane mount bushings"``, T-shirts) correctly
+        return ``None``.
+        """
+        name = parsed.name or ""
+        if not name:
+            return None
+        models = _extract_hasport_models(name)
+        if not models:
+            return None
+        year_ranges = _extract_hasport_year_ranges(name)
+        if not year_ranges:
+            return None
+
+        out: list[Tuple[str, str, str]] = []
+        seen: set[Tuple[str, str, str]] = set()
+        for make, model in models:
+            for y_range in year_ranges:
+                for triple in generations_for_make_model_year_range(make, model, y_range):
+                    if triple not in seen:
+                        seen.add(triple)
+                        out.append(triple)
+        return out or None

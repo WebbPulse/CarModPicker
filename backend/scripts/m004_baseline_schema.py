@@ -20,14 +20,12 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
-HARNESS_VERSION: int = 1
+HARNESS_VERSION: int = 2
 
 VALID_SIGNALS: tuple[str, ...] = (
     "car",
     "manufacturer",
     "category",
-    "spec_field_level",
-    "spec_part_level",
 )
 
 _COMMON_REQUIRED: tuple[str, ...] = (
@@ -38,7 +36,7 @@ _COMMON_REQUIRED: tuple[str, ...] = (
 )
 
 _F1_SHAPED_SIGNALS: frozenset[str] = frozenset(
-    {"car", "manufacturer", "category", "spec_field_level"}
+    {"car", "manufacturer", "category"}
 )
 
 _F1_REQUIRED: tuple[str, ...] = ("precision", "recall", "f1")
@@ -85,9 +83,8 @@ def _require_metric(d: dict, key: str, *, context: str) -> None:
 def validate_baseline(d: dict[str, Any]) -> None:
     """Validate a baseline dict in-place. Raise BaselineSchemaError on drift.
 
-    Covers the common envelope plus the five signal-specific shapes:
-      - car, manufacturer, category, spec_field_level: precision/recall/f1
-      - spec_part_level: all_fields_correct_rate
+    Covers the common envelope plus per-signal shape:
+      - car, manufacturer, category: precision/recall/f1
     """
     if not isinstance(d, dict):
         raise BaselineSchemaError(
@@ -134,28 +131,6 @@ def validate_baseline(d: dict[str, Any]) -> None:
         _require_keys(d, _F1_REQUIRED, context=ctx)
         for k in _F1_REQUIRED:
             _require_metric(d, k, context=ctx)
-        if signal == "spec_field_level" and "per_field" in d:
-            pf = d["per_field"]
-            if not isinstance(pf, dict):
-                raise BaselineSchemaError(
-                    f"baseline {ctx}: per_field must be a dict, got {type(pf).__name__}"
-                )
-            for field_name, field_metrics in pf.items():
-                if not isinstance(field_metrics, dict):
-                    raise BaselineSchemaError(
-                        f"baseline {ctx}: per_field[{field_name!r}] must be a dict"
-                    )
-                for k in _F1_REQUIRED:
-                    if k not in field_metrics:
-                        raise BaselineSchemaError(
-                            f"baseline {ctx}: per_field[{field_name!r}] missing {k!r}"
-                        )
-                    _require_metric(
-                        field_metrics, k, context=f"{ctx} per_field[{field_name!r}]"
-                    )
-    elif signal == "spec_part_level":
-        _require_keys(d, ("all_fields_correct_rate",), context=ctx)
-        _require_metric(d, "all_fields_correct_rate", context=ctx)
     else:  # pragma: no cover — defensive; VALID_SIGNALS check above is the gate
         raise BaselineSchemaError(
             f"baseline {ctx}: unhandled signal (schema bug — extend validate_baseline)"

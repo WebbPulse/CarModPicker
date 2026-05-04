@@ -175,6 +175,8 @@ export interface BuildListCreate {
   description?: string | null;
   car_id: string; // Required - build lists must be associated with a car
   image_urls?: string[] | null;
+  /** Donor car purchase price in cents. Folded into total build cost. */
+  base_price_cents?: number;
 }
 
 export interface BuildListRead {
@@ -184,6 +186,8 @@ export interface BuildListRead {
   car_id?: string | null;
   user_id: string;
   image_urls?: string[] | null;
+  /** Donor car purchase price in cents. Folded into total build cost. */
+  base_price_cents: number;
   created_at: string;
   updated_at: string;
 }
@@ -206,6 +210,8 @@ export interface BuildListUpdate {
   description?: string | null;
   car_id?: string | null;
   image_urls?: string[] | null;
+  /** Donor car purchase price in cents. Folded into total build cost. */
+  base_price_cents?: number | null;
 }
 
 // Build Log interfaces
@@ -258,7 +264,6 @@ export interface PartCreate {
   is_universal?: boolean; // When true, part fits all cars
   part_manufacturer_id: string; // Required part_manufacturer association
   part_number?: string | null;
-  specifications?: Record<string, string | number | boolean> | null;
   retailer_id?: string | null;
   price_cents?: number | null; // Price for this retailer (creates/updates listing)
 }
@@ -276,7 +281,6 @@ export interface PartRead {
   part_manufacturer_id?: string | null; // Optional part_manufacturer association
   part_manufacturer?: string | null;
   part_number?: string | null;
-  specifications?: Record<string, string | number | boolean> | null;
   canonical_part_id?: string | null; // Set when this part is a duplicate; clients redirect to the canonical
   is_verified: boolean;
   source: string;
@@ -420,7 +424,6 @@ export interface PartUpdate {
   is_universal?: boolean | null;
   part_manufacturer_id: string; // Required part_manufacturer association
   part_number?: string | null;
-  specifications?: Record<string, string | number | boolean> | null;
 }
 
 // New interfaces for categories

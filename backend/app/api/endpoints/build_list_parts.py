@@ -343,7 +343,6 @@ async def create_part_and_add_to_build_list(
         "is_universal": request.is_universal,
         "part_manufacturer_id": request.part_manufacturer_id,
         "part_number": request.part_number,
-        "specifications": request.specifications,
         "user_id": current_user.id,
     }
     if request.gtin and normalize_gtin(request.gtin):

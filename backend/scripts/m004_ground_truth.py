@@ -18,7 +18,6 @@ Returns a dict shaped to feed directly into ``m004_scoring.score_*`` functions::
       "car_triples":      list[tuple[str, str, str]],
       "manufacturer":     Optional[str],
       "category":         Optional[str],
-      "specifications":   dict[str, Any],
     }
 
 Three helpers expose the brand-resolution layers used internally::
@@ -57,7 +56,6 @@ from bs4 import BeautifulSoup, Tag
 from app.crawlers.parsing import (
     extract_json_ld_product as _extract_json_ld_product_from_parsing,
 )
-from app.crawlers.parsing import extract_universal_fields
 
 logger = logging.getLogger(__name__)
 
@@ -252,7 +250,6 @@ def _empty_truth() -> dict[str, Any]:
         "car_triples": [],
         "manufacturer": None,
         "category": None,
-        "specifications": {},
     }
 
 
@@ -265,7 +262,6 @@ def truth_from_html(
 
     * ``manufacturer``: JSON-LD ``brand`` → microdata ``itemprop="brand"|"manufacturer"`` → ``og:brand`` / ``product:brand``.
     * ``category``: JSON-LD ``category`` → microdata ``itemprop="category"`` → ``product:category`` / ``og:category``.
-    * ``specifications``: ``app.crawlers.parsing.extract_universal_fields`` (universal fields only — weight_grams, material, finish, warranty_days, fitment_notes). Truth dict stores raw values, not (value, confidence) tuples — confidence is a predictor concern.
     * ``car_triples``: empty in this iteration; richer car-extraction lives downstream and is not yet wired into ground truth.
 
     The ``retailer`` keyword is reserved for per-retailer CSS-selector hints
@@ -354,27 +350,6 @@ def truth_from_html(
             cat = _category_from_microdata(soup) or _category_from_opengraph(soup)
     if cat:
         out["category"] = cat
-
-    # ---- Specifications: universal-field extractors ------------------------
-    try:
-        universal = extract_universal_fields(html)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(
-            "truth_extraction_failed",
-            extra={"reason": "universal_fields_error", "error": repr(exc)},
-        )
-        universal = {}
-
-    # extract_universal_fields returns {field: (value, confidence)}; truth
-    # dict stores raw values only — confidence is a predictor concern that
-    # never appears in ground truth.
-    specs: dict[str, Any] = {}
-    for field, payload in universal.items():
-        if isinstance(payload, tuple) and len(payload) >= 1:
-            specs[field] = payload[0]
-        else:
-            specs[field] = payload
-    out["specifications"] = specs
 
     # car_triples: not yet derived from HTML in this iteration. The slice
     # plan calls out that car-triple extraction is the live extractor's

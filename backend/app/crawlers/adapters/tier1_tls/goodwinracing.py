@@ -273,7 +273,6 @@ class GoodWinRacingAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "goodwinracing"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "tls"
 
     def infer_category_for_part(self, parsed: ScrapedPayload) -> Optional[str]:
@@ -291,12 +290,9 @@ class GoodWinRacingAdapter(RetailerCrawlerAdapter):
         seeded directly (env override, smoke tests) where no referrer
         is available.
         """
-        # Read referrer from specifications if a future extension surfaces
-        # it; today there's no plumbing, so we infer from product_url
-        # alone — Good-Win's singular product path lacks category info,
-        # so this hook is a no-op until the discovery walk wires the
-        # referrer through. Keeping the slug-mapping table here so
-        # follow-up wiring is one-line.
+        # Good-Win's singular product path lacks category info on the page
+        # itself, so we infer from product_url alone. This hook is a no-op
+        # until the discovery walk wires a referrer through.
         url = (parsed.product_url or "").lower()
         if "/mazda-performance-parts/" not in url:
             return None

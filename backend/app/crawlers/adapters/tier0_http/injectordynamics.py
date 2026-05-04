@@ -573,7 +573,6 @@ class InjectorDynamicsAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "injectordynamics"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def __init__(self, fetcher: Optional[Fetcher] = None) -> None:

@@ -349,10 +349,7 @@ def _strip_trailing_mpn(name: str, mpn: Optional[str]) -> str:
 # fan-out — we leave those to the universal phrase-triple pipeline. Be
 # conservative; never silently universal-flag.
 #
-# The override stashes the engine family on the payload via setattr so it
-# survives ``apply_universal_extraction`` without flowing through
-# specifications (which would fail Pydantic ``extra='forbid'`` validation
-# under the universal CategorySpec).
+# The override stashes the engine family on the payload via setattr.
 
 _ENGINE_TYPE_LABEL_RE = re.compile(r"^\s*engine\s*type\s*$", re.IGNORECASE)
 # Tolerate both ``Gen III/Gen IV LS`` and ``Gen III/IV LS`` spellings; case-insensitive.
@@ -440,7 +437,6 @@ class BrianTooleyRacingAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "briantooleyracing"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def infer_category_for_part(self, parsed: ScrapedPayload) -> Optional[str]:

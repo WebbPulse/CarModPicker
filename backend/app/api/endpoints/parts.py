@@ -218,10 +218,10 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         Apply a repeat ingest of an already-known product URL onto the existing Part.
 
         Scrape-wins policy for parsed fields (name, description, images, category,
-        manufacturer, cars, GTIN, part_number, specifications). Only non-null
-        fields from the new payload are written, so a parser that loses a field
-        on one run doesn't erase it. PartListing + PartPriceHistory get an
-        upsert/append so price history stays continuous.
+        manufacturer, cars, GTIN, part_number). Only non-null fields from the new
+        payload are written, so a parser that loses a field on one run doesn't
+        erase it. PartListing + PartPriceHistory get an upsert/append so price
+        history stays continuous.
         """
         if data.name:
             existing_part.name = data.name
@@ -244,8 +244,6 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
             normalized_gtin = normalize_gtin(data.gtin)
             if normalized_gtin:
                 existing_part.gtin = normalized_gtin
-        if data.specifications is not None:
-            existing_part.specifications = data.specifications
         if data.is_universal is not None:
             existing_part.is_universal = data.is_universal
         if additional_data and "source" in additional_data:

@@ -28,7 +28,6 @@ export const buildListPartsApi = {
         is_universal: partData.is_universal ?? false,
         part_manufacturer_id: partData.part_manufacturer_id,
         part_number: partData.part_number,
-        specifications: partData.specifications,
         retailer_id: partData.retailer_id,
         price_cents: partData.price_cents,
         product_url: partData.product_url,

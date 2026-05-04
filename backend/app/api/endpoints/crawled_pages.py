@@ -281,10 +281,6 @@ async def scrape_page_from_extension(
             archive_skipped_duplicate=skipped_dup,
         )
 
-    enriched = adapter.apply_universal_extraction(sanitized_html, payload)
-    assert enriched is not None  # apply_universal_extraction returns its input when non-None
-    payload = enriched
-
     inferred = infer_category(payload.name, payload.description)
 
     return ScrapeResponse(

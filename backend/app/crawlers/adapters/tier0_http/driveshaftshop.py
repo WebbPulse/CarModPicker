@@ -33,12 +33,16 @@ categories, tags, attribute taxonomies) are skipped. Override with
 import os
 import re
 import time
-from typing import Any, ClassVar, Iterator, List, Optional, cast
+from typing import Any, ClassVar, Iterator, List, Optional, Tuple, cast
 from urllib.parse import urlparse
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
 
+from app.core.car_inference import (
+    infer_car_generations,
+    narrow_triples_by_year_range,
+)
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
@@ -228,6 +232,49 @@ def _part_number_from_description(description: Optional[str]) -> Optional[str]:
     return normalize_part_number(match.group(1))
 
 
+# Driveshaft Shop product titles overwhelmingly start with a year-range
+# prefix: ``"2009-2014 Dodge Challenger SRT8 / R/T ..."``,
+# ``"1991-1999 Toyota MR2 Turbo Level 5 ..."``,
+# ``"2005-2008 Charger 5.7L/300C 5.7L/Magnum 5.7L ..."``. ~93% of the
+# universal-flagged DSS catalog matches the leading-year-range shape;
+# the remaining 7% are spec-only listings (driveshaft lengths, gear sets,
+# transmission yokes) that legitimately have no fitment.
+#
+# The hook strategy is: extract the leading year range, run the universal
+# phrase pipeline, then narrow the resulting triples to those whose
+# generation window overlaps the title's year range. This handles the
+# Mitsubishi Eclipse case (universal pipeline returns every Eclipse gen
+# on a "Mitsubishi Eclipse" mention; year-narrowing trims to the actually
+# fitted generation) and falls through to None when the universal pipeline
+# can't identify a make+model at all (so ingest tries again with the
+# default keyword scorer rather than emitting no fitment at all).
+_DSS_LEADING_YEAR_RANGE_RE = re.compile(r"^\s*(\d{4})\s*[-–—]\s*(\d{2,4})\+?\b")
+
+
+def _extract_leading_year_range(name: str) -> Optional[Tuple[int, int]]:
+    """
+    Pull a (start_year, end_year) range from the leading ``"YYYY-YYYY "``
+    prefix of a Driveshaft Shop title. Two-digit tails carry the first
+    year's century (``"2005-08"`` → ``2005..2008``). Returns ``None`` when
+    the title doesn't start with a year-range prefix so the hook falls
+    through to the universal pipeline.
+    """
+    m = _DSS_LEADING_YEAR_RANGE_RE.match(name)
+    if not m:
+        return None
+    try:
+        y1 = int(m.group(1))
+        tail = m.group(2)
+        y2 = int(tail) if len(tail) == 4 else (y1 // 100) * 100 + int(tail)
+        if y2 < y1:
+            y2 += 100
+    except ValueError:
+        return None
+    if y1 < 1960 or y1 > 2030 or y2 < y1 or y2 > 2035:
+        return None
+    return (y1, y2)
+
+
 class DriveshaftShopAdapter(RetailerCrawlerAdapter):
     """
     Driveshaft Shop adapter. Discovery via ``/sitemap_index.xml`` →
@@ -238,8 +285,6 @@ class DriveshaftShopAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "driveshaftshop"
-    category_targets: ClassVar[list[str]] = ["universal"]
-
     def discover_product_urls(self) -> Iterator[str]:
         """Yield product URLs from the sitemap; env override wins when set."""
         for url in _resolve_start_urls():
@@ -281,3 +326,32 @@ class DriveshaftShopAdapter(RetailerCrawlerAdapter):
             image_urls=payload.image_urls,
             gtin=payload.gtin,
         )
+
+    def infer_car_for_part(
+        self, parsed: ScrapedPayload
+    ) -> Optional[List[Tuple[str, str, str]]]:
+        """
+        Layer year-range narrowing on top of the universal phrase pipeline.
+
+        DSS titles lead with ``"YYYY-YYYY "``; the universal pipeline
+        already extracts make/model phrases from the rest of the title
+        (``"Mitsubishi Eclipse"``, ``"BMW E92"``, ``"GT-R"``) but returns
+        every generation of that model. We narrow that set down to the
+        generations whose production window overlaps the title's leading
+        year range. Returns ``None`` (NOT an empty list) when no leading
+        year range is found, when the universal pipeline finds no triples,
+        or when narrowing leaves nothing — so ingest falls through to the
+        universal pipeline rather than short-circuiting to
+        ``is_universal=True``.
+        """
+        name = parsed.name or ""
+        if not name:
+            return None
+        year_range = _extract_leading_year_range(name)
+        if year_range is None:
+            return None
+        triples = infer_car_generations(name, parsed.description, parsed.product_url)
+        if not triples:
+            return None
+        narrowed = narrow_triples_by_year_range(triples, year_range)
+        return narrowed or None

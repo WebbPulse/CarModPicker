@@ -380,7 +380,6 @@ class EssexPartsAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "essexparts"
-    category_targets: ClassVar[list[str]] = ["brake", "universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

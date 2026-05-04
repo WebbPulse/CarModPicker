@@ -139,13 +139,14 @@ async def read_build_lists_with_votes(
         .subquery()
     )
 
-    # Subquery: combined total (parts + labor) per build list, used for sorting/filtering
+    # Subquery: combined total (base + parts + labor) per build list, used for sorting/filtering
     # This UNION-style approach keeps the logic in one column the existing joins reference.
     total_cost_subq = (
         select(
             DBBuildList.id.label("build_list_id"),
             (
-                func.coalesce(parts_cost_subq.c.parts_cost_cents, 0)
+                func.coalesce(DBBuildList.base_price_cents, 0)
+                + func.coalesce(parts_cost_subq.c.parts_cost_cents, 0)
                 + func.coalesce(labor_cost_subq.c.labor_cost_cents, 0)
             ).label("total_cost_cents"),
         )

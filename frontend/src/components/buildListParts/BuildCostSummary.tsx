@@ -8,6 +8,7 @@ import { Card } from '../ui/card';
 interface BuildCostSummaryProps {
   buildListParts: BuildListPartReadWithPart[];
   laborEstimates?: BuildListLaborEstimateRead[];
+  basePriceCents?: number;
   className?: string;
 }
 
@@ -22,6 +23,7 @@ const formatPrice = (priceInCents: number) => {
 const BuildCostSummary: React.FC<BuildCostSummaryProps> = ({
   buildListParts,
   laborEstimates,
+  basePriceCents = 0,
   className,
 }) => {
   const { partsPrice, remainingPrice, purchasedPrice } = useMemo(() => {
@@ -49,14 +51,21 @@ const BuildCostSummary: React.FC<BuildCostSummaryProps> = ({
     [laborEstimates]
   );
 
-  const totalPrice = partsPrice + laborPrice;
+  const basePrice = basePriceCents > 0 ? basePriceCents : 0;
+  const totalPrice = basePrice + partsPrice + laborPrice;
   const purchasedCount = buildListParts.filter((p) => p.purchased).length;
   const remainingCount = buildListParts.length - purchasedCount;
-  // Progress bar tracks purchased parts only — labor doesn't have a purchased state.
+  // Progress bar tracks purchased parts only — labor and base car price
+  // don't have a purchased state.
   const purchaseProgress =
     partsPrice === 0 ? 0 : Math.round((purchasedPrice / partsPrice) * 100);
+  // Show the breakdown row whenever there's more than one cost source so the
+  // user can see how parts/labor/base contribute, not just when labor is set.
+  const showBreakdown =
+    [basePrice > 0, partsPrice > 0, laborPrice > 0].filter(Boolean).length > 1;
 
-  if (buildListParts.length === 0 && laborPrice === 0) return null;
+  if (buildListParts.length === 0 && laborPrice === 0 && basePrice === 0)
+    return null;
 
   return (
     <Card className={`bg-gray-800 ${className ?? ''}`}>
@@ -82,20 +91,32 @@ const BuildCostSummary: React.FC<BuildCostSummaryProps> = ({
           </p>
         </div>
 
-        {laborPrice > 0 && (
+        {showBreakdown && (
           <div className="space-y-1 text-sm pt-2 border-t border-gray-700">
-            <div className="flex justify-between items-baseline">
-              <span className="text-gray-400">Parts</span>
-              <span className="text-gray-200 font-medium tabular-nums">
-                {formatPrice(partsPrice)}
-              </span>
-            </div>
-            <div className="flex justify-between items-baseline">
-              <span className="text-gray-400">Labor</span>
-              <span className="text-gray-200 font-medium tabular-nums">
-                {formatPrice(laborPrice)}
-              </span>
-            </div>
+            {basePrice > 0 && (
+              <div className="flex justify-between items-baseline">
+                <span className="text-gray-400">Base car</span>
+                <span className="text-gray-200 font-medium tabular-nums">
+                  {formatPrice(basePrice)}
+                </span>
+              </div>
+            )}
+            {partsPrice > 0 && (
+              <div className="flex justify-between items-baseline">
+                <span className="text-gray-400">Parts</span>
+                <span className="text-gray-200 font-medium tabular-nums">
+                  {formatPrice(partsPrice)}
+                </span>
+              </div>
+            )}
+            {laborPrice > 0 && (
+              <div className="flex justify-between items-baseline">
+                <span className="text-gray-400">Labor</span>
+                <span className="text-gray-200 font-medium tabular-nums">
+                  {formatPrice(laborPrice)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 

@@ -610,7 +610,6 @@ class LingenfelterAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "lingenfelter"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     # TODO(S04 T04 / fitment): Add an ``infer_car_for_part`` override mirroring

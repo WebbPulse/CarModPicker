@@ -15,9 +15,9 @@ export interface PartsFilterSidebarProps {
   // Car / Vehicle
   showUniversalParts: boolean;
   setShowUniversalParts: (v: boolean) => void;
-  // Community-contributed (UGC) visibility
-  hideUgc: boolean;
-  setHideUgc: (v: boolean) => void;
+  // Community-contributed (UGC) visibility — opt-in (hidden by default)
+  showUgc: boolean;
+  setShowUgc: (v: boolean) => void;
   selectedMake: string;
   selectedModel: string;
   selectedGeneration: CarGenerationRead | null;
@@ -56,8 +56,8 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
     clearAllFilters,
     showUniversalParts,
     setShowUniversalParts,
-    hideUgc,
-    setHideUgc,
+    showUgc,
+    setShowUgc,
     selectedMake,
     selectedModel,
     selectedGeneration,
@@ -134,14 +134,15 @@ const PartsFilterSidebar: React.FC<PartsFilterSidebarProps> = (props) => {
               <label className={checkboxRowClass}>
                 <input
                   type="checkbox"
-                  checked={hideUgc}
-                  onChange={(e) => setHideUgc(e.target.checked)}
+                  checked={showUgc}
+                  onChange={(e) => setShowUgc(e.target.checked)}
                   className={checkboxInputClass}
                 />
                 <span className="flex-1">
-                  Hide community-contributed
+                  Show community-contributed
                   <span className="block text-xs text-gray-500">
-                    Show only scraped catalog parts (more reliable details).
+                    Include user-submitted parts alongside scraped catalog
+                    parts. Off by default — details may be less reliable.
                   </span>
                 </span>
               </label>

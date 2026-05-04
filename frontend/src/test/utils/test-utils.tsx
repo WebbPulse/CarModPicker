@@ -126,7 +126,6 @@ export const createMockPart = (overrides = {}) => ({
   is_universal: false,
   part_manufacturer: 'TestPartManufacturer',
   part_number: 'TP001',
-  specifications: { weight: '2.5kg', material: 'aluminum' },
   is_verified: true,
   source: 'user',
   edit_count: 0,

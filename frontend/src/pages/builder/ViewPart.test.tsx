@@ -11,7 +11,7 @@
 // Optional (only when part.part_manufacturer_id is set): /part-manufacturers/{id}
 //
 // Coverage targets per D-11 + PATTERNS.md §11:
-//   1. Happy path — part name + specifications render.
+//   1. Happy path — part name renders.
 //   2. Community Rating section + vote widget render.
 //   3. Interactive vote flow — clicking upvote triggers apiClient.post to
 //      `/votes/part/${id}` (the votesApi polymorphic URL; see api/votes.ts).
@@ -112,7 +112,7 @@ describe('ViewPart page', () => {
     seedAuthenticated();
   });
 
-  it('renders the part name and specification rows once fetches resolve', async () => {
+  it('renders the part name and canonical fetches once data resolves', async () => {
     installDefaultGetRouting();
 
     render(
@@ -129,14 +129,6 @@ describe('ViewPart page', () => {
         screen.getByRole('heading', { level: 1, name: mockPart.name })
       ).toBeInTheDocument()
     );
-
-    // Specifications block labels + values render.
-    await waitFor(() =>
-      expect(screen.getByText('Specifications:')).toBeInTheDocument()
-    );
-    // Values from mockPart.specifications — { weight: '2.5kg', material: 'aluminum' }
-    expect(screen.getByText(/aluminum/i)).toBeInTheDocument();
-    expect(screen.getByText(/2\.5kg/i)).toBeInTheDocument();
 
     // Canonical fetch paths observed.
     expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(

@@ -413,8 +413,6 @@ class AdroAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "adro"
-    category_targets: ClassVar[list[str]] = ["universal"]
-
     def discover_product_urls(self) -> Iterator[str]:
         """
         Yield real product URLs from sitemap.xml (minus bundle pages). Set

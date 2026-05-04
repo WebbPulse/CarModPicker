@@ -288,7 +288,6 @@ class APRAdapter(RetailerCrawlerAdapter):
     """
 
     ADAPTER_NAME: ClassVar[str] = "apr"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "tls"
 
     def discover_product_urls(self) -> Iterator[str]:

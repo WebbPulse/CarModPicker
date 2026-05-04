@@ -406,7 +406,6 @@ class OpenFlashPerformanceAdapter(RetailerCrawlerAdapter):
     # Default Tier 0 — plain HTTP is enough. Shield WP security plugin serves
     # a notbot cookie without interaction and does not challenge requests.
     ADAPTER_NAME: ClassVar[str] = "openflashperformance"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:

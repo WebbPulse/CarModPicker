@@ -972,6 +972,13 @@
       },
       "BuildListCreate": {
         "properties": {
+          "base_price_cents": {
+            "default": 0,
+            "description": "Donor car purchase price in cents. Folded into total build cost.",
+            "minimum": 0.0,
+            "title": "Base Price Cents",
+            "type": "integer"
+          },
           "car_id": {
             "description": "Car ID is required - build lists must be associated with a car",
             "format": "uuid",
@@ -1544,6 +1551,11 @@
       },
       "BuildListRead": {
         "properties": {
+          "base_price_cents": {
+            "default": 0,
+            "title": "Base Price Cents",
+            "type": "integer"
+          },
           "car_id": {
             "anyOf": [
               {
@@ -1633,6 +1645,19 @@
       },
       "BuildListUpdate": {
         "properties": {
+          "base_price_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Donor car purchase price in cents. Folded into total build cost.",
+            "title": "Base Price Cents"
+          },
           "car_id": {
             "anyOf": [
               {
@@ -2124,32 +2149,6 @@
         "title": "CategoryResponse",
         "type": "object"
       },
-      "ComplianceBlock": {
-        "properties": {
-          "compliant": {
-            "title": "Compliant",
-            "type": "integer"
-          },
-          "per_tier": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Per Tier",
-            "type": "object"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "compliant",
-          "total",
-          "per_tier"
-        ],
-        "title": "ComplianceBlock",
-        "type": "object"
-      },
       "CopyBuildListRequest": {
         "description": "Request model for copying a build list.",
         "properties": {
@@ -2166,48 +2165,6 @@
           }
         },
         "title": "CopyBuildListRequest",
-        "type": "object"
-      },
-      "CoverageBlock": {
-        "properties": {
-          "per_tier": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/CoverageTierBlock"
-            },
-            "title": "Per Tier",
-            "type": "object"
-          }
-        },
-        "required": [
-          "per_tier"
-        ],
-        "title": "CoverageBlock",
-        "type": "object"
-      },
-      "CoverageTierBlock": {
-        "properties": {
-          "parts_total": {
-            "title": "Parts Total",
-            "type": "integer"
-          },
-          "parts_with_specs": {
-            "title": "Parts With Specs",
-            "type": "integer"
-          },
-          "per_field": {
-            "additionalProperties": {
-              "type": "number"
-            },
-            "title": "Per Field",
-            "type": "object"
-          }
-        },
-        "required": [
-          "parts_with_specs",
-          "parts_total",
-          "per_field"
-        ],
-        "title": "CoverageTierBlock",
         "type": "object"
       },
       "CrawledPageRead": {
@@ -3083,18 +3040,6 @@
               }
             ],
             "title": "Retailer Id"
-          },
-          "specifications": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Specifications"
           }
         },
         "required": [
@@ -3160,66 +3105,6 @@
           "deleted_count"
         ],
         "title": "DeleteAllPartsResponse",
-        "type": "object"
-      },
-      "ExtractionHealthResponse": {
-        "properties": {
-          "compliance": {
-            "$ref": "#/components/schemas/ComplianceBlock"
-          },
-          "coverage": {
-            "$ref": "#/components/schemas/CoverageBlock"
-          },
-          "failure_rate_7d": {
-            "items": {
-              "$ref": "#/components/schemas/FailureRateRow"
-            },
-            "title": "Failure Rate 7D",
-            "type": "array"
-          },
-          "window": {
-            "$ref": "#/components/schemas/WindowMeta"
-          }
-        },
-        "required": [
-          "compliance",
-          "coverage",
-          "window"
-        ],
-        "title": "ExtractionHealthResponse",
-        "type": "object"
-      },
-      "FailureRateRow": {
-        "properties": {
-          "adapter": {
-            "title": "Adapter",
-            "type": "string"
-          },
-          "failed": {
-            "title": "Failed",
-            "type": "integer"
-          },
-          "parsed": {
-            "title": "Parsed",
-            "type": "integer"
-          },
-          "rate": {
-            "title": "Rate",
-            "type": "number"
-          },
-          "tier": {
-            "title": "Tier",
-            "type": "string"
-          }
-        },
-        "required": [
-          "adapter",
-          "failed",
-          "parsed",
-          "rate",
-          "tier"
-        ],
-        "title": "FailureRateRow",
         "type": "object"
       },
       "FlaggedEntitySummary": {
@@ -3724,18 +3609,6 @@
             ],
             "description": "Retailer ID when product_url is from a known retailer",
             "title": "Retailer Id"
-          },
-          "specifications": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Specifications"
           }
         },
         "required": [
@@ -4330,18 +4203,6 @@
             "title": "Source",
             "type": "string"
           },
-          "specifications": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Specifications"
-          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -4519,18 +4380,6 @@
             "title": "Source",
             "type": "string"
           },
-          "specifications": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Specifications"
-          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -4667,18 +4516,6 @@
               }
             ],
             "title": "Part Number"
-          },
-          "specifications": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Specifications"
           }
         },
         "title": "PartUpdate",
@@ -6925,24 +6762,6 @@
         ],
         "title": "WebAuthnRegisterVerifyRequest",
         "type": "object"
-      },
-      "WindowMeta": {
-        "properties": {
-          "days": {
-            "title": "Days",
-            "type": "integer"
-          },
-          "since": {
-            "title": "Since",
-            "type": "string"
-          }
-        },
-        "required": [
-          "days",
-          "since"
-        ],
-        "title": "WindowMeta",
-        "type": "object"
       }
     },
     "securitySchemes": {
@@ -7748,39 +7567,6 @@
           }
         ],
         "summary": "Delete All Parts",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/api/admin/extraction-health/": {
-      "get": {
-        "description": "Return compliance + coverage + 7-day failure-rate (admin only).\n\nImplementation note: per MEM037, the canonical adapter count is 108\n(T0:83 / T1:15 / T2:10) \u2014 the IS_FALLBACK ``GenericHtmlParser`` instances\nare excluded from ``ADAPTER_REGISTRY`` per D-03 and therefore from the\ncompliance tally. Failure-rate is sourced from ``crawled_pages.parse_status``\nrather than CloudWatch (D008).",
-        "operationId": "get_extraction_health_api_admin_extraction_health__get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExtractionHealthResponse"
-                }
-              }
-            },
-            "description": "Extraction health snapshot (compliance + coverage + failure-rate)"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Access denied"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Get Extraction Health",
         "tags": [
           "admin"
         ]

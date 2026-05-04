@@ -43,6 +43,11 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
 }) => {
   const [name, setName] = useState(buildList.name);
   const [description, setDescription] = useState(buildList.description || '');
+  const [basePriceDollars, setBasePriceDollars] = useState<string>(
+    buildList.base_price_cents
+      ? (buildList.base_price_cents / 100).toFixed(2)
+      : ''
+  );
   const [imageFileKey, setImageFileKey] = useState<string | null>(null);
   const [imageChanged, setImageChanged] = useState(false);
   const [selectedMake, setSelectedMake] = useState<string>('');
@@ -158,6 +163,11 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
   useEffect(() => {
     setName(buildList.name);
     setDescription(buildList.description || '');
+    setBasePriceDollars(
+      buildList.base_price_cents
+        ? (buildList.base_price_cents / 100).toFixed(2)
+        : ''
+    );
     // Note: buildList.image_urls[0] is a presigned URL from the API
     setImageFileKey(null);
     setImageChanged(false);
@@ -178,10 +188,23 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
       return;
     }
 
+    const trimmedBasePrice = basePriceDollars.trim();
+    const parsedBaseDollars =
+      trimmedBasePrice === '' ? 0 : Number(trimmedBasePrice);
+    if (!Number.isFinite(parsedBaseDollars) || parsedBaseDollars < 0) {
+      setFormMessage({
+        type: 'error',
+        text: 'Base car price must be a non-negative number.',
+      });
+      return;
+    }
+    const basePriceCents = Math.round(parsedBaseDollars * 100);
+
     const payload: BuildListUpdate = {
       name: name.trim(),
       description: description.trim() || null,
       car_id: selectedGeneration?.id || null,
+      base_price_cents: basePriceCents,
     };
 
     const result = await executeUpdateBuildList({
@@ -441,6 +464,34 @@ const EditBuildListForm: React.FC<EditBuildListFormProps> = ({
             onChange={(e) => setDescription(e.target.value)}
             disabled={isLoading}
           />
+        </div>
+        <div>
+          <label
+            htmlFor="edit-buildlist-base-price"
+            className="block text-sm font-medium text-foreground mb-2"
+          >
+            Base Car Price (Optional)
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              $
+            </span>
+            <Input
+              id="edit-buildlist-base-price"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              value={basePriceDollars}
+              onChange={(e) => setBasePriceDollars(e.target.value)}
+              disabled={isLoading}
+              placeholder="0.00"
+              className="pl-7"
+            />
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            Purchase price of the donor car. Included in the build's total cost.
+          </p>
         </div>
         <ImageUpload
           currentImageUrl={buildList.image_urls?.[0] ?? null}

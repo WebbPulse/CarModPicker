@@ -11,12 +11,6 @@ def test_factory_default(make_scraped_payload):
     assert isinstance(p, ScrapedPayload)
     assert p.name == "Test Part"
     assert p.product_url == "https://example.com/p"
-    assert p.specifications is None
-
-
-def test_factory_with_specifications(make_scraped_payload):
-    p = make_scraped_payload(specifications={"spring_rate_front": 600})
-    assert p.specifications == {"spring_rate_front": 600}
 
 
 def test_factory_overrides(make_scraped_payload):
@@ -28,12 +22,6 @@ def test_factory_overrides(make_scraped_payload):
 def test_load_fixture_html_existing():
     html = load_fixture_html("amsperformance")
     assert len(html) > 1000
-
-
-def test_load_fixture_html_sample_under_2kb():
-    html = load_fixture_html("spec_contract_samples", "coilover_sample.html")
-    assert "application/ld+json" in html
-    assert "Sample Coilover Kit" in html
 
 
 def test_load_fixture_html_missing_raises():
