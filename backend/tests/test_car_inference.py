@@ -620,3 +620,23 @@ class TestM004S04AliasBaseline:
 
         result = infer_car_generations("Eibach Pro-Kit Lowering Springs 2023+ Civic Type R", None)
         assert ("Honda", "Civic Type R", "FL5") in result
+
+
+class TestParensAdjacencyLimitation:
+    """Document the known limitation that parens between make+model break the adjacency rule.
+
+    `infer_car_generations` strips parentheses but leaves the contained words inline.
+    PHRASE_TRIPLES require make+model to be adjacent, so a parenthesized insert between
+    them ("Nissan (ONLY) GT-R" → "Nissan ONLY GT-R") breaks the substring match. This is
+    intentional — relaxing adjacency would introduce false positives where unrelated make
+    and model tokens elsewhere in a long fitment list could be paired up.
+
+    Adapters whose product titles regularly use this pattern should override
+    infer_car_for_part with their own parser rather than fight the adjacency rule.
+    """
+
+    def test_parens_between_make_and_model_does_not_match_phrase(self) -> None:
+        # No CAR_ALIAS covers this exact phrasing, and PHRASE_TRIPLES require adjacency,
+        # so the (ONLY) insert prevents resolution.
+        result = infer_car_generations("Brand-New Catback — Nissan (ONLY) GT-R Variant", None)
+        assert not any(make == "Nissan" and model == "GT-R" for make, model, _ in result)

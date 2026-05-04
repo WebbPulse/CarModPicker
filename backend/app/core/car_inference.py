@@ -1370,56 +1370,56 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("4g63 evo", "Mitsubishi", "Lancer Evolution", "VIII"),
     ("4g63 evo", "Mitsubishi", "Lancer Evolution", "IX"),
     # Mitsubishi 3000GT + Dodge Stealth platform twin
-    ("mitsubishi 3000gt", "Mitsubishi", "3000GT", "First Generation"),
-    ("mitsubishi 3000gt", "Mitsubishi", "3000GT", "Second Generation"),
-    ("mitsubishi 3000gt", "Mitsubishi", "3000GT", "Third Generation"),
-    ("3000gt", "Mitsubishi", "3000GT", "First Generation"),
-    ("3000gt", "Mitsubishi", "3000GT", "Second Generation"),
-    ("3000gt", "Mitsubishi", "3000GT", "Third Generation"),
-    ("3000gt vr-4", "Mitsubishi", "3000GT", "First Generation"),
-    ("3000gt vr-4", "Mitsubishi", "3000GT", "Second Generation"),
-    ("3000gt vr-4", "Mitsubishi", "3000GT", "Third Generation"),
-    ("3000gt vr4", "Mitsubishi", "3000GT", "First Generation"),
-    ("z16a", "Mitsubishi", "3000GT", "First Generation"),
-    ("dodge stealth", "Mitsubishi", "3000GT", "First Generation"),
-    ("91-93 3000gt", "Mitsubishi", "3000GT", "First Generation"),
-    ("1991-1993 3000gt", "Mitsubishi", "3000GT", "First Generation"),
-    ("94-99 3000gt", "Mitsubishi", "3000GT", "Second Generation"),
-    ("94-99 3000gt", "Mitsubishi", "3000GT", "Third Generation"),
-    ("1994-1999 3000gt", "Mitsubishi", "3000GT", "Second Generation"),
-    ("1994-1999 3000gt", "Mitsubishi", "3000GT", "Third Generation"),
-    ("91-99 mitsubishi 3000gt", "Mitsubishi", "3000GT", "First Generation"),
-    ("91-99 mitsubishi 3000gt", "Mitsubishi", "3000GT", "Second Generation"),
-    ("91-99 mitsubishi 3000gt", "Mitsubishi", "3000GT", "Third Generation"),
+    ("mitsubishi 3000gt", "Mitsubishi", "3000GT", "1st Gen"),
+    ("mitsubishi 3000gt", "Mitsubishi", "3000GT", "2nd Gen"),
+    ("mitsubishi 3000gt", "Mitsubishi", "3000GT", "3rd Gen"),
+    ("3000gt", "Mitsubishi", "3000GT", "1st Gen"),
+    ("3000gt", "Mitsubishi", "3000GT", "2nd Gen"),
+    ("3000gt", "Mitsubishi", "3000GT", "3rd Gen"),
+    ("3000gt vr-4", "Mitsubishi", "3000GT", "1st Gen"),
+    ("3000gt vr-4", "Mitsubishi", "3000GT", "2nd Gen"),
+    ("3000gt vr-4", "Mitsubishi", "3000GT", "3rd Gen"),
+    ("3000gt vr4", "Mitsubishi", "3000GT", "1st Gen"),
+    ("z16a", "Mitsubishi", "3000GT", "1st Gen"),
+    ("dodge stealth", "Mitsubishi", "3000GT", "1st Gen"),
+    ("91-93 3000gt", "Mitsubishi", "3000GT", "1st Gen"),
+    ("1991-1993 3000gt", "Mitsubishi", "3000GT", "1st Gen"),
+    ("94-99 3000gt", "Mitsubishi", "3000GT", "2nd Gen"),
+    ("94-99 3000gt", "Mitsubishi", "3000GT", "3rd Gen"),
+    ("1994-1999 3000gt", "Mitsubishi", "3000GT", "2nd Gen"),
+    ("1994-1999 3000gt", "Mitsubishi", "3000GT", "3rd Gen"),
+    ("91-99 mitsubishi 3000gt", "Mitsubishi", "3000GT", "1st Gen"),
+    ("91-99 mitsubishi 3000gt", "Mitsubishi", "3000GT", "2nd Gen"),
+    ("91-99 mitsubishi 3000gt", "Mitsubishi", "3000GT", "3rd Gen"),
     # Mitsubishi Eclipse DSM / Eagle Talon + year-range multi-gen fitments
-    ("2g dsm", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("dsm eclipse", "Mitsubishi", "Eclipse", "First Generation"),
-    ("dsm eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("dsm gsx", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("1g dsm", "Mitsubishi", "Eclipse", "First Generation"),
-    ("eclipse gsx", "Mitsubishi", "Eclipse", "First Generation"),
-    ("eclipse gsx", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("eclipse gs-t", "Mitsubishi", "Eclipse", "First Generation"),
-    ("eclipse gs-t", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("eagle talon", "Mitsubishi", "Eclipse", "First Generation"),
-    ("eagle talon", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("1996-2000 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("1990-1994 mitsubishi eclipse", "Mitsubishi", "Eclipse", "First Generation"),
-    ("1990-1994 eclipse", "Mitsubishi", "Eclipse", "First Generation"),
-    ("1990-1994 eclipse / talon", "Mitsubishi", "Eclipse", "First Generation"),
-    ("1990-1994 eclipse/talon", "Mitsubishi", "Eclipse", "First Generation"),
-    ("1995-1999 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("1995-1999 eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("1995-1999 eclipse / talon", "Mitsubishi", "Eclipse", "Second Generation"),
-    ("90-94 mitsubishi eclipse", "Mitsubishi", "Eclipse", "First Generation"),
-    ("89-94 mitsubishi eclipse", "Mitsubishi", "Eclipse", "First Generation"),
-    ("95-99 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Second Generation"),
+    ("2g dsm", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("dsm eclipse", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("dsm eclipse", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("dsm gsx", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("1g dsm", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("eclipse gsx", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("eclipse gsx", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("eclipse gs-t", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("eclipse gs-t", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("eagle talon", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("eagle talon", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("1996-2000 mitsubishi eclipse", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("1990-1994 mitsubishi eclipse", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("1990-1994 eclipse", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("1990-1994 eclipse / talon", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("1990-1994 eclipse/talon", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("1995-1999 mitsubishi eclipse", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("1995-1999 eclipse", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("1995-1999 eclipse / talon", "Mitsubishi", "Eclipse", "2nd Gen"),
+    ("90-94 mitsubishi eclipse", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("89-94 mitsubishi eclipse", "Mitsubishi", "Eclipse", "1st Gen"),
+    ("95-99 mitsubishi eclipse", "Mitsubishi", "Eclipse", "2nd Gen"),
     # Mitsubishi Eclipse Cross / Lancer CE (new seeds) + Galant VR-4 + Ralliart
     ("18-24 mitsubishi eclipse cross", "Mitsubishi", "Eclipse Cross", "1st Gen"),
     ("mitsubishi eclipse cross", "Mitsubishi", "Eclipse Cross", "1st Gen"),
     ("96-00 mitsubishi lancer", "Mitsubishi", "Lancer", "CE"),
-    ("91-99 mitsubishi galant vr4", "Mitsubishi", "Galant VR-4", "6th Generation"),
-    ("galant vr-4", "Mitsubishi", "Galant VR-4", "6th Generation"),
+    ("91-99 mitsubishi galant vr4", "Mitsubishi", "Galant VR-4", "1st Gen"),
+    ("galant vr-4", "Mitsubishi", "Galant VR-4", "1st Gen"),
     # Infiniti G35 / G37 — already in DB (V35/V36) but "g35" bare name has no alias
     ("g35", "Infiniti", "G35", "V35"),
     ("infiniti g35", "Infiniti", "G35", "V35"),
@@ -2542,11 +2542,11 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("lexus ls400", "Lexus", "LS", "UCF10"),
     ("04-09 lexus rx330", "Lexus", "RX", "XU30"),
     ("04-09 lexus rx350", "Lexus", "RX", "XU30"),
-    # Mitsubishi Eclipse year-range aliases (gen names "Third Generation" etc. don't appear in product text)
-    ("00-05 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Third Generation"),
-    ("06-12 mitsubishi eclipse", "Mitsubishi", "Eclipse", "Fourth Generation"),
-    ("mitsubishi eclipse", "Mitsubishi", "Eclipse", "Third Generation"),
-    ("mitsubishi eclipse", "Mitsubishi", "Eclipse", "Fourth Generation"),
+    # Mitsubishi Eclipse year-range aliases (3G/4G gen tokens don't appear in product text, so anchor on year ranges)
+    ("00-05 mitsubishi eclipse", "Mitsubishi", "Eclipse", "3rd Gen"),
+    ("06-12 mitsubishi eclipse", "Mitsubishi", "Eclipse", "4th Gen"),
+    ("mitsubishi eclipse", "Mitsubishi", "Eclipse", "3rd Gen"),
+    ("mitsubishi eclipse", "Mitsubishi", "Eclipse", "4th Gen"),
     # Mitsubishi Lancer (non-Evo) — require make+model to avoid matching "lancer evolution"
     ("mitsubishi lancer", "Mitsubishi", "Lancer", "CJ"),
     ("02-07 mitsubishi lancer", "Mitsubishi", "Lancer", "CS/CT"),
@@ -2829,6 +2829,14 @@ def infer_car_generations(
     url_normalized = re.sub(r"[-_/]+", " ", url)
     # Strip parentheses from product names — fitment titles like "(7th Generation)" or "(FWD / AWD)"
     # would otherwise block substring matching against PHRASE_TRIPLES (which don't contain parens).
+    #
+    # Known limitation: this strip leaves the parenthesized words inline, so titles where parens
+    # appear *between* a make and model token still won't match make+model phrases. Example:
+    # "Nissan (ONLY) GT-R" → "Nissan ONLY GT-R" — and "nissan gt-r" is not a substring of that.
+    # The adjacency requirement is what keeps PHRASE_TRIPLES precise (e.g. preventing "Honda" +
+    # "Civic" tokens scattered across a long fitment list from being treated as one phrase), so
+    # we don't try to repair the gap by additional rewriting. Adapters that need parens-broken
+    # phrases handled should override infer_car_for_part with their own parser.
     name_normalized = re.sub(r"[()]", " ", name)
     desc_normalized = re.sub(r"[()]", " ", description)
     combined = re.sub(r" {2,}", " ", f"{name_normalized} {desc_normalized} {url_normalized}").strip()
@@ -2855,6 +2863,97 @@ def infer_car_generations(
             result.append((make, model, gen_name))
 
     return result
+
+
+def generations_for_make_model_year_range(
+    make: str,
+    model: str,
+    year_range: tuple[int, int],
+) -> list[tuple[str, str, str]]:
+    """
+    Return ``(make, model, generation_name)`` triples whose US production
+    window overlaps ``year_range``. Reads ``CAR_GENERATIONS`` (the static
+    declarative data) so this function is DB-free and safe to call from
+    adapters at parse time. ``year_range`` is ``(start_year, end_year)``;
+    use ``9999`` as ``end_year`` for open-ended ranges (``2021+``).
+
+    Stable ordering matches the declarative sequence in
+    ``car_generations_data`` so test diffs are predictable. Returns an
+    empty list when the make/model is unknown, when no generation window
+    overlaps, or when ``year_range`` is implausible (start > end).
+
+    Used by adapter ``infer_car_for_part`` hooks for retailers whose
+    titles encode fitment as a model token + parenthesized year range
+    (Steeda's ``"Mustang ... (2015-2023)"``, Driveshaftshop's ``"2009-2014
+    Dodge Charger ..."``) — the universal pipeline only matches phrases
+    like ``"Mustang 6th Gen"`` and so misses these titles entirely.
+    """
+    y1, y2 = year_range
+    if y1 > y2:
+        return []
+    models = CAR_GENERATIONS.get(make)
+    if not models:
+        return []
+    out: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for model_data in models:
+        if model_data["model"] != model:
+            continue
+        for gen in model_data["generations"]:
+            gs = gen["start_year"]
+            ge = gen["end_year"] if gen["end_year"] is not None else 9999
+            if y1 <= ge and y2 >= gs:
+                gen_name = gen["generation_name"]
+                if gen_name not in seen:
+                    seen.add(gen_name)
+                    out.append((make, model, gen_name))
+    return out
+
+
+def narrow_triples_by_year_range(
+    triples: list[tuple[str, str, str]],
+    year_range: tuple[int, int],
+) -> list[tuple[str, str, str]]:
+    """
+    Filter ``triples`` to those whose generation window in ``CAR_GENERATIONS``
+    overlaps ``year_range``. ``year_range`` is ``(start_year, end_year)``;
+    use ``9999`` as the upper bound for open-ended ranges.
+
+    Triples whose (make, model, generation) is unknown to ``CAR_GENERATIONS``
+    are dropped — without a year window we can't decide overlap, and an
+    unknown triple is also unlikely to resolve in ``resolve_car_triples_to_ids``
+    against the DB anyway.
+
+    Used by adapter ``infer_car_for_part`` hooks to layer year-range
+    intelligence on top of ``infer_car_generations``: the universal
+    pipeline matches model phrases like ``"Mitsubishi Eclipse"`` and
+    returns *every* generation of that model; narrowing to the title's
+    year range trims the match set down to the actually-fitted generations.
+    Returns the filtered list (possibly empty); the adapter is responsible
+    for converting an empty list to ``None`` to fall through.
+    """
+    y1, y2 = year_range
+    if y1 > y2 or not triples:
+        return []
+
+    out: list[tuple[str, str, str]] = []
+    for make, model, gen_name in triples:
+        models = CAR_GENERATIONS.get(make)
+        if not models:
+            continue
+        for model_data in models:
+            if model_data["model"] != model:
+                continue
+            for gen in model_data["generations"]:
+                if gen["generation_name"] != gen_name:
+                    continue
+                gs = gen["start_year"]
+                ge = gen["end_year"] if gen["end_year"] is not None else 9999
+                if y1 <= ge and y2 >= gs:
+                    out.append((make, model, gen_name))
+                break
+            break
+    return out
 
 
 def resolve_car_triples_to_ids(
