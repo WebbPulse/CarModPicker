@@ -36,6 +36,24 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "touring edition",
         "track edition",
         "conversion kit",
+        # 2026-05-03 audit (Tier-3): HKS exhaust catalog phrases. ``hi-power``
+        # is the HKS catback line; ``metal catalyzer`` is their high-flow cat;
+        # ``legamax`` is the HKS axle-back; ``front pipe`` / ``center pipe`` /
+        # ``rear section`` are SKU section names common across HKS, ETS, and
+        # Subaru aftermarket. ``cel fix`` is a high-flow cat with O2 spacer.
+        "hi-power",
+        "hi power",
+        "metal catalyzer",
+        "catalytic converter",
+        "front pipe",
+        "center pipe",
+        "legamax",
+        "super sound master",
+        "exhaust manifold",
+        "cel fix",
+        "high flow cat",
+        "race pipe",
+        "rear section",
     ],
     "suspension": [
         "coilover",
@@ -75,6 +93,25 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "electronic damping",
         "electronic damping delete",
         "error canceller",
+        # 2026-05-03 audit (Tier-3): HKS / Tein / Eibach catalog phrases that
+        # didn't match any of the existing ``coilover``/``spring``/``shock``
+        # etc. tokens. ``hipermax`` is the HKS coilover product line.
+        # ``performance damper`` is the Yamaha/Lambda chassis damper.
+        # ``carbon brace`` / ``front lower bar`` / ``lower arm bar`` /
+        # ``pillowball`` are Cusco/Tein/HKS chassis-brace and pillow-ball
+        # mount SKUs that have no other suspension keyword.
+        "hipermax",
+        "performance damper",
+        "carbon brace",
+        "front lower bar",
+        "lower arm bar",
+        "tein s.tech",
+        "eibach pro-kit",
+        "eibach pro kit",
+        "bump stop",
+        "pillowball",
+        "error canceler",
+        "suspension error",
     ],
     "engine": [
         "turbo",
@@ -242,6 +279,181 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "valve guide",
         "cam gear",
         "throttle body",
+        # 2026-05-03 audit (Tier-3): largest residual ``other`` cluster was
+        # turbocharger plumbing/hardware (Garrett, Tial, ATPturbo, GReddy
+        # SKUs) — none of these matched any of the existing engine keywords
+        # because the SKU language is highly specialized. Add the canonical
+        # phrases. ``hose union`` / ``hose band`` / ``vacuum tube`` are
+        # GReddy-specific catalog phrases; ``vband``/``v-band`` covers all
+        # turbo flange/clamp parts. Per the audit, recategorizes 250+ parts
+        # in ``other`` → ``engine`` without measurable false positives.
+        "turbine housing",
+        "compressor housing",
+        "chra",
+        "super core",
+        "wastegate actuator",
+        "actuator upgrade",
+        "v-band clamp",
+        "vband clamp",
+        "v-band flange",
+        "vband flange",
+        "v-band entry",
+        "v-band exit",
+        "tial",
+        "garrett",
+        "turbosmart",
+        "turbine inlet",
+        "turbine outlet",
+        "compressor inlet",
+        "compressor outlet",
+        "wastegate",
+        # GReddy/HKS turbo-plumbing phrases — these never collided with any
+        # other category in the regression run.
+        "hose union",
+        "hose band",
+        "hose clamp",
+        "hose nipple",
+        "vacuum tube",
+        "swivel nipple",
+        "swivel barbed",
+        "barbed nipple",
+        "vacuum nipple",
+        "plug bolt union",
+        "compression tube",
+        "bend pipe",
+        "straight pipe",
+        "cast aluminum elbow",
+        "aluminum bend",
+        "t-bolt clamp",
+        "t bolt clamp",
+        # AN-fitting catalog phrases the previous Tier-2 dash-AN-N keywords
+        # missed (the dash-prefixed forms cover ``-6AN``; these cover the
+        # AN-prefixed forms ``AN-6`` and the related fitting kits).
+        "an-3",
+        "an-4",
+        "an-6",
+        "an-8",
+        "an-10",
+        "an-12",
+        "an-16",
+        "banjo bolt",
+        "metric adapter",
+        "tube sleeve",
+        "tube nut",
+        "bulkhead fitting",
+        "bulkhead nut",
+        "thread sealant",
+        "fitting elbow",
+        "elbow fitting",
+        # HKS intake / SQV / cam keyword set. ``racing suction`` /
+        # ``power flow`` / ``airinx`` are HKS catalog product lines that
+        # are entirely engine-side intake hardware. ``super sqv`` is the
+        # HKS BOV brand. ``vcam`` / ``valcon`` are the HKS variable-cam
+        # control system.
+        "racing suction",
+        "premium suction",
+        "power flow",
+        "airinx",
+        "drycarbon suction",
+        "suction return",
+        "suction kit",
+        "airbox",
+        "air box",
+        "airflow",
+        "maf hose",
+        "map sensor",
+        "throttle position sensor",
+        "knock sensor",
+        "o2 sensor",
+        "wideband",
+        "super sqv",
+        "sqv4",
+        "blow off valve",
+        "blow-off valve",
+        "valcon",
+        "vcam",
+        "vcamshaft",
+        "stem-seal",
+        "stem seal",
+        "cylinder liner",
+        "ring gasket",
+        "complete engine",
+        "engine assembly",
+        "long block",
+        "short block",
+        "carbon plug cover",
+        "cover transistor",
+        # Engine oil / fluids — HKS's own engine-oil product line and the
+        # canonical SAE viscosity tokens. Limited to the dashed forms so
+        # we don't fire on freeform "0w" or "5w".
+        "racing pro oil",
+        "racing oil",
+        "super zero racing",
+        "super na racing",
+        "engine oil",
+        "motor oil",
+        "0w-20",
+        "0w-30",
+        "0w-40",
+        "5w-30",
+        "5w-40",
+        "10w-40",
+        "10w-50",
+        "10w-60",
+        "gear oil",
+        "g-900",
+        "dctf",
+        "dct fluid",
+        "dct cooler",
+        # Hasport / Innovative engine-mount product-line phrases. Already
+        # have ``engine mount`` / ``motor mount`` / ``swap mount``; these
+        # are the additional Hasport-specific phrases that show up in
+        # SKUs without one of those words.
+        "torque mount",
+        "skid plate",
+        "shift linkage",
+        "wiring conversion",
+        "conversion harness",
+        "rear bracket",
+        # COBB / Cobb-Tuning catalog language. ``accessport`` already
+        # exists. ``power package`` is the Cobb stage-tune SKU naming.
+        # ``high flow filter`` is the Cobb intake-filter line.
+        "accessport",
+        "high flow filter",
+        "stage 1",
+        "stage 2",
+        "stage 3",
+        "power package",
+        "flex fuel",
+        "flex-fuel",
+        "openflash",
+        "ecu flashing",
+        "pdk flashing",
+        "dsg flashing",
+        # Fuel system / surge tank phrases the Tier-2 keywords missed.
+        "surge tank",
+        "fuel cell",
+        "in-tank",
+        "phantom series",
+        "fpr",
+        "fuel pressure regulator",
+        # Pulley / underdrive — almost always engine-side.
+        "pulley kit",
+        "alternator pulley",
+        "underdrive",
+        # Aeromotive filter element language (none of which match the
+        # previously-added ``aeromotive an-`` phrases).
+        "aeromotive",
+        "microglass",
+        "10-micron",
+        "100-micron",
+        "stainless mesh",
+        "filter element",
+        "filter housing",
+        "loctite",
+        "rtv silicone",
+        "battery box",
+        "breather filter",
     ],
     "wheels": [
         "wheel",
@@ -285,6 +497,35 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "enkei",
         "bbs",
         "rotiform",
+        # 2026-05-03 audit (Tier-3): RAYS / Mackin Industries wheel-line
+        # SKUs that have no other wheel keyword (descriptions are empty).
+        # ``ce28`` / ``57cr`` / ``57xtreme`` are RAYS forged wheel models.
+        # ``color clear`` / ``inch black machine`` / ``inch silver machine``
+        # / ``inch chrome`` are the Mackin finish-spec phrases. These
+        # phrases occur ONLY on wheel SKUs in the catalog.
+        "ce28",
+        "ce28n",
+        "57cr",
+        "57xtreme",
+        "club racer",
+        "color clear",
+        "black machine",
+        "silver machine",
+        "bronze color",
+        # The Mackin "12inch chrome" / "13inch silver" pattern: ``inch`` is
+        # part of a digit-prefixed token (``12inch``) so a word-boundary
+        # match on ``inch`` alone fails. Use the suffix tokens that follow.
+        "machine finish",
+        # Wheel hardware
+        "tuner nut",
+        "lock nut",
+        "wheel lock",
+        "lock & nut",
+        "double lock nut",
+        "bull lock",
+        "wide tread spacer",
+        "duralumin lock",
+        "beadlock",
     ],
     "body": [
         "body kit",
@@ -325,6 +566,31 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "rocker",
         "rocker extension",
         "side rocker",
+        # 2026-05-03 audit (Tier-3): exterior trim / mirror / wiper SKUs
+        # that fell through. ``mirror cover`` / ``mirror shroud`` are common
+        # carbon-fiber mirror caps. ``wiper blade`` covers replacement
+        # blades; ``sun visor`` covers sun-visor trim. ``trunk handle`` /
+        # ``fuse box cover`` / ``door pull`` / ``door pocket`` /
+        # ``door garnish`` / ``door lock`` are exterior body trim.
+        # NOTE: do NOT add ``dry carbon`` — it false-positives on interior
+        # carbon trim, oil cap covers, and shift paddle sets.
+        "mud flap",
+        "mud flaps",
+        "carbon mirror",
+        "mirror cover",
+        "mirror shroud",
+        "door mirror",
+        "door pull",
+        "door pocket",
+        "door lock",
+        "windshield wiper",
+        "wiper blade",
+        "wiper blades",
+        "wiper arm",
+        "sun visor",
+        "visor mirror",
+        "fuse box cover",
+        "trunk handle",
     ],
     "interior": [
         "seat",
@@ -388,6 +654,27 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "bell helmet",
         "brey krause",
         "safecraft",
+        # 2026-05-03 audit (Tier-3): floor liners and cargo liners that the
+        # plain ``floor mat`` keyword missed because the SKU language uses
+        # ``FloorLiner`` / ``Cargo Liner`` / ``Carpet Floormat``. These are
+        # interior-only — never collide with body/exterior parts.
+        "floor mats",
+        "floormat",
+        "floorliner",
+        "weathertech",
+        "carpet floormat",
+        "rubber mats",
+        "cargo liner",
+        "trunk liner",
+        # Bell helmet accessories (tear-offs, head/neck restraint, etc.)
+        # — these are race-safety equipment and ride with the helmet
+        # cluster.
+        "tear-off",
+        "tear off",
+        "tearoff",
+        "lifeline",
+        "head and neck restraint",
+        "frontal head restraint",
     ],
     "brakes": [
         "brake",
@@ -438,6 +725,13 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "reflectors",
         "light cover",
         "light covers",
+        # 2026-05-03 audit (Tier-3): aftermarket horn upgrades (Hella,
+        # Stebel) and the OEM brackets PERRIN ships to mount them. Horns
+        # historically rode in ``other`` because none of the existing
+        # lighting tokens match them. Treating horns as ``lighting`` keeps
+        # them grouped with the other electrical/audible signaling parts.
+        "horn kit",
+        "horn bracket",
     ],
     "drivetrain": [
         "differential",
@@ -461,6 +755,20 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "short shift",
         "short shift kit",
         "shift kit",
+        # 2026-05-03 audit (Tier-3): clutch-disc + throw-out bearing SKUs
+        # from McLeod / Fidanza / Exedy / SPEC that have no other
+        # drivetrain keyword. Brand names match all-and-only clutch parts
+        # in the catalog (verified against regression test).
+        "throw out bearing",
+        "throw-out bearing",
+        "release bearing",
+        "clutch disc",
+        "friction disc",
+        "friction kit",
+        "mcleod",
+        "fidanza",
+        "exedy",
+        "pin drive",
     ],
     "accessories": [
         # Apparel / branded swag / cosmetic + detailing supplies. Tier-2
@@ -516,6 +824,49 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "patch",
         "tote",
         "backpack",
+        # 2026-05-03 audit (Tier-3): collectibles + car-care + service
+        # SKUs. ``scale model`` / 1-to-NN ratios catch diecast model cars
+        # (Porsche 1/43 / 1/18 collectibles). ``car cover`` catches the
+        # Covercraft / Premium / Outdoor cover product line. ``cabin
+        # filter`` / ``pollen filter`` are HVAC consumables (Genuine BMW,
+        # OEM-replacement). ``scheduled maintenance`` catches AMS labor-
+        # only SKUs. ``key chain`` / ``key blank`` / ``porsche key`` /
+        # ``ballcap`` / ``snapback`` are branded swag the apparel tier-2
+        # missed. ``apron`` / ``mechanic apron`` / ``raincoat`` are HKS-
+        # branded consumer goods. ``logo tee`` is the Fifteen52 / AWE
+        # apparel SKU language.
+        "scale model",
+        "diecast",
+        "die-cast",
+        "1/18",
+        "1/24",
+        "1/43",
+        "1/64",
+        "workshop gloves",
+        "neck gaiter",
+        "apron",
+        "mechanic apron",
+        "raincoat",
+        "kids sweater",
+        "sweater",
+        "logo tee",
+        "ballcap",
+        "porsche key",
+        "key chain",
+        "key blank",
+        "porsche bug remover",
+        "snapback",
+        "car cover",
+        "outdoor car cover",
+        "premium car cover",
+        "shipping insurance",
+        "pollen filter",
+        "cabin filter",
+        "nano cabin filter",
+        "scheduled maintenance",
+        "maintenance service",
+        "core charge",
+        "core return",
     ],
 }
 

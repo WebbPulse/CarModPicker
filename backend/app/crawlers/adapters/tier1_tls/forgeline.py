@@ -125,25 +125,44 @@ _PRODUCT_IMAGE_PATH = "/product_images/forgeline/"
 
 # Forgeline accessory pages embed bare 1-3 digit numeric SKUs (``"3"``,
 # ``"42"``, ``"108"``) that are too short to survive the downstream
-# ``is_junk_part_number`` 4-char floor. Brand-prefix them to ``FGL<sku>``
-# so the canonical key keeps the original code while clearing the floor
+# ``is_junk_part_number`` 4-char floor. Their wheel pages also use 3-char
+# alphanumeric model codes (``"CR3"``, ``"SL3"``, ``"GE1"``, ``"OE1"``)
+# that pass ``is_junk_part_number`` (digits-present check) but still fail
+# the canonical 4-char floor. Brand-prefix both shapes to ``FGL-<sku>`` so
+# the canonical key keeps the original code while clearing the floor
 # (mirrors ``tier0_http/roadsportsupply.py:_compose_rss_part_number``).
 _FORGELINE_SHORT_NUMERIC_SKU_RE = re.compile(r"^\d{1,3}$")
+# Short alphanumeric model codes: 2-3 chars, must contain at least one
+# digit (so we don't sweep up brand-acronym noise like "CSF") and start
+# with a letter (Forgeline's catalog convention).
+_FORGELINE_SHORT_MODEL_CODE_RE = re.compile(r"^[A-Z][A-Z0-9]{1,2}$")
 _FORGELINE_PN_PREFIX = "FGL"
 
 
 def _brand_prefix_short_numeric(part_number: Optional[str]) -> Optional[str]:
     """
-    Promote bare 1-3 digit numeric Forgeline SKUs to the prefixed form
-    (``"42"`` -> ``"FGL42"``) so they survive the 4-char floor.
-    Returns the input unchanged for any other shape.
+    Promote short Forgeline SKUs to the prefixed form so they survive the
+    canonical 4-char floor:
+
+    - Bare 1-3 digit numeric SKUs (``"42"`` -> ``"FGL-42"``).
+    - 2-3 char alphanumeric wheel/model codes that contain a digit
+      (``"CR3"`` -> ``"FGL-CR3"``, ``"GE1"`` -> ``"FGL-GE1"``).
+
+    Returns the input unchanged for any other shape so existing
+    catalog-shaped SKUs like ``"AL304"`` (already 5 chars) and accessory
+    SKUs from the ``Part # XXX`` regex pass through untouched.
     """
     if not part_number:
         return part_number
     sku = part_number.strip()
-    if not sku or not _FORGELINE_SHORT_NUMERIC_SKU_RE.match(sku):
+    if not sku:
         return part_number
-    return f"{_FORGELINE_PN_PREFIX}{sku}"
+    if _FORGELINE_SHORT_NUMERIC_SKU_RE.match(sku):
+        return f"{_FORGELINE_PN_PREFIX}-{sku}"
+    upper = sku.upper()
+    if _FORGELINE_SHORT_MODEL_CODE_RE.match(upper) and any(c.isdigit() for c in upper):
+        return f"{_FORGELINE_PN_PREFIX}-{upper}"
+    return part_number
 
 # Smoke-test seed: AL304 is a current high-volume forged wheel with a clean
 # price ($1830.00 starting) and the standard wheel-template DOM.

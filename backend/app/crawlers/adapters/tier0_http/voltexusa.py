@@ -328,6 +328,36 @@ def _extract_name(soup: BeautifulSoup) -> Optional[str]:
     return None
 
 
+# Voltex's house catalog ships short alphanumeric SKUs ("IB-4", "ES-1",
+# "ER-2") that contain a digit so they pass ``is_junk_part_number``, but
+# strip to <4 chars and fail the canonical 4-char floor (``"IB-4"`` ->
+# ``"IB4"`` length 3). Voltex is house-brand-only (every SKU is Voltex's
+# own; see module docstring), so brand-prefixing every short SKU on this
+# adapter is safe — there are no third-party resellers to confuse with.
+_VOLTEX_SHORT_SKU_RE = re.compile(r"^[A-Za-z]+-?\d+$")
+_VOLTEX_PN_PREFIX = "VOLTEX"
+
+
+def _brand_prefix_short_sku(part_number: Optional[str]) -> Optional[str]:
+    """
+    Promote short Voltex SKUs ("IB-4" -> "VOLTEX-IB-4") so they survive
+    the canonical 4-char floor. Returns the input unchanged for any other
+    shape; longer SKUs (5+ chars after stripping non-alphanumerics) pass
+    through untouched.
+    """
+    if not part_number:
+        return part_number
+    sku = part_number.strip()
+    if not sku:
+        return part_number
+    canonical = re.sub(r"[^A-Za-z0-9]", "", sku)
+    if len(canonical) >= 4:
+        return part_number
+    if not _VOLTEX_SHORT_SKU_RE.match(sku):
+        return part_number
+    return f"{_VOLTEX_PN_PREFIX}-{sku}"
+
+
 def _extract_sku(soup: BeautifulSoup) -> Optional[str]:
     """
     WooCommerce renders the SKU inside ``<span class="sku_wrapper">SKU:
@@ -336,6 +366,10 @@ def _extract_sku(soup: BeautifulSoup) -> Optional[str]:
 
     Returns ``None`` when the SKU node is empty (catalog-mode pages can
     still have SKUs since Voltex always sets them, but be defensive).
+
+    Short SKUs (``"IB-4"``, ``"ES-1"``) are brand-prefixed via
+    :func:`_brand_prefix_short_sku` so they clear the canonical 4-char
+    floor.
     """
     node = soup.find("span", attrs={"class": re.compile(r"(?:^|\s)sku(?:\s|$)", re.IGNORECASE)})
     if not isinstance(node, Tag):
@@ -346,7 +380,7 @@ def _extract_sku(soup: BeautifulSoup) -> Optional[str]:
     # WooCommerce uses the literal string "N/A" when a SKU is unset.
     if text.strip().lower() in ("n/a", "na"):
         return None
-    return normalize_part_number(text)
+    return normalize_part_number(_brand_prefix_short_sku(text))
 
 
 def _extract_description(soup: BeautifulSoup) -> Optional[str]:

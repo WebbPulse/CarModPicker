@@ -250,8 +250,30 @@ def _price_cents_from_og(soup: BeautifulSoup) -> Optional[int]:
     return None
 
 
+# RSS house-product URL slug shape: ``/<sku>-<slug-words>/`` where ``<sku>``
+# is a 1-3 digit code with optional ``-`` / ``/`` separators (e.g.
+# ``/323-thrust-arm-bushing/``). The 3rd-party reseller catalog uses
+# different slug shapes (Sharkwerks, Cargraphic, …) so a URL match here is
+# a strong signal that the page is RSS-house even when JSON-LD ``brand`` is
+# missing or the scraper resolved manufacturer to "Unknown".
+_RSS_HOUSE_URL_SLUG_RE = re.compile(r"^/(\d{1,3}(?:[-/]\d{1,3})?)-")
+
+
+def _is_rss_house_url(product_url: Optional[str]) -> bool:
+    """True when the URL path begins with an RSS-house numeric SKU prefix."""
+    if not product_url:
+        return False
+    try:
+        path = urlparse(product_url).path or ""
+    except ValueError:
+        return False
+    return bool(_RSS_HOUSE_URL_SLUG_RE.match(path))
+
+
 def _compose_rss_part_number(
-    raw_sku: Optional[str], part_manufacturer: Optional[str]
+    raw_sku: Optional[str],
+    part_manufacturer: Optional[str],
+    product_url: Optional[str] = None,
 ) -> Optional[str]:
     """
     Promote RSS Manufacturing's bare 3-digit SKUs (``"323"``, ``"389"``) to
@@ -259,6 +281,12 @@ def _compose_rss_part_number(
     ``is_junk_part_number`` 4-char floor without losing the original code.
     Returns the input unchanged for any other shape — third-party resold
     SKUs, already-prefixed codes, mixed alphanumerics, and Nones.
+
+    Brand resolution: a JSON-LD ``brand`` of "RSS" / "RSS Manufacturing"
+    is the primary signal. When that's absent, fall back to the URL slug
+    shape (``/<NNN>-...``) — RSS reuses the 3-digit code as the leading
+    URL segment on every house product, and 3rd-party resold lines use
+    different slugs so the URL match is house-specific.
 
     The prefix uses ``RSS-<sku>`` rather than ``RSS <sku>`` so the
     resulting token is one identifier-like sequence (no spaces) and
@@ -269,10 +297,9 @@ def _compose_rss_part_number(
     sku = raw_sku.strip()
     if not sku or not _SHORT_NUMERIC_SKU_RE.match(sku):
         return raw_sku
-    if not part_manufacturer:
-        return raw_sku
-    brand_key = part_manufacturer.strip().lower()
-    if brand_key not in _RSS_BRAND_TOKENS:
+    brand_key = (part_manufacturer or "").strip().lower()
+    is_rss_brand = brand_key in _RSS_BRAND_TOKENS
+    if not is_rss_brand and not _is_rss_house_url(product_url):
         return raw_sku
     return f"RSS-{sku}"
 
@@ -366,7 +393,9 @@ class RoadSportSupplyAdapter(RetailerCrawlerAdapter):
                 # (< 4 chars). Prefix to "RSS-323" so the code survives the
                 # floor while remaining recoverable. Third-party SKUs
                 # (Sharkwerks, Cargraphic, ...) are left untouched.
-                part_number = _compose_rss_part_number(part_number, part_manufacturer)
+                part_number = _compose_rss_part_number(
+                    part_number, part_manufacturer, product_url=url
+                )
 
                 return ScrapedPayload(
                     name=payload.name,

@@ -367,6 +367,14 @@ def _payload_from_product_group(group: Dict[str, Any], product_url: str) -> Opti
     variant = _first_variant(group) or {}
     sku_val = variant.get("sku") or variant.get("mpn") or group.get("productID")
     part_number = normalize_part_number(sku_val) if isinstance(sku_val, str) else None
+    # Shape guard: ETS's storefront occasionally writes the H1/title into
+    # ``variant.sku`` (e.g. ``"ETS Snap Back Hat"`` on merch). That pollutes
+    # the canonical key — drop the SKU when it equals the name modulo case
+    # and whitespace. Real ETS SKUs are alphanumeric codes ("400-30-1010")
+    # that never collide with the rendered name.
+    if part_number and name:
+        if re.sub(r"\s+", "", part_number).lower() == re.sub(r"\s+", "", name).lower():
+            part_number = None
     price_cents = _offer_price_cents(variant) if variant else None
 
     gtin_val = variant.get("gtin") or variant.get("gtin13") or variant.get("gtin12")
@@ -568,13 +576,19 @@ class ETSAdapter(RetailerCrawlerAdapter):
             if payload and payload.name:
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 image_urls = payload.image_urls or (dom_images[:12] if dom_images else None)
+                jsonld_pn = normalize_part_number(payload.part_number) if payload.part_number else None
+                # Same shape guard as the ProductGroup path above: drop SKU
+                # values that echo the H1/title (storefront leak from empty
+                # SKU fields).
+                if jsonld_pn and re.sub(r"\s+", "", jsonld_pn).lower() == re.sub(r"\s+", "", payload.name).lower():
+                    jsonld_pn = None
                 return ScrapedPayload(
                     name=payload.name,
                     product_url=url,
                     description=payload.description,
                     price_cents=price_cents,
                     part_manufacturer=_normalize_part_manufacturer(payload.part_manufacturer),
-                    part_number=normalize_part_number(payload.part_number) if payload.part_number else None,
+                    part_number=jsonld_pn,
                     image_urls=image_urls,
                     gtin=payload.gtin,
                 )

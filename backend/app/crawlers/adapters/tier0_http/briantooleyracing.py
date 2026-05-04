@@ -89,6 +89,37 @@ _TRAILING_MPN_RE = re.compile(
 )
 
 
+# BP Automotive house catalog ships 3-char alphanumeric SKUs ("A12", "E01",
+# "A99") that contain a digit (so they pass ``is_junk_part_number``) but
+# strip to <4 chars and fail the canonical 4-char floor. Scoped to the
+# specific brand string so resold lines (ARP, Texas Speed, Comp Cams, \u2026)
+# keep their vendor-issued identifiers. Modeled on
+# ``tier0_http/roadsportsupply.py:_compose_rss_part_number``.
+_BP_AUTOMOTIVE_BRAND_TOKENS = frozenset({"bp automotive"})
+_BP_AUTOMOTIVE_PN_PREFIX = "BPA"
+_BP_AUTOMOTIVE_SHORT_SKU_RE = re.compile(r"^[A-Za-z]\d{1,3}$")
+
+
+def _brand_prefix_bp_automotive(
+    part_number: Optional[str], part_manufacturer: Optional[str]
+) -> Optional[str]:
+    """
+    Promote BP Automotive's bare 3-char letter+digit SKUs ("A12") to the
+    prefixed form ("BPA-A12") so they survive the downstream canonical
+    4-char floor without losing the original code. Returns the input
+    unchanged for any other shape or non-BP-Automotive brand.
+    """
+    if not part_number or not part_manufacturer:
+        return part_number
+    sku = part_number.strip()
+    if not sku or not _BP_AUTOMOTIVE_SHORT_SKU_RE.match(sku):
+        return part_number
+    brand_key = part_manufacturer.strip().lower()
+    if brand_key not in _BP_AUTOMOTIVE_BRAND_TOKENS:
+        return part_number
+    return f"{_BP_AUTOMOTIVE_PN_PREFIX}-{sku}"
+
+
 def _is_product_url(url: str) -> bool:
     """True if ``url`` looks like a BTR product page (``/<slug>.html`` at root)."""
     try:
@@ -489,6 +520,17 @@ class BrianTooleyRacingAdapter(RetailerCrawlerAdapter):
         part_number = normalize_part_number(mpn_str) if mpn_str else None
         if not part_number:
             part_number = normalize_part_number(payload.part_number) if payload.part_number else None
+
+        # BP Automotive ships 3-char alphanumeric SKUs ("A12", "E01") that
+        # contain a digit so they pass ``is_junk_part_number`` but strip to
+        # <4 chars and fail the canonical 4-char floor. Brand-prefix them
+        # to ``BPA-<sku>`` (mirrors RSS / Forgeline) so the canonical
+        # dedup key keeps the original code while clearing the floor.
+        # Scoped to this manufacturer string so resold brands (ARP, Texas
+        # Speed, Comp Cams, …) keep their vendor-issued identifiers.
+        part_number = _brand_prefix_bp_automotive(
+            part_number, payload.part_manufacturer
+        )
 
         clean_name = _strip_trailing_mpn(payload.name, mpn_str)
 

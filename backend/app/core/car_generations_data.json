@@ -55,27 +55,31 @@
     {
       "generations": [
         {
-          "description": "Acura's mid-size luxury SUV. Featured V6 engines and all-wheel drive. Popular for its combination of luxury, performance, and practicality.",
+          "description": "Acura's mid-size luxury SUV (YD1 chassis). Featured 3.5L V6 with VTM-4 all-wheel drive. Popular for suspension upgrades and exhaust modifications.",
           "end_year": 2006,
           "generation_name": "1st Gen",
+          "slug": "yd1",
           "start_year": 2001
         },
         {
-          "description": "Refined MDX with updated styling and technology. Featured improved V6 engines and SH-AWD all-wheel drive. More refined and capable.",
+          "description": "Refined MDX (YD2 chassis) with 3.7L V6 producing 300 hp. SH-AWD torque-vectoring all-wheel drive. Improved technology and safety features. Popular for exhaust and suspension modifications.",
           "end_year": 2013,
           "generation_name": "2nd Gen",
+          "slug": "yd2",
           "start_year": 2007
         },
         {
-          "description": "Complete redesign with updated styling and technology. Featured updated V6 engines and improved fuel economy. More modern and efficient.",
+          "description": "Third-generation MDX (YD3 chassis) with 3.5L V6 producing 290 hp. Sport Hybrid SH-AWD model available. Improved fuel economy and technology. Popular for exhaust upgrades and suspension modifications.",
           "end_year": 2020,
           "generation_name": "3rd Gen",
+          "slug": "yd3",
           "start_year": 2014
         },
         {
-          "description": "Latest MDX with updated design and technology. Featured updated engines and advanced safety features. Type S variant introduced in 2022 with 3.0L turbocharged V6 producing 355 hp, SH-AWD, Brembo brakes, and air suspension.",
+          "description": "Fourth-generation MDX (YD4 chassis) on all-new platform. Featured 3.5L V6 producing 290 hp or Sport Hybrid system with 325 hp. Type S variant introduced in 2022 with 3.0L turbocharged V6 producing 355 hp, SH-AWD, Brembo brakes, and air suspension.",
           "end_year": null,
           "generation_name": "4th Gen",
+          "slug": "yd4",
           "start_year": 2021
         }
       ],
@@ -205,7 +209,7 @@
         },
         {
           "description": "Third-generation RDX on all-new platform. Featured 2.0L turbocharged K20C4 engine producing 272 hp. A-Spec and PMC editions for performance enthusiasts. Popular for intake, exhaust, and suspension modifications.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "TC1",
           "start_year": 2019
         }
@@ -250,35 +254,6 @@
         }
       ],
       "model": "RLX"
-    },
-    {
-      "generations": [
-        {
-          "description": "First-generation Acura MDX mid-size luxury SUV. Featured 3.5L V6 with VTM-4 all-wheel drive. Popular for suspension upgrades and exhaust modifications.",
-          "end_year": 2006,
-          "generation_name": "YD1",
-          "start_year": 2001
-        },
-        {
-          "description": "Second-generation MDX with 3.7L V6 producing 300 hp. SH-AWD torque-vectoring all-wheel drive. Improved technology and safety features. Popular for exhaust and suspension modifications.",
-          "end_year": 2013,
-          "generation_name": "YD2",
-          "start_year": 2007
-        },
-        {
-          "description": "Third-generation MDX with 3.5L V6 producing 290 hp. Sport Hybrid SH-AWD model available. Improved fuel economy and technology. Popular for exhaust upgrades and suspension modifications.",
-          "end_year": 2020,
-          "generation_name": "YD3",
-          "start_year": 2014
-        },
-        {
-          "description": "Fourth-generation MDX on all-new platform. Featured 3.5L V6 producing 290 hp or Sport Hybrid system with 325 hp. Type S featured 3.0L turbocharged V6 producing 355 hp. Popular for suspension and exhaust modifications.",
-          "end_year": 2024,
-          "generation_name": "YD4",
-          "start_year": 2022
-        }
-      ],
-      "model": "MDX"
     }
   ],
   "Alfa Romeo": [
@@ -322,7 +297,8 @@
         {
           "description": "Classic standalone V8 Vantage flagship with 5.3L naturally aspirated V8. Iconic William Towns design. Popular for engine rebuilds, suspension upgrades, and restoration modifications.",
           "end_year": 1989,
-          "generation_name": "V8 Vantage (Classic)",
+          "generation_name": "V8 Vantage I",
+          "slug": "v8-vantage-classic",
           "start_year": 1977
         },
         {
@@ -417,7 +393,8 @@
         {
           "description": "Original DBS fastback GT with 4.0L inline-6 or 5.3L V8 engines. Iconic William Towns design. Available as coupe. Classic collector car with restoration and modification support.",
           "end_year": 1972,
-          "generation_name": "DBS (Classic)",
+          "generation_name": "DBS I",
+          "slug": "dbs-classic",
           "start_year": 1967
         },
         {
@@ -439,25 +416,22 @@
       "generations": [
         {
           "description": "Original flagship with 5.9L V12 producing 460-520 horsepower. Available as coupe. Popular for exhaust upgrades, ECU tuning, intake modifications, and suspension improvements. Strong aftermarket support.",
-          "display_name": "Vanquish I",
-          "end_year": null,
-          "generation_name": "Vanquish",
+          "end_year": 2007,
+          "generation_name": "Vanquish I",
           "slug": "vanquish-i",
           "start_year": 2001
         },
         {
           "description": "VH-platform Vanquish with 5.9L V12 producing 565-600 horsepower. Available as coupe and Volante. Vanquish S variant available. Popular for exhaust upgrades, ECU tuning, aero enhancements, and luxury customization. Strong aftermarket support.",
-          "display_name": "Vanquish II",
           "end_year": 2018,
-          "generation_name": "Vanquish",
+          "generation_name": "Vanquish II",
           "slug": "vanquish-ii",
           "start_year": 2012
         },
         {
           "description": "Revived flagship with new twin-turbo V12 engine. Replaces DBS Superleggera as top model. Available as coupe and Volante. Popular for exhaust upgrades, ECU tuning, and performance modifications. Growing aftermarket support.",
-          "display_name": "Vanquish III",
-          "end_year": 2024,
-          "generation_name": "Vanquish",
+          "end_year": null,
+          "generation_name": "Vanquish III",
           "slug": "vanquish-iii",
           "start_year": 2024
         }
@@ -2553,9 +2527,10 @@
           "start_year": 2011
         },
         {
-          "description": "Latest Charger with updated design and technology. Featured updated engines and improved efficiency. SRT and Hellcat variants available.",
+          "description": "Latest Charger with updated design and technology (LB platform, electrified Daytona variants). Featured updated engines and improved efficiency. SRT and Hellcat variants available.",
           "end_year": null,
-          "generation_name": "2024+",
+          "generation_name": "LB",
+          "slug": "2024",
           "start_year": 2024
         }
       ],
@@ -4394,9 +4369,10 @@
           "start_year": 2014
         },
         {
-          "description": "Updated Q50 with refreshed styling and technology. Featured updated engines and improved fuel economy. More refined and efficient.",
+          "description": "Updated Q50 with refreshed styling and technology (V37 LCI / facelift). Featured updated engines and improved fuel economy. More refined and efficient.",
           "end_year": null,
-          "generation_name": "V37 (Facelift)",
+          "generation_name": "V37 LCI",
+          "slug": "v37-facelift",
           "start_year": 2021
         }
       ],
@@ -4553,7 +4529,8 @@
         {
           "description": "Countach with 4.8L V12 (later 5.2L in QV) producing 455-455 horsepower. 25th Anniversary edition featured updated styling. Popular for exhaust upgrades, restoration, body kit modifications, and maintaining the iconic wedge design. Strong enthusiast community and moderate aftermarket support.",
           "end_year": 1990,
-          "generation_name": "LP500S / 5000QV",
+          "generation_name": "LP500S/5000QV",
+          "slug": "lp500s-5000qv",
           "start_year": 1982
         }
       ],
@@ -4570,7 +4547,8 @@
         {
           "description": "Diablo variants including VT (all-wheel drive), SV (sport version), and SE30 (limited edition). Featured 5.7L V12 with power ranging from 492-595 horsepower. Popular for exhaust systems, performance upgrades, carbon fiber components, and custom bodywork. Strong enthusiast following and aftermarket support.",
           "end_year": 2001,
-          "generation_name": "VT / SV / SE30",
+          "generation_name": "VT/SV/SE30",
+          "slug": "vt-sv-se30",
           "start_year": 1993
         }
       ],
@@ -5209,7 +5187,8 @@
         {
           "description": "McLaren's first modern road car with 3.8L twin-turbo V8 producing 592-616 horsepower. Available as coupe and Spider. Foundation for all modern McLarens. Popular for exhaust upgrades, ECU tuning, aero modifications, carbon fiber bodywork, and suspension upgrades. Good aftermarket support from specialist tuners.",
           "end_year": 2014,
-          "generation_name": "MP4-12C / 12C",
+          "generation_name": "MP4-12C",
+          "slug": "mp4-12c-12c",
           "start_year": 2011
         }
       ],
@@ -5691,9 +5670,10 @@
           "start_year": 1990
         },
         {
-          "description": "Modernized G-Class with updated technology while maintaining classic design. Featured G63 AMG with twin-turbo V8. Most advanced generation.",
+          "description": "Modernized G-Class with updated technology while maintaining classic design. Featured G63 AMG with twin-turbo V8. Most advanced generation. Internal designation W463A.",
           "end_year": null,
-          "generation_name": "W463 (New)",
+          "generation_name": "W463A",
+          "slug": "w463-new",
           "start_year": 2019
         }
       ],
@@ -5799,9 +5779,10 @@
           "start_year": 2012
         },
         {
-          "description": "Latest G63 AMG with updated powertrain producing 577 horsepower. Improved technology while maintaining classic design. Most advanced G-Class.",
+          "description": "Latest G63 AMG with updated powertrain producing 577 horsepower. Improved technology while maintaining classic design. Most advanced G-Class. Internal designation W463A.",
           "end_year": null,
-          "generation_name": "W463 (New)",
+          "generation_name": "W463A",
+          "slug": "w463-new",
           "start_year": 2019
         }
       ],
@@ -6101,19 +6082,22 @@
         {
           "description": "Mitsubishi's flagship sports car (GTO in Japan). VR-4 trim featured 3.0L twin-turbocharged V6 (6G72) producing 300 hp, all-wheel drive, four-wheel steering, active aerodynamics, and active exhaust. Base/SL models used naturally aspirated V6. High-tech sports car with impressive capabilities. Very popular with enthusiasts for modifications including turbo upgrades, ECU tuning, exhaust systems, and suspension work.",
           "end_year": 1993,
-          "generation_name": "First Generation",
+          "generation_name": "1st Gen",
+          "slug": "first-generation",
           "start_year": 1991
         },
         {
           "description": "Updated 3000GT with fixed headlights replacing pop-ups. VR-4 featured 6-speed manual transmission option. Some high-end features scaled back. Spyder convertible variant introduced in 1995-1996 with retractable hardtop. Popular for modifications and tuning. Strong aftermarket support.",
           "end_year": 1996,
-          "generation_name": "Second Generation",
+          "generation_name": "2nd Gen",
+          "slug": "second-generation",
           "start_year": 1994
         },
         {
           "description": "Final generation with further refinements. VR-4 featured updated styling including aggressive front bumper and distinctive 'Combat Wing' spoiler. Production ended in US after 1999. Highly sought after by collectors and enthusiasts. Popular for modifications including turbo upgrades, intercooler upgrades, ECU tuning, and performance enhancements.",
           "end_year": 1999,
-          "generation_name": "Third Generation",
+          "generation_name": "3rd Gen",
+          "slug": "third-generation",
           "start_year": 1997
         }
       ],
@@ -6124,25 +6108,29 @@
         {
           "description": "Mitsubishi's sporty compact coupe. GSX trim featured turbocharged 2.0L 4G63T engine with all-wheel drive producing 195 hp. GS-T trim featured same turbo engine with front-wheel drive. Base models used naturally aspirated engines. Very popular with enthusiasts for modifications including turbo upgrades, intercooler upgrades, ECU tuning, exhaust systems, and suspension work. Strong aftermarket support and tuning community.",
           "end_year": 1994,
-          "generation_name": "First Generation",
+          "generation_name": "1st Gen",
+          "slug": "first-generation",
           "start_year": 1990
         },
         {
           "description": "Redesigned Eclipse with updated styling. GSX (AWD) and GS-T (FWD) continued with upgraded 2.0L turbo 4G63T producing 210 hp. Convertible Spyder variant available. Highly popular in tuning scene with extensive aftermarket support. Engine swaps, turbo upgrades, and performance modifications are common. Iconic 90s tuner car.",
           "end_year": 1999,
-          "generation_name": "Second Generation",
+          "generation_name": "2nd Gen",
+          "slug": "second-generation",
           "start_year": 1995
         },
         {
           "description": "Redesigned Eclipse without turbo variants. Featured V6 engines in GT trim. Less popular with hardcore enthusiasts but still has following for modifications including intake/exhaust upgrades, suspension work, and styling modifications.",
           "end_year": 2005,
-          "generation_name": "Third Generation",
+          "generation_name": "3rd Gen",
+          "slug": "third-generation",
           "start_year": 2000
         },
         {
           "description": "Final Eclipse generation with updated styling. Featured V6 engines in GT trim. No turbo or AWD variants. Less enthusiast-focused than earlier generations but still has modification community for styling and performance upgrades.",
           "end_year": 2012,
-          "generation_name": "Fourth Generation",
+          "generation_name": "4th Gen",
+          "slug": "fourth-generation",
           "start_year": 2006
         }
       ],
@@ -6151,9 +6139,10 @@
     {
       "generations": [
         {
-          "description": "Rally-bred performance sedan built for Group A homologation. Featured turbocharged 2.0L 4G63T engine, full-time all-wheel drive, four-wheel steering, and four-wheel independent suspension. Only 2,000 units imported to US in 1991, 1,000 in 1992. Highly sought after by enthusiasts and collectors. Popular for modifications including turbo upgrades, ECU tuning, suspension work, and rally-inspired builds. Rare and collectible.",
+          "description": "Rally-bred performance sedan built for Group A homologation (6th-generation Galant platform). Featured turbocharged 2.0L 4G63T engine, full-time all-wheel drive, four-wheel steering, and four-wheel independent suspension. Only 2,000 units imported to US in 1991, 1,000 in 1992. Highly sought after by enthusiasts and collectors. Popular for modifications including turbo upgrades, ECU tuning, suspension work, and rally-inspired builds. Rare and collectible.",
           "end_year": 1992,
-          "generation_name": "6th Generation",
+          "generation_name": "1st Gen",
+          "slug": "6th-generation",
           "start_year": 1988
         }
       ],
@@ -6164,13 +6153,15 @@
         {
           "description": "Mitsubishi's turbocharged rear-wheel-drive sports coupe. Featured 2.6L turbocharged inline-4 engine. Also sold as Dodge/Plymouth Conquest in North America. Popular with enthusiasts for modifications including turbo upgrades, intercooler upgrades, and performance tuning. Classic 80s sports car with strong following.",
           "end_year": 1986,
-          "generation_name": "First Generation",
+          "generation_name": "1st Gen",
+          "slug": "first-generation",
           "start_year": 1983
         },
         {
           "description": "Updated Starion with wide-body fenders ('fatty' models). ESI-R and TSi trims featured enhanced turbocharged engines, improved handling packages, and aggressive styling. Also sold as Chrysler Conquest. Highly popular with enthusiasts for modifications and tuning. Collectible 80s turbo sports car.",
           "end_year": 1989,
-          "generation_name": "Second Generation",
+          "generation_name": "2nd Gen",
+          "slug": "second-generation",
           "start_year": 1987
         }
       ],
@@ -6179,9 +6170,10 @@
     {
       "generations": [
         {
-          "description": "Performance variant of the Lancer positioned between GTS and Evolution. Featured turbocharged 2.0L MIVEC engine producing 237 hp and 253 lb-ft torque. Twin-clutch SST transmission with full-time all-wheel drive and Active Center Differential. Sport-tuned suspension and aggressive styling. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, suspension work, and performance enhancements. Excellent value for turbo AWD performance sedan.",
+          "description": "Performance variant of the Lancer positioned between GTS and Evolution (Lancer 9th-generation platform, CY chassis). Featured turbocharged 2.0L MIVEC engine producing 237 hp and 253 lb-ft torque. Twin-clutch SST transmission with full-time all-wheel drive and Active Center Differential. Sport-tuned suspension and aggressive styling. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, suspension work, and performance enhancements. Excellent value for turbo AWD performance sedan.",
           "end_year": 2015,
-          "generation_name": "9th Generation",
+          "generation_name": "1st Gen",
+          "slug": "9th-generation",
           "start_year": 2009
         }
       ],
@@ -6243,7 +6235,7 @@
       "generations": [
         {
           "description": "Crossover; unrelated to Eclipse coupe.",
-          "end_year": 2024,
+          "end_year": null,
           "generation_name": "1st Gen",
           "start_year": 2018
         }
@@ -6780,9 +6772,10 @@
           "start_year": 2018
         },
         {
-          "description": "Updated Cayenne with refreshed styling and technology. Turbo E-Hybrid produces 729 hp and 700 lb-ft torque. 0-60 mph in 3.5 seconds. Top speed around 183 mph. Popular with enthusiasts for modifications and performance enhancements.",
+          "description": "Updated Cayenne with refreshed styling and technology (PO536 facelift / 9YA.2). Turbo E-Hybrid produces 729 hp and 700 lb-ft torque. 0-60 mph in 3.5 seconds. Top speed around 183 mph. Popular with enthusiasts for modifications and performance enhancements.",
           "end_year": null,
-          "generation_name": "PO536 (Facelift)",
+          "generation_name": "PO536.2",
+          "slug": "po536-facelift",
           "start_year": 2024
         }
       ],
@@ -6797,9 +6790,10 @@
           "start_year": 2014
         },
         {
-          "description": "Electric Macan with dual-motor all-wheel-drive. Turbo variant produces 630 hp with Launch Control and 833 lb-ft torque. 0-60 mph in 3.3 seconds. Top speed 162 mph. Popular for software tuning, suspension modifications, and performance enhancements.",
+          "description": "Electric Macan with dual-motor all-wheel-drive (PPE platform, internal PO536 lineage, all-electric). Turbo variant produces 630 hp with Launch Control and 833 lb-ft torque. 0-60 mph in 3.3 seconds. Top speed 162 mph. Popular for software tuning, suspension modifications, and performance enhancements.",
           "end_year": null,
-          "generation_name": "PO536 (Electric)",
+          "generation_name": "PPE Macan",
+          "slug": "po536-electric",
           "start_year": 2024
         }
       ],
@@ -6820,9 +6814,10 @@
           "start_year": 2017
         },
         {
-          "description": "Updated Panamera with refreshed styling and technology. Turbo S E-Hybrid produces 771 hp. 0-60 mph in less than 3 seconds with Sport Chrono. Top speed 202 mph. Popular with enthusiasts for modifications and performance enhancements.",
+          "description": "Updated Panamera with refreshed styling and technology (971 facelift / 971.2). Turbo S E-Hybrid produces 771 hp. 0-60 mph in less than 3 seconds with Sport Chrono. Top speed 202 mph. Popular with enthusiasts for modifications and performance enhancements.",
           "end_year": null,
-          "generation_name": "971 (Facelift)",
+          "generation_name": "971.2",
+          "slug": "971-facelift",
           "start_year": 2024
         }
       ],
@@ -7071,7 +7066,7 @@
         },
         {
           "description": "Complete redesign with improved technology and fuel economy. WRX separated to its own model. Focus on safety, reliability, and all-wheel-drive capability.",
-          "end_year": 2024,
+          "end_year": 2023,
           "generation_name": "GP/GJ",
           "start_year": 2015
         }
@@ -7111,8 +7106,8 @@
           "start_year": 2010
         },
         {
-          "description": "Latest generation with improved technology and safety features. Featured updated boxer engines and continued Subaru's focus on all-wheel drive and reliability.",
-          "end_year": 2024,
+          "description": "Latest generation with improved technology and safety features. Featured updated boxer engines and continued Subaru's focus on all-wheel drive and reliability. Subaru announced the Legacy will be discontinued in the US after the 2025 model year.",
+          "end_year": 2025,
           "generation_name": "BN/BS",
           "start_year": 2015
         }
@@ -7175,8 +7170,8 @@
           "start_year": 2010
         },
         {
-          "description": "Modern Legacy XT with FA24F turbo engine producing 260 horsepower. CVT-only transmission. Revived turbocharged Legacy for enthusiasts seeking performance in a refined package.",
-          "end_year": 2024,
+          "description": "Modern Legacy XT with FA24F turbo engine producing 260 horsepower. CVT-only transmission. Revived turbocharged Legacy for enthusiasts seeking performance in a refined package. Discontinued in the US after the 2025 model year alongside the rest of the Legacy lineup.",
+          "end_year": 2025,
           "generation_name": "BN/BS",
           "start_year": 2020
         }
@@ -7692,7 +7687,7 @@
         },
         {
           "description": "Third generation with updated styling and technology. Featured improved engines and advanced safety features. Popular for off-road modifications, lift kits, and overlanding builds.",
-          "end_year": 2024,
+          "end_year": 2023,
           "generation_name": "3rd Gen",
           "start_year": 2016
         }

@@ -116,6 +116,42 @@ _IMAGE_NOISE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Flyin' Miata's Shopify ``vendor`` (and JSON-LD ``brand.name`` mirrored from
+# it) sometimes carries the marketplace / dealer / jobber the team sourced
+# the SKU from rather than the actual manufacturer (Amazon.com, "Med Center
+# Mazda", "Rock Auto LLC", etc.). When we see one of these patterns we
+# discard the vendor string and let the title/description heuristics try
+# instead. Mazda dealer names ("X Mazda", "Y Honda", etc.) for OEM parts
+# are dropped here too — the audit migration repoints those to ``Mazda OEM``
+# at the DB level, but a fresh re-scrape needs to not re-introduce them.
+_NON_MANUFACTURER_VENDOR_RE = re.compile(
+    r"^(amazon|alibaba|ebay|walmart|rockauto|rock\s*auto|cablewholesale|websticker)\b"
+    r"|(\.com|\.net|\.org)$"
+    r"|^(med\s+center|jim\s+ellis|sansone|tom\s+wood|piazza)\s+"
+    r"(mazda|honda|toyota|ford|nissan|bmw|audi|subaru|volkswagen)\b"
+    r"|^mcmaster[-\s]?carr\b",
+    re.IGNORECASE,
+)
+
+
+def _sanitize_vendor_name(vendor: Optional[str]) -> Optional[str]:
+    """Return ``vendor`` if it looks like a real manufacturer, else None.
+
+    Discards Shopify ``vendor`` / JSON-LD ``brand.name`` strings that are
+    clearly marketplace storefronts (Amazon.com), dealer names (Med Center
+    Mazda), or industrial supply jobbers (McMaster-Carr) — they leak into
+    Flyin' Miata's product feed when the FM team re-sells a sourced part
+    without overriding the vendor field.
+    """
+    if not vendor:
+        return None
+    v = vendor.strip()
+    if not v:
+        return None
+    if _NON_MANUFACTURER_VENDOR_RE.search(v):
+        return None
+    return v
+
 
 def _is_product_url(url: str) -> bool:
     """True if ``url`` is on the flyinmiata host with ``/products/`` in the path."""
@@ -527,19 +563,31 @@ class FlyinMiataAdapter(RetailerCrawlerAdapter):
                 if price_cents is None:
                     price_cents = _extract_og_price_cents(soup)
 
-                part_manufacturer = (payload.part_manufacturer or "").strip() or None
-                if not part_manufacturer and meta_product is not None:
-                    vendor = meta_product.get("vendor")
-                    if isinstance(vendor, str) and vendor.strip():
-                        part_manufacturer = vendor.strip()
-                if not part_manufacturer:
+                # Track whether the page declared *some* vendor at all. If the
+                # page did declare one but we discarded it via the dealer /
+                # marketplace denylist, suppress the title/description
+                # heuristics — they produce noise like "line" / "woodruff"
+                # for FM's plain-hardware listings. NULL is correct here:
+                # the audit migration repoints those to ``Mazda OEM``.
+                raw_brand = (payload.part_manufacturer or "").strip()
+                raw_vendor = ""
+                if meta_product is not None:
+                    v = meta_product.get("vendor")
+                    if isinstance(v, str):
+                        raw_vendor = v.strip()
+                vendor_present = bool(raw_brand or raw_vendor)
+
+                part_manufacturer = _sanitize_vendor_name(raw_brand or None)
+                if not part_manufacturer and raw_vendor:
+                    part_manufacturer = _sanitize_vendor_name(raw_vendor)
+                if not part_manufacturer and not vendor_present:
                     part_manufacturer = part_manufacturer_from_title(payload.name)
-                if not part_manufacturer and payload.description:
-                    part_manufacturer = part_manufacturer_from_description(
-                        payload.description, product_name=payload.name
-                    )
-                if not part_manufacturer:
-                    part_manufacturer = part_manufacturer_fallback_from_title(payload.name)
+                    if not part_manufacturer and payload.description:
+                        part_manufacturer = part_manufacturer_from_description(
+                            payload.description, product_name=payload.name
+                        )
+                    if not part_manufacturer:
+                        part_manufacturer = part_manufacturer_fallback_from_title(payload.name)
 
                 part_number = normalize_part_number(payload.part_number) if payload.part_number else None
                 if not part_number and meta_product is not None:
@@ -567,6 +615,7 @@ class FlyinMiataAdapter(RetailerCrawlerAdapter):
             return None
 
         vendor_raw: Optional[str] = None
+        vendor_present = False
         price_cents: Optional[int] = None
         part_number: Optional[str] = None
         if meta_product is not None:
@@ -574,14 +623,20 @@ class FlyinMiataAdapter(RetailerCrawlerAdapter):
             part_number = normalize_part_number(_first_variant_sku(meta_product))
             vendor = meta_product.get("vendor")
             if isinstance(vendor, str) and vendor.strip():
-                vendor_raw = vendor.strip()
+                vendor_present = True
+                vendor_raw = _sanitize_vendor_name(vendor.strip())
 
         if price_cents is None:
             price_cents = _extract_og_price_cents(soup)
 
-        part_manufacturer = (
-            vendor_raw or part_manufacturer_from_title(name) or part_manufacturer_fallback_from_title(name)
-        )
+        if vendor_raw:
+            part_manufacturer = vendor_raw
+        elif vendor_present:
+            # Vendor was declared but discarded by the denylist — leave NULL
+            # rather than fabricate one from the product title.
+            part_manufacturer = None
+        else:
+            part_manufacturer = part_manufacturer_from_title(name) or part_manufacturer_fallback_from_title(name)
 
         description: Optional[str] = None
         meta_desc = soup.find("meta", attrs={"name": "description"})

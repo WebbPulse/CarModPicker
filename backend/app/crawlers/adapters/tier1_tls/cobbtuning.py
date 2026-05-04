@@ -270,7 +270,39 @@ def _is_accessport_marketing_image(url: str, *, page_sku: Optional[str]) -> bool
     return True
 
 
-def _extract_dom_images(soup: BeautifulSoup, *, page_sku: Optional[str] = None) -> List[str]:
+def _is_stage_package_component_image(url: str, *, page_url: str, page_sku: Optional[str]) -> bool:
+    """
+    True when ``url`` is a Cobb ``<SKU>_main.<ext>`` image whose SKU does NOT
+    match the resolved ``page_sku`` AND the page lives under
+    ``/products/stage-package/``. Stage-package PDPs render the *components'*
+    main thumbnails (Accessport, intake, brake rotor SKU 800200, etc.) inline
+    on the bundle page, which previously leaked unrelated component photos
+    (``800200_main.jpg`` shared by 171 distinct stage packages, etc.) onto
+    every Stage 2 / Stage 3 row. Restrict images on stage-package pages to the
+    bundle's own ``<page_sku>_main.<ext>`` hero (and any non-``_main``-shaped
+    asset, e.g. ``general/`` chrome already filtered upstream, and gallery
+    images that don't carry an embedded SKU). Falls back to allowing the
+    image when ``page_sku`` is unknown — better to keep them than nuke the
+    hero on a parse miss.
+    """
+    try:
+        path = urlparse(page_url).path or ""
+    except ValueError:
+        return False
+    if "/products/stage-package/" not in path:
+        return False
+    if not page_sku:
+        return False
+    m = _IMAGE_SKU_RE.search(url)
+    if not m:
+        return False
+    image_sku = m.group(1).upper()
+    if image_sku == page_sku.upper():
+        return False
+    return True
+
+
+def _extract_dom_images(soup: BeautifulSoup, *, page_sku: Optional[str] = None, page_url: str = "") -> List[str]:
     """
     Collect product image URLs: og:image first, then <img> tags. Normalizes
     protocol-relative and site-root paths to absolute https URLs. Drops
@@ -279,7 +311,11 @@ def _extract_dom_images(soup: BeautifulSoup, *, page_sku: Optional[str] = None) 
     Also denies generic AccessPort beauty shots
     (``accessport_v3_(extra|main|subaru|ford|bmw|volkswagen|mazda)``) when the
     page's SKU is NOT in the AP3 family — those marketing photos otherwise
-    leak across hundreds of unrelated parts. Capped at 12.
+    leak across hundreds of unrelated parts. On ``/products/stage-package/``
+    URLs, also denies ``<other-SKU>_main.<ext>`` component thumbnails (the
+    bundle PDPs inline each component's main image, e.g. brake-rotor
+    ``800200_main.jpg`` showed up on 171 unrelated stage packages). Capped
+    at 12.
     """
     urls: List[str] = []
     seen: set[str] = set()
@@ -309,7 +345,13 @@ def _extract_dom_images(soup: BeautifulSoup, *, page_sku: Optional[str] = None) 
         if host == "cobbtuning.com" or host.endswith(".cobbtuning.com"):
             if "/media/catalog/products/" not in (parsed.path or ""):
                 return
+            # Deny Magento's generic ``placeholder.jpg`` fallback — it's
+            # rendered when no product image exists, not a real photo.
+            if (parsed.path or "").rstrip("/").endswith("/placeholder.jpg"):
+                return
         if _is_accessport_marketing_image(u, page_sku=page_sku):
+            return
+        if page_url and _is_stage_package_component_image(u, page_url=page_url, page_sku=page_sku):
             return
         seen.add(u)
         urls.append(u)
@@ -520,7 +562,7 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
                 # same order the DOM path uses, with productID acting as the
                 # JSON-LD-only last resort.
                 if not part_number:
-                    image_pool = payload.image_urls or _extract_dom_images(soup, page_sku="AP3-PROBE")
+                    image_pool = payload.image_urls or _extract_dom_images(soup, page_sku="AP3-PROBE", page_url=url)
                     image_sku = _extract_sku_from_image_urls(image_pool)
                     if image_sku:
                         part_number = normalize_part_number(image_sku)
@@ -535,12 +577,17 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
                 price_cents = payload.price_cents if payload.price_cents is not None else dom_price
                 part_manufacturer = payload.part_manufacturer or _DEFAULT_MANUFACTURER
                 # Filter DOM images using the JSON-LD SKU so generic Accessport
-                # beauty-shots are denied on non-AP3 SKUs.
-                dom_images = _extract_dom_images(soup, page_sku=part_number)
+                # beauty-shots are denied on non-AP3 SKUs, and stage-package
+                # component thumbnails are denied on bundle PDPs.
+                dom_images = _extract_dom_images(soup, page_sku=part_number, page_url=url)
                 # JSON-LD image lists are also vulnerable to the same generic
-                # accessport_v3_*.jpg leak — apply the deny filter post-hoc.
+                # accessport_v3_*.jpg leak AND the stage-package component-thumbnail
+                # leak — apply both deny filters post-hoc.
                 jsonld_images = [
-                    u for u in (payload.image_urls or []) if not _is_accessport_marketing_image(u, page_sku=part_number)
+                    u
+                    for u in (payload.image_urls or [])
+                    if not _is_accessport_marketing_image(u, page_sku=part_number)
+                    and not _is_stage_package_component_image(u, page_url=url, page_sku=part_number)
                 ]
                 image_urls = jsonld_images or (dom_images[:12] if dom_images else None)
                 return ScrapedPayload(
@@ -636,7 +683,9 @@ class CobbTuningAdapter(RetailerCrawlerAdapter):
 
         # Filter the gallery using the recovered SKU so AccessPort beauty
         # shots are dropped from non-AP3 product pages but kept for AP3 SKUs.
-        dom_images = _extract_dom_images(soup, page_sku=part_number)
+        # Pass page_url so stage-package component-thumbnail leaks
+        # (e.g. ``800200_main.jpg`` on a Stage 2 bundle PDP) are also denied.
+        dom_images = _extract_dom_images(soup, page_sku=part_number, page_url=url)
 
         return ScrapedPayload(
             name=str(name),
