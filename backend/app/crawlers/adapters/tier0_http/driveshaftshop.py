@@ -40,6 +40,7 @@ from xml.etree.ElementTree import Element
 import defusedxml.ElementTree as ET
 
 from app.core.car_inference import (
+    extract_year_ranges,
     infer_car_generations,
     narrow_triples_by_year_range,
 )
@@ -347,9 +348,34 @@ class DriveshaftShopAdapter(RetailerCrawlerAdapter):
         name = parsed.name or ""
         if not name:
             return None
-        year_range = _extract_leading_year_range(name)
-        if year_range is None:
+        # Migrated year extraction to the canonical extract_year_ranges helper
+        # (issue #5). DSS titles always lead with the year range, so we keep
+        # the leading-only constraint by checking that the FIRST extracted
+        # range starts at or near position 0 in the title. Pre-migration this
+        # was a hand-rolled `^\s*YYYY-YYYY\+?\b` regex; the new helper reads
+        # the same shapes (YYYY-YYYY, YYYY-YY, YYYY+) plus a few more for free.
+        #
+        # The model→gen path stays on infer_car_generations + narrow_triples_by_year_range
+        # because the alias-rich universal pipeline catches forms like
+        # "2009-2014 Challenger" (CAR_ALIASES entry) that extract_fitment_candidates
+        # — which only walks bare CAR_GENERATIONS — would miss. The new
+        # extract_fitment_candidates is the right tool for adapters that
+        # currently maintain their own _<ADAPTER>_MODEL_PATTERNS dict
+        # (Steeda / Hasport / Perrin / Mishimoto); DSS never did, so the
+        # universal-pipeline approach is preserved.
+        ranges = extract_year_ranges(name)
+        if not ranges:
             return None
+        # Leading-only guard: the first range must occupy the title's leading
+        # span. extract_year_ranges returns ranges in title order, so we only
+        # need to verify the first one starts within the leading whitespace
+        # prefix. Fall back to None for "Universal 2020-2023 Driveshaft" cases
+        # where the year is mid-title (DSS catalog convention is "<year>
+        # <chassis>" leading).
+        leading_re = re.compile(r"^\s*(\d{4})\s*[-–—]\s*\d{2,4}\+?")
+        if not leading_re.match(name):
+            return None
+        year_range = ranges[0]
         triples = infer_car_generations(name, parsed.description, parsed.product_url)
         if not triples:
             return None

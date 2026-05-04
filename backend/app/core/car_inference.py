@@ -341,6 +341,41 @@ def _build_phrase_triples() -> list[tuple[str, str, str, str]]:
 PHRASE_TRIPLES: list[tuple[str, str, str, str]] = sorted(_build_phrase_triples(), key=lambda x: -len(x[0]))
 
 
+# Make+model phrase index for extract_fitment_candidates (issue #2). This is a
+# narrower index than PHRASE_TRIPLES — it pairs (make, model) without baking in
+# a generation, so the helper can return year-range candidates that the resolver
+# narrows to the correct gen via generations_for_make_model_year_range.
+def _build_make_model_phrases() -> tuple[
+    list[tuple[str, str, str]],  # phrases requiring make context: "ford mustang"
+    list[tuple[str, str, str]],  # bare-model phrases: "mustang"
+]:
+    """Build (phrase, make, model) entries.
+
+    Two output lists:
+      - ``with_make``: ``"<make> <model>"`` phrases — always safe to match.
+      - ``model_only``: ``"<model>"`` phrases — only safe when the caller
+        passes ``trusted_makes`` constraining the universe of possible makes.
+
+    Both lists are sorted longest-first so a longer match like
+    ``"ram 2500"`` wins over ``"ram"``.
+    """
+    with_make: list[tuple[str, str, str]] = []
+    model_only: list[tuple[str, str, str]] = []
+    for make, models in CAR_GENERATIONS.items():
+        make_lower = make.lower()
+        for model_data in models:
+            model = model_data["model"]
+            model_lower = model.lower()
+            with_make.append((f"{make_lower} {model_lower}", make, model))
+            model_only.append((model_lower, make, model))
+    with_make.sort(key=lambda x: -len(x[0]))
+    model_only.sort(key=lambda x: -len(x[0]))
+    return with_make, model_only
+
+
+_FITMENT_PHRASES_WITH_MAKE, _FITMENT_PHRASES_MODEL_ONLY = _build_make_model_phrases()
+
+
 # Aliases: phrase -> (make, model, generation_name). Used when product text uses
 # nicknames (MKV Supra, GR Supra, G82, etc.). Order: longer phrases first for specificity.
 #
@@ -3047,6 +3082,195 @@ def extract_year_ranges(text: Optional[str]) -> list[tuple[int, int]]:
         _emit(_validate_year_range(y, y))
 
     return out
+
+
+def _extract_year_ranges_with_spans(
+    text: Optional[str],
+) -> list[tuple[tuple[int, int], int, int]]:
+    """Same as extract_year_ranges, but each entry also carries (span_start,
+    span_end) for the matched substring. Used by extract_fitment_candidates
+    to pair year-ranges with nearby (make, model) phrase matches by distance.
+    """
+    if not text:
+        return []
+    cy = _dt.datetime.now(_dt.timezone.utc).year
+    open_ended_hi = cy + _YEAR_HI_OFFSET
+
+    seen: set[tuple[int, int]] = set()
+    out: list[tuple[tuple[int, int], int, int]] = []
+
+    masked = list(text)
+
+    def _mask(start: int, end: int) -> None:
+        for i in range(start, end):
+            masked[i] = " "
+
+    def _emit(rng: Optional[tuple[int, int]], span_start: int, span_end: int) -> None:
+        if rng is None or rng in seen:
+            return
+        seen.add(rng)
+        out.append((rng, span_start, span_end))
+
+    for m in _YYYY_YYYY_RE.finditer(text):
+        y1, y2 = int(m.group(1)), int(m.group(2))
+        _emit(_validate_year_range(y1, y2), m.start(), m.end())
+        _mask(m.start(), m.end())
+    masked_text = "".join(masked)
+
+    for m in _YYYY_YY_RE.finditer(masked_text):
+        y1 = int(m.group(1))
+        tail = int(m.group(2))
+        y2 = _infer_century(y1, tail)
+        _emit(_validate_year_range(y1, y2), m.start(), m.end())
+        _mask(m.start(), m.end())
+    masked_text = "".join(masked)
+
+    for m in _YY_YY_RE.finditer(masked_text):
+        yy1, yy2 = int(m.group(1)), int(m.group(2))
+        _emit(_infer_yy_yy_century(yy1, yy2), m.start(), m.end())
+        _mask(m.start(), m.end())
+    masked_text = "".join(masked)
+
+    for m in _YYYY_PLUS_RE.finditer(masked_text):
+        y1 = int(m.group(1))
+        _emit(_validate_year_range(y1, open_ended_hi), m.start(), m.end())
+        _mask(m.start(), m.end())
+    masked_text = "".join(masked)
+
+    for m in _SINGLE_YEAR_RE.finditer(masked_text):
+        y = int(m.group(1))
+        _emit(_validate_year_range(y, y), m.start(), m.end())
+
+    return out
+
+
+class FitmentCandidate:
+    """A (make, model, year_range) extracted from a product title.
+
+    ``year_range`` is None when no year-range token was found near enough
+    to the (make, model) phrase to confidently pair them. Callers can either
+    drop None-year candidates or fall back to gen resolution that doesn't
+    require year info (e.g. matching all generations of the model).
+
+    Frozen-dataclass-style: equality and hashing for de-duplication.
+    """
+
+    __slots__ = ("make", "model", "year_range")
+
+    def __init__(self, make: str, model: str, year_range: Optional[tuple[int, int]]) -> None:
+        self.make: str = make
+        self.model: str = model
+        self.year_range: Optional[tuple[int, int]] = year_range
+
+    def __repr__(self) -> str:
+        return f"FitmentCandidate(make={self.make!r}, model={self.model!r}, year_range={self.year_range!r})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, FitmentCandidate):
+            return NotImplemented
+        return (
+            self.make == other.make
+            and self.model == other.model
+            and self.year_range == other.year_range
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.make, self.model, self.year_range))
+
+
+# Maximum character distance between a (make, model) phrase match and a
+# year-range token for them to be considered paired. Tuned to cover typical
+# title shapes:
+#   "Steeda Mustang (2015-2023) Cold Air Intake"          ~22 chars between
+#   "2009-2014 Charger SRT8 Driveshaft"                   ~10 chars between
+#   "Subaru WRX/STI 2015-2018 Strut Bar"                  ~12 chars between
+# Anything beyond ~50 chars usually means the year and the model belong to
+# different fitment fragments (e.g. a cross-fitment list).
+_FITMENT_PAIR_DISTANCE: int = 50
+
+
+def extract_fitment_candidates(
+    title: Optional[str],
+    *,
+    trusted_makes: Optional[set[str]] = None,
+) -> list[FitmentCandidate]:
+    """Extract (make, model, year_range) candidates from a product title.
+
+    Walks ``CAR_GENERATIONS`` (via _FITMENT_PHRASES_WITH_MAKE) for "<make>
+    <model>" matches; if ``trusted_makes`` is given, also walks bare-model
+    phrases scoped to that make set. For each (make, model) match, looks
+    for a nearby year-range via ``extract_year_ranges`` and pairs them
+    by character distance (within _FITMENT_PAIR_DISTANCE).
+
+    Designed to replace per-adapter ``_<ADAPTER>_MODEL_PATTERNS``
+    dictionaries. Adapter ``infer_car_for_part`` hooks collapse to::
+
+        candidates = extract_fitment_candidates(parsed.name, trusted_makes={"Ford"})
+        triples = [
+            t
+            for c in candidates
+            if c.year_range is not None
+            for t in generations_for_make_model_year_range(c.make, c.model, c.year_range)
+        ]
+        return triples or None
+
+    Returns candidates in title order with duplicates removed. A candidate
+    with ``year_range=None`` is emitted when a (make, model) phrase matched
+    but no nearby year-range token was found — callers decide whether to
+    drop it or use it without year-narrowing.
+    """
+    if not title:
+        return []
+    title_lower = title.lower()
+
+    # Pre-extract year ranges WITH character spans so we can pair by distance.
+    year_spans = _extract_year_ranges_with_spans(title)
+
+    # Find (make, model) matches and pair with closest year-range by distance.
+    candidates: list[FitmentCandidate] = []
+    seen_keys: set[tuple[str, str, Optional[tuple[int, int]]]] = set()
+    matched_spans: list[tuple[int, int]] = []  # avoid double-emitting overlapping matches
+
+    def _try_match(phrases: list[tuple[str, str, str]]) -> None:
+        for phrase, make, model in phrases:
+            if trusted_makes is not None and make not in trusted_makes:
+                continue
+            start = title_lower.find(phrase)
+            if start == -1:
+                continue
+            end = start + len(phrase)
+            # Skip matches that overlap a longer prior match on the same span.
+            if any(ms <= start < me or ms < end <= me for ms, me in matched_spans):
+                continue
+            matched_spans.append((start, end))
+
+            # Pair with closest year-range within distance budget.
+            paired_range: Optional[tuple[int, int]] = None
+            best_dist = _FITMENT_PAIR_DISTANCE + 1
+            for (rng, ys, ye) in year_spans:
+                if ye <= start:
+                    dist = start - ye
+                elif ys >= end:
+                    dist = ys - end
+                else:
+                    dist = 0
+                if dist <= _FITMENT_PAIR_DISTANCE and dist < best_dist:
+                    best_dist = dist
+                    paired_range = rng
+
+            key = (make, model, paired_range)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            candidates.append(FitmentCandidate(make, model, paired_range))
+
+    _try_match(_FITMENT_PHRASES_WITH_MAKE)
+    if trusted_makes is not None:
+        _try_match(_FITMENT_PHRASES_MODEL_ONLY)
+
+    # Sort by first-occurrence position in title for stable, intuitive output.
+    candidates.sort(key=lambda c: title_lower.find(c.model.lower()))
+    return candidates
 
 
 def generations_for_make_model_year_range(
