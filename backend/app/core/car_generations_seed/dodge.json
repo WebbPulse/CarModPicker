@@ -194,6 +194,93 @@
         }
       ],
       "model": "Omni"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second-generation Dodge Ram (BR/BE platform). Bold 'big rig' styling. 5.2L / 5.9L Magnum V8s; 5.9L Cummins 12-valve through 1998, 24-valve ISB from MY1998.5. Final MY 2002 before DR redesign.",
+          "end_year": 2002,
+          "generation_name": "2nd Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Third-generation Dodge Ram 1500 (DR/DH platform). 4.7L Magnum V8 standard; 5.7L Hemi (Magnum) introduced in MY2003 — first modern Mopar HEMI. SRT-10 variant carried the Viper-derived 8.3L V10.",
+          "end_year": 2008,
+          "generation_name": "3rd Gen",
+          "start_year": 2002
+        },
+        {
+          "description": "Fourth-generation Ram 1500 (DS platform). Coil-spring rear suspension introduced. 3.6L Pentastar V6, 5.7L Hemi V8 (eTorque on later trims), 6.4L Hemi (Power Wagon-only on HD). Brand split: Ram became its own marque from MY2011 forward.",
+          "end_year": 2018,
+          "generation_name": "4th Gen",
+          "start_year": 2009
+        },
+        {
+          "description": "Fifth-generation Ram 1500 (DT platform). 3.6L Pentastar V6 (eTorque), 5.7L Hemi V8 (eTorque), 3.0L Hurricane I6 from MY2025. TRX trim with 6.2L Hellcat-supercharged V8 produced 702 hp.",
+          "end_year": null,
+          "generation_name": "5th Gen",
+          "start_year": 2019
+        }
+      ],
+      "model": "Ram 1500"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second-generation Dodge Ram 2500 HD (BR/BE platform). 5.9L Cummins 12-valve through MY1998, 24-valve ISB from MY1998.5. The diesel-tuning community's favorite Cummins-era truck.",
+          "end_year": 2002,
+          "generation_name": "2nd Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Third-generation Ram 2500 HD (DR/DH platform). 5.9L Cummins 24-valve common-rail (CR) MY2003-2007, 6.7L Cummins introduced MY2007.5. 5.7L Hemi gas option also offered.",
+          "end_year": 2009,
+          "generation_name": "3rd Gen",
+          "start_year": 2003
+        },
+        {
+          "description": "Fourth-generation Ram 2500 HD (DJ platform). 6.7L Cummins (multiple horsepower tunings — 350/370/385 hp depending on MY/transmission). 5.7L Hemi gas standard; 6.4L Hemi 'Power Wagon' variant. Final MY 2018 before DT HD redesign.",
+          "end_year": 2018,
+          "generation_name": "4th Gen",
+          "start_year": 2010
+        },
+        {
+          "description": "Fifth-generation Ram 2500 HD (DT/HD platform). 6.7L Cummins continued (370-420 hp depending on tune). 6.4L Hemi gas standard.",
+          "end_year": null,
+          "generation_name": "5th Gen",
+          "start_year": 2019
+        }
+      ],
+      "model": "Ram 2500"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second-generation Dodge Ram 3500 HD (BR/BE platform). 5.9L Cummins (12v then 24v ISB). Dual-rear-wheel option for fifth-wheel towing.",
+          "end_year": 2002,
+          "generation_name": "2nd Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Third-generation Ram 3500 HD (DR/DH platform). 5.9L Cummins common-rail then 6.7L Cummins from MY2007.5. Dual-rear-wheel chassis-cab also offered.",
+          "end_year": 2009,
+          "generation_name": "3rd Gen",
+          "start_year": 2003
+        },
+        {
+          "description": "Fourth-generation Ram 3500 HD (DJ platform). 6.7L Cummins with Aisin AS69RC transmission on high-output tune. 5.7L / 6.4L Hemi gas options.",
+          "end_year": 2018,
+          "generation_name": "4th Gen",
+          "start_year": 2010
+        },
+        {
+          "description": "Fifth-generation Ram 3500 HD (DT/HD platform). 6.7L Cummins (high-output 420 hp / 1000 lb-ft).",
+          "end_year": null,
+          "generation_name": "5th Gen",
+          "start_year": 2019
+        }
+      ],
+      "model": "Ram 3500"
     }
   ]
 }
