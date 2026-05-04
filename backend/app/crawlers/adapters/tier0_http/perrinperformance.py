@@ -66,6 +66,7 @@ from xml.etree.ElementTree import Element
 import defusedxml.ElementTree as ET
 from bs4 import BeautifulSoup, Tag
 
+from app.core.car_inference import generations_for_make_model_year_range
 from app.crawlers.adapters.base import RetailerCrawlerAdapter
 from app.crawlers.base import (
     DEFAULT_REQUEST_DELAY_SEC,
@@ -456,6 +457,103 @@ def _extract_dom_images(soup: BeautifulSoup) -> List[str]:
     return ordered[:12]
 
 
+# Perrin product titles encode fitment as a leading year-range token followed
+# by a comma-separated list of Subaru models (and the BRZ/86/FR-S sibling).
+# Examples from the catalog:
+#   "Wheel Spacers 25mm for 2015-2026 WRX, STI, Forester, Outback, Legacy, Impreza, Crosstrek"
+#   "Bushings 22mm for Rear Swaybar fits 2002-2005 WRX"
+#   "Top Mount Intercooler for 2008-2021 STI"
+#   "High Flow Replacement Air Filter for 2013-2020 BRZ, FR-S, 86"
+#
+# The universal pipeline catches single-make titles like "Subaru WRX" but
+# misses these because the make token isn't adjacent to every model token in
+# a comma list, and because trim tokens (STI, FR-S) aren't first-class models
+# in CAR_GENERATIONS. The hook below extracts the year range and intersects
+# it against each known model's generation windows.
+_PERRIN_YEAR_RANGE_RE = re.compile(r"\b((?:19|20)\d{2})\s*[-–—]\s*((?:19|20)?\d{2})\b")
+_PERRIN_YEAR_OPEN_RE = re.compile(r"\b((?:19|20)\d{2})\s*\+")
+
+# Model token → list of (make, model) triples to expand to. Multiple expansions
+# fire when a token covers more than one DB row (e.g. "Legacy" → both "Legacy"
+# and "Legacy GT" rows). Year-narrowing in generations_for_make_model_year_range
+# drops the rows whose generation window doesn't overlap, so over-expansion is
+# self-correcting.
+_PERRIN_MODEL_PATTERNS: tuple[tuple[re.Pattern[str], tuple[tuple[str, str], ...]], ...] = (
+    # Subaru core lineup. STI is a WRX trim in seed data (no separate Subaru STI row).
+    (re.compile(r"\bWRX\b", re.IGNORECASE), (("Subaru", "WRX"),)),
+    (re.compile(r"\bSTI\b", re.IGNORECASE), (("Subaru", "WRX"),)),
+    (re.compile(r"\bImpreza\b", re.IGNORECASE), (("Subaru", "Impreza"),)),
+    # Legacy / Legacy GT — both DB rows. Year-narrow keeps only the gens that overlap.
+    (re.compile(r"\bLegacy(?:\s+GT)?\b", re.IGNORECASE), (("Subaru", "Legacy"), ("Subaru", "Legacy GT"))),
+    # Forester / Outback have both base and XT rows. Emit both — year-narrow drops
+    # gens whose window doesn't overlap, so an off-window XT triple is silently
+    # filtered (e.g. a 2019-2024 part hits Forester SK only, not Forester XT SJ).
+    (re.compile(r"\bForester(?:\s+XT)?\b", re.IGNORECASE), (("Subaru", "Forester"), ("Subaru", "Forester XT"))),
+    (re.compile(r"\bOutback(?:\s+XT)?\b", re.IGNORECASE), (("Subaru", "Outback"), ("Subaru", "Outback XT"))),
+    (re.compile(r"\bCrosstrek\b", re.IGNORECASE), (("Subaru", "Crosstrek"),)),
+    (re.compile(r"\bAscent\b", re.IGNORECASE), (("Subaru", "Ascent"),)),
+    (re.compile(r"\bBaja\b", re.IGNORECASE), (("Subaru", "Baja"),)),
+    # 86 platform — three nameplates, all backed by ZN6/ZN8/ZC6/ZD8 rows.
+    (re.compile(r"\bBRZ\b", re.IGNORECASE), (("Subaru", "BRZ"),)),
+    (re.compile(r"\bFR-?S\b", re.IGNORECASE), (("Scion", "FR-S"),)),
+    # Bare "86" must be word-boundaried so it doesn't grab year fragments — the
+    # regex anchors on the full token.
+    (re.compile(r"(?<![\d-])\b86\b(?![\d-])", re.IGNORECASE), (("Toyota", "86"),)),
+    (re.compile(r"\bGR\s*86\b", re.IGNORECASE), (("Toyota", "GR86"),)),
+)
+
+
+def _extract_perrin_year_range(name: str) -> Optional[tuple[int, int]]:
+    """
+    Pull a (start_year, end_year) tuple from a Perrin title's leading year
+    token. ``YYYY-YYYY`` and ``YYYY-YY`` (two-digit tail) are supported, plus
+    the open-ended ``YYYY+``. Returns ``None`` if no shape matches so the
+    caller falls through to the universal pipeline.
+    """
+    m = _PERRIN_YEAR_RANGE_RE.search(name)
+    if m:
+        try:
+            y1 = int(m.group(1))
+            tail = m.group(2)
+            y2 = int(tail) if len(tail) == 4 else (y1 // 100) * 100 + int(tail)
+            if y2 < y1:
+                y2 += 100
+        except ValueError:
+            return None
+        if y1 < 1960 or y1 > 2030 or y2 < y1 or y2 > 2035:
+            return None
+        return (y1, y2)
+    m = _PERRIN_YEAR_OPEN_RE.search(name)
+    if m:
+        try:
+            y1 = int(m.group(1))
+        except ValueError:
+            return None
+        if y1 < 1960 or y1 > 2030:
+            return None
+        return (y1, 9999)
+    return None
+
+
+def _extract_perrin_models(name: str) -> List[tuple[str, str]]:
+    """
+    Walk the model dictionary and return every (make, model) pair whose
+    pattern matches the title. Order is dictionary order so test diffs are
+    stable. Duplicates are de-duped.
+    """
+    seen: set[tuple[str, str]] = set()
+    out: List[tuple[str, str]] = []
+    for pattern, expansions in _PERRIN_MODEL_PATTERNS:
+        if not pattern.search(name):
+            continue
+        for pair in expansions:
+            if pair in seen:
+                continue
+            seen.add(pair)
+            out.append(pair)
+    return out
+
+
 class PerrinPerformanceAdapter(RetailerCrawlerAdapter):
     """
     Perrin Performance adapter. Discovery: Shopify sitemap index →
@@ -471,7 +569,6 @@ class PerrinPerformanceAdapter(RetailerCrawlerAdapter):
     # not challenge ``requests``). Left explicit so the choice is documented
     # on the class itself rather than only in the module docstring.
     ADAPTER_NAME: ClassVar[str] = "perrinperformance"
-    category_targets: ClassVar[list[str]] = ["universal"]
     FETCHER_TIER = "http"
 
     def discover_product_urls(self) -> Iterator[str]:
@@ -619,3 +716,39 @@ class PerrinPerformanceAdapter(RetailerCrawlerAdapter):
             part_number=part_number,
             image_urls=image_urls,
         )
+
+    def infer_car_for_part(
+        self, parsed: ScrapedPayload
+    ) -> Optional[List[tuple[str, str, str]]]:
+        """
+        Extract Subaru/86-platform make/model/generation triples from the
+        leading year-range token and the comma-separated model list in the
+        title. Returns ``None`` when neither a year range nor a known model
+        token is present so the ingest layer falls through to the universal
+        keyword pipeline (NOT an empty list, which would short-circuit ingest
+        to ``is_universal=True``).
+
+        The hook fires only when both signals are present — a year range
+        without a model list (or vice versa) leaves us with too little
+        information to attribute confidently, and the universal pipeline can
+        still rescue product titles like "Subaru WRX Cold Air Intake".
+        """
+        name = parsed.name or ""
+        if not name:
+            return None
+        models = _extract_perrin_models(name)
+        if not models:
+            return None
+        year_range = _extract_perrin_year_range(name)
+        if year_range is None:
+            return None
+
+        seen: set[tuple[str, str, str]] = set()
+        out: List[tuple[str, str, str]] = []
+        for make, model in models:
+            for triple in generations_for_make_model_year_range(make, model, year_range):
+                if triple in seen:
+                    continue
+                seen.add(triple)
+                out.append(triple)
+        return out or None
