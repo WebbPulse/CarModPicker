@@ -1,0 +1,485 @@
+{
+  "Honda": [
+    {
+      "generations": [
+        {
+          "description": "The original Civic introduced Honda's reputation for reliability and fuel efficiency. Featured CVCC engine technology and helped establish Honda in the US market.",
+          "end_year": 1979,
+          "generation_name": "1st Gen",
+          "start_year": 1972
+        },
+        {
+          "description": "Refined design with improved aerodynamics. Introduced the Civic Wagon and continued Honda's focus on fuel efficiency during the oil crisis era.",
+          "end_year": 1983,
+          "generation_name": "2nd Gen",
+          "start_year": 1980
+        },
+        {
+          "description": "Notable for the introduction of the Si trim with sporty performance. Popular among tuners and featured in early import car culture.",
+          "end_year": 1987,
+          "generation_name": "3rd Gen",
+          "start_year": 1984
+        },
+        {
+          "description": "Larger and more refined, with improved safety features. The CRX variant became a cult classic for its lightweight design and handling.",
+          "end_year": 1991,
+          "generation_name": "4th Gen",
+          "start_year": 1988
+        },
+        {
+          "description": "Introduced VTEC technology to the Civic lineup. The Si model with B16 engine became legendary in the tuning community.",
+          "end_year": 1995,
+          "generation_name": "5th Gen",
+          "start_year": 1992
+        },
+        {
+          "description": "Widely considered one of the best Civic generations. Featured the B16B and B18C engines in Type R variants, highly sought after by enthusiasts.",
+          "end_year": 2000,
+          "generation_name": "6th Gen",
+          "start_year": 1996
+        },
+        {
+          "description": "Complete redesign with more modern styling. Introduced the K-series engine family, though some enthusiasts preferred the previous generation's character.",
+          "end_year": 2005,
+          "generation_name": "7th Gen",
+          "start_year": 2001
+        },
+        {
+          "description": "Returned to double-wishbone front suspension. The Si model featured a high-revving K20Z3 engine and was praised for its driving dynamics.",
+          "end_year": 2011,
+          "generation_name": "8th Gen",
+          "start_year": 2006
+        },
+        {
+          "description": "Refined styling and improved fuel economy. The Si model continued with K24 engine, offering more torque but lower redline than previous generation.",
+          "end_year": 2015,
+          "generation_name": "9th Gen",
+          "start_year": 2012
+        },
+        {
+          "description": "First Civic generation with turbocharged engines in mainstream trims. Modern styling with hatchback, coupe, and sedan variants. Type R returned to US market.",
+          "end_year": 2021,
+          "generation_name": "10th Gen",
+          "start_year": 2016
+        },
+        {
+          "description": "More mature and refined design language. Improved technology and safety features while maintaining sporty character, especially in Si and Type R trims.",
+          "end_year": null,
+          "generation_name": "11th Gen",
+          "start_year": 2022
+        }
+      ],
+      "model": "Civic"
+    },
+    {
+      "generations": [
+        {
+          "description": "Honda's first mid-size sedan, establishing the Accord as a reliable family car. Featured CVCC technology and helped Honda compete in the American market.",
+          "end_year": 1981,
+          "generation_name": "1st Gen",
+          "start_year": 1976
+        },
+        {
+          "description": "Larger and more refined with improved fuel economy. Introduced the Accord hatchback and established the model as a best-seller.",
+          "end_year": 1985,
+          "generation_name": "2nd Gen",
+          "start_year": 1982
+        },
+        {
+          "description": "First Accord built in the US. Introduced fuel injection and became one of the best-selling cars in America, known for reliability and quality.",
+          "end_year": 1989,
+          "generation_name": "3rd Gen",
+          "start_year": 1986
+        },
+        {
+          "description": "Larger platform with improved safety features. The Accord Wagon was introduced, and the sedan became more upscale in its segment.",
+          "end_year": 1993,
+          "generation_name": "4th Gen",
+          "start_year": 1990
+        },
+        {
+          "description": "Complete redesign with more rounded styling. V6 engine option introduced, and the Accord became known for its smooth ride and build quality.",
+          "end_year": 1997,
+          "generation_name": "5th Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Larger and more spacious interior. The V6 model offered strong performance, and this generation maintained Honda's reputation for reliability.",
+          "end_year": 2002,
+          "generation_name": "6th Gen",
+          "start_year": 1998
+        },
+        {
+          "description": "Two distinct body styles - sedan and coupe. Introduced i-VTEC technology and improved safety features. Hybrid version introduced.",
+          "end_year": 2007,
+          "generation_name": "7th Gen",
+          "start_year": 2003
+        },
+        {
+          "description": "More aggressive styling with improved handling. The V6 coupe became a popular choice for enthusiasts seeking performance and reliability.",
+          "end_year": 2012,
+          "generation_name": "8th Gen",
+          "start_year": 2008
+        },
+        {
+          "description": "Refined design with Earth Dreams engine technology. Improved fuel economy and introduced direct injection. Sport trim added for more engaging driving.",
+          "end_year": 2017,
+          "generation_name": "9th Gen",
+          "start_year": 2013
+        },
+        {
+          "description": "Complete redesign with turbocharged engines. More dynamic styling and improved technology. The 2.0T engine in Sport and Touring trims offered strong performance.",
+          "end_year": 2022,
+          "generation_name": "10th Gen",
+          "start_year": 2018
+        },
+        {
+          "description": "More mature and sophisticated design. Hybrid powertrain became standard in many markets. Improved technology and safety features while maintaining driving dynamics.",
+          "end_year": null,
+          "generation_name": "11th Gen",
+          "start_year": 2023
+        }
+      ],
+      "model": "Accord"
+    },
+    {
+      "generations": [
+        {
+          "description": "Honda's sporty compact coupe and sedan. Featured advanced suspension and became popular in the tuning scene for its balance of performance and reliability.",
+          "end_year": 1989,
+          "generation_name": "1st Gen",
+          "start_year": 1986
+        },
+        {
+          "description": "Refined styling with improved aerodynamics. The GS-R trim introduced VTEC technology, making it a favorite among enthusiasts.",
+          "end_year": 1993,
+          "generation_name": "2nd Gen",
+          "start_year": 1990
+        },
+        {
+          "description": "Widely considered the best Integra generation. Featured the legendary B18C engine in GS-R and Type R variants. Iconic in import tuning culture.",
+          "end_year": 2001,
+          "generation_name": "3rd Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Final generation with modern styling. Featured K-series engines and improved safety, though some enthusiasts preferred the previous generation's character.",
+          "end_year": 2006,
+          "generation_name": "4th Gen",
+          "start_year": 2002
+        }
+      ],
+      "model": "Integra"
+    },
+    {
+      "generations": [
+        {
+          "description": "The legendary DC2 Type R featured a hand-built B18C5 engine, lightweight construction, and track-focused suspension. One of the most revered front-wheel-drive sports cars ever made.",
+          "end_year": 2001,
+          "generation_name": "DC2",
+          "start_year": 1995
+        },
+        {
+          "description": "Final Type R generation with K20A engine. Featured improved technology and safety while maintaining the Type R's track-focused character and high-revving nature.",
+          "end_year": 2006,
+          "generation_name": "DC5",
+          "start_year": 2001
+        }
+      ],
+      "model": "Integra Type R"
+    },
+    {
+      "generations": [
+        {
+          "description": "Honda's sporty coupe with innovative features. Featured the first use of Honda's CVCC technology in a performance-oriented car.",
+          "end_year": 1982,
+          "generation_name": "1st Gen",
+          "start_year": 1978
+        },
+        {
+          "description": "More refined with improved handling. Introduced fuel injection and became popular among enthusiasts for its balance of sport and comfort.",
+          "end_year": 1987,
+          "generation_name": "2nd Gen",
+          "start_year": 1983
+        },
+        {
+          "description": "Notable for the introduction of 4-wheel steering (4WS) option. Featured VTEC technology and became a technological showcase for Honda.",
+          "end_year": 1991,
+          "generation_name": "3rd Gen",
+          "start_year": 1988
+        },
+        {
+          "description": "Widely considered the best Prelude generation. Featured H22A VTEC engine and excellent handling. The SH model with ATTS (Active Torque Transfer System) was highly advanced.",
+          "end_year": 1996,
+          "generation_name": "4th Gen",
+          "start_year": 1992
+        },
+        {
+          "description": "Final generation with more modern styling. Featured improved H22A4 engine and continued the Prelude's reputation as a sophisticated sport coupe.",
+          "end_year": 2001,
+          "generation_name": "5th Gen",
+          "start_year": 1997
+        }
+      ],
+      "model": "Prelude"
+    },
+    {
+      "generations": [
+        {
+          "description": "Honda's modern roadster celebrating 50 years of the company. Featured a high-revving F20C engine (9000 RPM redline), perfect 50/50 weight distribution, and exceptional handling. Pure driving experience.",
+          "end_year": 2003,
+          "generation_name": "AP1",
+          "start_year": 1999
+        },
+        {
+          "description": "Refined version with F22C1 engine offering more torque. Improved suspension tuning and styling updates. Maintained the S2000's reputation as one of the best modern roadsters.",
+          "end_year": 2009,
+          "generation_name": "AP2",
+          "start_year": 2004
+        }
+      ],
+      "model": "S2000"
+    },
+    {
+      "generations": [
+        {
+          "description": "The original Civic Type R, only available in Japan. Featured hand-built B16B engine, lightweight construction, and track-focused suspension. Highly sought after by collectors.",
+          "end_year": 2000,
+          "generation_name": "EK9",
+          "start_year": 1997
+        },
+        {
+          "description": "First Type R sold in Europe. Featured K20A2 engine and hatchback body style. Popular among enthusiasts for its high-revving nature and practicality.",
+          "end_year": 2005,
+          "generation_name": "EP3",
+          "start_year": 2001
+        },
+        {
+          "description": "FD2 sedan (Japan) and FN2 hatchback (Europe). Featured K20A engine with improved power. The FD2 is considered one of the best Type R generations.",
+          "end_year": 2011,
+          "generation_name": "FD2/FN2",
+          "start_year": 2007
+        },
+        {
+          "description": "First turbocharged Type R with K20C1 engine. Produced 306 horsepower and featured aggressive styling. First Type R officially sold in the US market.",
+          "end_year": 2017,
+          "generation_name": "FK2",
+          "start_year": 2015
+        },
+        {
+          "description": "Highly acclaimed Type R with 306 horsepower. Set multiple front-wheel-drive lap records at tracks worldwide. Featured advanced aerodynamics and track-focused technology.",
+          "end_year": 2021,
+          "generation_name": "FK8",
+          "start_year": 2017
+        },
+        {
+          "description": "Latest generation with more refined styling. Improved power delivery and handling. Continues the Type R legacy as the ultimate front-wheel-drive performance car.",
+          "end_year": null,
+          "generation_name": "FL5",
+          "start_year": 2023
+        }
+      ],
+      "model": "Civic Type R"
+    },
+    {
+      "generations": [
+        {
+          "description": "The legendary first-generation NSX, co-developed with Ayrton Senna. Featured mid-engine layout, VTEC V6 engine, and all-aluminum construction. Revolutionized supercar expectations with Honda reliability and daily usability. One of the most iconic Japanese supercars ever made.",
+          "end_year": 2005,
+          "generation_name": "NA1/NA2",
+          "start_year": 1990
+        },
+        {
+          "description": "Second-generation NSX with hybrid powertrain. Featured twin-turbo V6 with three electric motors, all-wheel drive, and advanced aerodynamics. Modern interpretation of the NSX legacy with cutting-edge technology.",
+          "end_year": 2022,
+          "generation_name": "NC1",
+          "start_year": 2016
+        }
+      ],
+      "model": "NSX"
+    },
+    {
+      "generations": [
+        {
+          "description": "The original CRX, a lightweight two-seater based on the Civic platform. Featured excellent fuel economy and nimble handling. The Si model with fuel injection became popular among early import tuners.",
+          "end_year": 1987,
+          "generation_name": "1st Gen",
+          "start_year": 1984
+        },
+        {
+          "description": "The legendary second-generation CRX. The Si model featured the B16A VTEC engine (in Japan) and became an icon in the tuning community. Lightweight, high-revving, and incredibly fun to drive. Highly sought after by collectors and enthusiasts.",
+          "end_year": 1991,
+          "generation_name": "2nd Gen",
+          "start_year": 1988
+        }
+      ],
+      "model": "CRX"
+    },
+    {
+      "generations": [
+        {
+          "description": "The CRX successor, featuring a removable targa top. The Si model featured VTEC technology, and the VTEC trim (Japan) had the B16A engine. Popular among enthusiasts for its unique design and sporty character.",
+          "end_year": 1997,
+          "generation_name": "1st Gen",
+          "start_year": 1993
+        }
+      ],
+      "model": "Del Sol"
+    },
+    {
+      "generations": [
+        {
+          "description": "Modern hybrid sports coupe inspired by the CRX. Featured IMA hybrid system with manual transmission option. The Mugen and Supercharged variants offered enhanced performance. Has a dedicated enthusiast following despite being discontinued.",
+          "end_year": 2016,
+          "generation_name": "1st Gen",
+          "start_year": 2011
+        }
+      ],
+      "model": "CR-Z"
+    },
+    {
+      "generations": [
+        {
+          "description": "Honda's compact hatchback with innovative 'Magic Seat' system. The Sport trim featured sportier suspension and styling. Popular in autocross and track day communities for its excellent handling and reliability.",
+          "end_year": 2007,
+          "generation_name": "1st Gen",
+          "start_year": 2001
+        },
+        {
+          "description": "Second generation with improved styling and space efficiency. The Sport trim continued to be popular among enthusiasts. Known for excellent handling and aftermarket support in the tuning community.",
+          "end_year": 2013,
+          "generation_name": "2nd Gen",
+          "start_year": 2008
+        },
+        {
+          "description": "Third generation with more modern design and improved fuel economy. The Sport and Sport Touring trims offered enhanced performance. Remains popular in autocross and track communities.",
+          "end_year": 2020,
+          "generation_name": "3rd Gen",
+          "start_year": 2015
+        }
+      ],
+      "model": "Fit"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-generation CR-V compact crossover with 2.0L B20B engine. 4WD available with real-time all-wheel drive. Popular for suspension upgrades and off-road enhancements.",
+          "end_year": 2001,
+          "generation_name": "RD",
+          "start_year": 1997
+        },
+        {
+          "description": "Second-generation CR-V with 2.4L K24A1 engine producing 160 hp. Improved styling and interior space. Rear-mounted spare tire. Popular for suspension, intake, exhaust, and performance modifications.",
+          "end_year": 2006,
+          "generation_name": "RD4/RD5/RD6/RD7",
+          "start_year": 2002
+        },
+        {
+          "description": "Third-generation CR-V with improved styling and 2.4L K24Z1 engine. Real Time AWD standard on upper trims. Popular for intake upgrades, exhaust modifications, and suspension work.",
+          "end_year": 2011,
+          "generation_name": "RE",
+          "start_year": 2007
+        },
+        {
+          "description": "Fourth-generation CR-V with Earth Dreams 2.4L engine. Improved technology and fuel economy. Available with FWD and AWD. Popular for exhaust and suspension modifications.",
+          "end_year": 2016,
+          "generation_name": "RM",
+          "start_year": 2012
+        },
+        {
+          "description": "Fifth-generation CR-V with turbocharged 1.5L L15B7 engine producing 190 hp. First CR-V with turbocharged engine in US market. Popular for intake upgrades, ECU tuning, and suspension modifications.",
+          "end_year": 2022,
+          "generation_name": "RW",
+          "start_year": 2017
+        }
+      ],
+      "model": "CR-V"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-generation US-market HR-V subcompact crossover. Features 1.8L naturally aspirated engine producing 141 hp. Available in FWD and AWD. Popular for suspension lowering, intake upgrades, and cosmetic modifications.",
+          "end_year": 2022,
+          "generation_name": "RU",
+          "start_year": 2016
+        },
+        {
+          "description": "Second-generation HR-V with turbocharged 1.5L engine producing 158 hp. New platform with significantly improved dynamics. Available in FWD only. Growing aftermarket community.",
+          "end_year": null,
+          "generation_name": "RS",
+          "start_year": 2023
+        }
+      ],
+      "model": "HR-V"
+    },
+    {
+      "generations": [
+        {
+          "description": "Honda Element crossover with unique boxy design and rear clamshell doors. Featured 2.4L K24A4 engine. Available in FWD and AWD. Popular for overlanding and off-road builds, camping conversions, and suspension lifts.",
+          "end_year": 2011,
+          "generation_name": "YH",
+          "start_year": 2003
+        }
+      ],
+      "model": "Element"
+    },
+    {
+      "generations": [
+        {
+          "description": "Honda's original two-door hybrid with aerodynamic body. IMA hybrid system with 1.0L engine. Very fuel efficient. Niche enthusiast community for performance modifications.",
+          "end_year": 2006,
+          "generation_name": "1st Gen",
+          "start_year": 2000
+        },
+        {
+          "description": "Second-generation Insight five-door hybrid hatchback. IMA hybrid system with 1.3L engine. Popular for hybrid modifications and fuel economy optimization.",
+          "end_year": 2014,
+          "generation_name": "2nd Gen",
+          "start_year": 2010
+        },
+        {
+          "description": "Third-generation Insight sedan with Two-Motor hybrid system. 1.5L Atkinson cycle engine with 151 system hp. More mainstream styling and improved technology.",
+          "end_year": 2022,
+          "generation_name": "3rd Gen",
+          "start_year": 2019
+        }
+      ],
+      "model": "Insight"
+    },
+    {
+      "generations": [
+        {
+          "description": "1st-gen Odyssey (RA1-RA5).",
+          "end_year": 1998,
+          "generation_name": "RA",
+          "start_year": 1994
+        },
+        {
+          "description": "Second-generation Odyssey minivan with 3.5L J35A1 V6 engine producing 210 hp. Popular for suspension, exhaust, and intake modifications. Enthusiast community for performance builds.",
+          "end_year": 2004,
+          "generation_name": "RL",
+          "start_year": 1999
+        },
+        {
+          "description": "Third-generation Odyssey with updated 3.5L V6 producing 244 hp. Improved technology and safety features. Popular for suspension, exhaust, and intake modifications.",
+          "end_year": 2010,
+          "generation_name": "RL3",
+          "start_year": 2005
+        },
+        {
+          "description": "Fourth-generation Odyssey with 3.5L V6 producing 248 hp. Available with 6-speed automatic. Improved fuel economy and technology. Popular for exhaust and suspension modifications.",
+          "end_year": 2017,
+          "generation_name": "RL4",
+          "start_year": 2011
+        },
+        {
+          "description": "Fifth-generation Odyssey with 3.5L V6 producing 280 hp. Available with 9-speed automatic and 10-speed automatic. Improved performance and technology. Growing aftermarket community.",
+          "end_year": null,
+          "generation_name": "RL5",
+          "start_year": 2018
+        }
+      ],
+      "model": "Odyssey"
+    }
+  ]
+}

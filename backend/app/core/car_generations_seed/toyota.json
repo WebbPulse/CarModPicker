@@ -1,0 +1,634 @@
+{
+  "Toyota": [
+    {
+      "generations": [
+        {
+          "description": "Established the Corolla as a reliable, fuel-efficient compact car. Helped Toyota gain market share during the oil crisis with its efficient engines.",
+          "end_year": 1979,
+          "generation_name": "E70",
+          "start_year": 1974
+        },
+        {
+          "description": "Refined design with improved fuel economy. Continued Toyota's reputation for reliability and became one of the best-selling cars globally.",
+          "end_year": 1983,
+          "generation_name": "E80",
+          "start_year": 1980
+        },
+        {
+          "description": "Front-wheel-drive platform introduced. More modern styling and improved interior space. The AE86 variant became legendary in drifting culture.",
+          "end_year": 1987,
+          "generation_name": "E90",
+          "start_year": 1984
+        },
+        {
+          "description": "Larger and more refined with improved safety features. The Corolla became known for its build quality and reliability in this generation.",
+          "end_year": 1992,
+          "generation_name": "E100",
+          "start_year": 1988
+        },
+        {
+          "description": "More rounded styling with improved aerodynamics. Featured updated engines and continued the Corolla's reputation for dependability.",
+          "end_year": 1997,
+          "generation_name": "E110",
+          "start_year": 1993
+        },
+        {
+          "description": "Larger platform with more interior space. Improved safety and comfort features. The XRS trim with high-revving 2ZZ engine appealed to enthusiasts.",
+          "end_year": 2002,
+          "generation_name": "E120",
+          "start_year": 1998
+        },
+        {
+          "description": "More modern styling with improved technology. Featured VVT-i engines and continued focus on reliability and fuel efficiency.",
+          "end_year": 2008,
+          "generation_name": "E140",
+          "start_year": 2003
+        },
+        {
+          "description": "Complete redesign with more aggressive styling. Improved fuel economy and introduced more advanced safety features.",
+          "end_year": 2013,
+          "generation_name": "E150",
+          "start_year": 2009
+        },
+        {
+          "description": "TNGA platform introduced. More dynamic styling and improved handling. The SE and XSE trims offered sportier character.",
+          "end_year": 2018,
+          "generation_name": "E170",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest generation with hybrid powertrain option. Improved technology, safety features, and fuel economy. SE and XSE trims offer sporty styling.",
+          "end_year": null,
+          "generation_name": "E210",
+          "start_year": 2019
+        }
+      ],
+      "model": "Corolla"
+    },
+    {
+      "generations": [
+        {
+          "description": "Toyota's hot hatch based on the E210 Corolla platform. Turbocharged 1.6L 3-cylinder (G16E-GTS) producing 300 horsepower. GR-Four AWD, available in Core, Circuit, and Morizo editions. Sold as GR Corolla in North America and Japan. Strong aftermarket support for exhaust, suspension, and tuning.",
+          "end_year": null,
+          "generation_name": "1st Gen",
+          "start_year": 2022
+        }
+      ],
+      "model": "GR Corolla"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Camry, establishing it as a reliable mid-size sedan. Featured efficient engines and helped Toyota compete in the American market.",
+          "end_year": 1986,
+          "generation_name": "1st Gen",
+          "start_year": 1982
+        },
+        {
+          "description": "Larger platform with improved interior space. Introduced V6 engine option and became known for smooth ride and reliability.",
+          "end_year": 1991,
+          "generation_name": "2nd Gen",
+          "start_year": 1987
+        },
+        {
+          "description": "First US-built Camry. Larger and more refined, becoming one of the best-selling cars in America. Known for quality and dependability.",
+          "end_year": 1996,
+          "generation_name": "XV10",
+          "start_year": 1992
+        },
+        {
+          "description": "More rounded styling with improved safety features. V6 models offered strong performance, and the Camry became the benchmark for reliability.",
+          "end_year": 2001,
+          "generation_name": "XV20",
+          "start_year": 1997
+        },
+        {
+          "description": "Complete redesign with more modern styling. Improved engines and introduced hybrid powertrain option. Continued dominance in mid-size sedan segment.",
+          "end_year": 2006,
+          "generation_name": "XV30",
+          "start_year": 2002
+        },
+        {
+          "description": "Larger and more spacious with improved technology. Hybrid version became more popular. Maintained Camry's reputation for quality and reliability.",
+          "end_year": 2011,
+          "generation_name": "XV40",
+          "start_year": 2007
+        },
+        {
+          "description": "More aggressive styling with improved fuel economy. SE trim offered sportier character. Hybrid technology improved significantly.",
+          "end_year": 2017,
+          "generation_name": "XV50",
+          "start_year": 2012
+        },
+        {
+          "description": "TNGA platform with more dynamic styling. Improved handling and technology. TRD trim introduced for performance-oriented buyers. Hybrid powertrain refined.",
+          "end_year": 2024,
+          "generation_name": "XV70",
+          "start_year": 2018
+        }
+      ],
+      "model": "Camry"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Supra, based on Celica platform. Featured inline-6 engine and established Supra as Toyota's flagship sports car.",
+          "end_year": 1981,
+          "generation_name": "A40",
+          "start_year": 1978
+        },
+        {
+          "description": "More distinct from Celica with unique styling. Featured improved engines and became popular among enthusiasts for its performance potential.",
+          "end_year": 1986,
+          "generation_name": "A60",
+          "start_year": 1982
+        },
+        {
+          "description": "Standalone platform with turbocharged option. Featured advanced technology for its time and became a tuner favorite with strong aftermarket support.",
+          "end_year": 1992,
+          "generation_name": "A70",
+          "start_year": 1987
+        },
+        {
+          "description": "The legendary MK4 Supra with 2JZ engine. Iconic in tuning culture, known for incredible power potential. Twin-turbo model produced 320 horsepower. Highly collectible.",
+          "display_name": "Mk4 Supra",
+          "end_year": 2002,
+          "generation_name": "A80",
+          "start_year": 1993
+        },
+        {
+          "description": "Modern Supra revival co-developed with BMW. Features turbocharged inline-6 engine producing up to 382 horsepower. Excellent handling and modern technology while honoring Supra heritage.",
+          "display_name": "Mk5 Supra",
+          "end_year": 2026,
+          "generation_name": "A90",
+          "start_year": 2019
+        }
+      ],
+      "model": "Supra"
+    },
+    {
+      "generations": [
+        {
+          "description": "The legendary AE86 (Hachi-Roku) pre-facelift generation. Part of the E80 Corolla series but unique for retaining rear-wheel-drive. Available as Levin (fixed headlights) or Trueno (pop-up headlights). Features the 1.6L 4A-GE DOHC engine. Iconic in drifting culture and featured in Initial D. Highly sought after by enthusiasts for its lightweight, balanced chassis and tuning potential.",
+          "end_year": 1985,
+          "generation_name": "Zenki",
+          "start_year": 1983
+        },
+        {
+          "description": "AE86 facelift generation with updated styling. Features revised bumpers, updated grille, new tail lights, and improved trim. The Black Limited special edition (400 units) featured unique styling. Remains one of the most iconic drift and tuner cars, with massive aftermarket support for engine swaps, suspension, and styling modifications.",
+          "end_year": 1987,
+          "generation_name": "Kouki",
+          "start_year": 1986
+        }
+      ],
+      "model": "AE86"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation MR2 (Mid-engine, Rear-wheel-drive, 2-seater). Lightweight mid-engine sports car with excellent handling. Featured 1.6L 4A-GE engine. Popular among enthusiasts for its unique layout and tunability. Supercharged variant available in later years.",
+          "end_year": 1989,
+          "generation_name": "W10",
+          "start_year": 1984
+        },
+        {
+          "description": "Second generation MR2 with more aggressive styling. Featured turbocharged 2.0L 3S-GTE engine producing 200+ horsepower. Known for its sharp handling and mid-engine dynamics. Popular for engine swaps and turbo upgrades.",
+          "end_year": 1999,
+          "generation_name": "W20",
+          "start_year": 1990
+        },
+        {
+          "description": "Third generation MR2 (MR-S/Spyder). Convertible roadster with 1.8L 1ZZ-FE engine. Lightweight and nimble, popular for track use and modifications. Less powerful but more refined than previous generations.",
+          "end_year": 2007,
+          "generation_name": "W30",
+          "start_year": 2000
+        }
+      ],
+      "model": "MR2"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Celica, Toyota's sporty coupe. Featured various engine options and established Celica as a popular sports car. Available in coupe and liftback variants.",
+          "end_year": 1977,
+          "generation_name": "1st Gen",
+          "start_year": 1970
+        },
+        {
+          "description": "Second generation with more modern styling. Featured improved engines and handling. The Supra was based on this platform initially.",
+          "end_year": 1981,
+          "generation_name": "2nd Gen",
+          "start_year": 1978
+        },
+        {
+          "description": "Third generation with updated design. Featured front-wheel-drive platform. Popular among tuners for its sporty character and aftermarket support.",
+          "end_year": 1985,
+          "generation_name": "3rd Gen",
+          "start_year": 1982
+        },
+        {
+          "description": "Fourth generation with more aggressive styling. Featured turbocharged All-Trac/GT-Four variant with all-wheel drive. Popular in rally and tuning communities.",
+          "end_year": 1989,
+          "generation_name": "4th Gen",
+          "start_year": 1986
+        },
+        {
+          "description": "Fifth generation with pop-up headlights. Featured improved GT-Four with more power. Highly sought after for rally and track modifications.",
+          "end_year": 1993,
+          "generation_name": "5th Gen",
+          "start_year": 1990
+        },
+        {
+          "description": "Sixth generation with fixed headlights. Featured the final GT-Four variant with 3S-GTE turbo engine. Popular for engine swaps and all-wheel-drive conversions.",
+          "end_year": 1999,
+          "generation_name": "6th Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Final generation Celica with modern styling. Featured VVT-i engines and sporty handling. Popular among tuners despite front-wheel-drive only configuration.",
+          "end_year": 2005,
+          "generation_name": "7th Gen",
+          "start_year": 2000
+        }
+      ],
+      "model": "Celica"
+    },
+    {
+      "generations": [
+        {
+          "description": "Toyota's modern rear-wheel-drive sports car co-developed with Subaru. Features 2.0L boxer engine, perfect weight distribution, and exceptional handling. Revived affordable sports car segment. Sold as Scion FR-S in North America from 2012-2016, then rebadged as Toyota 86 for 2017-2020. Succeeded by the GR86 (ZN8) model line, which Toyota branded as a separate GR-series car.",
+          "end_year": 2020,
+          "generation_name": "ZN6",
+          "start_year": 2012
+        }
+      ],
+      "model": "86"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second generation (MY 2022+), marketed under the Toyota GAZOO Racing sub-brand as the GR86 — distinct from the original Toyota 86 (ZN6). Upgraded 2.4L boxer engine (FA24) producing 228 horsepower. Retains rear-wheel drive, six-speed manual, and the Subaru co-development with the BRZ (ZD8). Still in production.",
+          "display_name": "GR86 (ZN8)",
+          "end_year": null,
+          "generation_name": "ZN8",
+          "start_year": 2022
+        }
+      ],
+      "model": "GR86"
+    },
+    {
+      "generations": [
+        {
+          "description": "Classic Land Cruiser with legendary off-road capability. Featured robust construction and various engine options. Highly popular for off-road modifications and overlanding builds.",
+          "end_year": 1984,
+          "generation_name": "J40",
+          "start_year": 1960
+        },
+        {
+          "description": "More refined Land Cruiser with improved comfort. Featured larger engines and better on-road manners while maintaining off-road capability. Popular for lift kits and off-road modifications.",
+          "end_year": 1990,
+          "generation_name": "J60",
+          "start_year": 1980
+        },
+        {
+          "description": "Iconic Land Cruiser generation with solid front and rear axles. Featured inline-6 engines and legendary reliability. Highly sought after for off-road builds and overlanding modifications.",
+          "end_year": 1997,
+          "generation_name": "J80",
+          "start_year": 1990
+        },
+        {
+          "description": "More modern Land Cruiser with independent front suspension. Featured V8 engines and improved luxury. Popular for lift kits, bumpers, and off-road accessories.",
+          "end_year": 2007,
+          "generation_name": "J100",
+          "start_year": 1998
+        },
+        {
+          "description": "Current generation Land Cruiser with advanced technology. Featured powerful V8 engines and sophisticated suspension. Popular for luxury off-road modifications and overlanding builds.",
+          "end_year": 2021,
+          "generation_name": "J200",
+          "start_year": 2008
+        }
+      ],
+      "model": "Land Cruiser"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation 4Runner based on Hilux pickup. Featured removable top and various engines. Popular for off-road modifications and overlanding builds.",
+          "end_year": 1989,
+          "generation_name": "N60",
+          "start_year": 1984
+        },
+        {
+          "description": "Second generation with more refined design. Featured improved engines and better interior. Popular for lift kits and off-road accessories.",
+          "end_year": 1995,
+          "generation_name": "N120",
+          "start_year": 1990
+        },
+        {
+          "description": "Third generation with independent front suspension. Featured V6 engines and improved on-road comfort. Popular for suspension upgrades and off-road modifications.",
+          "end_year": 2002,
+          "generation_name": "N180",
+          "start_year": 1996
+        },
+        {
+          "description": "Fourth generation with more modern styling. Featured V6 and V8 engine options. Popular for lift kits, bumpers, and overlanding modifications.",
+          "end_year": 2009,
+          "generation_name": "N210",
+          "start_year": 2003
+        },
+        {
+          "description": "Fifth generation 4Runner with rugged design. Featured V6 engine and excellent off-road capability. Highly popular for off-road modifications, lift kits, bumpers, and overlanding builds.",
+          "end_year": 2024,
+          "generation_name": "N280",
+          "start_year": 2010
+        }
+      ],
+      "model": "4Runner"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Tacoma compact pickup. Featured various engine options and excellent reliability. Popular for off-road modifications, lift kits, and overlanding builds.",
+          "end_year": 2004,
+          "generation_name": "1st Gen",
+          "start_year": 1995
+        },
+        {
+          "description": "Second generation with more modern design. Featured V6 engines and improved capability. Highly popular for off-road modifications, suspension upgrades, and truck bed accessories.",
+          "end_year": 2015,
+          "generation_name": "2nd Gen",
+          "start_year": 2005
+        },
+        {
+          "description": "Third generation with updated styling and technology. Featured improved engines and advanced safety features. Popular for off-road modifications, lift kits, and overlanding builds.",
+          "end_year": 2023,
+          "generation_name": "3rd Gen",
+          "start_year": 2016
+        }
+      ],
+      "model": "Tacoma"
+    },
+    {
+      "generations": [
+        {
+          "description": "Toyota's rally-inspired hot hatch co-developed with Gazoo Racing. Features turbocharged 1.6L 3-cylinder engine producing 257-268 horsepower, all-wheel drive, and lightweight construction. Limited production, highly sought after for track and rally modifications.",
+          "end_year": 2023,
+          "generation_name": "1st Gen",
+          "start_year": 2020
+        },
+        {
+          "description": "Mid-cycle refresh of the GXPA16 platform with retuned 1.6L turbo three-cylinder (up to ~300 hp in some markets), new 8-speed automatic option (GR-DAT), revised interior with relocated touchscreen and driver-focused instrument cluster, and suspension/cooling updates. Same chassis as the 1st Gen so many aftermarket parts (body panels, aero, exhausts) fit both generations.",
+          "end_year": null,
+          "generation_name": "2nd Gen",
+          "start_year": 2024
+        }
+      ],
+      "model": "GR Yaris"
+    },
+    {
+      "generations": [
+        {
+          "description": "Fifth generation Chaser with JZX90 chassis code. Featured the Tourer V trim with twin-turbo 1JZ-GTE engine producing 280 PS. Popular JDM sedan highly sought after for drifting and modifications. Excellent aftermarket support for engine upgrades, suspension, and body kits.",
+          "end_year": 1996,
+          "generation_name": "JZX90",
+          "start_year": 1992
+        },
+        {
+          "description": "Sixth and final generation Chaser with JZX100 chassis code. Featured single-turbo 1JZ-GTE with VVT-i in Tourer V trim. Iconic in JDM culture, extremely popular for drifting, engine swaps, and modifications. Massive aftermarket support for power upgrades, suspension, and styling.",
+          "end_year": 2001,
+          "generation_name": "JZX100",
+          "start_year": 1996
+        }
+      ],
+      "model": "Chaser"
+    },
+    {
+      "generations": [
+        {
+          "description": "Third generation Soarer luxury coupe with Z30 chassis code. Available with 1JZ-GTE, 2JZ-GE, or 1UZ-FE V8 engines. Popular for engine swaps, turbo upgrades, and modifications. Known for advanced features like active suspension and luxury amenities. Sold as Lexus SC in export markets.",
+          "end_year": 2000,
+          "generation_name": "Z30",
+          "start_year": 1991
+        },
+        {
+          "description": "Fourth and final generation Soarer with Z40 chassis code. Featured V8 engines and modern luxury features. Popular for modifications and engine swaps. Discontinued in 2005 when fully rebadged as Lexus SC 430 globally.",
+          "end_year": 2005,
+          "generation_name": "Z40",
+          "start_year": 2001
+        }
+      ],
+      "model": "Soarer"
+    },
+    {
+      "generations": [
+        {
+          "description": "Third generation Cressida with MX73 chassis code. Featured 5M-GE inline-6 engine and independent rear suspension. Popular in North America for modifications, especially 1UZ-FE V8 swaps. Known for reliability and comfortable ride.",
+          "end_year": 1988,
+          "generation_name": "MX73",
+          "start_year": 1984
+        },
+        {
+          "description": "Fourth and final generation Cressida with MX83 chassis code. Featured 7M-GE 3.0L inline-6 engine producing 190 horsepower. Popular for modifications and engine swaps, especially 1UZ-FE and 2JZ swaps. Last Cressida generation before being replaced by Avalon in North America.",
+          "end_year": 1992,
+          "generation_name": "MX83",
+          "start_year": 1988
+        }
+      ],
+      "model": "Cressida"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Altezza with XE10 chassis code. Available as AS200 (2.0L I6), RS200 (high-revving 2.0L I4 BEAMS engine), or AS300 (3.0L 2JZ-GE). Sold as Lexus IS200/IS300 in export markets. Popular for modifications, especially the RS200 with its 7,600 rpm redline. Excellent handling and aftermarket support.",
+          "end_year": 2005,
+          "generation_name": "XE10",
+          "start_year": 1998
+        }
+      ],
+      "model": "Altezza"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Aristo with S140 chassis code. Available with 2JZ-GE naturally aspirated or 2JZ-GTE twin-turbo engines. Sold as Lexus GS300 in export markets. Highly popular for modifications and engine swaps. The twin-turbo V300 variant is extremely sought after for its 2JZ-GTE engine.",
+          "end_year": 1997,
+          "generation_name": "S140",
+          "start_year": 1991
+        },
+        {
+          "description": "Second generation Aristo with S160 chassis code. Featured updated styling and VVT-i technology on JZ engines. Available with 2JZ-GE, 2JZ-GTE, or V8 engines. Sold as Lexus GS300/GS400/GS430 in export markets. Popular for modifications, especially the twin-turbo variants. Discontinued in 2005 when fully rebadged as Lexus GS globally.",
+          "end_year": 2004,
+          "generation_name": "S160",
+          "start_year": 1997
+        }
+      ],
+      "model": "Aristo"
+    },
+    {
+      "generations": [
+        {
+          "description": "Toyota's retro-styled off-road SUV inspired by the classic FJ40 Land Cruiser. Featured 4.0L V6 engine (239-260 hp depending on year). Highly popular for off-road modifications, lift kits, bumpers, rock sliders, and overlanding builds. Special Trail Teams and TRD editions available. Discontinued in US after 2014 but continued in other markets.",
+          "end_year": 2014,
+          "generation_name": "1st Gen",
+          "start_year": 2007
+        }
+      ],
+      "model": "FJ Cruiser"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Tundra full-size pickup truck. Featured V6 and V8 engine options. Popular for modifications including lift kits, off-road accessories, performance upgrades, and towing modifications. Established Toyota in the full-size truck market.",
+          "end_year": 2006,
+          "generation_name": "1st Gen",
+          "start_year": 2000
+        },
+        {
+          "description": "Second generation Tundra with larger platform and more powerful engines. Featured 4.6L and 5.7L V8 engines. Highly popular for modifications including lift kits, off-road accessories, performance upgrades, superchargers, and overlanding builds. Mid-cycle refresh in 2014.",
+          "end_year": 2021,
+          "generation_name": "2nd Gen",
+          "start_year": 2007
+        },
+        {
+          "description": "Third generation Tundra with complete redesign. Features new twin-turbo V6 engines and hybrid powertrain option. Modern technology and improved capability. Growing aftermarket support for modifications, lift kits, and off-road accessories.",
+          "end_year": null,
+          "generation_name": "3rd Gen",
+          "start_year": 2022
+        }
+      ],
+      "model": "Tundra"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Sequoia full-size SUV based on Tundra platform. Featured V8 engines and three-row seating. Popular for modifications including lift kits, off-road accessories, and overlanding builds. Known for reliability and capability.",
+          "end_year": 2007,
+          "generation_name": "1st Gen",
+          "start_year": 2001
+        },
+        {
+          "description": "Second generation Sequoia with updated styling and improved features. Featured V8 engines and advanced safety technology. Popular for modifications including lift kits, suspension upgrades, off-road accessories, and overlanding modifications. Growing enthusiast community.",
+          "end_year": 2022,
+          "generation_name": "2nd Gen",
+          "start_year": 2008
+        },
+        {
+          "description": "Third generation Sequoia with complete redesign. Features new twin-turbo V6 hybrid powertrain (i-Force Max), modern technology, and improved capability. Growing aftermarket support for modifications and off-road accessories.",
+          "end_year": null,
+          "generation_name": "3rd Gen",
+          "start_year": 2023
+        }
+      ],
+      "model": "Sequoia"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second-generation Prius (first sold in North America). Featured 1.5L Atkinson-cycle engine with nickel-metal hydride hybrid battery. EPA-rated 48 city/45 highway mpg. Paved the way for hybrid vehicle adoption. Popular for battery upgrades and efficiency modifications.",
+          "end_year": 2003,
+          "generation_name": "NHW11",
+          "start_year": 2001
+        },
+        {
+          "description": "Third-generation Prius with iconic hatchback design. 1.5L Atkinson-cycle engine with updated hybrid system producing 110 hp combined. EPA-rated 51 city/48 highway mpg. Very popular for fuel economy, hypermiling community, and hybrid drivetrain modifications.",
+          "end_year": 2009,
+          "generation_name": "XW20",
+          "start_year": 2004
+        },
+        {
+          "description": "Fourth-generation Prius with improved aerodynamics and 1.8L engine producing 134 hp combined. Solar-powered ventilation available. Multiple sub-models: Prius v (wagon), Prius c (subcompact), Prius plug-in hybrid. Popular for suspension lowering, wheel upgrades, and hybrid modifications.",
+          "end_year": 2015,
+          "generation_name": "ZVW30",
+          "start_year": 2010
+        },
+        {
+          "description": "Fifth-generation Prius with TNGA platform and more dynamic styling. 1.8L engine producing 121 hp combined. Available as Prime plug-in hybrid. Improved driving dynamics compared to predecessors. Growing aftermarket community.",
+          "end_year": 2022,
+          "generation_name": "ZVW50",
+          "start_year": 2016
+        },
+        {
+          "description": "Sixth-generation Prius with bold new styling. Available as hybrid and Prime plug-in. 2.0L engine producing 194 hp combined. Most powerful and stylish Prius to date. Growing aftermarket interest.",
+          "end_year": null,
+          "generation_name": "ZVW60",
+          "start_year": 2023
+        }
+      ],
+      "model": "Prius"
+    },
+    {
+      "generations": [
+        {
+          "description": "First US-market Yaris subcompact. Available as 3-door, 5-door hatchback, and sedan. Featured 1.5L 1NZ-FE engine producing 106 hp. Popular for autocross, track events, suspension lowering, and performance modifications.",
+          "end_year": 2011,
+          "generation_name": "XP90",
+          "start_year": 2007
+        },
+        {
+          "description": "Second-generation US-market Yaris with updated styling. Available as 3-door, 5-door hatchback, and sedan. Featured 1.5L engine. Popular for suspension modifications and fuel economy optimization.",
+          "end_year": 2020,
+          "generation_name": "XP130",
+          "start_year": 2012
+        }
+      ],
+      "model": "Yaris"
+    },
+    {
+      "generations": [
+        {
+          "description": "Toyota Echo subcompact sedan and hatchback. Featured 1.5L 1NZ-FE engine producing 108 hp. Known for exceptional fuel economy. Sold as Yaris in other markets. Popular for fuel economy optimization.",
+          "end_year": 2005,
+          "generation_name": "P10",
+          "start_year": 2000
+        }
+      ],
+      "model": "Echo"
+    },
+    {
+      "generations": [
+        {
+          "description": "Toyota's car-based crossover with Camry-derived platform. Available with 2.7L I4 and 3.5L V6 engines. FWD and AWD available. Popular for suspension upgrades and styling modifications.",
+          "end_year": 2017,
+          "generation_name": "1st Gen",
+          "start_year": 2009
+        },
+        {
+          "description": "Second-generation Venza with hybrid-only powertrain. Features 2.5L 4-cylinder hybrid producing 219 combined hp. Standard AWD. Modern styling with available XSE Sport package. Growing aftermarket community.",
+          "end_year": 2024,
+          "generation_name": "2nd Gen",
+          "start_year": 2021
+        }
+      ],
+      "model": "Venza"
+    },
+    {
+      "generations": [
+        {
+          "description": "Toyota's compact crossover with angular design. Features 2.0L naturally aspirated engine producing 144 hp. FWD only in US market. Available with CVT. Popular for lowering springs, wheels, and cosmetic modifications.",
+          "end_year": 2022,
+          "generation_name": "AX10",
+          "start_year": 2018
+        }
+      ],
+      "model": "C-HR"
+    },
+    {
+      "generations": [
+        {
+          "description": "Toyota Matrix compact hatchback based on Corolla E130 platform. Featured 1.8L 1ZZ-FE or 2ZZ-GE (XRS) engines. AWD available. Badge-engineered as Pontiac Vibe. Popular for engine swaps, suspension modifications, and performance builds. Strong enthusiast community.",
+          "end_year": 2008,
+          "generation_name": "E130",
+          "start_year": 2003
+        },
+        {
+          "description": "Second-generation Matrix on Corolla E150 platform. Featured 1.8L 2ZR-FE engine producing 132 hp. AWD with manual only. Badge-engineered as Pontiac Vibe 2009-2010. Popular for suspension and intake modifications.",
+          "end_year": 2013,
+          "generation_name": "E150",
+          "start_year": 2009
+        }
+      ],
+      "model": "Matrix"
+    }
+  ]
+}

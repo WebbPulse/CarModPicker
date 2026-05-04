@@ -1,0 +1,60 @@
+{
+  "Chrysler": [
+    {
+      "generations": [
+        {
+          "description": "Modern Chrysler 300 / 300C on the LX rear-wheel-drive platform shared with Dodge Charger / Magnum. 5.7L Hemi (300C) and 6.1L Hemi (SRT8) variants are the enthusiast-focused trims. Strong aftermarket for suspension, exhaust, and supercharger kits. Final US MY 2010 before LD redesign.",
+          "end_year": 2010,
+          "generation_name": "LX",
+          "start_year": 2005
+        },
+        {
+          "description": "Refreshed Chrysler 300 / 300C on the LD platform (LX evolution). Continued 5.7L Hemi and 6.4L Hemi (SRT8 / SRT) variants. Final US MY 2023 before discontinuation.",
+          "end_year": 2023,
+          "generation_name": "LD",
+          "start_year": 2011
+        }
+      ],
+      "model": "300"
+    },
+    {
+      "generations": [
+        {
+          "description": "Retro-styled compact wagon on the PT platform. Naturally aspirated 2.4L I4 base; 2.4L turbo (GT) variant offered. Final US MY 2010.",
+          "end_year": 2010,
+          "generation_name": "PT",
+          "start_year": 2001
+        }
+      ],
+      "model": "PT Cruiser"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mid-size sedan replacing the Sebring on the JS platform. 2.4L I4 and 3.6L Pentastar V6. Final US MY 2014 before redesign.",
+          "end_year": 2014,
+          "generation_name": "JS",
+          "start_year": 2011
+        },
+        {
+          "description": "Second-generation Chrysler 200 on the CUSW platform. 2.4L Tigershark I4 standard, 3.6L Pentastar V6 optional. Discontinued; final US MY 2017.",
+          "end_year": 2017,
+          "generation_name": "UF",
+          "start_year": 2015
+        }
+      ],
+      "model": "200"
+    },
+    {
+      "generations": [
+        {
+          "description": "Chrysler-badged Mitsubishi Starion sold in the US under the Conquest name. 2.6L turbo I4 (G54B). Rear-wheel-drive sport coupe popular with the Mitsubishi tuning community. Final US MY 1989.",
+          "end_year": 1989,
+          "generation_name": "1st Gen",
+          "start_year": 1984
+        }
+      ],
+      "model": "Conquest"
+    }
+  ]
+}

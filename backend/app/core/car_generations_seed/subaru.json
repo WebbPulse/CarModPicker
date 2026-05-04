@@ -1,0 +1,356 @@
+{
+  "Subaru": [
+    {
+      "generations": [
+        {
+          "description": "The original WRX, legendary in rally and tuning culture. Featured turbocharged boxer engine and all-wheel drive. The STI variant with EJ20 engine became iconic.",
+          "end_year": 2000,
+          "generation_name": "GC",
+          "start_year": 1992
+        },
+        {
+          "description": "First WRX sold in the US market. Featured 2.0L and 2.5L turbo engines. The STI model with 300+ horsepower became a tuner favorite and rally legend.",
+          "end_year": 2007,
+          "generation_name": "GD",
+          "start_year": 2001
+        },
+        {
+          "description": "Wider body and improved handling. Featured EJ25 engine and continued the WRX's reputation for all-wheel-drive performance. STI model highly sought after.",
+          "end_year": 2014,
+          "generation_name": "GR",
+          "start_year": 2008
+        },
+        {
+          "description": "Separated from Impreza platform. Featured FA20DIT engine producing 268 horsepower. Improved handling and technology while maintaining rally heritage.",
+          "end_year": 2021,
+          "generation_name": "VA",
+          "start_year": 2015
+        },
+        {
+          "description": "Latest generation with FA24F engine producing 271 horsepower. Improved power delivery and handling. More refined while maintaining the WRX's character.",
+          "end_year": null,
+          "generation_name": "VB",
+          "start_year": 2022
+        }
+      ],
+      "model": "WRX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Subaru's rear-wheel-drive sports car co-developed with Toyota. Features naturally aspirated boxer engine, perfect weight distribution, and exceptional handling. Focus on driver engagement.",
+          "end_year": 2020,
+          "generation_name": "ZC6",
+          "start_year": 2012
+        },
+        {
+          "description": "Refined second generation with improved 2.4L engine producing 228 horsepower. Better handling and technology while maintaining the BRZ's focus on pure driving experience.",
+          "end_year": null,
+          "generation_name": "ZD8",
+          "start_year": 2021
+        }
+      ],
+      "model": "BRZ"
+    },
+    {
+      "generations": [
+        {
+          "description": "Subaru's compact car platform that spawned the WRX. Featured all-wheel drive and boxer engines. The base for the legendary WRX STI variants.",
+          "end_year": 2000,
+          "generation_name": "GC/GF",
+          "start_year": 1992
+        },
+        {
+          "description": "Larger platform with improved safety and comfort. Featured updated engines and continued Subaru's focus on all-wheel drive and reliability.",
+          "end_year": 2007,
+          "generation_name": "GD/GG",
+          "start_year": 2001
+        },
+        {
+          "description": "More refined design with improved fuel economy. Featured updated boxer engines and continued Subaru's reputation for all-weather capability.",
+          "end_year": 2014,
+          "generation_name": "GE/GH",
+          "start_year": 2008
+        },
+        {
+          "description": "Complete redesign with improved technology and fuel economy. WRX separated to its own model. Focus on safety, reliability, and all-wheel-drive capability.",
+          "end_year": 2023,
+          "generation_name": "GP/GJ",
+          "start_year": 2015
+        }
+      ],
+      "model": "Impreza"
+    },
+    {
+      "generations": [
+        {
+          "description": "1st-gen Legacy sedan/wagon. Turbo EJ20T.",
+          "end_year": 1994,
+          "generation_name": "BC/BJ/BF",
+          "start_year": 1990
+        },
+        {
+          "description": "Subaru's mid-size sedan with all-wheel drive standard. Featured boxer engines and became known for reliability and all-weather capability.",
+          "end_year": 1999,
+          "generation_name": "BD/BG",
+          "start_year": 1995
+        },
+        {
+          "description": "Larger platform with improved interior space. Featured updated engines and continued Subaru's focus on safety and all-wheel drive.",
+          "end_year": 2004,
+          "generation_name": "BE/BH",
+          "start_year": 2000
+        },
+        {
+          "description": "More refined styling with improved technology. Featured updated boxer engines and introduced turbocharged option in GT trim.",
+          "end_year": 2009,
+          "generation_name": "BL/BP",
+          "start_year": 2005
+        },
+        {
+          "description": "Larger and more spacious with improved fuel economy. Featured updated engines and continued Legacy's reputation for reliability and all-weather capability.",
+          "end_year": 2014,
+          "generation_name": "BM/BR",
+          "start_year": 2010
+        },
+        {
+          "description": "Latest generation with improved technology and safety features. Featured updated boxer engines and continued Subaru's focus on all-wheel drive and reliability. Subaru announced the Legacy will be discontinued in the US after the 2025 model year.",
+          "end_year": 2025,
+          "generation_name": "BN/BS",
+          "start_year": 2015
+        }
+      ],
+      "model": "Legacy"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Forester XT with turbocharged EJ20 engine. Compact crossover with WRX-like performance. Popular in tuning community for its unique combination of utility and power.",
+          "end_year": 2002,
+          "generation_name": "SF",
+          "start_year": 1998
+        },
+        {
+          "description": "Second generation with EJ25 turbo engine. Improved power and handling. STI variant available in some markets. Highly sought after by enthusiasts for its sleeper performance.",
+          "end_year": 2008,
+          "generation_name": "SG",
+          "start_year": 2003
+        },
+        {
+          "description": "Third generation with EJ25 turbo producing 224-250 horsepower. More refined styling while maintaining performance. Popular platform for modifications and tuning.",
+          "end_year": 2013,
+          "generation_name": "SH",
+          "start_year": 2009
+        },
+        {
+          "description": "Fourth generation with FA20DIT turbo engine producing 250 horsepower. Modern technology and improved fuel economy. Last generation with turbocharged XT variant in North America.",
+          "end_year": 2018,
+          "generation_name": "SJ",
+          "start_year": 2014
+        }
+      ],
+      "model": "Forester XT"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Legacy GT with turbocharged EJ20 engine. Performance-oriented sedan and wagon variants. Established Legacy as a tuner-friendly platform.",
+          "end_year": 1999,
+          "generation_name": "BD/BG",
+          "start_year": 1995
+        },
+        {
+          "description": "Second generation with updated turbo engines. GT and GT-B variants offered increased performance. Popular for modifications and tuning.",
+          "end_year": 2004,
+          "generation_name": "BE/BH",
+          "start_year": 2000
+        },
+        {
+          "description": "Third generation Legacy GT with EJ255 turbo engine producing 243-265 horsepower. Spec.B variant with upgraded suspension and interior. Highly popular in tuning community for its balance of performance and practicality.",
+          "end_year": 2009,
+          "generation_name": "BL/BP",
+          "start_year": 2005
+        },
+        {
+          "description": "Fourth generation Legacy GT with EJ255 engine. Last generation with manual transmission option in North America. Sought after by enthusiasts for its combination of power and refinement.",
+          "end_year": 2012,
+          "generation_name": "BM/BR",
+          "start_year": 2010
+        },
+        {
+          "description": "Modern Legacy XT with FA24F turbo engine producing 260 horsepower. CVT-only transmission. Revived turbocharged Legacy for enthusiasts seeking performance in a refined package. Discontinued in the US after the 2025 model year alongside the rest of the Legacy lineup.",
+          "end_year": 2025,
+          "generation_name": "BN/BS",
+          "start_year": 2020
+        }
+      ],
+      "model": "Legacy GT"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Outback XT with EJ255 turbo engine producing 250 horsepower. Unique combination of crossover utility and turbocharged performance. Popular among enthusiasts for its versatility.",
+          "end_year": 2009,
+          "generation_name": "BL/BP",
+          "start_year": 2005
+        },
+        {
+          "description": "Second generation with EJ255 turbo engine. Improved styling and technology. Last generation with manual transmission option. Sought after for its rare combination of off-road capability and turbo power.",
+          "end_year": 2014,
+          "generation_name": "BM/BR",
+          "start_year": 2010
+        },
+        {
+          "description": "Modern Outback XT with FA24F turbo engine producing 260 horsepower and 277 lb-ft torque. CVT-only transmission. Revived turbocharged Outback offering performance in a practical crossover package.",
+          "end_year": null,
+          "generation_name": "BN/BS",
+          "start_year": 2020
+        }
+      ],
+      "model": "Outback XT"
+    },
+    {
+      "generations": [
+        {
+          "description": "Subaru's unique grand touring coupe with 3.3L flat-6 EG33 engine producing 230 horsepower. Distinctive styling with window-within-window design. Cult classic among enthusiasts for its rarity and character.",
+          "end_year": 1997,
+          "generation_name": "CXD",
+          "start_year": 1992
+        }
+      ],
+      "model": "SVX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Subaru's futuristic coupe with wedge-shaped aerodynamic design. Featured EA82T turbo engine or ER27 flat-6 in XT6 variant. Unique pop-up headlights and advanced features. Rare enthusiast model with distinctive styling.",
+          "end_year": 1991,
+          "generation_name": "XT",
+          "start_year": 1985
+        }
+      ],
+      "model": "XT"
+    },
+    {
+      "generations": [
+        {
+          "description": "Subaru's three-row SUV on Global Platform. Turbocharged 2.4L FA24F. COBB Accessport support.",
+          "end_year": null,
+          "generation_name": "1st Gen",
+          "start_year": 2019
+        }
+      ],
+      "model": "Ascent"
+    },
+    {
+      "generations": [
+        {
+          "description": "Outback-derived pickup. 2.5L NA / turbo.",
+          "end_year": 2006,
+          "generation_name": "BT",
+          "start_year": 2003
+        }
+      ],
+      "model": "Baja"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-generation Forester crossover SUV on the Impreza GC platform. Tall wagon body with all-wheel drive and naturally aspirated EJ25. Established Subaru's compact crossover segment in the US.",
+          "end_year": 2002,
+          "generation_name": "SF",
+          "start_year": 1998
+        },
+        {
+          "description": "Second-generation Forester. Naturally aspirated EJ25 with optional XT turbo trim. Improved interior space and on-road refinement while keeping rugged AWD capability.",
+          "end_year": 2008,
+          "generation_name": "SG",
+          "start_year": 2003
+        },
+        {
+          "description": "Third-generation Forester moved upmarket with a longer wheelbase and more carlike ride. EJ25 NA standard, EJ255 turbo on XT. Last generation with the high-roof boxy profile.",
+          "end_year": 2013,
+          "generation_name": "SH",
+          "start_year": 2009
+        },
+        {
+          "description": "Fourth-generation Forester. NA FB25 standard, FA20DIT turbo on the XT trim. Modern interior with EyeSight driver assist on later years.",
+          "end_year": 2018,
+          "generation_name": "SJ",
+          "start_year": 2014
+        },
+        {
+          "description": "Fifth-generation Forester on the Subaru Global Platform. NA FB25 with CVT only. No turbo XT variant in the US for this generation.",
+          "end_year": 2024,
+          "generation_name": "SK",
+          "start_year": 2019
+        }
+      ],
+      "model": "Forester"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-generation Outback. Lifted Legacy wagon with two-tone paint and AWD. Created the rugged-wagon segment in the US.",
+          "end_year": 1999,
+          "generation_name": "BG",
+          "start_year": 1995
+        },
+        {
+          "description": "Second-generation Outback on the Legacy BE/BH platform. Optional VDC stability control. H6-3.0 engine available on the L.L.Bean trim.",
+          "end_year": 2004,
+          "generation_name": "BH",
+          "start_year": 2000
+        },
+        {
+          "description": "Third-generation Outback on the Legacy BL/BP platform. EJ253 H4 standard, EJ255 turbo on the Outback XT, EZ30 H6 on the 3.0R.",
+          "end_year": 2009,
+          "generation_name": "BP",
+          "start_year": 2005
+        },
+        {
+          "description": "Fourth-generation Outback grew significantly with a higher roof and CVT-first powertrain. EJ253/FB25 H4 and EZ36 H6. XT turbo trim available early in the run.",
+          "end_year": 2014,
+          "generation_name": "BR",
+          "start_year": 2010
+        },
+        {
+          "description": "Fifth-generation Outback. FB25 H4 and EZ36D H6 with CVT. EyeSight standard on later trims. No turbo variant in the US for this generation.",
+          "end_year": 2019,
+          "generation_name": "BS",
+          "start_year": 2015
+        },
+        {
+          "description": "Sixth-generation Outback on the Subaru Global Platform. FB25 NA standard; FA24F turbo on the Outback XT and Wilderness trims.",
+          "end_year": null,
+          "generation_name": "BT",
+          "start_year": 2020
+        }
+      ],
+      "model": "Outback"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-generation Crosstrek (badged XV Crosstrek through 2015). Lifted Impreza GP/GJ five-door with cladding and AWD. FB20 NA only in the US; hybrid offered briefly mid-cycle.",
+          "end_year": 2017,
+          "generation_name": "1st Gen",
+          "start_year": 2013
+        },
+        {
+          "description": "Second-generation Crosstrek on the Subaru Global Platform. FB20 NA standard, FB25 added on later trims. Plug-in hybrid variant available 2019-2023 in select markets.",
+          "end_year": 2023,
+          "generation_name": "2nd Gen",
+          "start_year": 2018
+        },
+        {
+          "description": "Third-generation Crosstrek with revised styling and a Wilderness trim. FB20 and FB25 NA powertrains; CVT only.",
+          "end_year": null,
+          "generation_name": "3rd Gen",
+          "start_year": 2024
+        }
+      ],
+      "model": "Crosstrek"
+    }
+  ]
+}

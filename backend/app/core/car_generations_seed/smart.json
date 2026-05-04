@@ -1,0 +1,15 @@
+{
+  "Smart": [
+    {
+      "generations": [
+        {
+          "description": "2nd-gen ForTwo.",
+          "end_year": 2014,
+          "generation_name": "W451",
+          "start_year": 2008
+        }
+      ],
+      "model": "ForTwo"
+    }
+  ]
+}

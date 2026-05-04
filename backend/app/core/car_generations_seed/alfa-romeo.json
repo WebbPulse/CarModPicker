@@ -1,0 +1,37 @@
+{
+  "Alfa Romeo": [
+    {
+      "generations": [
+        {
+          "description": "Carbon-tub mid-engine. 1.75T (237 hp).",
+          "end_year": 2020,
+          "generation_name": "960",
+          "start_year": 2013
+        }
+      ],
+      "model": "4C"
+    },
+    {
+      "generations": [
+        {
+          "description": "2.0T / 2.9L BiTurbo V6 QV (505 hp).",
+          "end_year": null,
+          "generation_name": "Type 952",
+          "start_year": 2015
+        }
+      ],
+      "model": "Giulia"
+    },
+    {
+      "generations": [
+        {
+          "description": "SUV on Giulia platform.",
+          "end_year": null,
+          "generation_name": "Type 949",
+          "start_year": 2016
+        }
+      ],
+      "model": "Stelvio"
+    }
+  ]
+}

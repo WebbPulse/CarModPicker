@@ -1,0 +1,284 @@
+{
+  "Porsche": [
+    {
+      "generations": [
+        {
+          "description": "Porsche 911 Turbo with iconic whale tail. Featured turbocharged flat-6 engine. Established 911 Turbo as a supercar. Highly collectible.",
+          "end_year": 1989,
+          "generation_name": "930",
+          "start_year": 1975
+        },
+        {
+          "description": "Modernized 911 with updated technology. Featured updated engines and improved handling. Turbo variant was high-performance. Last air-cooled generation for some variants.",
+          "end_year": 1994,
+          "generation_name": "964",
+          "start_year": 1989
+        },
+        {
+          "description": "Final air-cooled 911. Featured updated styling and improved handling. Turbo variant with twin-turbo engine. Highly collectible and sought after.",
+          "end_year": 1998,
+          "generation_name": "993",
+          "start_year": 1995
+        },
+        {
+          "description": "First water-cooled 911. Featured updated engines and improved technology. Controversial styling but excellent performance. Turbo variant was powerful.",
+          "end_year": 2004,
+          "generation_name": "996",
+          "start_year": 1999
+        },
+        {
+          "description": "Refined 911 with updated styling. Featured updated engines and improved handling. Turbo and GT3 variants were high-performance. Popular generation.",
+          "end_year": 2012,
+          "generation_name": "997",
+          "start_year": 2005
+        },
+        {
+          "description": "Complete redesign with longer wheelbase. Featured updated engines and improved technology. Turbo, GT3, and GT2 RS variants were track-focused.",
+          "end_year": 2019,
+          "generation_name": "991",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest 911 with updated styling and technology. Featured updated engines and improved performance. Turbo, GT3, and GT2 RS variants available.",
+          "end_year": null,
+          "generation_name": "992",
+          "start_year": 2020
+        }
+      ],
+      "model": "911"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's first production model. Rear-engine, air-cooled, lightweight chassis with elegant lines. Multiple versions (356 A, B, C) with incremental improvements. Extensively used in motorsports. Highly collectible due to rarity, historic significance, and classic styling. Foundation of Porsche's sports car heritage.",
+          "end_year": 1965,
+          "generation_name": "356",
+          "start_year": 1948
+        }
+      ],
+      "model": "356"
+    },
+    {
+      "generations": [
+        {
+          "description": "Joint project between VW and Porsche to build a mid-engine entry-level sports car. Available as 914/4 (flat-4) and rare 914/6 (flat-6 from 911T). Mid-engine balance, lightweight feel, affordable restoration parts. Growing classic value, especially for factory 914/6s. Popular with enthusiasts for modifications and track use.",
+          "end_year": 1976,
+          "generation_name": "914",
+          "start_year": 1969
+        }
+      ],
+      "model": "914"
+    },
+    {
+      "generations": [
+        {
+          "description": "Entry-level Porsche replacing the 914. Front-engine, rear transaxle layout provided nearly balanced weight distribution. Shared components with VW/Audi but developed by Porsche. Modest power in base models, stronger performance in Turbo and S variants. Enthusiasts appreciate its value, tuning potential, and as a gateway into classic Porsche ownership.",
+          "end_year": 1988,
+          "generation_name": "924",
+          "start_year": 1976
+        }
+      ],
+      "model": "924"
+    },
+    {
+      "generations": [
+        {
+          "description": "Built on 924 foundation but significantly enhanced. Wider body, stronger engine options, more balanced handling, better refinement. Wide support in parts and community. Hits the sweet spot between affordability, driver engagement, and classic Porsche traits. Very popular with enthusiasts for modifications, track days, and daily driving.",
+          "end_year": 1991,
+          "generation_name": "944",
+          "start_year": 1982
+        }
+      ],
+      "model": "944"
+    },
+    {
+      "generations": [
+        {
+          "description": "Grand Tourer with front-engine V8. Ambitious design aimed to eventually succeed the 911 as Porsche's flagship. Innovative features: aluminum engine block, proprietary passive rear-wheel steering (Weissach Axle), constant updates through its long run. GTS version particularly desirable with more power, luxury, and refinement. Enthusiasts love its blend of comfort and performance.",
+          "end_year": 1995,
+          "generation_name": "928",
+          "start_year": 1977
+        }
+      ],
+      "model": "928"
+    },
+    {
+      "generations": [
+        {
+          "description": "Final evolution of the front-engine water-cooled transaxle Porsche line. Powered by 3.0L four-cylinder with DOHC and VarioCam. Available as 6-speed manual or Tiptronic automatic. Club Sport (CS) version especially prized: lighter, sharper handling, more stripped-out for track fun. Highly sought after by enthusiasts.",
+          "end_year": 1995,
+          "generation_name": "968",
+          "start_year": 1991
+        }
+      ],
+      "model": "968"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's mid-engine roadster. More affordable entry into Porsche ownership. Featured flat-6 engines and excellent balance. S variant offered more power. Popular with enthusiasts for modifications, track use, and open-top driving experience.",
+          "end_year": 2004,
+          "generation_name": "986",
+          "start_year": 1996
+        },
+        {
+          "description": "Refined Boxster with updated styling and engines. Featured improved handling and technology. S and Spyder variants were high-performance. Popular generation with strong enthusiast following.",
+          "end_year": 2012,
+          "generation_name": "987",
+          "start_year": 2005
+        },
+        {
+          "description": "Complete redesign with updated styling and technology. Featured updated engines and improved performance. GTS and Spyder variants were track-focused. Last generation before 718 rebranding.",
+          "end_year": 2016,
+          "generation_name": "981",
+          "start_year": 2013
+        }
+      ],
+      "model": "Boxster"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's mid-engine coupe based on Boxster platform. Fixed roof provided better structural rigidity and handling. Featured flat-6 engines and excellent balance. S variant offered more power. Popular with enthusiasts for track use and modifications.",
+          "end_year": 2012,
+          "generation_name": "987",
+          "start_year": 2006
+        },
+        {
+          "description": "Refined Cayman with updated styling and engines. Featured improved handling and technology. S, GTS, and GT4 variants were high-performance. Popular generation with strong enthusiast following. Last generation before 718 rebranding.",
+          "end_year": 2016,
+          "generation_name": "981",
+          "start_year": 2013
+        }
+      ],
+      "model": "Cayman"
+    },
+    {
+      "generations": [
+        {
+          "description": "Rebranded Boxster and Cayman as 718 series. Initially featured turbocharged flat-4 engines (controversial among purists). Later reintroduced flat-6 in GTS 4.0, GT4, and Spyder variants. Excellent balance, modern safety and tech amenities. Boxster Spyder and Cayman GT4 deliver high-performance thrills. Record sales as buyers wanted last gas-powered versions before electrification.",
+          "end_year": 2024,
+          "generation_name": "982",
+          "start_year": 2016
+        }
+      ],
+      "model": "718"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's first SUV. Featured V6 and V8 engines. Turbo variant was high-performance. Combined practicality with Porsche performance. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, and suspension work.",
+          "end_year": 2010,
+          "generation_name": "9PA",
+          "start_year": 2003
+        },
+        {
+          "description": "Refined Cayenne with updated styling and engines. Featured improved technology and performance. Turbo and Turbo S variants were extremely powerful. Popular with enthusiasts for modifications and performance upgrades.",
+          "end_year": 2017,
+          "generation_name": "92A",
+          "start_year": 2011
+        },
+        {
+          "description": "Complete redesign with updated styling and technology. Featured updated engines and improved performance. Turbo and Turbo S E-Hybrid variants were extremely powerful. Popular with enthusiasts for modifications and luxury features.",
+          "end_year": 2023,
+          "generation_name": "PO536",
+          "start_year": 2018
+        },
+        {
+          "description": "Updated Cayenne with refreshed styling and technology (PO536 facelift / 9YA.2). Turbo E-Hybrid produces 729 hp and 700 lb-ft torque. 0-60 mph in 3.5 seconds. Top speed around 183 mph. Popular with enthusiasts for modifications and performance enhancements.",
+          "end_year": null,
+          "generation_name": "PO536.2",
+          "slug": "po536-facelift",
+          "start_year": 2024
+        }
+      ],
+      "model": "Cayenne"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's compact SUV. Featured turbocharged V6 engines. Turbo variant produced 434 hp with excellent performance. GTS variant was sporty. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, and suspension work.",
+          "end_year": 2023,
+          "generation_name": "95B",
+          "start_year": 2014
+        },
+        {
+          "description": "Electric Macan with dual-motor all-wheel-drive (PPE platform, internal PO536 lineage, all-electric). Turbo variant produces 630 hp with Launch Control and 833 lb-ft torque. 0-60 mph in 3.3 seconds. Top speed 162 mph. Popular for software tuning, suspension modifications, and performance enhancements.",
+          "end_year": null,
+          "generation_name": "PPE Macan",
+          "slug": "po536-electric",
+          "start_year": 2024
+        }
+      ],
+      "model": "Macan"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's luxury sedan. Featured V6 and V8 engines. Turbo and Turbo S variants were extremely powerful. Combined luxury with Porsche performance. Popular with enthusiasts for modifications and performance upgrades.",
+          "end_year": 2016,
+          "generation_name": "970",
+          "start_year": 2010
+        },
+        {
+          "description": "Refined Panamera with updated styling and engines. Featured improved technology and performance. Turbo and Turbo S E-Hybrid variants were extremely powerful. Popular with enthusiasts for modifications and luxury features.",
+          "end_year": 2023,
+          "generation_name": "971",
+          "start_year": 2017
+        },
+        {
+          "description": "Updated Panamera with refreshed styling and technology (971 facelift / 971.2). Turbo S E-Hybrid produces 771 hp. 0-60 mph in less than 3 seconds with Sport Chrono. Top speed 202 mph. Popular with enthusiasts for modifications and performance enhancements.",
+          "end_year": null,
+          "generation_name": "971.2",
+          "slug": "971-facelift",
+          "start_year": 2024
+        }
+      ],
+      "model": "Panamera"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's first all-electric sedan. Featured dual-motor all-wheel-drive system. Turbo variant produces 871 hp, Turbo S produces 938 hp, Turbo GT produces 1,019 hp. 0-60 mph in 2.2-2.5 seconds. Top speed up to 190 mph with Weissach package. Popular for software tuning, suspension modifications, and performance enhancements. Represents the future of Porsche performance.",
+          "end_year": null,
+          "generation_name": "J1",
+          "start_year": 2020
+        }
+      ],
+      "model": "Taycan"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's legendary supercar. Featured twin-turbocharged flat-6 engine producing 450-530 hp. All-wheel drive with advanced technology. Built for Group B homologation. Extremely rare and highly collectible. Considered one of the greatest supercars of all time.",
+          "end_year": 1993,
+          "generation_name": "959",
+          "start_year": 1986
+        }
+      ],
+      "model": "959"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's mid-engine supercar. Featured 5.7L V10 engine producing 612 hp. Carbon fiber construction and advanced technology. Extremely rare and highly collectible. Considered one of the greatest supercars of the 2000s. Popular with collectors and enthusiasts.",
+          "end_year": 2007,
+          "generation_name": "Carrera GT",
+          "start_year": 2004
+        }
+      ],
+      "model": "Carrera GT"
+    },
+    {
+      "generations": [
+        {
+          "description": "Porsche's hybrid hypercar. Featured 4.6L V8 engine combined with electric motors producing 887 hp total. All-wheel drive with advanced hybrid technology. 0-60 mph in 2.5 seconds. Top speed 211 mph. Extremely rare and highly collectible. Part of the 'Holy Trinity' with McLaren P1 and Ferrari LaFerrari.",
+          "end_year": 2015,
+          "generation_name": "918 Spyder",
+          "start_year": 2014
+        }
+      ],
+      "model": "918 Spyder"
+    }
+  ]
+}

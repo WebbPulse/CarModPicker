@@ -1,0 +1,326 @@
+{
+  "Volkswagen": [
+    {
+      "generations": [
+        {
+          "description": "The original Golf that established the compact hatchback segment. Featured efficient engines and practical design. GTI variant created the hot hatch category.",
+          "end_year": 1983,
+          "generation_name": "Mk1",
+          "start_year": 1974
+        },
+        {
+          "description": "Refined Golf with improved technology. Featured updated engines and better handling. GTI variant continued hot hatch legacy.",
+          "end_year": 1992,
+          "generation_name": "Mk2",
+          "start_year": 1984
+        },
+        {
+          "description": "Larger Golf with improved safety and comfort. Featured updated engines and better handling. VR6 variant offered high performance.",
+          "end_year": 1998,
+          "generation_name": "Mk3",
+          "start_year": 1993
+        },
+        {
+          "description": "More refined Golf with improved build quality. Featured updated engines and better technology. GTI and R32 variants were high-performance.",
+          "end_year": 2005,
+          "generation_name": "Mk4",
+          "start_year": 1999
+        },
+        {
+          "description": "Complete redesign with updated styling and technology. Featured turbocharged engines and improved handling. GTI variant was highly praised.",
+          "end_year": 2009,
+          "generation_name": "Mk5",
+          "start_year": 2006
+        },
+        {
+          "description": "Refined Golf with improved technology and fuel economy. Featured updated engines and better handling. GTI and R variants were high-performance.",
+          "end_year": 2014,
+          "generation_name": "Mk6",
+          "start_year": 2010
+        },
+        {
+          "description": "Latest Golf with updated styling and technology. Featured updated engines and improved efficiency. GTI and R variants were highly praised.",
+          "end_year": 2020,
+          "generation_name": "Mk7",
+          "start_year": 2015
+        },
+        {
+          "description": "Newest Golf with updated design and technology. Featured updated engines and advanced safety features. GTI and R variants available.",
+          "end_year": 2024,
+          "generation_name": "Mk8",
+          "start_year": 2021
+        }
+      ],
+      "model": "Golf"
+    },
+    {
+      "generations": [
+        {
+          "description": "Volkswagen's compact sedan based on Golf platform. Featured efficient engines and practical design. GLI variant was sporty.",
+          "end_year": 2005,
+          "generation_name": "Mk4",
+          "start_year": 1999
+        },
+        {
+          "description": "Refined Jetta with updated styling and technology. Featured updated engines and improved handling. GLI variant was high-performance.",
+          "end_year": 2010,
+          "generation_name": "Mk5",
+          "start_year": 2006
+        },
+        {
+          "description": "Complete redesign with updated styling and technology. Featured updated engines and improved fuel economy. GLI variant was sporty.",
+          "end_year": 2018,
+          "generation_name": "Mk6",
+          "start_year": 2011
+        },
+        {
+          "description": "Latest Jetta with updated design and technology. Featured updated engines and advanced safety features. GLI variant available.",
+          "end_year": null,
+          "generation_name": "Mk7",
+          "start_year": 2019
+        }
+      ],
+      "model": "Jetta"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance Golf with turbocharged engine producing 200 horsepower. Excellent handling and driver engagement. Widely praised hot hatch.",
+          "end_year": 2009,
+          "generation_name": "Mk5",
+          "start_year": 2006
+        },
+        {
+          "description": "GTI with turbocharged engine producing 200-220 horsepower. Improved technology and handling. Continued hot hatch legacy.",
+          "end_year": 2014,
+          "generation_name": "Mk6",
+          "start_year": 2010
+        },
+        {
+          "description": "GTI with turbocharged engine producing 220-245 horsepower. Improved technology and performance. Widely considered one of the best hot hatches.",
+          "end_year": 2020,
+          "generation_name": "Mk7",
+          "start_year": 2015
+        },
+        {
+          "description": "Latest GTI with turbocharged engine producing 241-245 horsepower. Improved technology and handling. Continues hot hatch legacy.",
+          "end_year": null,
+          "generation_name": "Mk8",
+          "start_year": 2021
+        }
+      ],
+      "model": "GTI"
+    },
+    {
+      "generations": [
+        {
+          "description": "All-wheel drive high-performance Golf with turbocharged 2.0L engine producing 256 horsepower. More powerful than GTI with superior traction. Limited US availability.",
+          "end_year": 2009,
+          "generation_name": "Mk5",
+          "start_year": 2008
+        },
+        {
+          "description": "Golf R with turbocharged engine producing 256 horsepower and all-wheel drive. Improved technology and performance. Highly sought after by enthusiasts.",
+          "end_year": 2014,
+          "generation_name": "Mk6",
+          "start_year": 2012
+        },
+        {
+          "description": "Golf R with turbocharged engine producing 292 horsepower and all-wheel drive. Torque-vectoring rear differential. Widely considered one of the best all-wheel drive hot hatches.",
+          "end_year": 2020,
+          "generation_name": "Mk7",
+          "start_year": 2015
+        },
+        {
+          "description": "Latest Golf R with turbocharged engine producing 315-328 horsepower and all-wheel drive. Advanced torque-vectoring and performance features. Continues as VW's flagship hot hatch.",
+          "end_year": null,
+          "generation_name": "Mk8",
+          "start_year": 2022
+        }
+      ],
+      "model": "Golf R"
+    },
+    {
+      "generations": [
+        {
+          "description": "Limited production Golf with 3.2L VR6 engine producing 240 horsepower and all-wheel drive. Only 5,000 units imported to US. Highly collectible and sought after by enthusiasts.",
+          "end_year": 2004,
+          "generation_name": "Mk4",
+          "start_year": 2004
+        },
+        {
+          "description": "Final R32 with 3.2L VR6 engine producing 250 horsepower and all-wheel drive. Only 5,000 units imported to US. Last naturally aspirated R model, highly collectible.",
+          "end_year": 2008,
+          "generation_name": "Mk5",
+          "start_year": 2008
+        }
+      ],
+      "model": "R32"
+    },
+    {
+      "generations": [
+        {
+          "description": "Volkswagen's sporty 2+2 coupe based on Golf platform. Featured efficient engines and sporty styling. GTI variant introduced in 1976 with ~110 PS. Established Scirocco as a sporty coupe.",
+          "end_year": 1980,
+          "generation_name": "Mk1",
+          "start_year": 1974
+        },
+        {
+          "description": "Refined Scirocco with updated styling. GTX and GT trims featured ~139 PS. Some variants exceeded 200 km/h. Popular with enthusiasts for modifications and sporty character.",
+          "end_year": 1992,
+          "generation_name": "Mk2",
+          "start_year": 1981
+        },
+        {
+          "description": "Modern Scirocco revival with updated design. R variant featured turbocharged engine producing 265-280 PS. 0-100 km/h in ~5.7 seconds. Not sold in US market but popular in Europe.",
+          "end_year": 2017,
+          "generation_name": "Mk3",
+          "start_year": 2008
+        }
+      ],
+      "model": "Scirocco"
+    },
+    {
+      "generations": [
+        {
+          "description": "Volkswagen's sporty coupe with G-Lader supercharged 1.8L engine producing ~160 PS. Featured active rear spoiler and sporty handling. Cult classic among enthusiasts. Popular for modifications and restoration.",
+          "end_year": 1992,
+          "generation_name": "G60",
+          "start_year": 1988
+        },
+        {
+          "description": "Corrado with 2.8L VR6 engine (US) or 2.9L VR6 (Europe) producing 187-190 PS. 0-60 mph in ~6.9 seconds. Last year of production. Highly sought after by enthusiasts for its unique VR6 engine and sporty character.",
+          "end_year": 1995,
+          "generation_name": "VR6",
+          "start_year": 1992
+        }
+      ],
+      "model": "Corrado"
+    },
+    {
+      "generations": [
+        {
+          "description": "Volkswagen's upscale grand tourer with sporty liftback design. Featured turbocharged 2.0L engines producing 268-300 horsepower. R-Line trims with sporty styling. R variant (2020+) with 320 PS, all-wheel drive, and torque-vectoring rear differential. 0-60 mph in ~4.9 seconds for R variant.",
+          "end_year": 2024,
+          "generation_name": "1st Gen",
+          "start_year": 2018
+        }
+      ],
+      "model": "Arteon"
+    },
+    {
+      "generations": [
+        {
+          "description": "1.8T / 2.8L V6 / 4.0L W8 (3BS). Audi A4 B5 platform.",
+          "end_year": 2005,
+          "generation_name": "B5/B5.5",
+          "start_year": 1998
+        },
+        {
+          "description": "3C. 2.0T TSI / 3.6L VR6.",
+          "end_year": 2010,
+          "generation_name": "B6",
+          "start_year": 2006
+        },
+        {
+          "description": "NMS; NA-market.",
+          "end_year": 2019,
+          "generation_name": "B7",
+          "start_year": 2011
+        }
+      ],
+      "model": "Passat"
+    },
+    {
+      "generations": [
+        {
+          "description": "Volkswagen's 4-door coupe based on Passat platform. Featured 2.0L turbocharged and 3.6L VR6 engines. 3.6L V6 4Motion variant produced 296 horsepower, 0-60 mph in ~5.3-5.6 seconds. R-Line styling packages available. Upscale sporty sedan with coupe-like roofline.",
+          "end_year": 2017,
+          "generation_name": "B6/B7",
+          "start_year": 2008
+        }
+      ],
+      "model": "Passat CC"
+    },
+    {
+      "generations": [
+        {
+          "description": "The original Volkswagen Beetle, one of the most iconic cars ever made. Air-cooled rear-engine design. Highly collectible, especially early models and special editions. Popular for restoration, customization, and classic car culture.",
+          "end_year": 2003,
+          "generation_name": "Classic",
+          "start_year": 1938
+        },
+        {
+          "description": "Modern reinterpretation of the classic Beetle. Featured front-engine, front-wheel drive layout. Turbo S variant with 1.8L turbocharged engine producing 150-180 horsepower. Popular for styling modifications and customization.",
+          "end_year": 2010,
+          "generation_name": "New Beetle",
+          "start_year": 1998
+        },
+        {
+          "description": "Redesigned Beetle with more aggressive styling. Featured turbocharged 2.0L engines. R-Line variant with 210 horsepower, 0-60 mph in ~6.5-6.7 seconds. Turbo and R-Line trims popular with enthusiasts. Final generation before discontinuation.",
+          "end_year": 2019,
+          "generation_name": "A5",
+          "start_year": 2012
+        }
+      ],
+      "model": "Beetle"
+    },
+    {
+      "generations": [
+        {
+          "description": "US-market name for the Golf Mk1. Featured efficient engines and practical design. Rabbit GTI introduced in 1983 with 1.8L engine and sport-tuned suspension. Established hot hatch category in America. Popular for modifications and restoration.",
+          "end_year": 1984,
+          "generation_name": "Mk1",
+          "start_year": 1975
+        },
+        {
+          "description": "US-market revival of Rabbit name for Golf Mk5. Featured turbocharged engines and improved handling. Rabbit GTI variant was high-performance. Name reverted to Golf after 2009.",
+          "end_year": 2009,
+          "generation_name": "Mk5",
+          "start_year": 2006
+        }
+      ],
+      "model": "Rabbit"
+    },
+    {
+      "generations": [
+        {
+          "description": "Convertible version of Golf Mk1/Rabbit. Featured soft-top convertible design. GTI variant available with sporty performance. Long production run spanning multiple Golf generations. Popular for open-top driving and modifications.",
+          "end_year": 1993,
+          "generation_name": "Mk1",
+          "start_year": 1980
+        },
+        {
+          "description": "Convertible version of Golf Mk3. Featured updated styling and improved safety. VR6 variant available with high performance. Last generation before being replaced by Eos.",
+          "end_year": 2002,
+          "generation_name": "Mk3",
+          "start_year": 1995
+        }
+      ],
+      "model": "Cabriolet"
+    },
+    {
+      "generations": [
+        {
+          "description": "First Volkswagen SUV sharing platform with Porsche Cayenne. Featured V6, V8, V10 TDI diesel, and V10 petrol engines. Air suspension available. Popular for lift kits, ECU tuning, exhaust upgrades, and off-road modifications.",
+          "end_year": 2010,
+          "generation_name": "7L",
+          "start_year": 2004
+        },
+        {
+          "description": "Second-generation Touareg with refined styling and improved technology. Featured V6 and V8 engines plus hybrid option. Air suspension standard on most trims. Popular for exhaust, intake, and ECU modifications.",
+          "end_year": 2018,
+          "generation_name": "7P",
+          "start_year": 2011
+        },
+        {
+          "description": "Third-generation Touareg with modern design and digital cockpit. Featured 3.0L V6 turbocharged engines. Standard air suspension. Advanced driver assistance systems.",
+          "end_year": 2024,
+          "generation_name": "CR",
+          "start_year": 2019
+        }
+      ],
+      "model": "Touareg"
+    }
+  ]
+}

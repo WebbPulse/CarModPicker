@@ -1,0 +1,327 @@
+{
+  "Chevrolet": [
+    {
+      "generations": [
+        {
+          "description": "The original Camaro, Ford Mustang's competitor. Featured V8 engines and iconic styling. SS and Z/28 variants established Camaro as a performance car.",
+          "end_year": 1969,
+          "generation_name": "1st Gen",
+          "start_year": 1967
+        },
+        {
+          "description": "Larger second generation with improved styling. Featured big-block V8 engines. Z/28 and SS variants were high-performance models. Iconic in muscle car culture.",
+          "end_year": 1981,
+          "generation_name": "2nd Gen",
+          "start_year": 1970
+        },
+        {
+          "description": "Smaller, more efficient Camaro. Featured V6 and V8 engines. IROC-Z variant became popular. Improved handling and fuel economy during fuel crisis era.",
+          "end_year": 1992,
+          "generation_name": "3rd Gen",
+          "start_year": 1982
+        },
+        {
+          "description": "Final F-body Camaro. Featured LS1 V8 engine producing 305-320 horsepower. SS and Z28 variants were high-performance. Last generation before hiatus.",
+          "end_year": 2002,
+          "generation_name": "4th Gen",
+          "start_year": 1993
+        },
+        {
+          "description": "Camaro revival with retro-modern design. Featured V6 and V8 engines. SS and ZL1 variants offered high performance. Z/28 was track-focused model.",
+          "end_year": 2015,
+          "generation_name": "5th Gen",
+          "start_year": 2010
+        },
+        {
+          "description": "Alpha platform with improved handling. Featured updated V8 engines and improved technology. ZL1 with supercharged V8 produced 650 horsepower. 1LE track packages available.",
+          "end_year": 2024,
+          "generation_name": "6th Gen",
+          "start_year": 2016
+        }
+      ],
+      "model": "Camaro"
+    },
+    {
+      "generations": [
+        {
+          "description": "Stingray design with iconic styling. Featured big-block and small-block V8 engines. Performance declined during fuel crisis but maintained Corvette's status as America's sports car.",
+          "end_year": 1982,
+          "generation_name": "C3",
+          "start_year": 1968
+        },
+        {
+          "description": "Modern Corvette with improved technology. Featured updated V8 engines and improved handling. ZR-1 variant with DOHC V8 was a technological showcase.",
+          "end_year": 1996,
+          "generation_name": "C4",
+          "start_year": 1984
+        },
+        {
+          "description": "Complete redesign with LS1 V8 engine. Featured improved handling and performance. Z06 variant was track-focused. Established modern Corvette performance.",
+          "end_year": 2004,
+          "generation_name": "C5",
+          "start_year": 1997
+        },
+        {
+          "description": "Refined design with LS2/LS3 V8 engines. Z06 and ZR1 variants were high-performance. ZR1 with supercharged V8 produced 638 horsepower. Excellent value for performance.",
+          "end_year": 2013,
+          "generation_name": "C6",
+          "start_year": 2005
+        },
+        {
+          "description": "Final front-engine Corvette. Featured LT1/LT4 V8 engines. Z06 and ZR1 variants were track-focused. ZR1 produced 755 horsepower. Advanced technology and aerodynamics.",
+          "end_year": 2019,
+          "generation_name": "C7",
+          "start_year": 2014
+        },
+        {
+          "description": "First mid-engine Corvette. Featured LT2 V8 engine producing 490-495 horsepower. Z06 variant with flat-plane crank V8. Revolutionary design maintaining Corvette's performance legacy.",
+          "end_year": null,
+          "generation_name": "C8",
+          "start_year": 2020
+        }
+      ],
+      "model": "Corvette"
+    },
+    {
+      "generations": [
+        {
+          "description": "Modern performance sedan based on Holden Commodore VF. Featured 6.2L LS3 V8 engine producing 415 horsepower. Rear-wheel drive with excellent handling. Popular among enthusiasts for modification potential and sleeper appeal.",
+          "end_year": 2017,
+          "generation_name": "VF Series",
+          "start_year": 2014
+        }
+      ],
+      "model": "SS"
+    },
+    {
+      "generations": [
+        {
+          "description": "Original Chevelle SS, initially as Malibu SS trim. Rare Z16 option introduced 396 big-block V8 in 1965. SS 396 became dedicated performance series from 1966-67. Established Chevelle as a muscle car icon.",
+          "end_year": 1967,
+          "generation_name": "1st Gen",
+          "start_year": 1964
+        },
+        {
+          "description": "Redesigned body style with SS as performance option/package. Peak performance in 1970 with SS 454 LS6 engine rated at ~450 gross horsepower. Iconic muscle car generation with big-block V8 engines.",
+          "end_year": 1972,
+          "generation_name": "2nd Gen",
+          "start_year": 1968
+        },
+        {
+          "description": "Colonnade body style. SS badge offered as appearance and performance package on Malibu models. Power reduced due to emissions regulations and safety standards. Last year of true Chevelle SS.",
+          "end_year": 1973,
+          "generation_name": "3rd Gen",
+          "start_year": 1973
+        }
+      ],
+      "model": "Chevelle SS"
+    },
+    {
+      "generations": [
+        {
+          "description": "Known as Chevy II with Nova designation. SS badge introduced in 1963 as trim/package on Nova 400 Sport Coupe and Convertible. Lightweight compact muscle car foundation.",
+          "end_year": 1965,
+          "generation_name": "1st Gen",
+          "start_year": 1963
+        },
+        {
+          "description": "Continued as Chevy II/Nova SS with styling revisions. SS remained performance-appearance package. Popular among enthusiasts for compact size and V8 power.",
+          "end_year": 1967,
+          "generation_name": "2nd Gen",
+          "start_year": 1966
+        },
+        {
+          "description": "Nova name solidified. SS became its own series (1968-70) then reverted to option package. Engine power peaked early; SS identity shifted toward appearance in later years. Classic 'pocket rocket' muscle car.",
+          "end_year": 1974,
+          "generation_name": "3rd Gen",
+          "start_year": 1968
+        },
+        {
+          "description": "Final Nova SS years. Performance edge lost due to emissions; emphasis shifted to appearance/luxury trims. SS discontinued after 1976. Last of the classic Nova SS models.",
+          "end_year": 1976,
+          "generation_name": "4th Gen",
+          "start_year": 1975
+        }
+      ],
+      "model": "Nova SS"
+    },
+    {
+      "generations": [
+        {
+          "description": "A-body El Camino based on Chevelle platform. SS-396 introduced as separate model in 1968. Peak SS performance in 1970 with LS6 454 engine. Unique muscle car/pickup hybrid design.",
+          "end_year": 1972,
+          "generation_name": "3rd Gen",
+          "start_year": 1968
+        },
+        {
+          "description": "Colonnade body style. SS offered primarily as trim/option level. Less potent than earlier SS big-block models due to stricter emissions and safety regulations. More cosmetic and handling features than pure performance.",
+          "end_year": 1977,
+          "generation_name": "4th Gen",
+          "start_year": 1973
+        },
+        {
+          "description": "G-body downsized generation. SS returned as full trim and appearance package. By mid-1980s, SS often carried 5.0L V8, though power was much lower than earlier SS models. Final generation of El Camino.",
+          "end_year": 1987,
+          "generation_name": "5th Gen",
+          "start_year": 1978
+        }
+      ],
+      "model": "El Camino SS"
+    },
+    {
+      "generations": [
+        {
+          "description": "First Cobalt SS with 2.0L LSJ Ecotec supercharged engine producing ~205 horsepower. Available only as coupe. Popular among tuners for lightweight design and modification potential. Discontinued due to emissions regulations.",
+          "end_year": 2007,
+          "generation_name": "SS Supercharged",
+          "start_year": 2005
+        },
+        {
+          "description": "Relaunched with 2.0L LNF Ecotec turbocharged engine producing ~260 horsepower and 260 lb-ft torque. Available as coupe (2008-2010) and sedan (2009 only). Featured Reconfigurable Performance Display. Highly tunable compact performance car.",
+          "end_year": 2010,
+          "generation_name": "SS Turbocharged",
+          "start_year": 2008
+        }
+      ],
+      "model": "Cobalt SS"
+    },
+    {
+      "generations": [
+        {
+          "description": "First Monte Carlo SS package offered. Featured Turbo-Jet 454 big-block V8 engines. Luxury-muscle blend with emphasis on styling, suspension, and comfort as well as power.",
+          "end_year": 1971,
+          "generation_name": "1st Gen SS",
+          "start_year": 1970
+        },
+        {
+          "description": "SS reintroduced after hiatus. Featured smaller V8 engines and sporty owner trims. Special 'Aerocoupe' versions in 1986-87. Emphasized styling, suspension, and comfort alongside performance.",
+          "end_year": 1988,
+          "generation_name": "4th Gen SS",
+          "start_year": 1983
+        },
+        {
+          "description": "SS version revived for final Monte Carlo generation. Engines evolved from V6 to supercharged V6 to late 5.3L V8. Personal luxury coupe with performance focus. Final generation of Monte Carlo.",
+          "end_year": 2007,
+          "generation_name": "6th Gen SS",
+          "start_year": 2000
+        }
+      ],
+      "model": "Monte Carlo SS"
+    },
+    {
+      "generations": [
+        {
+          "description": "Impala SS reintroduced on rear-wheel-drive B-body platform with LT1 5.7L V8 producing 260-305 horsepower. SS was the only Impala version offered. Modern interpretation of classic full-size performance sedan.",
+          "end_year": 1996,
+          "generation_name": "7th Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Impala SS on front-wheel-drive W-body platform. 2004-2005 featured supercharged 3.8L V6 (L67). 2006-2009 upgraded to 5.3L V8 (LS4) with Active Fuel Management. Full-size performance sedan with modern technology.",
+          "end_year": 2009,
+          "generation_name": "9th Gen",
+          "start_year": 2004
+        }
+      ],
+      "model": "Impala SS"
+    },
+    {
+      "generations": [
+        {
+          "description": "Performance SUV variant with LS2 6.0L V8 producing ~395 horsepower and 400 lb-ft torque. Fast for its class with V8 power in SUV chassis. Rare example of SS badge on large SUV. Popular among truck/SUV enthusiasts.",
+          "end_year": 2009,
+          "generation_name": "1st Gen",
+          "start_year": 2006
+        }
+      ],
+      "model": "TrailBlazer SS"
+    },
+    {
+      "generations": [
+        {
+          "description": "4.8/5.3/6.0L LS-based V8s. Silverado SS 2003-2006, 6.0L 345 hp.",
+          "end_year": 2007,
+          "generation_name": "GMT800",
+          "start_year": 1999
+        },
+        {
+          "description": "4.8/5.3/6.0/6.2L LS-based V8s.",
+          "end_year": 2013,
+          "generation_name": "GMT900",
+          "start_year": 2007
+        },
+        {
+          "description": "K2XX platform. 4.3L V6, 5.3L L83, 6.2L L86 EcoTec3 V8s.",
+          "end_year": 2018,
+          "generation_name": "K2",
+          "start_year": 2014
+        },
+        {
+          "description": "T1 platform. 2.7L I4T, 5.3L L84, 6.2L L87, 3.0L Duramax. ZR2.",
+          "end_year": null,
+          "generation_name": "T1",
+          "start_year": 2019
+        }
+      ],
+      "model": "Silverado"
+    },
+    {
+      "generations": [
+        {
+          "description": "4.8/5.3L V8 full-size SUV.",
+          "end_year": 2006,
+          "generation_name": "GMT800",
+          "start_year": 2000
+        },
+        {
+          "description": "5.3/6.0/6.2L L92 V8s.",
+          "end_year": 2014,
+          "generation_name": "GMT900",
+          "start_year": 2007
+        },
+        {
+          "description": "K2XX. 5.3L L83 / 6.2L L86 V8s. RST variant.",
+          "end_year": 2020,
+          "generation_name": "K2",
+          "start_year": 2015
+        },
+        {
+          "description": "T1 with IRS. 5.3L L84 / 6.2L L87 / 3.0L Duramax.",
+          "end_year": null,
+          "generation_name": "T1",
+          "start_year": 2021
+        }
+      ],
+      "model": "Tahoe"
+    },
+    {
+      "generations": [
+        {
+          "description": "Long-WB GMT800. 5.3/6.0/8.1L V8s.",
+          "end_year": 2006,
+          "generation_name": "GMT800",
+          "start_year": 2000
+        },
+        {
+          "description": "Long-WB GMT900. 5.3/6.0L L92 V8s.",
+          "end_year": 2014,
+          "generation_name": "GMT900",
+          "start_year": 2007
+        },
+        {
+          "description": "Long-WB K2XX. 5.3/6.2L V8s.",
+          "end_year": 2020,
+          "generation_name": "K2",
+          "start_year": 2015
+        },
+        {
+          "description": "T1 long-WB. 5.3L L84 / 6.2L L87 / 3.0L Duramax.",
+          "end_year": null,
+          "generation_name": "T1",
+          "start_year": 2021
+        }
+      ],
+      "model": "Suburban"
+    }
+  ]
+}

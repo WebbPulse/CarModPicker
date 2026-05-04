@@ -1,0 +1,263 @@
+{
+  "Nissan": [
+    {
+      "generations": [
+        {
+          "description": "The original Skyline GT-R, legendary in Japanese motorsport. Featured inline-6 engine and established GT-R as Nissan's ultimate performance car.",
+          "end_year": 1972,
+          "generation_name": "PGC10",
+          "start_year": 1969
+        },
+        {
+          "description": "Short-lived second generation due to fuel crisis. Featured updated styling and continued the GT-R legacy before hiatus.",
+          "end_year": 1973,
+          "generation_name": "KPGC110",
+          "start_year": 1973
+        },
+        {
+          "description": "The Godzilla - dominated Group A racing. Featured RB26DETT twin-turbo engine and ATTESA all-wheel drive. Iconic in tuning culture and motorsport history.",
+          "end_year": 1994,
+          "generation_name": "R32",
+          "start_year": 1989
+        },
+        {
+          "description": "Larger and more refined GT-R. Featured improved RB26DETT engine and handling. Set Nürburgring record. Some enthusiasts prefer R32 or R34.",
+          "end_year": 1998,
+          "generation_name": "R33",
+          "start_year": 1995
+        },
+        {
+          "description": "The ultimate Skyline GT-R. Featured refined RB26DETT engine, advanced technology, and aggressive styling. Highly collectible and iconic in car culture.",
+          "end_year": 2002,
+          "generation_name": "R34",
+          "start_year": 1999
+        },
+        {
+          "description": "Modern GT-R with VR38DETT twin-turbo V6. Produces up to 600+ horsepower. Advanced all-wheel drive and technology. Set multiple production car lap records worldwide.",
+          "end_year": 2024,
+          "generation_name": "R35",
+          "start_year": 2007
+        }
+      ],
+      "model": "GT-R"
+    },
+    {
+      "generations": [
+        {
+          "description": "Nissan's modern Z car revival. Featured VQ35DE V6 engine producing up to 306 horsepower. Excellent handling and became popular among enthusiasts for its balance of performance and affordability.",
+          "end_year": 2009,
+          "generation_name": "Z33",
+          "start_year": 2002
+        }
+      ],
+      "model": "350Z"
+    },
+    {
+      "generations": [
+        {
+          "description": "Refined Z car with VQ37VHR engine producing 332 horsepower. Improved handling and technology. Nismo variant offered track-focused performance. Long production run showed its popularity.",
+          "end_year": 2020,
+          "generation_name": "Z34",
+          "start_year": 2009
+        }
+      ],
+      "model": "370Z"
+    },
+    {
+      "generations": [
+        {
+          "description": "Latest Z car with twin-turbo V6 engine producing 400 horsepower. Modern technology while honoring Z car heritage. Performance and Nismo variants available.",
+          "end_year": null,
+          "generation_name": "RZ34",
+          "start_year": 2023
+        }
+      ],
+      "model": "Z"
+    },
+    {
+      "generations": [
+        {
+          "description": "Nissan's rear-wheel-drive sports coupe. Featured KA24E/DE engines and became legendary in drifting culture. Popular platform for engine swaps, especially SR20DET.",
+          "end_year": 1994,
+          "generation_name": "S13",
+          "start_year": 1989
+        },
+        {
+          "description": "Refined 240SX with improved styling. Featured updated KA24DE engine. Continued popularity in drifting and tuning scenes. Highly sought after for modification projects.",
+          "end_year": 1998,
+          "generation_name": "S14",
+          "start_year": 1995
+        },
+        {
+          "description": "Final S-chassis Silvia. Sold in Japan and select markets as the Silvia S15; not officially marketed in the US as 240SX. Featured SR20DET engine, sharp styling, and advanced suspension. Highly sought after in US import scene and drift culture.",
+          "end_year": 2002,
+          "generation_name": "S15",
+          "start_year": 1999
+        }
+      ],
+      "model": "240SX"
+    },
+    {
+      "generations": [
+        {
+          "description": "1st US Altima. KA24DE.",
+          "end_year": 1997,
+          "generation_name": "U13",
+          "start_year": 1993
+        },
+        {
+          "description": "Nissan's mid-size sedan with V6 engine option. Featured updated styling and improved technology. SE-R trim offered sportier character.",
+          "end_year": 2006,
+          "generation_name": "L30",
+          "start_year": 2002
+        },
+        {
+          "description": "Larger platform with improved interior space. Featured updated V6 engines and improved fuel economy. Continued Altima's reputation for value and performance.",
+          "end_year": 2012,
+          "generation_name": "L31",
+          "start_year": 2007
+        },
+        {
+          "description": "Complete redesign with more modern styling. Featured updated engines and introduced hybrid option. Improved technology and safety features.",
+          "end_year": 2018,
+          "generation_name": "L32",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest generation with turbocharged engine option. Improved technology, safety, and fuel economy. AWD option available. More refined and competitive in mid-size segment.",
+          "end_year": 2024,
+          "generation_name": "L34",
+          "start_year": 2019
+        }
+      ],
+      "model": "Altima"
+    },
+    {
+      "generations": [
+        {
+          "description": "B13 Sentra. SE-R (SR20DE).",
+          "end_year": 1994,
+          "generation_name": "B13",
+          "start_year": 1991
+        },
+        {
+          "description": "B14 Sentra. SE-R + 200SX twin.",
+          "end_year": 1999,
+          "generation_name": "B14",
+          "start_year": 1995
+        },
+        {
+          "description": "Nissan's compact sedan with efficient engines. Featured updated styling and became popular for its value and reliability.",
+          "end_year": 2006,
+          "generation_name": "B15",
+          "start_year": 2000
+        },
+        {
+          "description": "Larger platform with improved interior space. Featured updated engines and improved fuel economy. SE-R trim offered sportier character.",
+          "end_year": 2012,
+          "generation_name": "B16",
+          "start_year": 2007
+        },
+        {
+          "description": "Complete redesign with more modern styling. Featured updated engines and improved technology. Focus on fuel economy and value.",
+          "end_year": 2019,
+          "generation_name": "B17",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest generation with improved technology and safety features. Featured updated engines and continued Sentra's focus on value and efficiency.",
+          "end_year": null,
+          "generation_name": "B18",
+          "start_year": 2020
+        }
+      ],
+      "model": "Sentra"
+    },
+    {
+      "generations": [
+        {
+          "description": "Nissan's compact crossover with turbocharged 1.6L engine producing 188 hp. Unique styling with round headlights on the hood. AWD available. Popular for intake upgrades, exhaust modifications, ECU tuning, and suspension work.",
+          "end_year": 2019,
+          "generation_name": "F15",
+          "start_year": 2011
+        },
+        {
+          "description": "Second-generation Juke with updated styling and turbocharged 1.0L three-cylinder engine. Improved interior quality and technology. European market focus.",
+          "end_year": 2024,
+          "generation_name": "F16",
+          "start_year": 2020
+        }
+      ],
+      "model": "Juke"
+    },
+    {
+      "generations": [
+        {
+          "description": "Nissan Maxima full-size front-wheel-drive sedan with 3.0L VQ30DE V6 producing 222 hp. Popular for exhaust upgrades and performance modifications.",
+          "end_year": 2003,
+          "generation_name": "A33",
+          "start_year": 2000
+        },
+        {
+          "description": "Sixth-generation Maxima with 3.5L VQ35DE V6 producing 265 hp. Sporty sedan with sport-tuned suspension option. Popular for exhaust, intake, and suspension modifications.",
+          "end_year": 2008,
+          "generation_name": "A34",
+          "start_year": 2004
+        },
+        {
+          "description": "Seventh-generation Maxima with 3.5L VQ35DE V6 producing 290 hp. CVT standard. Upscale full-size sedan with sport package available.",
+          "end_year": 2014,
+          "generation_name": "A35",
+          "start_year": 2009
+        },
+        {
+          "description": "Eighth-generation Maxima '4-Door Sports Car' with bold styling and 3.5L VQ35DE V6 producing 300 hp. Popular for exhaust upgrades, wheels, and cosmetic modifications.",
+          "end_year": 2023,
+          "generation_name": "A36",
+          "start_year": 2016
+        }
+      ],
+      "model": "Maxima"
+    },
+    {
+      "generations": [
+        {
+          "description": "Third-gen Fairlady Z; VG30E/VG30ET engines. Popular for engine swaps and turbo rebuilds.",
+          "end_year": 1989,
+          "generation_name": "Z31",
+          "start_year": 1984
+        },
+        {
+          "description": "Twin-turbo VG30DETT 300 hp flagship. Strong aftermarket for exhaust, intake, suspension.",
+          "end_year": 2000,
+          "generation_name": "Z32",
+          "start_year": 1990
+        }
+      ],
+      "model": "300ZX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Skyline R32 GTS/GTS-T (HCR32/HR32). RB20DET turbo. Shares platform with GT-R BNR32.",
+          "end_year": 1994,
+          "generation_name": "R32",
+          "start_year": 1989
+        },
+        {
+          "description": "Skyline R33 GTS/GTS-T (ECR33). RB25DET turbo JDM sedan/coupe.",
+          "end_year": 1998,
+          "generation_name": "R33",
+          "start_year": 1993
+        },
+        {
+          "description": "Skyline R34 25GT-T (ER34). RB25DET NEO-6 turbo.",
+          "end_year": 2002,
+          "generation_name": "R34",
+          "start_year": 1998
+        }
+      ],
+      "model": "Skyline"
+    }
+  ]
+}

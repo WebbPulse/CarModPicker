@@ -1,0 +1,234 @@
+{
+  "Mitsubishi": [
+    {
+      "generations": [
+        {
+          "description": "The original Lancer Evolution (CD9A), built for WRC Group A homologation. Japan-domestic only. Featured 2.0L 4G63T turbo producing 244 PS with full-time AWD. The foundation of the Evo legend.",
+          "end_year": 1993,
+          "generation_name": "I",
+          "start_year": 1992
+        },
+        {
+          "description": "Second generation Evo (CE9A) with larger intercooler and revised suspension. 260 PS. Continued Japan-domestic sales. Rally success further cemented Evo reputation.",
+          "end_year": 1995,
+          "generation_name": "II",
+          "start_year": 1994
+        },
+        {
+          "description": "Third generation Evo (CE9A) with revised aerodynamics including larger rear spoiler and front lip. 270 PS. Japan-domestic. Last of the CD/CE9A-based Evos.",
+          "end_year": 1996,
+          "generation_name": "III",
+          "start_year": 1995
+        },
+        {
+          "description": "Fourth generation Evo (CN9A) — major platform update. Introduced active yaw control (AYC) on the GSR trim and new Super Active Yaw Control. 280 PS. First Evo available with automatic gearbox option. Significant rally and tuning popularity.",
+          "end_year": 1998,
+          "generation_name": "IV",
+          "start_year": 1996
+        },
+        {
+          "description": "Fifth generation Evo (CP9A) with wider body for wider track and larger Brembo brakes. 280 PS. Revised Super AYC and improved chassis dynamics. Extremely popular platform for tuning and motorsport.",
+          "end_year": 1999,
+          "generation_name": "V",
+          "start_year": 1998
+        },
+        {
+          "description": "Sixth generation Evo (CP9A) with titanium turbo impeller and water-spray intercooler. Tommi Mäkinen Edition (TME) celebrated Mitsubishi's four consecutive WRC titles. 280 PS. Final Evo VI (6.5) produced through 2001.",
+          "end_year": 2001,
+          "generation_name": "VI",
+          "start_year": 1999
+        },
+        {
+          "description": "Seventh generation Evo (CT9A) — new platform based on Lancer Cedia. First Evo sold in North America. 280 PS with revised 4G63T and new ACD/AYC system. Introduced automatic gearbox (TC-SST predecessor). Foundation of the CT9A Evo VII/VIII/IX family.",
+          "end_year": 2003,
+          "generation_name": "VII",
+          "start_year": 2001
+        },
+        {
+          "description": "Eighth generation Evo (CT9A) with updated exterior, 6-speed manual option, and MR (Mitsubishi Racing) variant with Bilstein suspension. 265 hp (US spec). First Evo with aluminum roof. Hugely popular in US tuning scene with extensive aftermarket support.",
+          "end_year": 2005,
+          "generation_name": "VIII",
+          "start_year": 2003
+        },
+        {
+          "description": "Ninth generation Evo (CT9A) with MIVEC variable valve timing on intake cam — first Evo with VVT. 291 hp (US spec). MR trim with Bilstein/Eibach. Last of the 4G63-powered Evos. Highly sought after by enthusiasts for 4G63 tuning potential.",
+          "end_year": 2007,
+          "generation_name": "IX",
+          "start_year": 2005
+        },
+        {
+          "description": "Tenth and final generation Evo (CZ4A) — all-new platform with 4B11T 2.0L DOHC MIVEC turbo producing 291 hp. Introduced twin-clutch SST (Sport Shift Transmission) alongside 5-speed manual. Final Special Edition (Final Edition) released in 2015 marked end of production. The most powerful stock Evo and the most refined for daily driving. Strong aftermarket community.",
+          "end_year": 2016,
+          "generation_name": "X",
+          "start_year": 2008
+        }
+      ],
+      "model": "Lancer Evolution"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mitsubishi's flagship sports car (GTO in Japan). VR-4 trim featured 3.0L twin-turbocharged V6 (6G72) producing 300 hp, all-wheel drive, four-wheel steering, active aerodynamics, and active exhaust. Base/SL models used naturally aspirated V6. High-tech sports car with impressive capabilities. Very popular with enthusiasts for modifications including turbo upgrades, ECU tuning, exhaust systems, and suspension work.",
+          "end_year": 1993,
+          "generation_name": "1st Gen",
+          "slug": "first-generation",
+          "start_year": 1991
+        },
+        {
+          "description": "Updated 3000GT with fixed headlights replacing pop-ups. VR-4 featured 6-speed manual transmission option. Some high-end features scaled back. Spyder convertible variant introduced in 1995-1996 with retractable hardtop. Popular for modifications and tuning. Strong aftermarket support.",
+          "end_year": 1996,
+          "generation_name": "2nd Gen",
+          "slug": "second-generation",
+          "start_year": 1994
+        },
+        {
+          "description": "Final generation with further refinements. VR-4 featured updated styling including aggressive front bumper and distinctive 'Combat Wing' spoiler. Production ended in US after 1999. Highly sought after by collectors and enthusiasts. Popular for modifications including turbo upgrades, intercooler upgrades, ECU tuning, and performance enhancements.",
+          "end_year": 1999,
+          "generation_name": "3rd Gen",
+          "slug": "third-generation",
+          "start_year": 1997
+        }
+      ],
+      "model": "3000GT"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mitsubishi's sporty compact coupe. GSX trim featured turbocharged 2.0L 4G63T engine with all-wheel drive producing 195 hp. GS-T trim featured same turbo engine with front-wheel drive. Base models used naturally aspirated engines. Very popular with enthusiasts for modifications including turbo upgrades, intercooler upgrades, ECU tuning, exhaust systems, and suspension work. Strong aftermarket support and tuning community.",
+          "end_year": 1994,
+          "generation_name": "1st Gen",
+          "slug": "first-generation",
+          "start_year": 1990
+        },
+        {
+          "description": "Redesigned Eclipse with updated styling. GSX (AWD) and GS-T (FWD) continued with upgraded 2.0L turbo 4G63T producing 210 hp. Convertible Spyder variant available. Highly popular in tuning scene with extensive aftermarket support. Engine swaps, turbo upgrades, and performance modifications are common. Iconic 90s tuner car.",
+          "end_year": 1999,
+          "generation_name": "2nd Gen",
+          "slug": "second-generation",
+          "start_year": 1995
+        },
+        {
+          "description": "Redesigned Eclipse without turbo variants. Featured V6 engines in GT trim. Less popular with hardcore enthusiasts but still has following for modifications including intake/exhaust upgrades, suspension work, and styling modifications.",
+          "end_year": 2005,
+          "generation_name": "3rd Gen",
+          "slug": "third-generation",
+          "start_year": 2000
+        },
+        {
+          "description": "Final Eclipse generation with updated styling. Featured V6 engines in GT trim. No turbo or AWD variants. Less enthusiast-focused than earlier generations but still has modification community for styling and performance upgrades.",
+          "end_year": 2012,
+          "generation_name": "4th Gen",
+          "slug": "fourth-generation",
+          "start_year": 2006
+        }
+      ],
+      "model": "Eclipse"
+    },
+    {
+      "generations": [
+        {
+          "description": "Rally-bred performance sedan built for Group A homologation (6th-generation Galant platform). Featured turbocharged 2.0L 4G63T engine, full-time all-wheel drive, four-wheel steering, and four-wheel independent suspension. Only 2,000 units imported to US in 1991, 1,000 in 1992. Highly sought after by enthusiasts and collectors. Popular for modifications including turbo upgrades, ECU tuning, suspension work, and rally-inspired builds. Rare and collectible.",
+          "end_year": 1992,
+          "generation_name": "1st Gen",
+          "slug": "6th-generation",
+          "start_year": 1988
+        }
+      ],
+      "model": "Galant VR-4"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mitsubishi's turbocharged rear-wheel-drive sports coupe. Featured 2.6L turbocharged inline-4 engine. Also sold as Dodge/Plymouth Conquest in North America. Popular with enthusiasts for modifications including turbo upgrades, intercooler upgrades, and performance tuning. Classic 80s sports car with strong following.",
+          "end_year": 1986,
+          "generation_name": "1st Gen",
+          "slug": "first-generation",
+          "start_year": 1983
+        },
+        {
+          "description": "Updated Starion with wide-body fenders ('fatty' models). ESI-R and TSi trims featured enhanced turbocharged engines, improved handling packages, and aggressive styling. Also sold as Chrysler Conquest. Highly popular with enthusiasts for modifications and tuning. Collectible 80s turbo sports car.",
+          "end_year": 1989,
+          "generation_name": "2nd Gen",
+          "slug": "second-generation",
+          "start_year": 1987
+        }
+      ],
+      "model": "Starion"
+    },
+    {
+      "generations": [
+        {
+          "description": "Performance variant of the Lancer positioned between GTS and Evolution (Lancer 9th-generation platform, CY chassis). Featured turbocharged 2.0L MIVEC engine producing 237 hp and 253 lb-ft torque. Twin-clutch SST transmission with full-time all-wheel drive and Active Center Differential. Sport-tuned suspension and aggressive styling. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, suspension work, and performance enhancements. Excellent value for turbo AWD performance sedan.",
+          "end_year": 2015,
+          "generation_name": "1st Gen",
+          "slug": "9th-generation",
+          "start_year": 2009
+        }
+      ],
+      "model": "Lancer Ralliart"
+    },
+    {
+      "generations": [
+        {
+          "description": "7th-gen Lancer. Pre-CJ.",
+          "end_year": 2000,
+          "generation_name": "CE",
+          "start_year": 1996
+        },
+        {
+          "description": "Ninth-generation Mitsubishi Lancer compact sedan sold in North America. Featured 2.0L naturally aspirated engine producing 120-140 hp. Sportback hatchback variant available. Base platform for Lancer Evolution IX and Ralliart. Popular for suspension upgrades, exhaust modifications, and cosmetic enhancements.",
+          "end_year": 2007,
+          "generation_name": "CS/CT",
+          "start_year": 2002
+        },
+        {
+          "description": "Tenth-generation Lancer — the final generation. Featured refreshed styling with 2.0L and 2.4L naturally aspirated engines. Sportback hatchback available. Shares platform with Evolution X and Ralliart. Popular for suspension, exhaust, intake, and cosmetic modifications. Discontinued in 2017.",
+          "end_year": 2017,
+          "generation_name": "CJ",
+          "start_year": 2008
+        }
+      ],
+      "model": "Lancer"
+    },
+    {
+      "generations": [
+        {
+          "description": "First Mitsubishi Outlander compact crossover. Featured 2.4L naturally aspirated engine. Available in FWD and AWD. Popular for suspension, exhaust, and cosmetic modifications.",
+          "end_year": 2006,
+          "generation_name": "1st Gen",
+          "start_year": 2003
+        },
+        {
+          "description": "Second-generation Outlander with Peugeot/Mitsubishi shared platform. Available with 2.4L and 3.0L V6 engines plus AWD. Outlander Sport (RVR) variant introduced. Popular for suspension and exhaust upgrades.",
+          "end_year": 2013,
+          "generation_name": "2nd Gen",
+          "start_year": 2007
+        },
+        {
+          "description": "Third-generation Outlander with improved technology and styling. Featured 2.4L and 3.0L V6 engines plus PHEV hybrid variant. S-AWC all-wheel control available. Popular for suspension, exhaust, and cosmetic modifications.",
+          "end_year": 2021,
+          "generation_name": "3rd Gen",
+          "start_year": 2014
+        },
+        {
+          "description": "Fourth-generation Outlander on Renault-Nissan-Mitsubishi Alliance CMF platform. Featured bold new styling and 2.5L engine. PHEV version features 302 hp system output. Improved interior quality and technology.",
+          "end_year": null,
+          "generation_name": "4th Gen",
+          "start_year": 2022
+        }
+      ],
+      "model": "Outlander"
+    },
+    {
+      "generations": [
+        {
+          "description": "Crossover; unrelated to Eclipse coupe.",
+          "end_year": null,
+          "generation_name": "1st Gen",
+          "start_year": 2018
+        }
+      ],
+      "model": "Eclipse Cross"
+    }
+  ]
+}

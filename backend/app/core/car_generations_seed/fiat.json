@@ -1,0 +1,15 @@
+{
+  "Fiat": [
+    {
+      "generations": [
+        {
+          "description": "Modern 500. Abarth 1.4T.",
+          "end_year": 2024,
+          "generation_name": "312",
+          "start_year": 2007
+        }
+      ],
+      "model": "500"
+    }
+  ]
+}

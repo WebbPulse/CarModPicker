@@ -1,0 +1,320 @@
+{
+  "Ferrari": [
+    {
+      "generations": [
+        {
+          "description": "Iconic mid-engine V8 Ferrari that became a cultural symbol. Featured 2.9L V8 producing 240-255 horsepower. Available as GTB (coupe) and GTS (targa). Popular for exhaust upgrades, period-correct wheel modifications, interior refurbishment, and maintaining classic aesthetics. Strong enthusiast community and parts availability.",
+          "end_year": 1985,
+          "generation_name": "308",
+          "start_year": 1975
+        }
+      ],
+      "model": "308"
+    },
+    {
+      "generations": [
+        {
+          "description": "Evolution of the 308 with 3.2L V8 producing 270 horsepower. Available as GTB and GTS. Popular for exhaust upgrades, modern wheel fitments, suspension improvements, and interior modernization while preserving classic character. Beloved by enthusiasts for its analog driving experience.",
+          "end_year": 1989,
+          "generation_name": "328",
+          "start_year": 1985
+        }
+      ],
+      "model": "328"
+    },
+    {
+      "generations": [
+        {
+          "description": "Iconic flat-12 mid-engine supercar with 4.9L engine producing 390 horsepower. Famous for side strakes and pop-up headlights. Popular for exhaust upgrades, wheel modifications, interior refurbishment, and maintaining period-correct styling. Highly sought after by collectors and enthusiasts.",
+          "end_year": 1991,
+          "generation_name": "Testarossa",
+          "start_year": 1984
+        },
+        {
+          "description": "Updated Testarossa with improved 4.9L flat-12 producing 428 horsepower. Enhanced performance and refined styling. Popular for exhaust systems, suspension upgrades, and modern wheel fitments while preserving iconic design elements.",
+          "end_year": 1994,
+          "generation_name": "512 TR",
+          "start_year": 1991
+        },
+        {
+          "description": "Final evolution of Testarossa with 4.9L flat-12 producing 440 horsepower. Featured fixed headlights and refined aerodynamics. Popular for exhaust upgrades, suspension improvements, and maintaining the classic Testarossa aesthetic with modern touches.",
+          "end_year": 1996,
+          "generation_name": "512M",
+          "start_year": 1994
+        }
+      ],
+      "model": "Testarossa"
+    },
+    {
+      "generations": [
+        {
+          "description": "Entry-level mid-engine V8 Ferrari with 3.4L engine producing 300-320 horsepower. Available as TB (coupe), TS (targa), and Challenge track variant. Popular for exhaust upgrades, HID light conversions, suspension improvements, and twin-turbo kits for significant power gains. Strong aftermarket support.",
+          "end_year": 1995,
+          "generation_name": "348",
+          "start_year": 1989
+        }
+      ],
+      "model": "348"
+    },
+    {
+      "generations": [
+        {
+          "description": "Highly regarded mid-engine V8 with 3.5L engine producing 375-380 horsepower. Available as Berlinetta, GTS (targa), Spider, and Challenge Stradale. Famous for its exhaust note and F1 paddle-shift transmission. Popular for exhaust upgrades, intake modifications, suspension improvements, and Challenge Stradale-inspired styling. Strong enthusiast following.",
+          "end_year": 1999,
+          "generation_name": "F355",
+          "start_year": 1994
+        }
+      ],
+      "model": "F355"
+    },
+    {
+      "generations": [
+        {
+          "description": "Modern mid-engine V8 with 3.6L engine producing 400 horsepower. Available as coupe and Spider. Popular for twin-turbo kits (significant power gains), exhaust systems (Capristo, Fabspeed), ECU tuning, suspension upgrades, and carbon fiber aero. Strong aftermarket support with extensive modification options.",
+          "end_year": 2005,
+          "generation_name": "Modena",
+          "start_year": 1999
+        },
+        {
+          "description": "Track-focused variant of 360 with 3.6L V8 producing 425 horsepower. Lightweight construction with enhanced aerodynamics. Popular for exhaust upgrades, suspension tuning, and maintaining the Challenge Stradale's track-focused character.",
+          "end_year": 2005,
+          "generation_name": "Challenge Stradale",
+          "start_year": 2003
+        }
+      ],
+      "model": "360"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ferrari's V8 supercar with 4.3L naturally aspirated engine producing 483 horsepower. Available as coupe and Spider. Popular for exhaust upgrades, supercharger kits (Novitec Rosso), ECU tuning, aero modifications, and carbon fiber bodywork. Strong aftermarket support for modifications.",
+          "end_year": 2009,
+          "generation_name": "F430",
+          "start_year": 2004
+        }
+      ],
+      "model": "F430"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ferrari's V8 supercar with 4.5L naturally aspirated engine producing 562 horsepower. Available as coupe, Spider, and Speciale track variant. Popular for exhaust upgrades, ECU tuning, aero modifications (including CTR-style kits), carbon fiber bodywork, and suspension upgrades. Highly mod-friendly with extensive aftermarket support.",
+          "end_year": 2015,
+          "generation_name": "Italia",
+          "start_year": 2009
+        }
+      ],
+      "model": "458"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ferrari's turbocharged V8 supercar with 3.9L twin-turbo engine producing 661 horsepower. Available as coupe and Spider. Popular for turbo upgrades (Pure800, etc.), exhaust systems, ECU tuning, intake modifications, and aero enhancements. Pista variant was track-focused. Strong aftermarket support for forced induction modifications.",
+          "end_year": 2019,
+          "generation_name": "GTB",
+          "start_year": 2015
+        }
+      ],
+      "model": "488"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ferrari's final V8 supercar before hybrid era. Featured 3.9L twin-turbo V8 producing 710 horsepower. Available as coupe and Spider. Popular for turbo upgrades, exhaust systems, ECU tuning, and aero modifications. Tributo and Pista variants offered increased performance. Strong aftermarket support for modifications.",
+          "end_year": 2023,
+          "generation_name": "Tributo",
+          "start_year": 2019
+        }
+      ],
+      "model": "F8"
+    },
+    {
+      "generations": [
+        {
+          "description": "Front-engine V12 grand tourer with 5.5L engine producing 485 horsepower. Classic GT layout with excellent long-distance capability. Popular for ECU tuning (15-25 HP gains), exhaust upgrades (headers, H-pipes, Tubi mufflers), suspension improvements, and modern wheel fitments. Strong enthusiast community.",
+          "end_year": 2001,
+          "generation_name": "Maranello",
+          "start_year": 1996
+        }
+      ],
+      "model": "550"
+    },
+    {
+      "generations": [
+        {
+          "description": "Evolution of 550 with 5.7L V12 producing 515 horsepower. Featured F1 transmission option. Popular for ECU tuning, exhaust systems, suspension upgrades, brake improvements, and restomod projects. V12 heat management and cooling upgrades are essential for modifications.",
+          "end_year": 2006,
+          "generation_name": "Maranello",
+          "start_year": 2002
+        }
+      ],
+      "model": "575"
+    },
+    {
+      "generations": [
+        {
+          "description": "Front-engine V12 supercar with 6.0L engine producing 612-670 horsepower. Available as GTB and GTO track variant. Popular for exhaust upgrades, ECU tuning, intake modifications, suspension refinement, and aero enhancements. Strong aftermarket support from Novitec and others.",
+          "end_year": 2012,
+          "generation_name": "GTB Fiorano",
+          "start_year": 2006
+        }
+      ],
+      "model": "599"
+    },
+    {
+      "generations": [
+        {
+          "description": "Front-engine V12 supercar with 6.3L engine producing 730 horsepower. Modern GT with exceptional performance. Popular for carbon aero kits, exhaust systems, ECU tuning (Novitec has 774 HP builds), suspension upgrades, and forged wheels. Strong aftermarket support.",
+          "end_year": 2017,
+          "generation_name": "Berlinetta",
+          "start_year": 2012
+        }
+      ],
+      "model": "F12"
+    },
+    {
+      "generations": [
+        {
+          "description": "Front-engine V12 supercar with 6.5L naturally aspirated engine producing 789-830 horsepower. Final naturally aspirated V12 Ferrari. Popular for exhaust upgrades, ECU tuning, carbon aero enhancements, suspension improvements, and maintaining the V12's character. Strong enthusiast following.",
+          "end_year": 2023,
+          "generation_name": "Superfast",
+          "start_year": 2017
+        }
+      ],
+      "model": "812"
+    },
+    {
+      "generations": [
+        {
+          "description": "Front-engine V8 grand tourer with 4.3L engine producing 453-483 horsepower. Retractable hardtop convertible. Popular for exhaust upgrades, ECU tuning, suspension improvements, and subtle aero modifications. Good aftermarket support for GT-focused modifications.",
+          "end_year": 2014,
+          "generation_name": "California",
+          "start_year": 2008
+        },
+        {
+          "description": "Turbocharged evolution with 3.9L twin-turbo V8 producing 552-560 horsepower. Improved performance and efficiency. Popular for turbo upgrades, exhaust systems, ECU tuning, and suspension modifications. Strong aftermarket support for forced induction tuning.",
+          "end_year": 2017,
+          "generation_name": "California T",
+          "start_year": 2014
+        }
+      ],
+      "model": "California"
+    },
+    {
+      "generations": [
+        {
+          "description": "Front-engine V8 grand tourer with 3.9L twin-turbo engine producing 592 horsepower. Retractable hardtop convertible. Popular for exhaust upgrades (valved systems), ECU tuning, subtle aero enhancements, and interior luxury modifications. Modern tech with good modification potential.",
+          "end_year": 2021,
+          "generation_name": "Portofino",
+          "start_year": 2017
+        },
+        {
+          "description": "Updated Portofino with 3.9L twin-turbo V8 producing 612 horsepower. Enhanced performance and refined styling. Popular for exhaust systems, ECU tuning, and aero modifications. Warranty considerations apply to modifications.",
+          "end_year": 2023,
+          "generation_name": "Portofino M",
+          "start_year": 2021
+        }
+      ],
+      "model": "Portofino"
+    },
+    {
+      "generations": [
+        {
+          "description": "Front-engine V8 grand tourer with 3.9L twin-turbo engine producing 612 horsepower. Elegant coupe design. Popular for exhaust upgrades, ECU tuning, subtle aero enhancements, and interior customization. Modern platform with good aftermarket support.",
+          "end_year": null,
+          "generation_name": "Roma",
+          "start_year": 2019
+        }
+      ],
+      "model": "Roma"
+    },
+    {
+      "generations": [
+        {
+          "description": "Front-engine V12 shooting brake with 6.3L engine producing 651 horsepower. Unique four-seat layout with all-wheel drive. Popular for exhaust upgrades, ECU tuning, and subtle modifications while preserving the FF's unique character. Niche but enthusiastic owner community.",
+          "end_year": 2016,
+          "generation_name": "1st Gen",
+          "start_year": 2011
+        }
+      ],
+      "model": "FF"
+    },
+    {
+      "generations": [
+        {
+          "description": "Evolution of FF with 6.3L V12 producing 681 horsepower. Available as V12 and V8 turbo variants. Four-seat shooting brake with all-wheel drive. Popular for exhaust upgrades, ECU tuning, and maintaining the practical supercar character. Unique in the Ferrari lineup.",
+          "end_year": 2020,
+          "generation_name": "GTC4Lusso",
+          "start_year": 2016
+        }
+      ],
+      "model": "GTC4Lusso"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mid-engine V6 hybrid supercar with 3.0L twin-turbo V6 and electric motor producing 818-830 horsepower. Represents Ferrari's hybrid future. Popular for exhaust upgrades, ECU tuning (hybrid system considerations), and aero modifications. Growing aftermarket support as platform matures.",
+          "end_year": null,
+          "generation_name": "GTB",
+          "start_year": 2021
+        }
+      ],
+      "model": "296"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mid-engine V8 hybrid hypercar with 4.0L twin-turbo V8 and three electric motors producing 986-1000 horsepower. Extreme performance with hybrid technology. Popular for exhaust upgrades, ECU tuning (Novitec has 1100+ HP builds), aero modifications, and appearance packages. Strong aftermarket support from premium tuners.",
+          "end_year": null,
+          "generation_name": "Stradale",
+          "start_year": 2019
+        }
+      ],
+      "model": "SF90"
+    },
+    {
+      "generations": [
+        {
+          "description": "Legendary mid-engine twin-turbo V8 hypercar with 2.9L engine producing 471-478 horsepower. Built to celebrate Ferrari's 40th anniversary. Iconic design and extreme performance. Modifications are rare due to collector value, but exhaust upgrades and suspension improvements are available. Highly sought after by collectors.",
+          "end_year": 1992,
+          "generation_name": "F40",
+          "start_year": 1987
+        }
+      ],
+      "model": "F40"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mid-engine V12 hypercar with 4.7L naturally aspirated engine producing 513 horsepower. Limited production track-focused supercar. Modifications are extremely rare due to collector value and limited numbers. Exhaust upgrades and suspension tuning available from specialist tuners. Iconic collector's item.",
+          "end_year": 1997,
+          "generation_name": "F50",
+          "start_year": 1995
+        }
+      ],
+      "model": "F50"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mid-engine V12 hypercar with 6.0L naturally aspirated engine producing 651 horsepower. Named after company founder. Limited production with extreme performance. Modifications are rare due to collector value, but exhaust upgrades and suspension improvements available from specialist tuners. Highly collectible.",
+          "end_year": 2004,
+          "generation_name": "Enzo",
+          "start_year": 2002
+        }
+      ],
+      "model": "Enzo"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mid-engine V12 hybrid hypercar with 6.3L naturally aspirated V12 and electric motor producing 949-963 horsepower. Limited production hybrid hypercar. Modifications are extremely rare due to collector value and limited numbers. Exhaust upgrades and suspension tuning available from specialist tuners. Ultimate collector's Ferrari.",
+          "end_year": 2018,
+          "generation_name": "LaFerrari",
+          "start_year": 2013
+        }
+      ],
+      "model": "LaFerrari"
+    }
+  ]
+}

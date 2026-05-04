@@ -1,0 +1,204 @@
+{
+  "Mazda": [
+    {
+      "generations": [
+        {
+          "description": "The original Miata (MX-5) that revived the affordable roadster segment. Featured pop-up headlights, perfect 50/50 weight distribution, and exceptional handling. Pure driving joy.",
+          "display_name": "Mk1 Miata",
+          "end_year": 1997,
+          "generation_name": "NA",
+          "start_year": 1989
+        },
+        {
+          "description": "Refined second generation with fixed headlights. Improved engines and handling. Maintained the Miata's focus on lightweight, driver-focused experience. Mazdaspeed variant offered turbocharged performance.",
+          "display_name": "Mk2 Miata",
+          "end_year": 2005,
+          "generation_name": "NB",
+          "start_year": 1998
+        },
+        {
+          "description": "Larger platform with improved safety features. Featured MZR engines and retractable hardtop option. Some enthusiasts preferred previous generations, but still excellent handling.",
+          "display_name": "Mk3 Miata",
+          "end_year": 2015,
+          "generation_name": "NC",
+          "start_year": 2006
+        },
+        {
+          "description": "Return to lightweight philosophy with Skyactiv technology. Featured improved fuel economy and handling. RF (retractable fastback) variant introduced. Maintains Miata's reputation as the best affordable sports car.",
+          "display_name": "Mk4 Miata",
+          "end_year": null,
+          "generation_name": "ND",
+          "start_year": 2016
+        }
+      ],
+      "model": "Miata"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda's rotary-powered sports car. Featured Wankel rotary engine and established RX-7 as a unique sports car. Turbocharged variant introduced in later years.",
+          "display_name": "1st Gen RX-7",
+          "end_year": 1985,
+          "generation_name": "SA/FB",
+          "start_year": 1978
+        },
+        {
+          "description": "Second generation with turbocharged 13B rotary engine. Featured improved handling and styling. Turbo II model produced 200 horsepower. Popular in tuning and racing scenes.",
+          "display_name": "2nd Gen RX-7",
+          "end_year": 1991,
+          "generation_name": "FC",
+          "start_year": 1986
+        },
+        {
+          "description": "The ultimate RX-7 with sequential twin-turbo 13B-REW engine producing 255-280 horsepower. Iconic styling and exceptional handling. Highly sought after and collectible. Legendary in tuning culture.",
+          "display_name": "3rd Gen RX-7",
+          "end_year": 2002,
+          "generation_name": "FD",
+          "start_year": 1992
+        }
+      ],
+      "model": "RX-7"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda's rotary-powered compact sports car (Savanna in Japan). Featured 10A and 12A twin-rotor engines producing 110-130 horsepower. Lightweight rear-wheel drive chassis with excellent handling. Popular in racing and established Mazda's rotary reputation before RX-7.",
+          "end_year": 1977,
+          "generation_name": "S1",
+          "start_year": 1972
+        }
+      ],
+      "model": "RX-3"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda's first production rotary-powered car (Cosmo Sport). Featured two-rotor Wankel engine producing 110 PS. Revolutionary design and technology that established Mazda's rotary heritage. Highly collectible and historically significant.",
+          "end_year": 1972,
+          "generation_name": "110S",
+          "start_year": 1967
+        },
+        {
+          "description": "Eunos Cosmo - Mazda's flagship luxury grand tourer. Featured twin-turbo 13B-REW (230 PS) and legendary triple-rotor 20B-REW (276 PS) engines. First production car with built-in GPS navigation. Advanced technology and exclusive rotary power. Highly sought after JDM legend.",
+          "end_year": 1995,
+          "generation_name": "JC",
+          "start_year": 1990
+        }
+      ],
+      "model": "Cosmo"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda's turbocharged all-wheel drive hot hatch. Featured 1.6L turbocharged engine producing 138 horsepower with full-time AWD system. Lightweight and capable, popular in rallying and early hot hatch culture. Rare and collectible performance variant of the 323/Familia.",
+          "end_year": 1989,
+          "generation_name": "BF",
+          "start_year": 1987
+        }
+      ],
+      "model": "323 GTX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda's factory-tuned performance sedan. Featured Garrett T25 turbocharged 2.0L engine producing 170 horsepower and 160 lb-ft torque. Racing-tuned suspension with Tokico dampers, limited-slip differential, and unique aero package. Limited production (~2,000 units) predecessor to Mazdaspeed3. Highly sought after by enthusiasts.",
+          "end_year": 2004,
+          "generation_name": "BJ",
+          "start_year": 2003
+        }
+      ],
+      "model": "Mazdaspeed Protegé"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda's compact car with sporty character. Featured MZR engines and excellent handling. Mazdaspeed3 variant with turbocharged engine became a hot hatch legend.",
+          "end_year": 2009,
+          "generation_name": "BK",
+          "start_year": 2003
+        },
+        {
+          "description": "Refined design with Skyactiv technology introduction. Improved fuel economy and handling. Mazdaspeed3 continued with 263 horsepower turbocharged engine.",
+          "end_year": 2013,
+          "generation_name": "BL",
+          "start_year": 2010
+        },
+        {
+          "description": "Complete redesign with Skyactiv engines. Improved technology and fuel economy. More refined while maintaining sporty character. No Mazdaspeed variant this generation.",
+          "end_year": 2018,
+          "generation_name": "BM",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest generation with improved Skyactiv-X technology. More premium interior and improved technology. Turbocharged engine option available. Maintains Mazda3's sporty character.",
+          "end_year": null,
+          "generation_name": "BP",
+          "start_year": 2019
+        }
+      ],
+      "model": "Mazda3"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda's mid-size sedan with sporty character. Featured MZR engines and excellent handling. Mazdaspeed6 variant with turbocharged AWD was a performance sedan.",
+          "end_year": 2007,
+          "generation_name": "GG/GY",
+          "start_year": 2002
+        },
+        {
+          "description": "Refined design with improved technology. Featured updated engines and continued Mazda6's reputation for sporty handling in the mid-size segment.",
+          "end_year": 2012,
+          "generation_name": "GH",
+          "start_year": 2008
+        },
+        {
+          "description": "Complete redesign with Skyactiv technology. Kodo design language introduced. Improved fuel economy and handling. More premium positioning in mid-size segment.",
+          "end_year": 2021,
+          "generation_name": "GJ/GL",
+          "start_year": 2013
+        }
+      ],
+      "model": "Mazda6"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda's sporty 2-door coupe. Featured 2.2L turbocharged engine in GT trim producing 145 horsepower. Stylish design with optional four-wheel steering. Platform shared with Ford Probe. Popular among enthusiasts for its turbocharged performance.",
+          "end_year": 1992,
+          "generation_name": "GD",
+          "start_year": 1987
+        },
+        {
+          "description": "Second generation with refined styling. Featured 2.5L V6 engine in LS trim producing 164-165 horsepower. Improved handling and technology. Sporty coupe character with excellent driving dynamics.",
+          "end_year": 1997,
+          "generation_name": "GE",
+          "start_year": 1993
+        }
+      ],
+      "model": "MX-6"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda's rotary-powered sports car with unique 4-door design. Featured naturally aspirated 13B-MSP Renesis engine producing 232-238 horsepower. High-revving character and excellent handling.",
+          "end_year": 2012,
+          "generation_name": "SE3P",
+          "start_year": 2003
+        }
+      ],
+      "model": "RX-8"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mazda B1600/B2000/B2200/B2600 pickup; rebadged as Ford Courier/Ranger. B2600i with G6 2.6L.",
+          "end_year": 1993,
+          "generation_name": "5th Gen",
+          "start_year": 1986
+        }
+      ],
+      "model": "B-Series Truck"
+    }
+  ]
+}

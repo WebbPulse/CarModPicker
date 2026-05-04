@@ -1,0 +1,71 @@
+{
+  "Kia": [
+    {
+      "generations": [
+        {
+          "description": "Kia's flagship rear-wheel-drive sports sedan. Featured turbocharged 2.0L 4-cylinder and twin-turbo 3.3L V6 engines. GT trim produced up to 365-368 horsepower with optional all-wheel drive. 0-60 mph in 4.6-4.9 seconds. Featured Brembo brakes, performance tires, electronically-controlled suspension, and limited-slip differential. Excellent value and performance. Very popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, suspension work, and forced induction enhancements.",
+          "end_year": 2023,
+          "generation_name": "CK",
+          "start_year": 2018
+        }
+      ],
+      "model": "Stinger"
+    },
+    {
+      "generations": [
+        {
+          "description": "Performance variant of the Forte compact sedan. Featured 1.6L turbocharged 4-cylinder engine producing 201 horsepower and 195 lb-ft torque. Available with 6-speed manual or 7-speed dual-clutch automatic transmission. 0-60 mph in approximately 6.7 seconds. Sport-tuned suspension and aggressive styling. Popular with enthusiasts for modifications including ECU tuning, intake/exhaust upgrades, and suspension enhancements. Excellent value for performance-oriented compact sedan.",
+          "end_year": 2024,
+          "generation_name": "BD",
+          "start_year": 2020
+        }
+      ],
+      "model": "Forte GT"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance trim of Kia's midsize sedan. Featured 2.0L turbocharged 4-cylinder engine producing 274 horsepower. Sport-tuned suspension and aggressive styling. Available with manual or automatic transmission. Popular with enthusiasts for modifications including ECU tuning, intake/exhaust upgrades, turbo upgrades, and suspension work. Excellent value for turbocharged midsize sedan performance.",
+          "end_year": 2015,
+          "generation_name": "TF",
+          "start_year": 2011
+        },
+        {
+          "description": "Updated Optima SX with refined styling and improved technology. Featured 2.0L turbocharged 4-cylinder engine producing 245 horsepower. Sport-tuned suspension, premium interior features, and aggressive exterior styling. SXL trim added luxury features. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, and suspension enhancements. Last generation before rebranding to K5.",
+          "end_year": 2020,
+          "generation_name": "JF",
+          "start_year": 2016
+        }
+      ],
+      "model": "Optima SX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Kia's midsize sports sedan, replacing the Optima. GT trim featured 2.5L turbocharged 4-cylinder engine producing 290 horsepower and 311 lb-ft torque. Front-wheel drive with 8-speed wet dual-clutch automatic transmission. 0-60 mph in approximately 5.7-5.8 seconds. Sport-tuned suspension, aggressive styling with fastback profile, and modern technology. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, and suspension work. Excellent value and performance in midsize sedan segment.",
+          "end_year": null,
+          "generation_name": "DL3",
+          "start_year": 2021
+        }
+      ],
+      "model": "K5 GT"
+    },
+    {
+      "generations": [
+        {
+          "description": "Kia's flagship electric performance crossover. Featured dual-motor all-wheel-drive system producing 577 horsepower (576 hp in some markets). 77.4 kWh battery with 350 kW DC fast charging. 0-60 mph in 3.4 seconds. Featured GT mode, drift mode, performance tires, enhanced brakes, and electronic differential. Popular for software tuning, suspension modifications, and performance enhancements. Represents Kia's entry into high-performance electric vehicles.",
+          "end_year": null,
+          "generation_name": "CV",
+          "start_year": 2022
+        },
+        {
+          "description": "Facelifted EV6 GT with updated styling and enhanced performance. Featured dual-motor all-wheel-drive system producing 601 horsepower (641 hp with GT Boost mode). 84.0 kWh battery with improved range and 350 kW DC fast charging. 0-60 mph in 3.4 seconds. Added Virtual Gear Shift technology, updated interior, and refined exterior styling. Popular for software tuning, suspension modifications, and performance enhancements. Kia's most powerful production vehicle.",
+          "end_year": 2025,
+          "generation_name": "CV1",
+          "start_year": 2024
+        }
+      ],
+      "model": "EV6 GT"
+    }
+  ]
+}

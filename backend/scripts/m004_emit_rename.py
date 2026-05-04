@@ -98,7 +98,10 @@ logger = logging.getLogger("m004_emit_rename")
 # Default paths assume CWD == backend/ (per MEM209).
 DEFAULT_CSV_PATH = Path("../.gsd/milestones/M004/taxonomy-audit-dryrun.csv")
 DEFAULT_ALEMBIC_VERSIONS_DIR = Path("alembic/versions")
-DEFAULT_SEED_PATH = Path("app/core/car_generations_data.json")
+# Per-make seed directory (one JSON file per make). The legacy monolithic
+# car_generations_data.json was split in 2026-05; --seed-path may still point
+# at a single .json file for tests / backward compat.
+DEFAULT_SEED_PATH = Path("app/core/car_generations_seed")
 DEFAULT_AMBIGUITY_TEST_PATH = Path("tests/test_car_inference_ambiguity.py")
 
 REVISION_RE = re.compile(r'^revision:\s*str\s*=\s*"([^"]+)"', re.MULTILINE)
@@ -341,6 +344,34 @@ def _detect_slug_collision(
     return None
 
 
+def _resolve_seed_target(seed_path: Path, old_name: str) -> Path:
+    """Resolve a seed_path (file OR per-make directory) to the single JSON file
+    that contains a generation with generation_name == old_name.
+
+    Directory mode (the post-split layout): scan every *.json under seed_path
+    until one contains old_name. Raises ValueError if none does.
+
+    File mode (legacy / tests): return seed_path unchanged.
+    """
+    if seed_path.is_file():
+        return seed_path
+    if not seed_path.is_dir():
+        raise FileNotFoundError(f"seed path is neither file nor directory: {seed_path}")
+    for entry in sorted(seed_path.iterdir(), key=lambda p: p.name):
+        if not entry.name.endswith(".json"):
+            continue
+        try:
+            payload = json.loads(entry.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if _find_generation_entry(payload, old_name) is not None:
+            return entry
+    raise ValueError(
+        f"canonical_id_not_in_seed: no generation_name={old_name!r} found "
+        f"under {seed_path}"
+    )
+
+
 def patch_seed(
     *,
     seed_path: Path,
@@ -349,27 +380,31 @@ def patch_seed(
 ) -> dict[str, Any]:
     """Patch the JSON seed: set new generation_name, pin slug to old slugify form.
 
+    ``seed_path`` may be either a single JSON file (legacy / tests) or the
+    per-make directory (default). In directory mode the script first locates
+    the file owning ``decision.old_generation_name`` and operates on that
+    single file under flock.
+
     When ``apply=False`` (dry-run), returns the planned diff but does not
     write or even acquire the file lock.
 
-    When ``apply=True``, opens the file with ``r+`` mode, takes
+    When ``apply=True``, opens the resolved file with ``r+`` mode, takes
     ``fcntl.flock(LOCK_EX)``, mutates the in-memory dict, and atomically
-    rewrites the file via temp-file-and-rename within the locked region.
-    Returns the diff dict on success.
+    rewrites the file in-place within the locked region. Returns the diff
+    dict on success.
     """
-    if not seed_path.is_file():
-        raise FileNotFoundError(f"car_generations_data.json not found: {seed_path}")
+    target = _resolve_seed_target(seed_path, decision.old_generation_name)
 
     if not apply:
-        seed = json.loads(seed_path.read_text(encoding="utf-8"))
+        seed = json.loads(target.read_text(encoding="utf-8"))
         return _compute_seed_patch(seed, decision)
 
     # Apply path: hold flock for the entire read-mutate-write cycle.
-    with seed_path.open("r+", encoding="utf-8") as fp:
+    with target.open("r+", encoding="utf-8") as fp:
         try:
             fcntl.flock(fp.fileno(), fcntl.LOCK_EX)
         except OSError as exc:  # pragma: no cover — flock failure is platform-specific
-            logger.warning("could not acquire flock on %s: %s; aborting apply", seed_path, exc)
+            logger.warning("could not acquire flock on %s: %s; aborting apply", target, exc)
             raise RuntimeError("seed_lock_failed") from exc
         fp.seek(0)
         seed = json.loads(fp.read())
@@ -516,7 +551,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--seed-path",
         type=Path,
         default=DEFAULT_SEED_PATH,
-        help=f"Path to car_generations_data.json (default: {DEFAULT_SEED_PATH}).",
+        help=(
+            f"Path to per-make seed directory (default: {DEFAULT_SEED_PATH}) "
+            f"or a single legacy JSON file."
+        ),
     )
     parser.add_argument(
         "--ambiguity-test-path",

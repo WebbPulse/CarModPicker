@@ -1,0 +1,93 @@
+{
+  "Scion": [
+    {
+      "generations": [
+        {
+          "description": "Scion xA compact hatchback. Featured 1.5L engine and lightweight design. Developed a cult following among tuners for its affordability, compact size, and extensive aftermarket support. Popular for intake, exhaust, and suspension modifications.",
+          "end_year": 2006,
+          "generation_name": "1st Gen",
+          "start_year": 2004
+        }
+      ],
+      "model": "xA"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Scion xB (boxy design). Featured compact dimensions and efficient engines. Popular for custom modifications and unique styling.",
+          "end_year": 2007,
+          "generation_name": "1st Gen",
+          "start_year": 2004
+        },
+        {
+          "description": "Second generation xB with larger, more rounded design. Featured improved engines and more space. Popular for modifications and custom builds.",
+          "end_year": 2015,
+          "generation_name": "2nd Gen",
+          "start_year": 2008
+        }
+      ],
+      "model": "xB"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Scion tC sport coupe. Featured 2.4L engine and sporty styling. Popular among young tuners for its affordability and aftermarket support.",
+          "end_year": 2010,
+          "generation_name": "1st Gen",
+          "start_year": 2005
+        },
+        {
+          "description": "Second generation tC with updated styling and improved engines. Featured 2.5L engine and continued popularity in the tuning community. Final model year before Scion brand discontinuation.",
+          "end_year": 2016,
+          "generation_name": "2nd Gen",
+          "start_year": 2011
+        }
+      ],
+      "model": "tC"
+    },
+    {
+      "generations": [
+        {
+          "description": "Scion xD compact hatchback, successor to the xA. Featured 1.8L engine with improved power and more advanced engineering. Popular in the tuning community for intake, exhaust, header, and suspension modifications. Strong aftermarket support.",
+          "end_year": 2014,
+          "generation_name": "1st Gen",
+          "start_year": 2008
+        }
+      ],
+      "model": "xD"
+    },
+    {
+      "generations": [
+        {
+          "description": "Scion FR-S, the North American market version of the Toyota 86/GT86. Co-developed with Subaru, featuring a 2.0L boxer engine, rear-wheel drive, and perfect weight distribution. Sold exclusively under the Scion brand in the US and Canada from 2012-2016, before being rebadged as the Toyota 86 in 2017. Highly popular for modifications, drifting, and track use.",
+          "end_year": 2016,
+          "generation_name": "ZN6",
+          "start_year": 2012
+        }
+      ],
+      "model": "FR-S"
+    },
+    {
+      "generations": [
+        {
+          "description": "Scion iA sedan, based on the Mazda2 platform. Featured 1.5L Skyactiv engine and Mazda's sporty handling characteristics. Only sold for one year before Scion brand discontinuation. Attracted enthusiasts for its Mazda DNA and tuning potential.",
+          "end_year": 2016,
+          "generation_name": "1st Gen",
+          "start_year": 2016
+        }
+      ],
+      "model": "iA"
+    },
+    {
+      "generations": [
+        {
+          "description": "Scion iM hatchback, based on the Toyota Corolla iM platform. Featured 1.8L engine and practical hatchback design. Only sold for one year before Scion brand discontinuation. Popular among enthusiasts for its sporty styling and aftermarket potential.",
+          "end_year": 2016,
+          "generation_name": "1st Gen",
+          "start_year": 2016
+        }
+      ],
+      "model": "iM"
+    }
+  ]
+}

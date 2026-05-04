@@ -1,0 +1,589 @@
+{
+  "Mercedes": [
+    {
+      "generations": [
+        {
+          "description": "Mercedes' compact executive sedan. Featured efficient engines and good build quality. Established C-Class as a premium compact car.",
+          "end_year": 2000,
+          "generation_name": "W202",
+          "start_year": 1993
+        },
+        {
+          "description": "Refined C-Class with updated styling and technology. Featured updated engines and improved handling. More modern and comfortable.",
+          "end_year": 2007,
+          "generation_name": "W203",
+          "start_year": 2001
+        },
+        {
+          "description": "Complete redesign with updated styling and technology. Featured updated engines and improved fuel economy. More premium positioning.",
+          "end_year": 2014,
+          "generation_name": "W204",
+          "start_year": 2008
+        },
+        {
+          "description": "Latest C-Class with updated styling and technology. Featured turbocharged engines and advanced safety features. More refined and efficient.",
+          "end_year": 2021,
+          "generation_name": "W205",
+          "start_year": 2015
+        },
+        {
+          "description": "Newest C-Class with updated design and technology. Featured updated engines and improved efficiency. More modern and premium.",
+          "end_year": null,
+          "generation_name": "W206",
+          "start_year": 2022
+        }
+      ],
+      "model": "C-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mercedes' mid-size executive sedan. Featured efficient engines and good build quality. Established E-Class reputation for luxury and reliability.",
+          "end_year": 2002,
+          "generation_name": "W210",
+          "start_year": 1995
+        },
+        {
+          "description": "Refined E-Class with updated styling and technology. Featured updated engines and improved handling. More modern and comfortable.",
+          "end_year": 2009,
+          "generation_name": "W211",
+          "start_year": 2003
+        },
+        {
+          "description": "Complete redesign with updated styling and technology. Featured turbocharged engines and improved fuel economy. More premium positioning.",
+          "end_year": 2016,
+          "generation_name": "W212",
+          "start_year": 2010
+        },
+        {
+          "description": "Latest E-Class with updated styling and technology. Featured updated engines and advanced safety features. More refined and efficient.",
+          "end_year": 2024,
+          "generation_name": "W213",
+          "start_year": 2017
+        }
+      ],
+      "model": "E-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance C-Class with naturally aspirated V8 engine producing 451-487 horsepower. Rear-wheel drive. Popular for its V8 sound and performance.",
+          "end_year": 2014,
+          "generation_name": "W204",
+          "start_year": 2008
+        },
+        {
+          "description": "C63 AMG with twin-turbo V8 engine producing 469-510 horsepower. All-wheel drive available. Improved torque and fuel economy.",
+          "end_year": 2021,
+          "generation_name": "W205",
+          "start_year": 2015
+        },
+        {
+          "description": "Latest C63 AMG with hybrid powertrain. Featured updated technology and improved efficiency. More refined while maintaining performance.",
+          "end_year": null,
+          "generation_name": "W206",
+          "start_year": 2022
+        }
+      ],
+      "model": "C63 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance E-Class with naturally aspirated V8 engine producing 507 horsepower. All-wheel drive available. Powerful sedan and wagon.",
+          "end_year": 2009,
+          "generation_name": "W211",
+          "start_year": 2006
+        },
+        {
+          "description": "E63 AMG with twin-turbo V8 engine producing 518-577 horsepower. All-wheel drive standard. Improved torque and performance.",
+          "end_year": 2016,
+          "generation_name": "W212",
+          "start_year": 2010
+        },
+        {
+          "description": "Latest E63 AMG with twin-turbo V8 engine producing 603 horsepower. All-wheel drive standard. Improved technology and performance.",
+          "end_year": 2024,
+          "generation_name": "W213",
+          "start_year": 2017
+        }
+      ],
+      "model": "E63 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "Flagship luxury sedan known for its build quality and innovations. Featured V8 and V12 engines. Over-engineered and highly sought after by enthusiasts.",
+          "end_year": 1998,
+          "generation_name": "W140",
+          "start_year": 1991
+        },
+        {
+          "description": "Lighter and more modern S-Class with advanced technology. Featured AIRMATIC suspension and improved fuel economy. Still highly regarded.",
+          "end_year": 2005,
+          "generation_name": "W220",
+          "start_year": 1998
+        },
+        {
+          "description": "Refined S-Class with updated styling and technology. Featured advanced safety systems and luxury features. Popular for modifications.",
+          "end_year": 2013,
+          "generation_name": "W221",
+          "start_year": 2006
+        },
+        {
+          "description": "Modern S-Class with cutting-edge technology and luxury. Featured advanced driver assistance and premium interior. Highly customizable.",
+          "end_year": 2020,
+          "generation_name": "W222",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest S-Class with updated design and technology. Featured MBUX infotainment and advanced autonomous features. Most advanced generation.",
+          "end_year": null,
+          "generation_name": "W223",
+          "start_year": 2021
+        }
+      ],
+      "model": "S-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Classic roadster with retractable hardtop. Featured V6, V8, and V12 engines. SL500 and SL600 were popular. Iconic design.",
+          "end_year": 2001,
+          "generation_name": "R129",
+          "start_year": 1989
+        },
+        {
+          "description": "Modern SL with retractable hardtop. Featured AMG variants (SL55, SL65). Popular for performance modifications and luxury upgrades.",
+          "end_year": 2011,
+          "generation_name": "R230",
+          "start_year": 2001
+        },
+        {
+          "description": "Refined SL with updated styling and technology. Featured AMG variants with twin-turbo engines. Lighter and more efficient.",
+          "end_year": 2021,
+          "generation_name": "R231",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest SL-Class with updated design and technology. Featured AMG variants with hybrid powertrains. Most advanced roadster generation.",
+          "end_year": null,
+          "generation_name": "R232",
+          "start_year": 2022
+        }
+      ],
+      "model": "SL-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Compact roadster with Vario-Roof folding hardtop. Featured SLK32 AMG variant. Popular entry-level Mercedes roadster.",
+          "end_year": 2004,
+          "generation_name": "R170",
+          "start_year": 1996
+        },
+        {
+          "description": "Refined SLK with updated styling. Featured SLK55 AMG with naturally aspirated V8. Popular for modifications and tuning.",
+          "end_year": 2011,
+          "generation_name": "R171",
+          "start_year": 2004
+        },
+        {
+          "description": "Final SLK/SLC generation. Renamed to SLC in later years. Featured AMG variants and updated technology. Last compact roadster from Mercedes.",
+          "end_year": 2020,
+          "generation_name": "R172",
+          "start_year": 2011
+        }
+      ],
+      "model": "SLK/SLC-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Coupe and convertible based on C-Class platform. Featured CLK55 AMG variant. Popular for styling and performance modifications.",
+          "end_year": 2002,
+          "generation_name": "C208",
+          "start_year": 1997
+        },
+        {
+          "description": "Refined CLK with updated styling. Featured CLK55 and CLK63 AMG variants. Popular among enthusiasts for V8 performance.",
+          "end_year": 2009,
+          "generation_name": "C209",
+          "start_year": 2002
+        },
+        {
+          "description": "Final CLK generation before being replaced by E-Class coupe. Featured AMG variants with twin-turbo engines. Last of the CLK line.",
+          "end_year": 2017,
+          "generation_name": "C207",
+          "start_year": 2010
+        }
+      ],
+      "model": "CLK-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Luxury coupe based on S-Class W140 platform. Featured V8 and V12 engines. Rare and highly sought after. Known for build quality.",
+          "end_year": 1998,
+          "generation_name": "C140",
+          "start_year": 1992
+        },
+        {
+          "description": "Refined CL coupe based on S-Class W220. Featured CL55 and CL65 AMG variants. Popular for luxury and performance modifications.",
+          "end_year": 2006,
+          "generation_name": "C215",
+          "start_year": 1999
+        },
+        {
+          "description": "Modern CL coupe based on S-Class W221. Featured AMG variants with twin-turbo engines. Last generation before being renamed S-Class Coupe.",
+          "end_year": 2014,
+          "generation_name": "C216",
+          "start_year": 2007
+        }
+      ],
+      "model": "CL-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "First 4-door coupe from Mercedes. Created new segment. Featured CLS55 and CLS63 AMG variants. Highly sought after for styling.",
+          "end_year": 2010,
+          "generation_name": "W219",
+          "start_year": 2004
+        },
+        {
+          "description": "Refined CLS with updated styling. Featured CLS63 AMG with twin-turbo V8. Popular for modifications and performance upgrades.",
+          "end_year": 2017,
+          "generation_name": "C218",
+          "start_year": 2011
+        },
+        {
+          "description": "Latest CLS with modern design and technology. Featured AMG variants and updated powertrains. Most advanced 4-door coupe generation.",
+          "end_year": 2024,
+          "generation_name": "C257",
+          "start_year": 2018
+        }
+      ],
+      "model": "CLS-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Compact hatchback and sedan. Featured A45 AMG with 2.0L turbo producing 355-381 horsepower. Popular hot hatch in Europe.",
+          "end_year": 2018,
+          "generation_name": "W176",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest A-Class with updated design and technology. Featured A35 and A45 AMG variants. Most powerful compact Mercedes.",
+          "end_year": 2024,
+          "generation_name": "W177",
+          "start_year": 2019
+        }
+      ],
+      "model": "A-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Compact 4-door coupe based on A-Class. Featured CLA45 AMG with 2.0L turbo producing 355-381 horsepower. Popular entry-level AMG.",
+          "end_year": 2019,
+          "generation_name": "C117",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest CLA-Class with updated styling and technology. Featured CLA35 and CLA45 AMG variants. Most advanced compact 4-door coupe.",
+          "end_year": null,
+          "generation_name": "C118",
+          "start_year": 2020
+        }
+      ],
+      "model": "CLA-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Iconic boxy off-road SUV. Featured G55 and G63 AMG variants. Highly sought after for off-road capability and luxury. Longest production run.",
+          "end_year": 2018,
+          "generation_name": "W463",
+          "start_year": 1990
+        },
+        {
+          "description": "Modernized G-Class with updated technology while maintaining classic design. Featured G63 AMG with twin-turbo V8. Most advanced generation. Internal designation W463A.",
+          "end_year": null,
+          "generation_name": "W463A",
+          "slug": "w463-new",
+          "start_year": 2019
+        }
+      ],
+      "model": "G-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Compact luxury SUV. Featured GLC43 and GLC63 AMG variants. Popular for performance and luxury modifications.",
+          "end_year": 2022,
+          "generation_name": "X253",
+          "start_year": 2016
+        },
+        {
+          "description": "Latest GLC-Class with updated design and technology. Featured AMG variants with hybrid powertrains. Most advanced compact SUV.",
+          "end_year": null,
+          "generation_name": "X254",
+          "start_year": 2023
+        }
+      ],
+      "model": "GLC-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mid-size luxury SUV (formerly ML-Class). Featured GLE43 and GLE63 AMG variants. Popular for performance and luxury upgrades.",
+          "end_year": 2019,
+          "generation_name": "W166",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest GLE-Class with updated styling and technology. Featured AMG variants with hybrid powertrains. Most advanced mid-size SUV.",
+          "end_year": null,
+          "generation_name": "V167",
+          "start_year": 2020
+        }
+      ],
+      "model": "GLE-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "Full-size luxury SUV (formerly GL-Class). Featured GLS63 AMG with twin-turbo V8. Popular for luxury and performance modifications.",
+          "end_year": 2019,
+          "generation_name": "X166",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest GLS-Class with updated design and technology. Featured AMG variants with hybrid powertrains. Most advanced full-size SUV.",
+          "end_year": null,
+          "generation_name": "X167",
+          "start_year": 2020
+        }
+      ],
+      "model": "GLS-Class"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance SL roadster with naturally aspirated V8 producing 518 horsepower. Later twin-turbo variant. Popular for modifications.",
+          "end_year": 2011,
+          "generation_name": "R230",
+          "start_year": 2004
+        },
+        {
+          "description": "SL63 AMG with twin-turbo V8 producing 577 horsepower. Improved torque and performance. Popular among enthusiasts.",
+          "end_year": 2021,
+          "generation_name": "R231",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest SL63 AMG with updated powertrain and technology. Featured hybrid assist. Most advanced performance roadster.",
+          "end_year": null,
+          "generation_name": "R232",
+          "start_year": 2022
+        }
+      ],
+      "model": "SL63 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance SL with twin-turbo V12 producing 604-670 horsepower. Extreme torque. Rare and highly sought after.",
+          "end_year": 2011,
+          "generation_name": "R230",
+          "start_year": 2004
+        },
+        {
+          "description": "SL65 AMG with twin-turbo V12 producing 621 horsepower. Massive torque output. Ultimate performance roadster.",
+          "end_year": 2021,
+          "generation_name": "R231",
+          "start_year": 2012
+        }
+      ],
+      "model": "SL65 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance G-Class with twin-turbo V8 producing 536-563 horsepower. Iconic boxy design with extreme performance. Highly sought after.",
+          "end_year": 2018,
+          "generation_name": "W463",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest G63 AMG with updated powertrain producing 577 horsepower. Improved technology while maintaining classic design. Most advanced G-Class. Internal designation W463A.",
+          "end_year": null,
+          "generation_name": "W463A",
+          "slug": "w463-new",
+          "start_year": 2019
+        }
+      ],
+      "model": "G63 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance GLE with twin-turbo V8 producing 550-577 horsepower. All-wheel drive standard. Popular for performance modifications.",
+          "end_year": 2019,
+          "generation_name": "W166",
+          "start_year": 2015
+        },
+        {
+          "description": "Latest GLE63 AMG with updated powertrain and hybrid assist. Featured improved technology and performance. Most advanced performance SUV.",
+          "end_year": null,
+          "generation_name": "V167",
+          "start_year": 2020
+        }
+      ],
+      "model": "GLE63 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance S-Class with naturally aspirated and twin-turbo V8 engines producing 518-577 horsepower. Ultimate luxury performance sedan.",
+          "end_year": 2013,
+          "generation_name": "W221",
+          "start_year": 2007
+        },
+        {
+          "description": "S63 AMG with twin-turbo V8 producing 577-603 horsepower. All-wheel drive available. Popular for luxury and performance modifications.",
+          "end_year": 2020,
+          "generation_name": "W222",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest S63 AMG with hybrid powertrain producing 791 horsepower. Featured advanced technology and efficiency. Most powerful S-Class.",
+          "end_year": null,
+          "generation_name": "W223",
+          "start_year": 2021
+        }
+      ],
+      "model": "S63 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance S-Class with twin-turbo V12 producing 604-621 horsepower. Extreme torque. Ultimate luxury performance flagship.",
+          "end_year": 2013,
+          "generation_name": "W221",
+          "start_year": 2007
+        },
+        {
+          "description": "S65 AMG with twin-turbo V12 producing 621 horsepower. Massive torque output. Rare and highly sought after. Last V12 S-Class.",
+          "end_year": 2020,
+          "generation_name": "W222",
+          "start_year": 2014
+        }
+      ],
+      "model": "S65 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance CLS with naturally aspirated V8 producing 507 horsepower. Later twin-turbo variant. Popular for modifications.",
+          "end_year": 2010,
+          "generation_name": "W219",
+          "start_year": 2006
+        },
+        {
+          "description": "CLS63 AMG with twin-turbo V8 producing 518-577 horsepower. All-wheel drive available. Popular among enthusiasts.",
+          "end_year": 2017,
+          "generation_name": "C218",
+          "start_year": 2011
+        },
+        {
+          "description": "Latest CLS63 AMG with updated powertrain and technology. Featured hybrid assist. Most advanced performance 4-door coupe.",
+          "end_year": 2024,
+          "generation_name": "C257",
+          "start_year": 2018
+        }
+      ],
+      "model": "CLS63 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance CLK with naturally aspirated V8 producing 481 horsepower. Available in coupe and convertible. Popular for modifications.",
+          "end_year": 2009,
+          "generation_name": "C209",
+          "start_year": 2006
+        }
+      ],
+      "model": "CLK63 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance compact hatchback with 2.0L turbo producing 355-381 horsepower. Most powerful 4-cylinder production engine at launch. Popular hot hatch.",
+          "end_year": 2018,
+          "generation_name": "W176",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest A45 AMG with 2.0L turbo producing 382-421 horsepower. Improved technology and performance. Most powerful compact Mercedes.",
+          "end_year": 2024,
+          "generation_name": "W177",
+          "start_year": 2019
+        }
+      ],
+      "model": "A45 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance compact 4-door coupe with 2.0L turbo producing 355-381 horsepower. Popular entry-level AMG. Popular for modifications.",
+          "end_year": 2019,
+          "generation_name": "C117",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest CLA45 AMG with 2.0L turbo producing 382-421 horsepower. Improved technology and performance. Most powerful compact 4-door coupe.",
+          "end_year": null,
+          "generation_name": "C118",
+          "start_year": 2020
+        }
+      ],
+      "model": "CLA45 AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "Supercar with naturally aspirated 6.2L V8 producing 563-622 horsepower. Gullwing doors. Modern interpretation of classic 300SL. Highly sought after.",
+          "end_year": 2014,
+          "generation_name": "C197",
+          "start_year": 2010
+        }
+      ],
+      "model": "SLS AMG"
+    },
+    {
+      "generations": [
+        {
+          "description": "Sports car with twin-turbo V8 producing 456-730 horsepower. Available in multiple variants (GT, GT S, GT C, GT R, GT Black Series). Popular for track use and modifications.",
+          "end_year": 2024,
+          "generation_name": "C190",
+          "start_year": 2015
+        }
+      ],
+      "model": "AMG GT"
+    },
+    {
+      "generations": [
+        {
+          "description": "Supercar collaboration with McLaren. Featured supercharged 5.4L V8 producing 617-650 horsepower. Gullwing doors available. Rare and highly collectible.",
+          "end_year": 2010,
+          "generation_name": "R199",
+          "start_year": 2003
+        }
+      ],
+      "model": "SLR McLaren"
+    }
+  ]
+}

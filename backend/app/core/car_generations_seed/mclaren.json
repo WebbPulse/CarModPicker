@@ -1,0 +1,181 @@
+{
+  "McLaren": [
+    {
+      "generations": [
+        {
+          "description": "McLaren's first modern road car with 3.8L twin-turbo V8 producing 592-616 horsepower. Available as coupe and Spider. Foundation for all modern McLarens. Popular for exhaust upgrades, ECU tuning, aero modifications, carbon fiber bodywork, and suspension upgrades. Good aftermarket support from specialist tuners.",
+          "end_year": 2014,
+          "generation_name": "MP4-12C",
+          "slug": "mp4-12c-12c",
+          "start_year": 2011
+        }
+      ],
+      "model": "MP4-12C"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's most affordable entry-level supercar with 3.8L twin-turbo V8 producing 533 horsepower. Part of Sports Series lineup. Popular for exhaust upgrades, ECU tuning, aero modifications, carbon fiber bodywork, and suspension upgrades. Good aftermarket support, though warranty concerns exist for modifications.",
+          "end_year": 2021,
+          "generation_name": "540C",
+          "start_year": 2015
+        }
+      ],
+      "model": "540C"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's entry-level supercar with 3.8L twin-turbo V8 producing 562 horsepower. Part of Sports Series lineup. Available as coupe and Spider. Popular for exhaust upgrades (NOVITEC), ECU tuning, aero modifications, carbon fiber bodywork, and suspension upgrades. Good aftermarket support, though warranty concerns exist for modifications.",
+          "end_year": 2021,
+          "generation_name": "570S",
+          "start_year": 2015
+        }
+      ],
+      "model": "570S"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's grand touring variant with 3.8L twin-turbo V8 producing 562 horsepower. Part of Sports Series. More comfort-oriented than 570S with softer suspension and better insulation. Popular for exhaust upgrades, ECU tuning, aero modifications, and carbon fiber bodywork. Good aftermarket support.",
+          "end_year": 2021,
+          "generation_name": "570GT",
+          "start_year": 2016
+        }
+      ],
+      "model": "570GT"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's Longtail track-focused variant with 3.8L twin-turbo V8 producing 592 horsepower. Part of Sports Series. Available as coupe and Spider. Lighter, more aggressive aero, and track-focused suspension. Popular for exhaust upgrades, ECU tuning, aero modifications, and weight reduction. Strong enthusiast following.",
+          "end_year": 2020,
+          "generation_name": "600LT",
+          "start_year": 2018
+        }
+      ],
+      "model": "600LT"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's highly track-focused, road-legal version with 3.8L twin-turbo V8 producing 610 horsepower. Part of Sports Series. Most extreme Sports Series variant with race car-derived components. Limited production. Modifications are rare but exhaust and suspension tuning available from specialist tuners.",
+          "end_year": 2020,
+          "generation_name": "620R",
+          "start_year": 2019
+        }
+      ],
+      "model": "620R"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's mid-range supercar with 3.8L twin-turbo V8 producing 641 horsepower. Part of Super Series. Available as coupe and Spider. Popular for exhaust upgrades, ECU tuning (FAB Design), aero modifications, carbon fiber bodywork, and performance enhancements. Good aftermarket support for modifications.",
+          "end_year": 2017,
+          "generation_name": "650S",
+          "start_year": 2014
+        }
+      ],
+      "model": "650S"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's Longtail limited-production variant with 3.8L twin-turbo V8 producing 666 horsepower. Part of Super Series. Available as coupe and Spider. Track-focused with aggressive aero, lighter weight, and enhanced performance. Popular for exhaust upgrades, ECU tuning, and aero modifications. Highly sought after by enthusiasts.",
+          "end_year": 2017,
+          "generation_name": "675LT",
+          "start_year": 2015
+        }
+      ],
+      "model": "675LT"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's flagship supercar with 4.0L twin-turbo V8 producing 710 horsepower. Part of Super Series. Available as coupe and Spider. Popular for exhaust upgrades, ECU tuning, aero modifications, carbon fiber bodywork (including full panel replacements for weight reduction), and performance enhancements. Extensive aftermarket support, though warranty concerns exist.",
+          "end_year": 2024,
+          "generation_name": "720S",
+          "start_year": 2017
+        }
+      ],
+      "model": "720S"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's Longtail limited-production variant with 4.0L twin-turbo V8 producing 755 horsepower. Part of Super Series. Available as coupe and Spider. Extremely track-focused with aggressive aero, lighter weight, and enhanced performance. Popular for exhaust upgrades, ECU tuning, and aero modifications. Highly sought after by enthusiasts.",
+          "end_year": 2022,
+          "generation_name": "765LT",
+          "start_year": 2020
+        }
+      ],
+      "model": "765LT"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's evolution of the 720S with 4.0L twin-turbo V8 producing 740 horsepower. Part of Super Series. Available as coupe and Spider. Higher power, improved performance, and refined aerodynamics. Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. Extensive aftermarket support.",
+          "end_year": null,
+          "generation_name": "750S",
+          "start_year": 2023
+        }
+      ],
+      "model": "750S"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's hybrid supercar with 3.0L twin-turbo V6 and electric motor producing 671 horsepower. First McLaren with V6 engine. Combines Sports and Super Series characteristics. Popular for exhaust upgrades, ECU tuning, aero modifications, and hybrid system optimization. Growing aftermarket support.",
+          "end_year": null,
+          "generation_name": "Artura",
+          "start_year": 2021
+        }
+      ],
+      "model": "Artura"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's hybrid hypercar with 3.8L twin-turbo V8 and electric motor producing 903 horsepower. Part of Ultimate Series. Limited production extreme performance machine. Modifications are extremely rare due to collector value and limited numbers. Exhaust upgrades and suspension tuning available from specialist tuners. Highly collectible.",
+          "end_year": 2015,
+          "generation_name": "1st Gen",
+          "start_year": 2013
+        }
+      ],
+      "model": "P1"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's track-focused hypercar with 4.0L twin-turbo V8 producing 789 horsepower. Part of Ultimate Series. Named after Ayrton Senna. Limited production extreme track machine. Modifications are rare due to collector value, but exhaust upgrades and suspension tuning available from specialist tuners. Highly sought after by enthusiasts.",
+          "end_year": 2020,
+          "generation_name": "Senna",
+          "start_year": 2018
+        }
+      ],
+      "model": "Senna"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's hybrid hyper-GT with 4.0L twin-turbo V8 and electric motor producing 1035 horsepower. Part of Ultimate Series. Limited production extreme grand tourer focused on high-speed performance. Modifications are extremely rare due to collector value and limited numbers. Highly collectible.",
+          "end_year": 2020,
+          "generation_name": "Speedtail",
+          "start_year": 2018
+        }
+      ],
+      "model": "Speedtail"
+    },
+    {
+      "generations": [
+        {
+          "description": "McLaren's open-cockpit hypercar with 4.0L twin-turbo V8 producing 804 horsepower. Part of Ultimate Series. No windshield, focused on pure driving experience. Limited production. Modifications are extremely rare due to collector value and limited numbers. Highly collectible.",
+          "end_year": 2021,
+          "generation_name": "Elva",
+          "start_year": 2019
+        }
+      ],
+      "model": "Elva"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "Genesis": [
+    {
+      "generations": [
+        {
+          "description": "Genesis' compact executive sedan. Featured turbocharged 4-cylinder (2.5T) and twin-turbo V6 (3.3T) engines producing up to 365 horsepower. Excellent value and performance with Brembo brakes and sport-tuned suspension. Competes with BMW 3 Series and Mercedes C-Class. Popular for modifications including exhaust upgrades, ECU tuning, and suspension enhancements.",
+          "end_year": null,
+          "generation_name": "RG",
+          "start_year": 2017
+        }
+      ],
+      "model": "G70"
+    },
+    {
+      "generations": [
+        {
+          "description": "Genesis' mid-size executive sedan. Featured V6 and V8 engines. Excellent value and luxury. Competes with BMW 5 Series and Mercedes E-Class.",
+          "end_year": 2020,
+          "generation_name": "DH",
+          "start_year": 2017
+        },
+        {
+          "description": "Redesigned G80 with updated styling and technology. Featured 2.5T turbo four-cylinder and 3.5T twin-turbo V6 engines producing up to 375 horsepower. Available in gas and electrified variants. Enhanced luxury and performance features.",
+          "end_year": null,
+          "generation_name": "RG3",
+          "start_year": 2021
+        }
+      ],
+      "model": "G80"
+    },
+    {
+      "generations": [
+        {
+          "description": "Genesis' flagship luxury sedan. Featured 3.3L twin-turbo V6 and 5.0L V8 engines. Ultimate luxury and refinement. Competes with Mercedes S-Class and BMW 7 Series.",
+          "end_year": 2020,
+          "generation_name": "1st Gen",
+          "start_year": 2017
+        },
+        {
+          "description": "Redesigned G90 flagship sedan with advanced technology and luxury. Featured 3.5T twin-turbo V6 and e-Supercharger hybrid variant producing up to 409 horsepower. Ultimate luxury with cutting-edge features and exceptional performance.",
+          "end_year": null,
+          "generation_name": "2nd Gen",
+          "start_year": 2021
+        }
+      ],
+      "model": "G90"
+    },
+    {
+      "generations": [
+        {
+          "description": "Genesis' compact luxury SUV. Featured 2.5T turbo four-cylinder and 3.5T twin-turbo V6 engines producing up to 375 horsepower. Sporty handling and performance in a luxury SUV package. Popular for enthusiasts seeking SUV practicality with sedan-like dynamics.",
+          "end_year": null,
+          "generation_name": "JK1",
+          "start_year": 2020
+        }
+      ],
+      "model": "GV70"
+    },
+    {
+      "generations": [
+        {
+          "description": "Genesis' mid-size luxury SUV. Featured 2.5T turbo four-cylinder and 3.5T twin-turbo V6 engines producing up to 375 horsepower. Available as standard SUV and coupe variant (JX1C). Excellent performance and luxury. Popular for modifications and enthusiast appeal.",
+          "end_year": null,
+          "generation_name": "JX1",
+          "start_year": 2021
+        }
+      ],
+      "model": "GV80"
+    },
+    {
+      "generations": [
+        {
+          "description": "Genesis' compact luxury electric SUV. Featured dual-motor AWD setup with Performance variant producing up to 483 horsepower and 516 lb-ft torque. Boost Mode enables 0-60 mph in 3.6 seconds. ~77-84 kWh battery with ~235-294 mile range. Fast charging capability. Popular among EV enthusiasts for performance and luxury.",
+          "end_year": null,
+          "generation_name": "JW1",
+          "start_year": 2021
+        }
+      ],
+      "model": "GV60"
+    }
+  ]
+}

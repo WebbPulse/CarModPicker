@@ -31,13 +31,24 @@ def test_shim_and_loader_agree() -> None:
     assert CAR_GENERATIONS is load_car_generations()
 
 
-def test_json_file_exists_and_parses() -> None:
-    """The JSON asset exists, is valid JSON, and includes the expected top-level makes."""
+def test_seed_directory_exists_and_each_file_parses() -> None:
+    """Per-make JSON files all parse and merge into a dict containing expected makes."""
     import json
     from importlib.resources import files
 
-    resource = files("app.core").joinpath("car_generations_data.json")
-    parsed = json.loads(resource.read_text(encoding="utf-8"))
-    assert isinstance(parsed, dict)
-    assert "Honda" in parsed
-    assert "Toyota" in parsed
+    seed_dir = files("app.core").joinpath("car_generations_seed")
+    merged: dict = {}
+    file_count = 0
+    for entry in seed_dir.iterdir():
+        if not entry.name.endswith(".json"):
+            continue
+        file_count += 1
+        payload = json.loads(entry.read_text(encoding="utf-8"))
+        # Each per-make file is a single-key dict.
+        assert len(payload) == 1, f"{entry.name} should have exactly one make key"
+        merged.update(payload)
+    assert file_count >= 40, f"expected at least 40 per-make files, got {file_count}"
+    assert "Honda" in merged
+    assert "Toyota" in merged
+    assert "Plymouth" in merged  # Recently added — guards against accidental file deletion.
+    assert "Chrysler" in merged

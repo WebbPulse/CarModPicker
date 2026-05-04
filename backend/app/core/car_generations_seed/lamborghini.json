@@ -1,0 +1,142 @@
+{
+  "Lamborghini": [
+    {
+      "generations": [
+        {
+          "description": "Iconic wedge-shaped supercar that defined Lamborghini design language. Featured 3.9L V12 producing 375 horsepower. Extremely low production numbers. Popular for restoration, period-correct modifications, exhaust upgrades, and maintaining classic aesthetics. Highly collectible and sought after by enthusiasts.",
+          "end_year": 1978,
+          "generation_name": "LP400",
+          "start_year": 1974
+        },
+        {
+          "description": "Updated Countach with wider tires and optional spoiler. Featured 3.9L V12 with improved handling. Popular for restoration projects, exhaust modifications, and period-correct styling. Iconic design with pop-up headlights and scissor doors.",
+          "end_year": 1982,
+          "generation_name": "LP400S",
+          "start_year": 1978
+        },
+        {
+          "description": "Countach with 4.8L V12 (later 5.2L in QV) producing 455-455 horsepower. 25th Anniversary edition featured updated styling. Popular for exhaust upgrades, restoration, body kit modifications, and maintaining the iconic wedge design. Strong enthusiast community and moderate aftermarket support.",
+          "end_year": 1990,
+          "generation_name": "LP500S/5000QV",
+          "slug": "lp500s-5000qv",
+          "start_year": 1982
+        }
+      ],
+      "model": "Countach"
+    },
+    {
+      "generations": [
+        {
+          "description": "Countach successor with 5.7L V12 producing 492-530 horsepower. Available as coupe and Roadster. Popular for exhaust upgrades, intake modifications, carbon fiber trim, body kits, and performance tuning. Strong aftermarket support with specialist vendors offering restoration and upgrade parts.",
+          "end_year": 1999,
+          "generation_name": "Diablo",
+          "start_year": 1990
+        },
+        {
+          "description": "Diablo variants including VT (all-wheel drive), SV (sport version), and SE30 (limited edition). Featured 5.7L V12 with power ranging from 492-595 horsepower. Popular for exhaust systems, performance upgrades, carbon fiber components, and custom bodywork. Strong enthusiast following and aftermarket support.",
+          "end_year": 2001,
+          "generation_name": "VT/SV/SE30",
+          "slug": "vt-sv-se30",
+          "start_year": 1993
+        }
+      ],
+      "model": "Diablo"
+    },
+    {
+      "generations": [
+        {
+          "description": "Diablo successor with 6.2L V12 producing 580 horsepower. Available as coupe and Roadster. Popular for exhaust upgrades, intake modifications, aero body kits, carbon fiber components, and performance tuning. Good aftermarket support with custom shops offering specialized modifications.",
+          "end_year": 2006,
+          "generation_name": "Murciélago",
+          "start_year": 2001
+        },
+        {
+          "description": "Updated Murciélago with 6.5L V12 producing 640 horsepower. SV (SuperVeloce) variant was track-focused with increased power. Popular for exhaust systems, performance upgrades, widebody conversions, and aero modifications. Strong enthusiast community and good aftermarket support.",
+          "end_year": 2010,
+          "generation_name": "LP640",
+          "start_year": 2006
+        }
+      ],
+      "model": "Murciélago"
+    },
+    {
+      "generations": [
+        {
+          "description": "Lamborghini's entry-level supercar with 5.0L V10 engine producing 493-520 horsepower. Over 14,000 units produced, making it highly accessible for modifications. Available as coupe and Spyder. Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. Massive aftermarket support.",
+          "end_year": 2008,
+          "generation_name": "1st Gen",
+          "start_year": 2003
+        },
+        {
+          "description": "Updated Gallardo with LP 560-4 designation. Featured 5.2L V10 producing 552 horsepower. Improved performance and technology. Popular for modifications including exhaust, tuning, and aero upgrades. Superleggera variant was lightweight track-focused model.",
+          "end_year": 2013,
+          "generation_name": "LP 560-4",
+          "start_year": 2008
+        }
+      ],
+      "model": "Gallardo"
+    },
+    {
+      "generations": [
+        {
+          "description": "Gallardo successor with 5.2L V10 producing 602 horsepower. Over 26,000 units produced, making it one of the most mod-friendly modern supercars. Available as coupe and Spyder. Popular for exhaust systems, ECU tuning, turbo upgrades, aero modifications, and widebody conversions. Extensive aftermarket support.",
+          "end_year": 2019,
+          "generation_name": "LP 610-4",
+          "start_year": 2014
+        },
+        {
+          "description": "Updated Huracán with improved technology and performance. Featured updated V10 engine and advanced all-wheel drive system. Performante variant with track-focused upgrades. Popular for modifications including exhaust, tuning, and performance enhancements.",
+          "end_year": 2024,
+          "generation_name": "EVO",
+          "start_year": 2019
+        }
+      ],
+      "model": "Huracán"
+    },
+    {
+      "generations": [
+        {
+          "description": "Lamborghini's flagship V12 supercar with 6.5L engine producing 691 horsepower. Over 11,000 units produced. Available as coupe and Roadster. Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. SV variant was track-focused with increased power.",
+          "end_year": 2016,
+          "generation_name": "LP 700-4",
+          "start_year": 2011
+        },
+        {
+          "description": "Updated Aventador with improved performance. Featured 6.5L V12 producing 730 horsepower. SVJ variant was extreme track-focused model. Popular for modifications including exhaust, tuning, and aero upgrades. Final naturally aspirated V12 Lamborghini before hybrid era.",
+          "end_year": 2022,
+          "generation_name": "S",
+          "start_year": 2017
+        }
+      ],
+      "model": "Aventador"
+    },
+    {
+      "generations": [
+        {
+          "description": "Lamborghini's first SUV with 4.0L twin-turbo V8 producing 641-666 horsepower. Over 20,000 units produced, making it highly accessible for modifications. Popular for widebody kits, exhaust upgrades, ECU tuning (Stage 1/2), intake systems, aero modifications, and aggressive styling. Very high aftermarket support with numerous tuners offering comprehensive upgrade packages.",
+          "end_year": 2024,
+          "generation_name": "Urus",
+          "start_year": 2018
+        },
+        {
+          "description": "Track-focused Urus variant with enhanced performance and aerodynamics. Featured improved V8 engine and advanced suspension. Popular for performance upgrades, exhaust systems, and further aero enhancements. Strong aftermarket support continues to grow.",
+          "end_year": null,
+          "generation_name": "Performante",
+          "start_year": 2023
+        }
+      ],
+      "model": "Urus"
+    },
+    {
+      "generations": [
+        {
+          "description": "Aventador successor with hybrid powertrain combining 6.5L V12 and three electric motors producing 1,001 horsepower. Flagship supercar representing Lamborghini's future. Aftermarket support emerging with OEM accessories, wheels, and trim options. Performance modifications limited due to hybrid complexity and warranty considerations, but growing enthusiast interest.",
+          "end_year": null,
+          "generation_name": "Revuelto",
+          "start_year": 2023
+        }
+      ],
+      "model": "Revuelto"
+    }
+  ]
+}

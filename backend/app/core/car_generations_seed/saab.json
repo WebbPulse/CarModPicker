@@ -1,0 +1,21 @@
+{
+  "Saab": [
+    {
+      "generations": [
+        {
+          "description": "YS3D.",
+          "end_year": 2002,
+          "generation_name": "YS3D",
+          "start_year": 1998
+        },
+        {
+          "description": "GM Epsilon. Aero V6.",
+          "end_year": 2011,
+          "generation_name": "YS3F",
+          "start_year": 2003
+        }
+      ],
+      "model": "9-3"
+    }
+  ]
+}

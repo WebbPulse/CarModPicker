@@ -1,0 +1,85 @@
+{
+  "Jeep": [
+    {
+      "generations": [
+        {
+          "description": "First-generation Wrangler (YJ). Distinguished by rectangular headlamps. Solid axles front and rear with leaf springs. AMC 2.5L I4 and 4.2L I6 (later 4.0L I6).",
+          "end_year": 1995,
+          "generation_name": "YJ",
+          "start_year": 1987
+        },
+        {
+          "description": "Second-generation Wrangler (TJ). Returned to round headlamps; coil-spring suspension front and rear. 2.5L I4 and 4.0L I6. Rubicon trim debuted in 2003 with locking diffs and 4:1 transfer case.",
+          "end_year": 2006,
+          "generation_name": "TJ",
+          "start_year": 1997
+        },
+        {
+          "description": "Third-generation Wrangler (JK). First Wrangler with a four-door body (Unlimited). 3.8L V6 early, 3.6L Pentastar V6 from 2012. Wider stance, higher roof, and modern interior.",
+          "end_year": 2018,
+          "generation_name": "JK",
+          "start_year": 2007
+        },
+        {
+          "description": "Fourth-generation Wrangler (JL). Aluminum doors and hood for weight savings. 3.6L Pentastar V6, 2.0L turbo I4, 3.0L EcoDiesel V6, and 6.4L V8 (392). 4xe plug-in hybrid added.",
+          "end_year": null,
+          "generation_name": "JL",
+          "start_year": 2018
+        }
+      ],
+      "model": "Wrangler"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-generation Grand Cherokee (ZJ). Unibody construction; AMC 4.0L I6 and Magnum 5.2L/5.9L V8s. The 5.9 Limited (1998) is a popular collector trim.",
+          "end_year": 1998,
+          "generation_name": "ZJ",
+          "start_year": 1993
+        },
+        {
+          "description": "Second-generation Grand Cherokee (WJ). 4.0L I6 and 4.7L PowerTech V8. Quadra-Drive II and electronic Vari-Lok diffs introduced.",
+          "end_year": 2004,
+          "generation_name": "WJ",
+          "start_year": 1999
+        },
+        {
+          "description": "Third-generation Grand Cherokee (WK). Body-on-frame architecture shared with Mercedes ML. 3.7L V6, 4.7L V8, 5.7L Hemi, and the SRT8 6.1L Hemi.",
+          "end_year": 2010,
+          "generation_name": "WK",
+          "start_year": 2005
+        },
+        {
+          "description": "Fourth-generation Grand Cherokee (WK2). Pentastar 3.6L V6, 5.7L Hemi, 3.0L EcoDiesel, and the SRT 6.4L plus Trackhawk's supercharged 6.2L Hellcat. Long production run with multiple facelifts.",
+          "end_year": 2021,
+          "generation_name": "WK2",
+          "start_year": 2011
+        },
+        {
+          "description": "Fifth-generation Grand Cherokee (WL). Two- and three-row (L) bodies. 3.6L Pentastar V6, 5.7L Hemi (early), and the 4xe plug-in hybrid 2.0L turbo.",
+          "end_year": null,
+          "generation_name": "WL",
+          "start_year": 2022
+        }
+      ],
+      "model": "Grand Cherokee"
+    },
+    {
+      "generations": [
+        {
+          "description": "Cherokee XJ. Pioneering unibody compact SUV with the 4.0L I6 (later years) and AMC/Chrysler underpinnings. Iconic off-road platform with strong aftermarket support.",
+          "end_year": 2001,
+          "generation_name": "XJ",
+          "start_year": 1984
+        },
+        {
+          "description": "Cherokee KL. Unibody crossover on the Compact U.S. Wide platform. 2.4L Tigershark I4 and 3.2L Pentastar V6. Trailhawk trim added off-road hardware (Active Drive Lock, skid plates).",
+          "end_year": 2023,
+          "generation_name": "KL",
+          "start_year": 2014
+        }
+      ],
+      "model": "Cherokee"
+    }
+  ]
+}

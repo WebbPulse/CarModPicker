@@ -3,15 +3,18 @@ Car generation data for popular modern cars since the 70s.
 
 Thin shim preserving the public API of the old 8,412-line module.
 
-The large CAR_GENERATIONS literal now lives in car_generations_data.json and is
-loaded lazily via car_generations.load_car_generations(). Callers see no behavior
-change: `slugify`, `CarGenerationData`, `CarModelData`, `CAR_GENERATIONS`, and
-`get_all_car_generations()` are all still importable from this module.
+The CAR_GENERATIONS dict is now sourced from per-make JSON files under
+car_generations_seed/ (one file per make: acura.json, bmw.json, ...) and
+merged lazily by car_generations.load_car_generations(). Callers see no
+behavior change: `slugify`, `CarGenerationData`, `CarModelData`,
+`CAR_GENERATIONS`, and `get_all_car_generations()` are all still importable
+from this module.
 
-To add a new car generation:
-1. Edit car_generations_data.json (or the source you regenerate it from)
-2. Re-run `python scripts/export_car_generations.py` if editing via Python
-3. The initialization logic will automatically create it in the database
+To add or edit a car generation:
+1. Open the relevant per-make file under app/core/car_generations_seed/
+   (or create a new <slugified-make>.json file for a new make).
+2. The initialization logic (init_cars.py) will reconcile the seed into
+   the live DB on next backend boot.
 """
 
 from __future__ import annotations
