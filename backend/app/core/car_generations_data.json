@@ -196,7 +196,7 @@
     {
       "generations": [
         {
-          "description": "First-generation Acura RDX compact luxury crossover. Featured 2.3L turbocharged K23A1 engine producing 240 hp — first Acura to use a turbocharged engine in the US. SH-AWD standard. Popular for ECU tuning, exhaust upgrades, intercooler upgrades, and suspension modifications.",
+          "description": "First-generation Acura RDX compact luxury crossover. Featured 2.3L turbocharged K23A1 engine producing 240 hp \u2014 first Acura to use a turbocharged engine in the US. SH-AWD standard. Popular for ECU tuning, exhaust upgrades, intercooler upgrades, and suspension modifications.",
           "end_year": 2012,
           "generation_name": "TB1/TB2",
           "start_year": 2007
@@ -4442,6 +4442,89 @@
       "model": "XF"
     }
   ],
+  "Jeep": [
+    {
+      "model": "Wrangler",
+      "generations": [
+        {
+          "description": "First-generation Wrangler (YJ). Distinguished by rectangular headlamps. Solid axles front and rear with leaf springs. AMC 2.5L I4 and 4.2L I6 (later 4.0L I6).",
+          "end_year": 1995,
+          "generation_name": "YJ",
+          "start_year": 1987
+        },
+        {
+          "description": "Second-generation Wrangler (TJ). Returned to round headlamps; coil-spring suspension front and rear. 2.5L I4 and 4.0L I6. Rubicon trim debuted in 2003 with locking diffs and 4:1 transfer case.",
+          "end_year": 2006,
+          "generation_name": "TJ",
+          "start_year": 1997
+        },
+        {
+          "description": "Third-generation Wrangler (JK). First Wrangler with a four-door body (Unlimited). 3.8L V6 early, 3.6L Pentastar V6 from 2012. Wider stance, higher roof, and modern interior.",
+          "end_year": 2018,
+          "generation_name": "JK",
+          "start_year": 2007
+        },
+        {
+          "description": "Fourth-generation Wrangler (JL). Aluminum doors and hood for weight savings. 3.6L Pentastar V6, 2.0L turbo I4, 3.0L EcoDiesel V6, and 6.4L V8 (392). 4xe plug-in hybrid added.",
+          "end_year": null,
+          "generation_name": "JL",
+          "start_year": 2018
+        }
+      ]
+    },
+    {
+      "model": "Grand Cherokee",
+      "generations": [
+        {
+          "description": "First-generation Grand Cherokee (ZJ). Unibody construction; AMC 4.0L I6 and Magnum 5.2L/5.9L V8s. The 5.9 Limited (1998) is a popular collector trim.",
+          "end_year": 1998,
+          "generation_name": "ZJ",
+          "start_year": 1993
+        },
+        {
+          "description": "Second-generation Grand Cherokee (WJ). 4.0L I6 and 4.7L PowerTech V8. Quadra-Drive II and electronic Vari-Lok diffs introduced.",
+          "end_year": 2004,
+          "generation_name": "WJ",
+          "start_year": 1999
+        },
+        {
+          "description": "Third-generation Grand Cherokee (WK). Body-on-frame architecture shared with Mercedes ML. 3.7L V6, 4.7L V8, 5.7L Hemi, and the SRT8 6.1L Hemi.",
+          "end_year": 2010,
+          "generation_name": "WK",
+          "start_year": 2005
+        },
+        {
+          "description": "Fourth-generation Grand Cherokee (WK2). Pentastar 3.6L V6, 5.7L Hemi, 3.0L EcoDiesel, and the SRT 6.4L plus Trackhawk's supercharged 6.2L Hellcat. Long production run with multiple facelifts.",
+          "end_year": 2021,
+          "generation_name": "WK2",
+          "start_year": 2011
+        },
+        {
+          "description": "Fifth-generation Grand Cherokee (WL). Two- and three-row (L) bodies. 3.6L Pentastar V6, 5.7L Hemi (early), and the 4xe plug-in hybrid 2.0L turbo.",
+          "end_year": null,
+          "generation_name": "WL",
+          "start_year": 2022
+        }
+      ]
+    },
+    {
+      "model": "Cherokee",
+      "generations": [
+        {
+          "description": "Cherokee XJ. Pioneering unibody compact SUV with the 4.0L I6 (later years) and AMC/Chrysler underpinnings. Iconic off-road platform with strong aftermarket support.",
+          "end_year": 2001,
+          "generation_name": "XJ",
+          "start_year": 1984
+        },
+        {
+          "description": "Cherokee KL. Unibody crossover on the Compact U.S. Wide platform. 2.4L Tigershark I4 and 3.2L Pentastar V6. Trailhawk trim added off-road hardware (Active Drive Lock, skid plates).",
+          "end_year": 2023,
+          "generation_name": "KL",
+          "start_year": 2014
+        }
+      ]
+    }
+  ],
   "Kia": [
     {
       "generations": [
@@ -4559,17 +4642,17 @@
         {
           "description": "Diablo successor with 6.2L V12 producing 580 horsepower. Available as coupe and Roadster. Popular for exhaust upgrades, intake modifications, aero body kits, carbon fiber components, and performance tuning. Good aftermarket support with custom shops offering specialized modifications.",
           "end_year": 2006,
-          "generation_name": "Murciélago",
+          "generation_name": "Murci\u00e9lago",
           "start_year": 2001
         },
         {
-          "description": "Updated Murciélago with 6.5L V12 producing 640 horsepower. SV (SuperVeloce) variant was track-focused with increased power. Popular for exhaust systems, performance upgrades, widebody conversions, and aero modifications. Strong enthusiast community and good aftermarket support.",
+          "description": "Updated Murci\u00e9lago with 6.5L V12 producing 640 horsepower. SV (SuperVeloce) variant was track-focused with increased power. Popular for exhaust systems, performance upgrades, widebody conversions, and aero modifications. Strong enthusiast community and good aftermarket support.",
           "end_year": 2010,
           "generation_name": "LP640",
           "start_year": 2006
         }
       ],
-      "model": "Murciélago"
+      "model": "Murci\u00e9lago"
     },
     {
       "generations": [
@@ -4597,13 +4680,13 @@
           "start_year": 2014
         },
         {
-          "description": "Updated Huracán with improved technology and performance. Featured updated V10 engine and advanced all-wheel drive system. Performante variant with track-focused upgrades. Popular for modifications including exhaust, tuning, and performance enhancements.",
+          "description": "Updated Hurac\u00e1n with improved technology and performance. Featured updated V10 engine and advanced all-wheel drive system. Performante variant with track-focused upgrades. Popular for modifications including exhaust, tuning, and performance enhancements.",
           "end_year": 2024,
           "generation_name": "EVO",
           "start_year": 2019
         }
       ],
-      "model": "Huracán"
+      "model": "Hurac\u00e1n"
     },
     {
       "generations": [
@@ -5087,7 +5170,7 @@
           "start_year": 2003
         }
       ],
-      "model": "Mazdaspeed Protegé"
+      "model": "Mazdaspeed Proteg\u00e9"
     },
     {
       "generations": [
@@ -5997,7 +6080,7 @@
           "start_year": 2012
         }
       ],
-      "model": "Coupé"
+      "model": "Coup\u00e9"
     },
     {
       "generations": [
@@ -6033,7 +6116,7 @@
           "start_year": 1995
         },
         {
-          "description": "Fourth generation Evo (CN9A) — major platform update. Introduced active yaw control (AYC) on the GSR trim and new Super Active Yaw Control. 280 PS. First Evo available with automatic gearbox option. Significant rally and tuning popularity.",
+          "description": "Fourth generation Evo (CN9A) \u2014 major platform update. Introduced active yaw control (AYC) on the GSR trim and new Super Active Yaw Control. 280 PS. First Evo available with automatic gearbox option. Significant rally and tuning popularity.",
           "end_year": 1998,
           "generation_name": "IV",
           "start_year": 1996
@@ -6045,13 +6128,13 @@
           "start_year": 1998
         },
         {
-          "description": "Sixth generation Evo (CP9A) with titanium turbo impeller and water-spray intercooler. Tommi Mäkinen Edition (TME) celebrated Mitsubishi's four consecutive WRC titles. 280 PS. Final Evo VI (6.5) produced through 2001.",
+          "description": "Sixth generation Evo (CP9A) with titanium turbo impeller and water-spray intercooler. Tommi M\u00e4kinen Edition (TME) celebrated Mitsubishi's four consecutive WRC titles. 280 PS. Final Evo VI (6.5) produced through 2001.",
           "end_year": 2001,
           "generation_name": "VI",
           "start_year": 1999
         },
         {
-          "description": "Seventh generation Evo (CT9A) — new platform based on Lancer Cedia. First Evo sold in North America. 280 PS with revised 4G63T and new ACD/AYC system. Introduced automatic gearbox (TC-SST predecessor). Foundation of the CT9A Evo VII/VIII/IX family.",
+          "description": "Seventh generation Evo (CT9A) \u2014 new platform based on Lancer Cedia. First Evo sold in North America. 280 PS with revised 4G63T and new ACD/AYC system. Introduced automatic gearbox (TC-SST predecessor). Foundation of the CT9A Evo VII/VIII/IX family.",
           "end_year": 2003,
           "generation_name": "VII",
           "start_year": 2001
@@ -6063,13 +6146,13 @@
           "start_year": 2003
         },
         {
-          "description": "Ninth generation Evo (CT9A) with MIVEC variable valve timing on intake cam — first Evo with VVT. 291 hp (US spec). MR trim with Bilstein/Eibach. Last of the 4G63-powered Evos. Highly sought after by enthusiasts for 4G63 tuning potential.",
+          "description": "Ninth generation Evo (CT9A) with MIVEC variable valve timing on intake cam \u2014 first Evo with VVT. 291 hp (US spec). MR trim with Bilstein/Eibach. Last of the 4G63-powered Evos. Highly sought after by enthusiasts for 4G63 tuning potential.",
           "end_year": 2007,
           "generation_name": "IX",
           "start_year": 2005
         },
         {
-          "description": "Tenth and final generation Evo (CZ4A) — all-new platform with 4B11T 2.0L DOHC MIVEC turbo producing 291 hp. Introduced twin-clutch SST (Sport Shift Transmission) alongside 5-speed manual. Final Special Edition (Final Edition) released in 2015 marked end of production. The most powerful stock Evo and the most refined for daily driving. Strong aftermarket community.",
+          "description": "Tenth and final generation Evo (CZ4A) \u2014 all-new platform with 4B11T 2.0L DOHC MIVEC turbo producing 291 hp. Introduced twin-clutch SST (Sport Shift Transmission) alongside 5-speed manual. Final Special Edition (Final Edition) released in 2015 marked end of production. The most powerful stock Evo and the most refined for daily driving. Strong aftermarket community.",
           "end_year": 2016,
           "generation_name": "X",
           "start_year": 2008
@@ -6194,7 +6277,7 @@
           "start_year": 2002
         },
         {
-          "description": "Tenth-generation Lancer — the final generation. Featured refreshed styling with 2.0L and 2.4L naturally aspirated engines. Sportback hatchback available. Shares platform with Evolution X and Ralliart. Popular for suspension, exhaust, intake, and cosmetic modifications. Discontinued in 2017.",
+          "description": "Tenth-generation Lancer \u2014 the final generation. Featured refreshed styling with 2.0L and 2.4L naturally aspirated engines. Sportback hatchback available. Shares platform with Evolution X and Ralliart. Popular for suspension, exhaust, intake, and cosmetic modifications. Discontinued in 2017.",
           "end_year": 2017,
           "generation_name": "CJ",
           "start_year": 2008
@@ -6265,7 +6348,7 @@
           "start_year": 1989
         },
         {
-          "description": "Larger and more refined GT-R. Featured improved RB26DETT engine and handling. Set Nürburgring record. Some enthusiasts prefer R32 or R34.",
+          "description": "Larger and more refined GT-R. Featured improved RB26DETT engine and handling. Set N\u00fcrburgring record. Some enthusiasts prefer R32 or R34.",
           "end_year": 1998,
           "generation_name": "R33",
           "start_year": 1995
@@ -7244,6 +7327,105 @@
         }
       ],
       "model": "Baja"
+    },
+    {
+      "model": "Forester",
+      "generations": [
+        {
+          "description": "First-generation Forester crossover SUV on the Impreza GC platform. Tall wagon body with all-wheel drive and naturally aspirated EJ25. Established Subaru's compact crossover segment in the US.",
+          "end_year": 2002,
+          "generation_name": "SF",
+          "start_year": 1998
+        },
+        {
+          "description": "Second-generation Forester. Naturally aspirated EJ25 with optional XT turbo trim. Improved interior space and on-road refinement while keeping rugged AWD capability.",
+          "end_year": 2008,
+          "generation_name": "SG",
+          "start_year": 2003
+        },
+        {
+          "description": "Third-generation Forester moved upmarket with a longer wheelbase and more carlike ride. EJ25 NA standard, EJ255 turbo on XT. Last generation with the high-roof boxy profile.",
+          "end_year": 2013,
+          "generation_name": "SH",
+          "start_year": 2009
+        },
+        {
+          "description": "Fourth-generation Forester. NA FB25 standard, FA20DIT turbo on the XT trim. Modern interior with EyeSight driver assist on later years.",
+          "end_year": 2018,
+          "generation_name": "SJ",
+          "start_year": 2014
+        },
+        {
+          "description": "Fifth-generation Forester on the Subaru Global Platform. NA FB25 with CVT only. No turbo XT variant in the US for this generation.",
+          "end_year": 2024,
+          "generation_name": "SK",
+          "start_year": 2019
+        }
+      ]
+    },
+    {
+      "model": "Outback",
+      "generations": [
+        {
+          "description": "First-generation Outback. Lifted Legacy wagon with two-tone paint and AWD. Created the rugged-wagon segment in the US.",
+          "end_year": 1999,
+          "generation_name": "BG",
+          "start_year": 1995
+        },
+        {
+          "description": "Second-generation Outback on the Legacy BE/BH platform. Optional VDC stability control. H6-3.0 engine available on the L.L.Bean trim.",
+          "end_year": 2004,
+          "generation_name": "BH",
+          "start_year": 2000
+        },
+        {
+          "description": "Third-generation Outback on the Legacy BL/BP platform. EJ253 H4 standard, EJ255 turbo on the Outback XT, EZ30 H6 on the 3.0R.",
+          "end_year": 2009,
+          "generation_name": "BP",
+          "start_year": 2005
+        },
+        {
+          "description": "Fourth-generation Outback grew significantly with a higher roof and CVT-first powertrain. EJ253/FB25 H4 and EZ36 H6. XT turbo trim available early in the run.",
+          "end_year": 2014,
+          "generation_name": "BR",
+          "start_year": 2010
+        },
+        {
+          "description": "Fifth-generation Outback. FB25 H4 and EZ36D H6 with CVT. EyeSight standard on later trims. No turbo variant in the US for this generation.",
+          "end_year": 2019,
+          "generation_name": "BS",
+          "start_year": 2015
+        },
+        {
+          "description": "Sixth-generation Outback on the Subaru Global Platform. FB25 NA standard; FA24F turbo on the Outback XT and Wilderness trims.",
+          "end_year": null,
+          "generation_name": "BT",
+          "start_year": 2020
+        }
+      ]
+    },
+    {
+      "model": "Crosstrek",
+      "generations": [
+        {
+          "description": "First-generation Crosstrek (badged XV Crosstrek through 2015). Lifted Impreza GP/GJ five-door with cladding and AWD. FB20 NA only in the US; hybrid offered briefly mid-cycle.",
+          "end_year": 2017,
+          "generation_name": "1st Gen",
+          "start_year": 2013
+        },
+        {
+          "description": "Second-generation Crosstrek on the Subaru Global Platform. FB20 NA standard, FB25 added on later trims. Plug-in hybrid variant available 2019-2023 in select markets.",
+          "end_year": 2023,
+          "generation_name": "2nd Gen",
+          "start_year": 2018
+        },
+        {
+          "description": "Third-generation Crosstrek with revised styling and a Wilderness trim. FB20 and FB25 NA powertrains; CVT only.",
+          "end_year": null,
+          "generation_name": "3rd Gen",
+          "start_year": 2024
+        }
+      ]
     }
   ],
   "Tesla": [
@@ -7592,7 +7774,7 @@
     {
       "generations": [
         {
-          "description": "Second generation (MY 2022+), marketed under the Toyota GAZOO Racing sub-brand as the GR86 — distinct from the original Toyota 86 (ZN6). Upgraded 2.4L boxer engine (FA24) producing 228 horsepower. Retains rear-wheel drive, six-speed manual, and the Subaru co-development with the BRZ (ZD8). Still in production.",
+          "description": "Second generation (MY 2022+), marketed under the Toyota GAZOO Racing sub-brand as the GR86 \u2014 distinct from the original Toyota 86 (ZN6). Upgraded 2.4L boxer engine (FA24) producing 228 horsepower. Retains rear-wheel drive, six-speed manual, and the Subaru co-development with the BRZ (ZD8). Still in production.",
           "display_name": "GR86 (ZN8)",
           "end_year": null,
           "generation_name": "ZN8",
