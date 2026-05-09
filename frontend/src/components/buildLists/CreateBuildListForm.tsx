@@ -16,9 +16,14 @@ import type {
 import ImageUpload from '../forms/ImageUpload';
 import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
-import { Card } from '../ui/card';
 import { Input } from '../ui/input';
-import Spinner from '../ui/spinner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 
 interface CreateBuildListFormProps {
   onBuildListCreated: (newBuildList: BuildListRead) => void;
@@ -199,148 +204,96 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
     <div className="p-2">
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
         {/* Car Selection Section */}
-        <div className="space-y-4">
+        <div className="space-y-2">
           <h3 className="text-lg font-semibold text-gray-200">Select Car</h3>
-
-          {/* Layer 1: Make Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              {selectedMake ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (selectedModel) {
-                      // On generation page, go back to models
-                      setSelectedModel('');
-                      setSelectedGeneration(null);
-                    } else {
-                      // On model page, go back to manufacturers
-                      setSelectedMake('');
-                      setSelectedModel('');
-                      setSelectedGeneration(null);
-                    }
-                  }}
-                  className="text-info hover:text-info/90 transition-colors"
-                >
-                  {selectedModel
-                    ? '← Back to Car Models'
-                    : '← Back to Manufacturers'}
-                </button>
-              ) : (
-                'Manufacturer'
-              )}
-            </label>
-            {!selectedMake && (
-              <>
-                {isLoadingMakes ? (
-                  <Card>
-                    <div className="flex items-center justify-center py-4">
-                      <Spinner />
-                    </div>
-                  </Card>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {availableMakes.map((make) => (
-                      <Card
-                        key={make}
-                        onClick={() => setSelectedMake(make)}
-                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-info hover:scale-105 border-2 border-transparent transition-colors"
-                      >
-                        <h4 className="text-base font-semibold text-gray-200 break-words px-3 w-full">
-                          {make}
-                        </h4>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Layer 2: Model Selection */}
-            {selectedMake && !selectedModel && (
-              <>
-                <label className="block text-sm font-medium text-gray-300 mb-2 mt-4">
-                  Model
-                </label>
-                {isLoadingCars ? (
-                  <Card>
-                    <div className="flex items-center justify-center py-4">
-                      <Spinner />
-                    </div>
-                  </Card>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {uniqueModels.map((model) => (
-                      <Card
-                        key={model}
-                        onClick={() => setSelectedModel(model)}
-                        className="text-center p-5 min-h-[100px] flex items-center justify-center cursor-pointer hover:border-info hover:scale-105 border-2 border-transparent transition-colors"
-                      >
-                        <h4 className="text-base font-semibold text-gray-200 break-words px-3 w-full">
-                          {model}
-                        </h4>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Layer 3: Generation Selection */}
-            {selectedMake && selectedModel && !selectedGeneration && (
-              <>
-                <label className="block text-sm font-medium text-gray-300 mb-2 mt-4">
-                  Generation
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {generations.map((car) => (
-                    <Card
-                      key={car.id}
-                      onClick={() => setSelectedGeneration(car)}
-                      className="cursor-pointer hover:border-info hover:scale-105 border-2 border-transparent transition-colors p-5"
-                    >
-                      <h4 className="text-base font-semibold text-info mb-1 break-words px-1">
-                        {carGenerationDisplayName(car)}
-                      </h4>
-                      <p className="text-xs text-gray-400">
-                        {formatCarYearRange(car.start_year, car.end_year)}
-                      </p>
-                    </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Make
+              </label>
+              <Select
+                value={selectedMake || undefined}
+                onValueChange={(v) => setSelectedMake(v)}
+                disabled={isLoadingMakes}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={isLoadingMakes ? 'Loading…' : 'Select make'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableMakes.map((make) => (
+                    <SelectItem key={make} value={make}>
+                      {make}
+                    </SelectItem>
                   ))}
-                </div>
-              </>
-            )}
-
-            {/* Selected Generation Display */}
-            {selectedGeneration && (
-              <Card className="mt-4 bg-gray-800">
-                <div className="flex items-center justify-between p-3">
-                  <div>
-                    <h4 className="text-base font-semibold text-gray-200">
-                      Selected: {carFullDisplayName(selectedGeneration)}
-                    </h4>
-                    <p className="text-sm text-gray-400">
-                      {formatCarYearRange(
-                        selectedGeneration.start_year,
-                        selectedGeneration.end_year
-                      )}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMake('');
-                      setSelectedModel('');
-                      setSelectedGeneration(null);
-                    }}
-                    className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm"
-                  >
-                    Change
-                  </button>
-                </div>
-              </Card>
-            )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Model
+              </label>
+              <Select
+                value={selectedModel || undefined}
+                onValueChange={(v) => setSelectedModel(v)}
+                disabled={!selectedMake || isLoadingCars}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      !selectedMake
+                        ? 'Select make first'
+                        : isLoadingCars
+                          ? 'Loading…'
+                          : 'Select model'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {uniqueModels.map((model) => (
+                    <SelectItem key={model} value={model}>
+                      {model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Generation
+              </label>
+              <Select
+                value={selectedGeneration ? String(selectedGeneration.id) : undefined}
+                onValueChange={(v) => {
+                  const gen = generations.find((g) => String(g.id) === v) ?? null;
+                  setSelectedGeneration(gen);
+                }}
+                disabled={!selectedModel}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      !selectedModel ? 'Select model first' : 'Select generation'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {generations.map((car) => (
+                    <SelectItem key={car.id} value={String(car.id)}>
+                      {carGenerationDisplayName(car)} (
+                      {formatCarYearRange(car.start_year, car.end_year)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          {selectedGeneration && (
+            <p className="text-sm text-gray-400 pt-1">
+              Selected: {carFullDisplayName(selectedGeneration)}
+            </p>
+          )}
         </div>
 
         {/* Build List Details Section - Only show after car is selected */}
