@@ -40,12 +40,11 @@ from app.api.schemas.part_price_history import (
     PriceHistorySinglePartResponse,
 )
 from app.api.services.base_crud_service import BaseCRUDService
-from app.api.services.part_linker_service import link_group_part_ids, link_new_part
+from app.api.services.page_parser import part_number_canonical
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     find_existing_part_for_ugc_create,
     find_part_by_part_manufacturer_and_part_number,
-    find_part_by_product_url,
     normalize_gtin,
     normalize_part_number,
 )
@@ -93,32 +92,11 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         additional_data: Optional[Dict[str, Any]] = None,
     ) -> DBPart:
         """
-        Ingest a scraped or user-created part.
-
-        Two ingest paths diverge on ``source``:
-
-        **Scraped / archive_rescrape** (``source != "user_created"``):
-        - URL-level dedup: if this product URL already owns a PartListing on a
-          non-UGC Part, refresh that Part in place (scrape-wins) and append a
-          price history point. Do NOT create a new Part row.
-        - Otherwise create a new row and run the canonical linker, which
-          inspects GTIN / manufacturer+part_number and links duplicates under
-          a canonical.
-
-        **User-created** (``source == "user_created"``, the default for
-        extension/web submits):
-        - UGC is isolated from the scraped catalog. Before creating, refuse if
-          a non-UGC part already covers this product (return 409 pointing at
-          it) or if the same user already has a UGC row for it (return 409
-          pointing at their own prior row). Different-user UGC is allowed to
-          coexist — no URL uniqueness.
-        - On success, the row stays a standalone singleton: no URL-refresh,
-          no ``link_new_part``, no ``canonical_part_id``.
+        Create a user-contributed part. Refuses if the same user already has a
+        part for this URL (returns 409). Different users can each contribute
+        their own row for the same URL.
         """
-        source_val = (additional_data or {}).get("source") or "user_created"
-        is_ugc = source_val == "user_created"
-
-        if is_ugc:
+        if data.product_url and data.product_url.strip():
             blocker = find_existing_part_for_ugc_create(
                 db,
                 creator_id=current_user.id,
@@ -131,20 +109,12 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
                     detail={
                         "error_code": "PART_ALREADY_EXISTS",
                         "reason": reason,
-                        "message": (
-                            "A scraped part already covers this product."
-                            if reason == "non_ugc_exists"
-                            else "You already have a community-contributed part for this product."
-                        ),
+                        "message": "You already have a part for this product.",
                         "existing_part_id": str(existing.id),
                         "existing_part_name": existing.name,
                         "existing_part_source": existing.source,
                     },
                 )
-        elif data.product_url and data.product_url.strip():
-            existing = find_part_by_product_url(db, data.product_url)
-            if existing is not None:
-                return self._refresh_part_from_reingest(db, existing, data, logger, additional_data)
 
         entity_data = data.model_dump()
         entity_data.pop("retailer_id", None)
@@ -156,13 +126,9 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
             for _k, _v in additional_data.items():
                 entity_data[_k] = _v
         entity_data["user_id"] = current_user.id
-        from app.crawlers.parsing import part_number_canonical
-
         entity_data["part_number"] = (
             normalize_part_number(data.part_number) if data.part_number else entity_data.get("part_number")
         )
-        # Mirror the human-readable PN into the canonical key so the linker's
-        # ``part_manufacturer_id + part_number_normalized`` lookup hits.
         entity_data["part_number_normalized"] = (
             part_number_canonical(data.part_number)
             if data.part_number
@@ -181,9 +147,6 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
             logger=logger,
             entity_name=self.entity_name,
         )
-
-        if not is_ugc:
-            link_new_part(db, part, product_url=data.product_url)
 
         if data.retailer_id and (data.product_url or data.price_cents is not None):
             _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
@@ -205,80 +168,6 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         db.refresh(part)
 
         return part
-
-    def _refresh_part_from_reingest(
-        self,
-        db: Session,
-        existing_part: DBPart,
-        data: PartCreate,
-        logger: logging.Logger,
-        additional_data: Optional[Dict[str, Any]],
-    ) -> DBPart:
-        """
-        Apply a repeat ingest of an already-known product URL onto the existing Part.
-
-        Scrape-wins policy for parsed fields (name, description, images, category,
-        manufacturer, cars, GTIN, part_number). Only non-null fields from the new
-        payload are written, so a parser that loses a field on one run doesn't
-        erase it. PartListing + PartPriceHistory get an upsert/append so price
-        history stays continuous.
-        """
-        if data.name:
-            existing_part.name = data.name
-        if data.description is not None:
-            existing_part.description = data.description
-        if data.image_urls is not None:
-            existing_part.image_urls = data.image_urls[:MAX_IMAGES_PER_PART]
-        if data.category_id is not None:
-            existing_part.category_id = data.category_id
-        if data.part_manufacturer_id is not None:
-            existing_part.part_manufacturer_id = data.part_manufacturer_id
-        if data.part_number is not None:
-            from app.crawlers.parsing import part_number_canonical
-
-            normalized_pn = normalize_part_number(data.part_number)
-            if normalized_pn:
-                existing_part.part_number = normalized_pn
-                existing_part.part_number_normalized = part_number_canonical(data.part_number)
-        if data.gtin is not None:
-            normalized_gtin = normalize_gtin(data.gtin)
-            if normalized_gtin:
-                existing_part.gtin = normalized_gtin
-        if data.is_universal is not None:
-            existing_part.is_universal = data.is_universal
-        if additional_data and "source" in additional_data:
-            existing_part.source = additional_data["source"]
-
-        if existing_part.is_universal:
-            existing_part.car_generations = []
-        elif data.car_ids is not None:
-            if data.car_ids:
-                for cid in data.car_ids:
-                    get_entity_or_404(db, DBCar, cid, "car")
-                existing_part.car_generations = [db.get(DBCar, cid) for cid in data.car_ids]
-            else:
-                existing_part.car_generations = []
-
-        db.add(existing_part)
-        db.flush()
-
-        if data.retailer_id and (data.product_url or data.price_cents is not None):
-            _ = get_entity_or_404(db, DBRetailer, data.retailer_id, "retailer")
-            create_or_update_listing_and_price(
-                db,
-                existing_part.id,
-                data.retailer_id,
-                product_url=data.product_url,
-                price_cents=data.price_cents,
-            )
-
-        db.commit()
-        db.refresh(existing_part)
-        logger.debug(
-            "Re-ingest: refreshed part %s in place (URL already known)",
-            existing_part.id,
-        )
-        return existing_part
 
     def list_all(
         self,
@@ -880,7 +769,12 @@ async def check_product_url_exists(
             return {"existing_part_id": None}
 
         normalized_url = product_url.strip()
-        existing_part = find_part_by_product_url(db, normalized_url)
+        existing_part = db.scalars(
+            select(DBPart)
+            .join(DBPartListing, DBPartListing.part_id == DBPart.id)
+            .where(DBPartListing.product_url == normalized_url)
+            .limit(1)
+        ).first()
 
         if existing_part:
             logger.info(f"URL check: Found existing part {existing_part.id} for URL: {normalized_url[:50]}...")
@@ -924,7 +818,7 @@ async def get_part_listings(
     """List all retailer listings for a part (with current price)."""
     db = deps["db"]
     _ = get_entity_or_404(db, DBPart, part_id, "part")
-    group_ids = link_group_part_ids(db, part_id)
+    group_ids = [part_id]
     listings = list(
         db.scalars(
             select(DBPartListing)
@@ -1098,7 +992,7 @@ async def get_part_best_listing(
     """Get the listing with the lowest current price for this part (across its link group)."""
     db = deps["db"]
     _ = get_entity_or_404(db, DBPart, part_id, "part")
-    group_ids = link_group_part_ids(db, part_id)
+    group_ids = [part_id]
     best = db.scalars(
         select(DBPartListing)
         .where(
@@ -1130,7 +1024,7 @@ async def get_part_with_listings(
     """Get a part with all retailer listings (aggregated across the link group) and best price."""
     db = deps["db"]
     part = get_entity_or_404(db, DBPart, part_id, "part")
-    group_ids = link_group_part_ids(db, part_id)
+    group_ids = [part_id]
     listings = list(
         db.scalars(
             select(DBPartListing)
