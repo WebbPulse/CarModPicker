@@ -83,9 +83,6 @@ htmlcov/
 *.db
 *.sqlite3
 
-# Crawler runtime state (resume cursors, local archives)
-.crawler-state/
-
 # Perf-gate run evidence (locust CSVs + verdict JSONs); transient, regenerated per run
 backend/.perf-runs/
 
@@ -138,6 +135,7 @@ override.tf.json
 *_override.tf.json
 
 .bg-shell/
+.claude/
 *~
 .vscode/
 *.code-workspace
