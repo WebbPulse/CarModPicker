@@ -17,8 +17,6 @@ from .api.endpoints import (
     car_generations,
     categories,
     crawled_pages,
-    crawler_adapter_configs,
-    crawler_schedules,
     images,
     part_manufacturers,
     part_price_alerts,
@@ -29,23 +27,18 @@ from .api.endpoints import (
     users,
     votes,
 )
-from .api.endpoints.admin import crawlers as admin_crawlers
 from .api.endpoints.admin import db_ops as admin_db_ops
 from .api.endpoints.admin import jobs as admin_jobs
-from .api.endpoints.admin import parts as admin_parts
 from .api.endpoints.admin import stats as admin_stats
 from .api.endpoints.auth import core as auth_core
 from .api.endpoints.auth import oauth as auth_oauth
 from .api.endpoints.auth import two_factor as auth_2fa
 from .api.endpoints.auth import webauthn as auth_webauthn
-from .api.middleware import crawl_upload_content_length_middleware, rate_limit_middleware, request_context_middleware
+from .api.middleware import rate_limit_middleware, request_context_middleware
 from .api.middleware.error_handler import register_error_handlers
-from .api.services import crawler_schedule_service
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
 from .core.init_cars import init_car_generations
-from .core.init_crawler_adapter_configs import init_crawler_adapter_configs
-from .core.init_service_accounts import init_crawler_service_account
 from .core.log_context import RequestContextFilter, bg_log_context
 from .core.logging import LOG_FORMAT, make_formatter
 from .core.sentry import init_sentry
@@ -86,30 +79,9 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
     db = SessionLocal()
     try:
         try:
-            init_crawler_service_account(db)
-        except Exception:
-            logger.exception("Failed to initialize service accounts on startup")
-        try:
-            init_crawler_adapter_configs(db)
-        except Exception:
-            logger.exception("Failed to initialize crawler adapter configs on startup")
-        try:
             init_car_generations(db)
         except Exception:
             logger.exception("Failed to initialize car generations on startup")
-        # A-01: wrap in bg_log_context so any log/exception emitted by
-        # crawler_schedule_service.sweep_orphan_schedules is tagged with
-        # request_id="bg:orphan-schedule-sweep:-" for CloudWatch grep.
-        with bg_log_context("orphan-schedule-sweep"):
-            try:
-                # Best-effort: delete EventBridge schedules under our prefix that no
-                # longer correspond to a live crawler_schedules row. Also cleans up
-                # legacy per-adapter schedules from the previous implementation.
-                swept = crawler_schedule_service.sweep_orphan_schedules(db)
-                if swept:
-                    logger.info("Swept %d orphan EventBridge schedule(s) on startup", len(swept))
-            except Exception:
-                logger.exception("Orphan EventBridge schedule sweep failed on startup")
         # A-01: wrap in bg_log_context so any log/exception emitted by
         # job_service.sweep_orphan_jobs is tagged with
         # request_id="bg:orphan-jobs-sweep:-" for CloudWatch grep.
@@ -168,9 +140,6 @@ app.add_middleware(
 
 # Assign a UUID to every request and inject request_id/user_id into all log lines
 app.middleware("http")(request_context_middleware)
-
-# Reject extension crawl uploads with oversized Content-Length before heavier middleware
-app.middleware("http")(crawl_upload_content_length_middleware)
 
 # Add rate limiting middleware
 app.middleware("http")(rate_limit_middleware)
@@ -315,7 +284,7 @@ endpoint_registry.register_endpoint(
     crawled_pages.router,
     prefix="/crawled-pages",
     tags=["crawled-pages"],
-    description="HTML archival for crawled pages (extension upload and admin re-parse)",
+    description="HTML archival for chrome-extension scraped pages",
 )
 
 # Build logs endpoint
@@ -337,25 +306,13 @@ endpoint_registry.register_endpoint(
     admin_jobs.router,
     prefix="/admin/jobs",
     tags=["admin"],
-    description="Admin background jobs (list, detail, crawler-progress, cancel)",
-)
-endpoint_registry.register_endpoint(
-    admin_crawlers.router,
-    prefix="/admin/crawlers",
-    tags=["admin"],
-    description="Admin crawler management (run, rescrape-archives, service-account)",
+    description="Admin background jobs (list, detail, cancel)",
 )
 endpoint_registry.register_endpoint(
     admin_db_ops.router,
     prefix="/admin/db-ops",
     tags=["admin"],
     description="Admin database operations (migrations, init data, bulk delete)",
-)
-endpoint_registry.register_endpoint(
-    admin_parts.router,
-    prefix="/admin/parts",
-    tags=["admin"],
-    description="Admin canonical parts management (lookup, link, unlink, rescan)",
 )
 # Global app settings (public read, admin write)
 endpoint_registry.register_endpoint(
@@ -364,23 +321,6 @@ endpoint_registry.register_endpoint(
     tags=["app-settings"],
     description="Runtime-mutable global app settings (e.g. global ads toggle)",
 )
-
-# User-defined crawler schedules (many-to-many with adapters)
-endpoint_registry.register_endpoint(
-    crawler_schedules.router,
-    prefix="/admin/crawler-schedules",
-    tags=["admin"],
-    description="Crawler schedule management (DB-backed, reconciled to EventBridge)",
-)
-
-# Per-adapter retailer tuning (delay, limit, skip flag, default category)
-endpoint_registry.register_endpoint(
-    crawler_adapter_configs.router,
-    prefix="/admin/crawler-adapter-configs",
-    tags=["admin"],
-    description="Per-adapter retailer tuning used by crawler schedules",
-)
-
 
 @app.get("/")
 def read_root() -> dict[str, str]:

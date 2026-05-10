@@ -634,8 +634,8 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
     with mock_aws():
         import boto3
 
+        import app.api.services.crawl_archive as crawl_archive_module
         import app.api.services.storage_service as ss_module
-        import app.crawlers.base as base_module
         from app.core.config import settings as app_settings
 
         # Single moto client shared by both buckets
@@ -657,8 +657,8 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
         # Inject moto client directly into the lazy crawl client globals.
         # get_crawl_s3_client() sees non-None values and returns them immediately,
         # so no new boto3.client() call is made (endpoint_url irrelevant).
-        monkeypatch.setattr(base_module, "_crawl_s3_client", s3)
-        monkeypatch.setattr(base_module, "_crawl_bucket_name", "test-crawl-data")
+        monkeypatch.setattr(crawl_archive_module, "_crawl_s3_client", s3)
+        monkeypatch.setattr(crawl_archive_module, "_crawl_bucket_name", "test-crawl-data")
 
         yield {
             "client": s3,

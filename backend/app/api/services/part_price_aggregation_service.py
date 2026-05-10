@@ -35,7 +35,6 @@ from app.api.schemas.part_price_history import (
     PriceTrend,
     RetailerPriceBreakdown,
 )
-from app.api.services.part_linker_service import link_group_part_ids
 
 _VALID_WINDOWS = {"7d", "30d", "90d", "180d", "1y", "all"}
 ALLOWED_WINDOWS: list[str] = sorted(_VALID_WINDOWS)
@@ -137,7 +136,7 @@ def aggregate_single_part(
     endpoint layer); 404 is the endpoint's call when the part itself is missing.
     """
     since = parse_window(window)
-    group_ids = link_group_part_ids(db, part_id)
+    group_ids = [part_id]
 
     # 1) Pull every history row in window, joined to listing + retailer.
     stmt = (

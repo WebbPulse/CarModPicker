@@ -7,8 +7,6 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-import boto3
-from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -20,7 +18,6 @@ from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
 from app.api.schemas.background_job import BackgroundJobList, BackgroundJobRead
 from app.api.utils.endpoint_decorators import standard_responses
-from app.core.config import settings
 from app.core.worker_identity import WORKER_INSTANCE_ID
 from app.db.session import get_db
 from app.services import job_service
@@ -28,11 +25,11 @@ from app.services import job_service
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Shared with crawlers.py: in-process asyncio tasks + cooperative cancellation.
-# The cancel endpoint reads these globals to signal the right stop event.
-# Import-time circular risk is avoided because both modules only import from
-# `admin._helpers` (leaf) and each other at runtime via module-level references.
-from app.api.endpoints.admin.crawlers import job_stop_events, job_tasks  # noqa: E402
+# Background-job tracking dicts. Previously shared with the crawler admin
+# endpoints; now empty because the only background work that registered tasks
+# here was the crawler. Future async jobs can populate these.
+job_tasks: dict = {}
+job_stop_events: dict = {}
 
 
 @router.get(
@@ -220,27 +217,12 @@ async def cancel_background_job(
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
 
-    # For ECS-backed crawler jobs: stop the Fargate task.
-    # For in-process jobs (archive rescrape): signal the stop event.
-    task_arn = (job.params or {}).get("ecs_task_arn")
-    if task_arn:
-        try:
-            ecs_client = boto3.client("ecs", region_name=settings.AWS_REGION or None)
-            ecs_client.stop_task(
-                cluster=settings.CRAWLER_ECS_CLUSTER,
-                task=task_arn,
-                reason="Cancelled by admin",
-            )
-            logger.info("Job #%s cancel: ECS task %s stopped.", job_id, task_arn)
-        except (BotoCoreError, ClientError) as e:
-            logger.warning("Job #%s cancel: failed to stop ECS task %s: %s", job_id, task_arn, e)
+    stop_event = job_stop_events.get(job_id)
+    if stop_event is not None:
+        stop_event.set()
+        logger.info("Job #%s cancel: stop event signalled.", job_id)
     else:
-        stop_event = job_stop_events.get(job_id)
-        if stop_event is not None:
-            stop_event.set()
-            logger.info("Job #%s cancel: stop event signalled.", job_id)
-        else:
-            logger.warning("Job #%s cancel: no stop event or ECS task found (job may have already finished).", job_id)
+        logger.warning("Job #%s cancel: no stop event for job (job may have already finished).", job_id)
 
     # Send the cancellation report from here so the email fires even when the
     # worker is killed (ECS stop_task) before reaching its cleanup. The report

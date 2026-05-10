@@ -28,7 +28,7 @@ from app.api.models.vote import Vote as DBVote
 from app.api.models.webauthn_credential import WebAuthnCredential as DBWebAuthnCredential
 from app.api.utils.approximate_count import approximate_count
 from app.api.utils.endpoint_decorators import standard_responses
-from app.crawlers.base import count_crawl_bucket_object_summary
+from app.api.services.crawl_archive import count_crawl_bucket_object_summary
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)

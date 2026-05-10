@@ -368,10 +368,7 @@ def find_part_by_part_manufacturer_and_part_number(
     ``creator_id`` — used by the UGC-create dup check to find a user's own
     prior UGC row.
     """
-    # Lazy import to avoid a circular dependency at module load: parsing.py
-    # imports ScrapedPayload from app.crawlers.base, which transitively imports
-    # this module.
-    from app.crawlers.parsing import part_number_canonical
+    from app.api.services.page_parser import part_number_canonical
 
     canonical = part_number_canonical(part_number)
     if not canonical:

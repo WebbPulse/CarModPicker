@@ -132,49 +132,6 @@ class TestAdminMigrations:
         mock_run.assert_called_once()
 
 
-class TestAdminRescrapeArchives:
-    """Test cases for admin rescrape-archives endpoint."""
-
-    def test_rescrape_archives_unauthorized(self, client: TestClient) -> None:
-        """Test rescrape archives without auth returns 401."""
-        response = client.post(
-            f"{settings.API_STR}/admin/crawlers/rescrape-archives",
-            json={"crawler_user_id": INVALID_UUID_STR, "default_category_id": INVALID_UUID_STR},
-        )
-        assert response.status_code == 401
-
-    def test_rescrape_archives_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
-        """Test rescrape archives as non-admin returns 403."""
-        token = create_and_login_user(client, db_session, "rescrape_forbidden")
-        headers = {"Authorization": f"Bearer {token}"}
-        response = client.post(
-            f"{settings.API_STR}/admin/crawlers/rescrape-archives",
-            json={"crawler_user_id": INVALID_UUID_STR, "default_category_id": INVALID_UUID_STR},
-            headers=headers,
-        )
-        assert response.status_code == 403
-
-    def test_rescrape_archives_success_admin(self, client: TestClient, db_session: Session) -> None:
-        """Test rescrape archives as admin returns 200 with status started."""
-        from tests.conftest import get_default_category_id
-
-        suffix = "rescrape_ok"
-        token = create_and_login_admin_user(client, db_session, suffix)
-        admin = db_session.query(DBUser).filter(DBUser.username == f"admin_ep_test_{suffix}").first()
-        assert admin is not None
-        cat_id = get_default_category_id(db_session)
-        headers = {"Authorization": f"Bearer {token}"}
-        response = client.post(
-            f"{settings.API_STR}/admin/crawlers/rescrape-archives",
-            json={"crawler_user_id": str(admin.id), "default_category_id": str(cat_id)},
-            headers=headers,
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data.get("status") == "started"
-        assert "message" in data
-
-
 class TestAdminDeleteAllPartManufacturers:
     """Test cases for admin delete-all-part_manufacturers endpoint."""
 

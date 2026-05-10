@@ -107,6 +107,59 @@ def get_crawl_s3_client() -> tuple[Optional[_S3PutObjectProtocol], Optional[str]
         return None, None
 
 
+def count_crawl_bucket_object_summary() -> dict[str, Any]:
+    """List all objects in CRAWL_BUCKET (paginated). Returns total + counts by first path segment."""
+    from collections import defaultdict
+
+    s3_client, bucket_name = get_crawl_s3_client()
+    if s3_client is None or bucket_name is None:
+        return {
+            "crawl_bucket_configured": False,
+            "crawl_bucket_total": 0,
+            "crawl_bucket_by_prefix": {},
+        }
+
+    total = 0
+    total_bytes = 0
+    by_prefix: dict[str, int] = defaultdict(int)
+    continuation_token: Optional[str] = None
+
+    try:
+        while True:
+            list_kwargs: dict[str, Any] = {"Bucket": bucket_name}
+            if continuation_token:
+                list_kwargs["ContinuationToken"] = continuation_token
+            response = s3_client.list_objects_v2(**list_kwargs)
+            for obj in response.get("Contents") or []:
+                key = obj.get("Key")
+                if not key:
+                    continue
+                total += 1
+                total_bytes += obj.get("Size", 0)
+                first = key.split("/", 1)[0] if "/" in key else "(root)"
+                by_prefix[first] += 1
+            if response.get("IsTruncated"):
+                continuation_token = response.get("NextContinuationToken")
+            else:
+                break
+        size_gb = round(total_bytes / (1024**3), 3)
+        return {
+            "crawl_bucket_configured": True,
+            "crawl_bucket_total": total,
+            "crawl_bucket_size_gb": size_gb,
+            "crawl_bucket_by_prefix": dict(by_prefix),
+        }
+    except Exception as e:
+        logger.exception("Failed to list crawl bucket %r", bucket_name)
+        return {
+            "crawl_bucket_configured": True,
+            "crawl_bucket_total": 0,
+            "crawl_bucket_size_gb": 0.0,
+            "crawl_bucket_by_prefix": {},
+            "crawl_bucket_error": str(e),
+        }
+
+
 def save_extension_html(
     product_url: str,
     html: str,
