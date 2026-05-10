@@ -260,50 +260,50 @@ export default function HomePage() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Stats Banner */}
-        <div className="mt-12">
-          <Card variant="glass">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center max-w-4xl mx-auto">
-              <div className="animate-slideInUp">
-                <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
-                  {buildListsCountData?.count ?? '—'}
+            {/* Stats */}
+            <Card variant="glass">
+              <div className="grid grid-cols-2 gap-6 text-center">
+                <div className="animate-slideInUp">
+                  <div className="text-3xl font-bold text-primary mb-2">
+                    {buildListsCountData?.count ?? '—'}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Build Lists
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">Build Lists</div>
+                <div
+                  className="animate-slideInUp"
+                  style={{ animationDelay: '0.1s' }}
+                >
+                  <div className="text-3xl font-bold text-primary mb-2">
+                    {partsCountData?.count ?? '—'}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Parts</div>
+                </div>
+                <div
+                  className="animate-slideInUp"
+                  style={{ animationDelay: '0.2s' }}
+                >
+                  <div className="text-3xl font-bold text-primary mb-2">
+                    {retailersCountData?.count ?? '—'}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Retailers</div>
+                </div>
+                <div
+                  className="animate-slideInUp"
+                  style={{ animationDelay: '0.3s' }}
+                >
+                  <div className="text-3xl font-bold text-primary mb-2">
+                    {partManufacturersCountData?.count ?? '—'}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Part Manufacturers
+                  </div>
+                </div>
               </div>
-              <div
-                className="animate-slideInUp"
-                style={{ animationDelay: '0.1s' }}
-              >
-                <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
-                  {partsCountData?.count ?? '—'}
-                </div>
-                <div className="text-sm text-muted-foreground">Parts</div>
-              </div>
-              <div
-                className="animate-slideInUp"
-                style={{ animationDelay: '0.2s' }}
-              >
-                <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
-                  {retailersCountData?.count ?? '—'}
-                </div>
-                <div className="text-sm text-muted-foreground">Retailers</div>
-              </div>
-              <div
-                className="animate-slideInUp"
-                style={{ animationDelay: '0.3s' }}
-              >
-                <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
-                  {partManufacturersCountData?.count ?? '—'}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Part Manufacturers
-                </div>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
