@@ -1,13 +1,11 @@
 """
-Endpoints for crawled page HTML archival and admin re-parse.
+Endpoints for chrome-extension HTML archival and generic page parsing.
 
-POST /crawled-pages/scrape       - Authenticated user; Chrome extension submits full page HTML,
-                                   server picks the right adapter (or generic fallback) and returns
-                                   parsed part attributes. Also archives the HTML.
-POST /crawled-pages/html         - Authenticated user; Chrome extension submits full page HTML
-                                   for archival only (legacy, kept for backward compat).
-GET  /crawled-pages/             - Admin; list archived pages with filters.
-POST /crawled-pages/{id}/re-parse - Admin; fetch stored HTML, parse, and ingest (full pipeline).
+POST /crawled-pages/scrape  - Authenticated user; extension submits page HTML,
+                              server runs the generic JSON-LD/OG parser and
+                              returns best-guess part attributes. Archives HTML.
+POST /crawled-pages/html    - Authenticated user; archive-only upload.
+GET  /crawled-pages/        - Admin; list archived pages with filters.
 """
 
 import logging
@@ -24,11 +22,15 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.crawled_page import CrawledPage as DBCrawledPage
 from app.api.models.user import User as DBUser
+from app.api.services.crawl_archive import (
+    canonicalize_url,
+    crawl_html_fingerprint,
+    save_extension_html,
+)
+from app.api.services.page_html_sanitizer import sanitize_html
+from app.api.services.page_parser import parse_page
 from app.core.category_inference import infer_category
 from app.core.config import settings
-from app.crawlers.adapters import adapter_name_for_product_url, get_adapter
-from app.crawlers.base import canonicalize_url, crawl_html_fingerprint, save_crawl_page_html
-from app.crawlers.sanitize import sanitize_crawled_html
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -100,8 +102,8 @@ def _persist_extension_crawl_archive(
         storage_key = existing.html_s3_key or existing.html_local_path
         assert storage_key is not None
     else:
-        storage_key = save_crawl_page_html(
-            "chrome_extension", url, html, "", html_utf8=html_utf8, logger_instance=logger
+        storage_key = save_extension_html(
+            url, html, html_utf8=html_utf8, logger_instance=logger
         )
 
     if storage_key is None:
@@ -195,13 +197,6 @@ class CrawledPageRead(BaseModel):
     html_sha256: Optional[str] = None
 
 
-class ReparseResponse(BaseModel):
-    crawled_page_id: UUID
-    part_id: Optional[UUID]
-    parse_status: str
-    message: str
-
-
 # ---------------------------------------------------------------------------
 # POST /scrape  — Chrome extension: archive HTML + server-side parse
 # ---------------------------------------------------------------------------
@@ -245,7 +240,7 @@ async def scrape_page_from_extension(
     # Strip PII-risk content (autofilled form values, personalized scripts, etc.)
     # before anything leaves this request — archive and parse operate on the
     # sanitized HTML only. JSON-LD scripts are preserved for adapters.
-    sanitized_html = sanitize_crawled_html(body.html)
+    sanitized_html = sanitize_html(body.html)
     html_utf8, html_size_bytes, html_sha256 = crawl_html_fingerprint(sanitized_html)
 
     _, archived, skipped_dup = _persist_extension_crawl_archive(
@@ -257,24 +252,19 @@ async def scrape_page_from_extension(
         now=now,
     )
     if not archived:
-        logger.warning("save_crawl_page_html returned None for %s; skipping DB upsert to avoid phantom row", url)
-
-    # Select adapter by URL host, falling back to generic
-    adapter_name = adapter_name_for_product_url(url)
-    adapter = get_adapter(adapter_name)
+        logger.warning("save_extension_html returned None for %s; skipping DB upsert to avoid phantom row", url)
 
     try:
-        payload = adapter.parse_product_page(sanitized_html, url)
+        payload = parse_page(sanitized_html, url)
     except Exception as exc:
-        logger.warning("Adapter %s failed to parse %s: %s", adapter_name, url, exc)
+        logger.warning("Generic parser failed on %s: %s", url, exc)
         payload = None
 
     if payload is None:
-        # Parser returned nothing useful — return empty fields so the user can fill manually
-        logger.info("Adapter %s returned None for %s, returning empty ScrapeResponse", adapter_name, url)
+        logger.info("Generic parser returned None for %s, returning empty ScrapeResponse", url)
         return ScrapeResponse(
             product_url=url,
-            adapter_used=adapter_name,
+            adapter_used="generic",
             archived=archived,
             html_size_bytes=html_size_bytes,
             html_sha256=html_sha256,
@@ -291,7 +281,7 @@ async def scrape_page_from_extension(
         product_url=payload.product_url,
         part_manufacturer=payload.part_manufacturer,
         part_number=payload.part_number,
-        adapter_used=adapter_name,
+        adapter_used="generic",
         inferred_category=inferred,
         archived=archived,
         html_size_bytes=html_size_bytes,
@@ -337,7 +327,7 @@ async def upload_html_from_extension(
         content_length=request.headers.get("content-length"),
     )
 
-    sanitized_html = sanitize_crawled_html(body.html)
+    sanitized_html = sanitize_html(body.html)
     html_utf8, html_size_bytes, html_sha256 = crawl_html_fingerprint(sanitized_html)
 
     _, archived, skipped_dup = _persist_extension_crawl_archive(
@@ -350,7 +340,7 @@ async def upload_html_from_extension(
     )
 
     if not archived:
-        logger.warning("save_crawl_page_html returned None for %s; skipping DB upsert to avoid phantom row", url)
+        logger.warning("save_extension_html returned None for %s; skipping DB upsert to avoid phantom row", url)
         page = db.scalars(select(DBCrawledPage).where(DBCrawledPage.url == url)).first()
         if page is None:
             raise HTTPException(
@@ -471,67 +461,3 @@ async def list_crawled_pages(
     return list(db.scalars(stmt.order_by(DBCrawledPage.crawled_at.desc()).offset(skip).limit(limit)).all())
 
 
-# ---------------------------------------------------------------------------
-# POST /{page_id}/re-parse  — Admin: fetch stored HTML and re-run adapter
-# ---------------------------------------------------------------------------
-
-
-@router.post("/{page_id}/re-parse", response_model=ReparseResponse)
-async def reparse_crawled_page(
-    page_id: UUID,
-    current_user: DBUser = Depends(get_current_admin_user),
-    db: Session = Depends(get_db),
-) -> Any:
-    """
-    Admin: fetch archived HTML for a crawled page and re-run the retailer parser + ingest.
-
-    Uses the row's ``source`` when it is a registered adapter; for ``chrome_extension``,
-    picks the adapter from the URL host (e.g. a90shop.com → a90shop).
-    """
-    from app.crawlers.archive_rescrape import rescrape_crawled_page_from_archive
-    from app.crawlers.runner import resolve_crawler_user, resolve_default_category_id
-
-    page = db.get(DBCrawledPage, page_id)
-    if not page:
-        raise HTTPException(status_code=404, detail="CrawledPage not found")
-
-    if not page.html_s3_key and not page.html_local_path:
-        raise HTTPException(
-            status_code=404,
-            detail="HTML not found in storage for this page. It may not have been archived yet.",
-        )
-
-    crawler_user = resolve_crawler_user(db)
-    cat_id = resolve_default_category_id(db)
-
-    outcome, part_id, err_detail = rescrape_crawled_page_from_archive(
-        db,
-        page,
-        crawler_user=crawler_user,
-        default_category_id=cat_id,
-        log=logger,
-    )
-
-    if outcome == "skipped_no_html":
-        raise HTTPException(
-            status_code=404,
-            detail="HTML not found in storage for this page. It may not have been archived yet.",
-        )
-
-    if outcome == "parse_failed":
-        return ReparseResponse(
-            crawled_page_id=page.id,
-            part_id=page.part_id,
-            parse_status="failed",
-            message="Adapter returned None — page is not a product page or parse failed.",
-        )
-
-    if outcome == "ingest_failed":
-        raise HTTPException(status_code=500, detail=f"Ingest failed: {err_detail}") from None
-
-    return ReparseResponse(
-        crawled_page_id=page.id,
-        part_id=part_id,
-        parse_status="parsed",
-        message="Re-parse and ingest succeeded.",
-    )
