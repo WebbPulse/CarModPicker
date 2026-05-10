@@ -15,7 +15,7 @@ resource "aws_s3_bucket_public_access_block" "user_images" {
 }
 
 # ---------------------------------------------------------------------------
-# Crawler HTML snapshots — internal pipeline data, never served to users
+# Page HTML snapshots from the chrome-extension scrape flow
 # ---------------------------------------------------------------------------
 resource "aws_s3_bucket" "crawl_data" {
   bucket = "${local.prefix}-crawl-data"
@@ -30,12 +30,8 @@ resource "aws_s3_bucket_public_access_block" "crawl_data" {
   restrict_public_buckets = true
 }
 
-# QUAL-08 (Phase 6): transition crawl-data HTML snapshots to Glacier Deep Archive
-# after 90 days. D-19 restricts this rule to crawl-data ONLY; user-images stays
-# hot (latency-sensitive serve path).
-# NOTE: empty filter block applies the rule to all objects. Do NOT use an
-# explicit empty-string prefix inside the filter (per RESEARCH §Pitfall 4 —
-# AWS XML serialization differs and transition fails to fire).
+# Transition HTML snapshots to Glacier Deep Archive after 90 days. Restricted
+# to crawl-data ONLY; user-images stays hot (latency-sensitive serve path).
 resource "aws_s3_bucket_lifecycle_configuration" "crawl_data" {
   bucket = aws_s3_bucket.crawl_data.id
 
