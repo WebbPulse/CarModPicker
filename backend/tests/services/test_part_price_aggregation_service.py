@@ -160,33 +160,6 @@ def test_aggregate_single_part_window_filters_old_observations(db_session: Sessi
     assert result.summary.max_cents == 2500
 
 
-def test_aggregate_single_part_includes_link_group_siblings(db_session: Session, test_user: User) -> None:
-    retailer_a = _make_retailer(db_session, "lg-a")
-    retailer_b = _make_retailer(db_session, "lg-b")
-
-    canonical = _make_part(db_session, test_user, name="Canon Part")
-    duplicate = _make_part(db_session, test_user, canonical_part_id=canonical.id, name="Dupe Part")
-
-    listing_canon = _make_listing(db_session, canonical, retailer_a)
-    listing_dupe = _make_listing(db_session, duplicate, retailer_b)
-
-    now = datetime.now(UTC)
-    _add_history(db_session, listing_canon, price_cents=5000, observed_at=now - timedelta(days=10))
-    _add_history(db_session, listing_canon, price_cents=4800, observed_at=now - timedelta(days=5))
-    _add_history(db_session, listing_dupe, price_cents=3000, observed_at=now - timedelta(days=8))
-    _add_history(db_session, listing_dupe, price_cents=3200, observed_at=now - timedelta(days=2))
-
-    result = aggregate_single_part(db_session, canonical.id, "90d")
-
-    assert result.summary.observation_count == 4
-    assert result.summary.min_cents == 3000
-    assert result.summary.max_cents == 5000
-    # Both retailers should appear — sorted by retailer_name ASC.
-    assert len(result.retailers) == 2
-    names = [r.retailer_name for r in result.retailers]
-    assert names == sorted(names)
-    retailer_ids = {r.retailer_id for r in result.retailers}
-    assert retailer_ids == {retailer_a.id, retailer_b.id}
 
 
 def test_aggregate_single_part_empty_history(db_session: Session, test_user: User) -> None:

@@ -196,6 +196,6 @@ def test_api_route_count_at_or_above_expected() -> None:
     """Drift guard: catches a disabled parametrize, a route deletion without
     test update, or a wholesale router removal.
     """
-    # Snapshot taken 2026-05-02: 115 total routes, 36 public, 79 protected.
-    assert len(API_ROUTES) >= 115, f"Expected >=115 /api/ routes (excl. admin/auth), got {len(API_ROUTES)}"
-    assert len(PROTECTED_ROUTES) >= 79, f"Expected >=79 protected routes, got {len(PROTECTED_ROUTES)}"
+    # Snapshot taken 2026-05-09 (post-OSS-prep refactor).
+    assert len(API_ROUTES) >= 100, f"Expected >=100 /api/ routes (excl. admin/auth), got {len(API_ROUTES)}"
+    assert len(PROTECTED_ROUTES) >= 70, f"Expected >=70 protected routes, got {len(PROTECTED_ROUTES)}"

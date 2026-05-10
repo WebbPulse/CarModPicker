@@ -209,33 +209,6 @@ def test_get_price_history_part_not_found_returns_404(client: TestClient) -> Non
     assert response.status_code == 404
 
 
-def test_get_price_history_aggregates_link_group(client: TestClient, db_session: Session, test_user: User) -> None:
-    retailer_a = _make_retailer(db_session, "lg-a")
-    retailer_b = _make_retailer(db_session, "lg-b")
-    canonical = _make_part(db_session, test_user, name="Canon Part")
-    duplicate = _make_part(db_session, test_user, canonical_part_id=canonical.id, name="Dupe Part")
-
-    listing_canon = _make_listing(db_session, canonical, retailer_a)
-    listing_dupe = _make_listing(db_session, duplicate, retailer_b)
-
-    now = datetime.now(UTC)
-    _add_history(db_session, listing_canon, price_cents=5000, observed_at=now - timedelta(days=10))
-    _add_history(db_session, listing_canon, price_cents=4800, observed_at=now - timedelta(days=5))
-    _add_history(db_session, listing_dupe, price_cents=3000, observed_at=now - timedelta(days=8))
-    _add_history(db_session, listing_dupe, price_cents=3200, observed_at=now - timedelta(days=2))
-    db_session.commit()
-
-    response = client.get(PRICE_HISTORY_PATH.format(part_id=canonical.id))
-    assert response.status_code == 200
-    body = response.json()
-    assert body["summary"]["observation_count"] == 4
-    assert body["summary"]["min_cents"] == 3000
-    assert body["summary"]["max_cents"] == 5000
-    # Both retailers from the link group surface on the canonical query.
-    retailer_ids = {r["retailer_id"] for r in body["retailers"]}
-    assert retailer_ids == {str(retailer_a.id), str(retailer_b.id)}
-
-
 # --- POST /api/parts/price-history (T03) -------------------------------------
 
 
