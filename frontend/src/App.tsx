@@ -84,7 +84,6 @@ const ViewBuildLog = lazy(() => import('./pages/buildLists/ViewBuildLog.tsx'));
 const ViewBuildList = lazy(() => import('./pages/builder/ViewBuildlist.tsx'));
 const ViewPart = lazy(() => import('./pages/builder/ViewPart.tsx'));
 const EditPart = lazy(() => import('./pages/parts/EditPart.tsx'));
-const PartsCatalog = lazy(() => import('./pages/parts/PartsCatalog.tsx'));
 const UserParts = lazy(() => import('./pages/parts/UserParts.tsx'));
 const NotFound = lazy(() => import('./pages/NotFound.tsx'));
 // Dev-only kitchen-sink route. The `import.meta.env.DEV` guard wraps the
@@ -268,7 +267,7 @@ function App() {
                   <Route path="/build-lists" element={<BuildListsCatalog />} />
                   <Route path="/parts/:partId/edit" element={<EditPart />} />
                   <Route path="/parts/:partId" element={<ViewPart />} />
-                  <Route path="/parts" element={<PartsCatalog />} />
+                  <Route path="/parts" element={<Navigate to="/" replace />} />
 
                   {/* Dev-only kitchen-sink for visual-regression testing.
                       Guarded by import.meta.env.DEV so the route — and the

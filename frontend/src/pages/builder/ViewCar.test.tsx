@@ -1,11 +1,8 @@
 // Phase 8 plan 08-11 (D-11) — page test for ViewCar.
 //
-// ViewCar is routed as `/car-generations/:carId` and hydrates from multiple
-// endpoints on mount:
-//   - carGenerationsApi.getCar(carId)           → GET /car-generations/{id}
-//   - categoriesApi.getCategories()             → GET /categories/
-//   - BuildListList                             → GET /build-lists/car/{id}
-//   - PartList (via partsApi.getPartsWithVotes) → GET /parts/with-votes
+// ViewCar is routed as `/car-generations/:carId` and hydrates from:
+//   - carGenerationsApi.getCar(carId) → GET /car-generations/{id}
+//   - BuildListList                   → GET /build-lists/car/{id}
 //
 // We route responses by URL prefix via a single vi.mocked(apiClient.get)
 // implementation so all effects settle with deterministic data.
@@ -18,18 +15,12 @@
  * in an Error would defeat the point of exercising that branch.
  */
 
-import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiClient } from '../../api/client';
-import {
-  mockBuildList,
-  mockCar,
-  mockCategory,
-  mockUser,
-} from '../../test/mocks/api';
+import { mockBuildList, mockCar, mockUser } from '../../test/mocks/api';
 import { mockUseAuth } from '../../test/utils/test-mocks';
 import ViewCar from './ViewCar';
 
@@ -38,9 +29,9 @@ vi.mock('../../hooks/useAuth', () => ({
 }));
 
 // Extend the global setup.ts mock of `../services/Api` (which only exports
-// `default`) with the named exports ViewCar consumes (carGenerationsApi,
-// categoriesApi). Re-exporting the real module resolves this cleanly because
-// the domain APIs internally call the globally-mocked `apiClient`.
+// `default`) with the named exports ViewCar consumes (carGenerationsApi).
+// Re-exporting the real module resolves this cleanly because the domain APIs
+// internally call the globally-mocked `apiClient`.
 vi.mock('../../services/Api', async () => {
   const actual =
     await vi.importActual<typeof import('../../services/Api')>(
@@ -75,13 +66,10 @@ describe('ViewCar page', () => {
     seedAuthenticated();
   });
 
-  it('renders the car header, info card, and nested sections when the fetch succeeds', async () => {
+  it('renders the car header, info card, and build lists section when the fetch succeeds', async () => {
     vi.mocked(apiClient.get).mockImplementation((url: string) => {
       if (url === `/car-generations/${mockCar.id}`) {
         return Promise.resolve({ data: mockCar });
-      }
-      if (url === '/categories/') {
-        return Promise.resolve({ data: [mockCategory] });
       }
       if (url.startsWith(`/build-lists/car/${mockCar.id}`)) {
         return Promise.resolve({
@@ -92,21 +80,6 @@ describe('ViewCar page', () => {
               total_pages: 1,
               total_items: 1,
               items_per_page: 10,
-              has_next: false,
-              has_previous: false,
-            },
-          },
-        });
-      }
-      if (url === '/parts/with-votes') {
-        return Promise.resolve({
-          data: {
-            data: [],
-            pagination: {
-              current_page: 1,
-              total_pages: 0,
-              total_items: 0,
-              items_per_page: 12,
               has_next: false,
               has_previous: false,
             },
@@ -141,12 +114,6 @@ describe('ViewCar page', () => {
     expect(screen.getByText('Model:')).toBeInTheDocument();
     expect(screen.getByText('Generation:')).toBeInTheDocument();
     expect(screen.getByText('Year Range:')).toBeInTheDocument();
-
-    // Category switcher button (All + the mock category) renders after
-    // /categories/ resolves.
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /^All$/ })).toBeInTheDocument()
-    );
 
     // The fetch was dispatched to the canonical /car-generations/{id} endpoint.
     expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
@@ -185,68 +152,4 @@ describe('ViewCar page', () => {
     ).toBeInTheDocument();
   });
 
-  it('selects a category when the user clicks its button', async () => {
-    vi.mocked(apiClient.get).mockImplementation((url: string) => {
-      if (url === `/car-generations/${mockCar.id}`) {
-        return Promise.resolve({ data: mockCar });
-      }
-      if (url === '/categories/') {
-        return Promise.resolve({ data: [mockCategory] });
-      }
-      if (url.startsWith(`/build-lists/car/${mockCar.id}`)) {
-        return Promise.resolve({
-          data: {
-            data: [],
-            pagination: {
-              current_page: 1,
-              total_pages: 0,
-              total_items: 0,
-              items_per_page: 10,
-              has_next: false,
-              has_previous: false,
-            },
-          },
-        });
-      }
-      if (url === '/parts/with-votes') {
-        return Promise.resolve({
-          data: {
-            data: [],
-            pagination: {
-              current_page: 1,
-              total_pages: 0,
-              total_items: 0,
-              items_per_page: 12,
-              has_next: false,
-              has_previous: false,
-            },
-          },
-        });
-      }
-      return Promise.resolve({ data: null });
-    });
-
-    const user = userEvent.setup();
-    render(
-      <MemoryRouter initialEntries={[`/car-generations/${mockCar.id}`]}>
-        <Routes>
-          <Route path="/car-generations/:carId" element={<ViewCar />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    // Wait for the category button to render.
-    const allButton = await screen.findByRole('button', { name: /^All$/ });
-    const categoryButton = within(allButton.parentElement!).getByRole(
-      'button',
-      { name: new RegExp(mockCategory.display_name, 'i') }
-    );
-
-    // Category starts unselected (bg-gray-700 class); clicking selects it
-    // (bg-blue-600 class). We just assert the click doesn't throw and the
-    // button is present/clickable — the handler dispatches a parts refresh,
-    // which we don't introspect here (covered by the parts/PartList tests).
-    await user.click(categoryButton);
-    expect(categoryButton).toBeInTheDocument();
-  });
 });

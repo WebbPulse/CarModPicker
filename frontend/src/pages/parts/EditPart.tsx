@@ -43,7 +43,7 @@ function EditPart() {
     if (partId) {
       void navigate(`/parts/${partId}`);
     } else {
-      void navigate('/parts');
+      void navigate('/');
     }
   };
 

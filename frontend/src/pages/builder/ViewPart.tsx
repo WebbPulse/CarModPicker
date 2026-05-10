@@ -362,7 +362,7 @@ function ViewPart() {
     const result = await executeDeletePart(partId);
     if (result !== null) {
       setIsDeleteConfirmOpen(false);
-      void navigate('/parts'); // Navigate to global parts catalog
+      void navigate('/');
     }
   };
 
@@ -550,41 +550,22 @@ function ViewPart() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300 mb-6">
           {category && (
             <CardInfoItem label="Category:">
-              <Link
-                to={
-                  part.car_ids?.length
-                    ? `/parts?mode=category_car&category_id=${category.id}&car_id=${part.car_ids[0]}`
-                    : `/parts?mode=category_car&category_id=${category.id}`
-                }
-                className="text-blue-400 hover:text-blue-300 underline transition-colors"
-              >
-                {category.display_name}
-              </Link>
+              <span className="text-gray-300">{category.display_name}</span>
             </CardInfoItem>
           )}
           {part_manufacturer && (
             <CardInfoItem label="Part Manufacturer:">
-              {part_manufacturer.is_curated ? (
-                <Link
-                  to={`/parts?mode=part_manufacturer&part_manufacturer_id=${part_manufacturer.id}`}
-                  className="text-blue-400 hover:text-blue-300 underline transition-colors"
-                >
-                  {part_manufacturer.name}
-                </Link>
-              ) : (
-                // UGC manufacturer: render as plain text. The mfr is reachable
-                // by id but isn't in the curated catalog, so a catalog link
-                // would land on an empty filter view. Tooltip explains why.
-                <span
-                  className="text-gray-300"
-                  title="Custom entry — not in the curated catalog"
-                >
-                  {part_manufacturer.name}
-                  <span className="ml-2 inline-block rounded bg-gray-700 px-1.5 py-0.5 text-xs text-gray-300 align-middle">
+              <span className="text-gray-300">
+                {part_manufacturer.name}
+                {!part_manufacturer.is_curated && (
+                  <span
+                    className="ml-2 inline-block rounded bg-gray-700 px-1.5 py-0.5 text-xs text-gray-300 align-middle"
+                    title="Custom entry — not in the curated catalog"
+                  >
                     custom
                   </span>
-                </span>
-              )}
+                )}
+              </span>
             </CardInfoItem>
           )}
           {part.part_number && (

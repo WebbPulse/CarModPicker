@@ -292,7 +292,7 @@ function PartList({
   data: providedData,
   pagination: providedPagination,
   refreshKey = 0,
-  title = 'Parts Catalog',
+  title = 'Parts',
   emptyMessage = 'No parts found.',
   showVoteButtons = false,
   onVoteUpdate,

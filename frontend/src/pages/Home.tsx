@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BsTools } from 'react-icons/bs';
-import { FaArrowUp, FaCogs, FaFire, FaUsers } from 'react-icons/fa';
+import { FaFire, FaUsers } from 'react-icons/fa';
 import { GiCarWheel, GiRaceCar } from 'react-icons/gi';
-import { HiSparkles } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
 import BuildListCard from '../components/buildLists/BuildListCard';
-import ImageWithPlaceholder from '../components/images/ImageWithPlaceholder';
 import { ErrorAlert } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -20,7 +18,7 @@ import {
   partsApi,
   retailersApi,
 } from '../services/Api';
-import type { BuildListReadWithVotes, PartReadWithVotes } from '../types/Api';
+import type { BuildListReadWithVotes } from '../types/Api';
 
 export default function HomePage() {
   useDocumentMeta({
@@ -33,7 +31,6 @@ export default function HomePage() {
   const [featuredBuildLists, setFeaturedBuildLists] = useState<
     BuildListReadWithVotes[]
   >([]);
-  const [popularParts, setPopularParts] = useState<PartReadWithVotes[]>([]);
 
   // Fetch featured build lists (top 6 by votes)
   const fetchFeaturedBuildListsFn = useCallback(
@@ -51,23 +48,6 @@ export default function HomePage() {
     error: featuredBuildListsError,
     executeRequest: fetchFeaturedBuildLists,
   } = useApiRequest(fetchFeaturedBuildListsFn);
-
-  // Fetch popular parts (top 6 by votes)
-  const fetchPopularPartsFn = useCallback(
-    () =>
-      partsApi.getPartsWithVotes({
-        limit: HOME_FEATURED_ITEMS_LIMIT,
-        skip: 0,
-      }),
-    []
-  );
-
-  const {
-    data: popularPartsData,
-    isLoading: isLoadingParts,
-    error: popularPartsError,
-    executeRequest: fetchPopularParts,
-  } = useApiRequest(fetchPopularPartsFn);
 
   // Stats bar: approximate totals for the four stat tiles. Using the /count
   // endpoints (reltuples on Postgres) rather than pagination.total_items so the
@@ -98,14 +78,12 @@ export default function HomePage() {
 
   useEffect(() => {
     void fetchFeaturedBuildLists();
-    void fetchPopularParts();
     void fetchBuildListsCount();
     void fetchPartsCount();
     void fetchRetailersCount();
     void fetchPartManufacturersCount();
   }, [
     fetchFeaturedBuildLists,
-    fetchPopularParts,
     fetchBuildListsCount,
     fetchPartsCount,
     fetchRetailersCount,
@@ -121,16 +99,6 @@ export default function HomePage() {
       setFeaturedBuildLists(sorted);
     }
   }, [featuredBuildListsData]);
-
-  useEffect(() => {
-    if (popularPartsData?.data) {
-      // Sort by total votes descending
-      const sorted = [...popularPartsData.data].sort(
-        (a, b) => b.total_votes - a.total_votes
-      );
-      setPopularParts(sorted);
-    }
-  }, [popularPartsData]);
 
   return (
     <div className="min-h-screen">
@@ -163,17 +131,11 @@ export default function HomePage() {
             </p>
 
             {isAuthenticated && user ? (
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex justify-center">
                 <Button asChild size="lg">
                   <Link to="/builder">
                     <BsTools />
                     Create Build
-                  </Link>
-                </Button>
-                <Button asChild variant="secondary" size="lg">
-                  <Link to="/parts">
-                    <FaCogs />
-                    Browse Parts
                   </Link>
                 </Button>
               </div>
@@ -241,77 +203,8 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Sidebar - Popular Parts & Quick Actions */}
+          {/* Sidebar - Quick Actions */}
           <div className="space-y-8">
-            {/* Popular Parts */}
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-primary rounded-lg flex items-center justify-center">
-                  <HiSparkles className="text-white text-lg" />
-                </div>
-                <h2 className="text-2xl font-bold text-white">Popular Parts</h2>
-              </div>
-
-              {isLoadingParts ? (
-                <div className="flex justify-center py-8">
-                  <Spinner size="sm" />
-                </div>
-              ) : popularPartsError ? (
-                <Card>
-                  <ErrorAlert
-                    message={`Failed to load popular parts: ${popularPartsError}`}
-                  />
-                </Card>
-              ) : popularParts.length > 0 ? (
-                <div className="space-y-4">
-                  {popularParts.slice(0, 4).map((part) => (
-                    <Link
-                      key={part.id}
-                      to={`/parts/${part.id}`}
-                      className="block hover:no-underline"
-                    >
-                      <Card className="hover:border-primary border-2 border-transparent transition-all duration-300 group">
-                        <div className="flex gap-4">
-                          <div className="flex-shrink-0">
-                            <ImageWithPlaceholder
-                              srcUrl={part.image_urls?.[0] ?? null}
-                              altText={part.name}
-                              imageClassName="w-16 h-16 object-cover rounded-lg group-hover:scale-110 transition-transform duration-300"
-                              containerClassName="w-16 h-16"
-                              fallbackText="No img"
-                            />
-                          </div>
-                          <div className="flex-grow min-w-0">
-                            <h3 className="text-sm font-semibold text-white mb-1 group-hover:text-primary transition-colors truncate">
-                              {part.name}
-                            </h3>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <FaArrowUp className="text-primary" />
-                                {part.total_votes}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    </Link>
-                  ))}
-                  <Link
-                    to="/parts"
-                    className="block text-center text-primary hover:text-primary/90 transition-colors text-sm font-semibold mt-4"
-                  >
-                    View All Parts →
-                  </Link>
-                </div>
-              ) : (
-                <Card>
-                  <p className="text-muted-foreground text-center py-4 text-sm">
-                    No parts yet
-                  </p>
-                </Card>
-              )}
-            </div>
-
             {/* Quick Actions */}
             <div>
               <div className="flex items-center gap-3 mb-6">
@@ -331,16 +224,6 @@ export default function HomePage() {
                       <Link to="/builder">
                         <BsTools />
                         Create Build List
-                      </Link>
-                    </Button>
-                    <Button
-                      asChild
-                      variant="secondary"
-                      className="w-full justify-start"
-                    >
-                      <Link to="/parts">
-                        <FaCogs />
-                        Add New Part
                       </Link>
                     </Button>
                     <Button

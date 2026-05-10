@@ -128,9 +128,6 @@ describe('AccountAlerts', () => {
     expect(await screen.findByTestId('alerts-empty')).toHaveTextContent(
       /no active price-drop alerts/i
     );
-    // The empty-state link to /parts must be present.
-    const browseLink = screen.getByRole('link', { name: /browse parts/i });
-    expect(browseLink).toHaveAttribute('href', '/parts');
     // No alert rows.
     expect(screen.queryByTestId('alert-row')).not.toBeInTheDocument();
   });

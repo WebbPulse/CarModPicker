@@ -59,6 +59,7 @@ const searchResultsFixture = {
       skip: 0,
       limit: 10,
     },
+    // Search backend still returns parts; the UI no longer renders them.
     parts: {
       data: [mockPart],
       total: 1,
@@ -104,7 +105,7 @@ describe('Search page', () => {
       screen.getByText(/enter a search term to find build lists/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText(/search build lists, users, and parts/i)
+      screen.getByPlaceholderText(/search build lists and users/i)
     ).toBeInTheDocument();
   });
 

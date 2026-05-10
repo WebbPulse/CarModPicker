@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import BuildListItem from '../components/buildLists/BuildListItem';
-import PartList from '../components/parts/PartList';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
 import { ErrorAlert } from '../components/ui/alert';
@@ -12,18 +11,12 @@ import Spinner from '../components/ui/spinner';
 import UserCard from '../components/users/UserCard';
 import {
   SEARCH_INITIAL_LIMITS,
-  SEARCH_LOAD_MORE_INCREMENT,
   SEARCH_RESULTS_LIMIT,
 } from '../constants';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { searchApi } from '../services/Api';
-import type {
-  BuildListRead,
-  PartRead,
-  PartReadWithVotes,
-  UserRead,
-} from '../types/Api';
+import type { BuildListRead, UserRead } from '../types/Api';
 
 const fetchSearchResultsRequestFn = (params: {
   q: string;
@@ -41,62 +34,37 @@ function Search() {
   useDocumentMeta({
     title: queryFromUrl ? `Search: ${queryFromUrl}` : 'Search',
     description: queryFromUrl
-      ? `Search results on CarModPicker for "${queryFromUrl}" — builds, parts, and users matching your query.`
-      : 'Search CarModPicker for builds, parts, and users across the community.',
+      ? `Search results on CarModPicker for "${queryFromUrl}" — builds and users matching your query.`
+      : 'Search CarModPicker for builds and users across the community.',
     canonicalPath: '/search',
   });
 
   // Track accumulated results and pagination state for each category
   const [buildLists, setBuildLists] = useState<BuildListRead[]>([]);
   const [users, setUsers] = useState<UserRead[]>([]);
-  const [parts, setParts] = useState<PartRead[]>([]);
   const [displayedCounts, setDisplayedCounts] = useState<{
     build_lists: number;
     users: number;
-    parts: number;
   }>({
     build_lists: 0,
     users: 0,
-    parts: 0,
   });
   const [pagination, setPagination] = useState<{
     build_lists: { has_next: boolean; skip: number };
     users: { has_next: boolean; skip: number };
-    parts: { has_next: boolean; skip: number };
   } | null>(null);
   const [currentQuery, setCurrentQuery] = useState<string>(
     () => searchParams.get('q') || ''
   );
 
   const sortedSections = useMemo(() => {
-    const sections: Array<'build_lists' | 'users' | 'parts'> = [
-      'build_lists',
-      'users',
-      'parts',
-    ];
+    const sections: Array<'build_lists' | 'users'> = ['build_lists', 'users'];
     const counts = {
       build_lists: buildLists.length,
       users: users.length,
-      parts: parts.length,
     };
     return [...sections].sort((a, b) => counts[b] - counts[a]);
-  }, [buildLists.length, users.length, parts.length]);
-
-  // Convert PartRead to PartReadWithVotes for PartList (adds vote defaults)
-  const partsWithVotes = useMemo((): PartReadWithVotes[] => {
-    const count =
-      displayedCounts.parts ||
-      Math.min(SEARCH_INITIAL_LIMITS.parts, parts.length);
-    return parts.slice(0, count).map(
-      (p): PartReadWithVotes => ({
-        ...p,
-        upvotes: 0,
-        downvotes: 0,
-        total_votes: 0,
-        user_vote: null,
-      })
-    );
-  }, [parts, displayedCounts.parts]);
+  }, [buildLists.length, users.length]);
 
   const {
     data: searchResults,
@@ -113,11 +81,9 @@ function Search() {
       // Reset accumulated results for new search
       setBuildLists([]);
       setUsers([]);
-      setParts([]);
       setDisplayedCounts({
         build_lists: 0,
         users: 0,
-        parts: 0,
       });
       setPagination(null);
       void performSearch({ q: query, skip: 0, limit: SEARCH_RESULTS_LIMIT });
@@ -135,11 +101,9 @@ function Search() {
         setCurrentQuery('');
         setBuildLists([]);
         setUsers([]);
-        setParts([]);
         setDisplayedCounts({
           build_lists: 0,
           users: 0,
-          parts: 0,
         });
         setPagination(null);
       }
@@ -155,30 +119,22 @@ function Search() {
 
   // Load more results for a specific category
   const loadMore = useCallback(
-    (category: 'build_lists' | 'users' | 'parts') => {
+    (category: 'build_lists' | 'users') => {
       if (!pagination || !currentQuery) return;
 
       // Check if we have more results already fetched that we haven't displayed
       const currentDisplayed = displayedCounts[category];
-      let allResults: BuildListRead[] | UserRead[] | PartRead[] = [];
-
-      if (category === 'build_lists') {
-        allResults = buildLists;
-      } else if (category === 'users') {
-        allResults = users;
-      } else {
-        allResults = parts;
-      }
+      const allResults: BuildListRead[] | UserRead[] =
+        category === 'build_lists' ? buildLists : users;
 
       // If we have more results already fetched, just increase the displayed count
       if (currentDisplayed < allResults.length) {
-        const increment =
-          category === 'parts'
-            ? SEARCH_LOAD_MORE_INCREMENT.parts
-            : SEARCH_LOAD_MORE_INCREMENT.build_lists;
         setDisplayedCounts((prev) => ({
           ...prev,
-          [category]: Math.min(currentDisplayed + increment, allResults.length),
+          [category]: Math.min(
+            currentDisplayed + SEARCH_INITIAL_LIMITS[category],
+            allResults.length
+          ),
         }));
       } else if (pagination[category].has_next) {
         // Otherwise, fetch more from the backend
@@ -187,15 +143,7 @@ function Search() {
         void performSearch({ q: currentQuery, skip: currentSkip, limit });
       }
     },
-    [
-      pagination,
-      currentQuery,
-      performSearch,
-      displayedCounts,
-      buildLists,
-      users,
-      parts,
-    ]
+    [pagination, currentQuery, performSearch, displayedCounts, buildLists, users]
   );
 
   // Update accumulated results when new search results arrive
@@ -254,31 +202,6 @@ function Search() {
         });
       }
 
-      if (searchResults.parts.skip === 0) {
-        setParts(searchResults.parts.data);
-        // Set initial displayed count to the limit or actual count, whichever is smaller
-        setDisplayedCounts((prev) => ({
-          ...prev,
-          parts: Math.min(
-            SEARCH_INITIAL_LIMITS.parts,
-            searchResults.parts.data.length
-          ),
-        }));
-      } else {
-        setParts((prev) => {
-          const newList = [...prev, ...searchResults.parts.data];
-          // When loading more, increase displayed count by the increment
-          setDisplayedCounts((prevCounts) => ({
-            ...prevCounts,
-            parts: Math.min(
-              prevCounts.parts + SEARCH_INITIAL_LIMITS.parts,
-              newList.length
-            ),
-          }));
-          return newList;
-        });
-      }
-
       setPagination({
         build_lists: {
           has_next: searchResults.build_lists.has_next,
@@ -289,10 +212,6 @@ function Search() {
         users: {
           has_next: searchResults.users.has_next,
           skip: searchResults.users.skip + searchResults.users.data.length,
-        },
-        parts: {
-          has_next: searchResults.parts.has_next,
-          skip: searchResults.parts.skip + searchResults.parts.data.length,
         },
       });
     }
@@ -307,11 +226,9 @@ function Search() {
       // Reset accumulated results
       setBuildLists([]);
       setUsers([]);
-      setParts([]);
       setDisplayedCounts({
         build_lists: 0,
         users: 0,
-        parts: 0,
       });
       setPagination(null);
       void performSearch({
@@ -332,7 +249,7 @@ function Search() {
           <div className="flex-1">
             <Input
               type="text"
-              placeholder="Search build lists, users, and parts..."
+              placeholder="Search build lists and users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -416,81 +333,49 @@ function Search() {
               );
             }
 
-            if (section === 'users') {
-              return (
-                <Card key="users" className="mb-6">
-                  <SectionHeader
-                    title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
-                  />
-                  {users.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>No users found.</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="tile-grid-compact">
-                        {users
-                          .slice(
-                            0,
-                            displayedCounts.users ||
-                              Math.min(
-                                SEARCH_INITIAL_LIMITS.users,
-                                users.length
-                              )
-                          )
-                          .map((user) => (
-                            <UserCard key={user.id} user={user} />
-                          ))}
-                      </div>
-                      {(pagination?.users.has_next ||
-                        displayedCounts.users < users.length) && (
-                        <div className="mt-6 flex justify-center">
-                          <Button
-                            type="button"
-                            onClick={() => loadMore('users')}
-                            disabled={isLoading}
-                          >
-                            {isLoading ? 'Loading...' : 'Load More Users'}
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </Card>
-              );
-            }
-
             return (
-              <div key="parts" className="mb-6">
-                <PartList
-                  data={partsWithVotes}
-                  layout="table"
-                  title={`Parts (${pagination?.parts ? (searchResults?.parts.total ?? parts.length) : parts.length}${pagination?.parts ? ` of ${searchResults?.parts.total ?? 0}` : ''})`}
-                  emptyMessage="No parts found."
-                  categories={[]}
-                  part_manufacturers={[]}
-                  carsById={{}}
+              <Card key="users" className="mb-6">
+                <SectionHeader
+                  title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
                 />
-                {(pagination?.parts.has_next ||
-                  displayedCounts.parts < parts.length) && (
-                  <div className="mt-6 flex justify-center">
-                    <Button
-                      type="button"
-                      onClick={() => loadMore('parts')}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Loading...' : 'Load More Parts'}
-                    </Button>
+                {users.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No users found.</p>
                   </div>
+                ) : (
+                  <>
+                    <div className="tile-grid-compact">
+                      {users
+                        .slice(
+                          0,
+                          displayedCounts.users ||
+                            Math.min(SEARCH_INITIAL_LIMITS.users, users.length)
+                        )
+                        .map((user) => (
+                          <UserCard key={user.id} user={user} />
+                        ))}
+                    </div>
+                    {(pagination?.users.has_next ||
+                      displayedCounts.users < users.length) && (
+                      <div className="mt-6 flex justify-center">
+                        <Button
+                          type="button"
+                          onClick={() => loadMore('users')}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? 'Loading...' : 'Load More Users'}
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
-              </div>
+              </Card>
             );
           })}
 
           {/* No Results Message */}
           {buildLists.length === 0 &&
             users.length === 0 &&
-            parts.length === 0 &&
             currentQuery && (
               <Card>
                 <div className="text-center py-12">
@@ -511,10 +396,10 @@ function Search() {
         <Card>
           <div className="text-center py-12">
             <p className="text-xl text-muted-foreground mb-2">
-              Enter a search term to find build lists, users, and parts
+              Enter a search term to find build lists and users
             </p>
             <p className="text-muted-foreground">
-              Search across names, descriptions, part manufacturers, and more
+              Search across names and descriptions
             </p>
           </div>
         </Card>

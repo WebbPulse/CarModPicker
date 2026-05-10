@@ -1,11 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { CAR_VIEW_BUILD_LISTS_LIMIT } from '../../constants';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { useDocumentMeta } from '../../hooks/useDocumentMeta';
-import { carGenerationsApi, categoriesApi } from '../../services/Api';
-import type { CategoryResponse } from '../../types/Api';
+import { carGenerationsApi } from '../../services/Api';
 
 import BuildListList from '../../components/buildLists/BuildListList';
 import CreateBuildListForm from '../../components/buildLists/CreateBuildListForm';
@@ -15,7 +13,6 @@ import {
   carModelDisplayName,
   formatCarYearRange,
 } from '../../utils/carUtils';
-import PartList from '../../components/parts/PartList';
 import Divider from '../../components/layout/Divider';
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
@@ -39,11 +36,7 @@ function ViewCar(): React.JSX.Element {
   const [isCreateBuildListFormOpen, setIsCreateBuildListFormOpen] =
     useState(false);
   const [buildListRefreshTrigger, setBuildListRefreshTrigger] = useState(0);
-  const [partsRefreshTrigger, setPartsRefreshTrigger] = useState(0);
-  const [categories, setCategories] = useState<CategoryResponse[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [buildListSearchTerm, setBuildListSearchTerm] = useState('');
-  const [partsSearchTerm, setPartsSearchTerm] = useState('');
 
   const {
     data: car,
@@ -61,41 +54,15 @@ function ViewCar(): React.JSX.Element {
     canonicalPath: carId ? `/car-generations/${carId}` : undefined,
   });
 
-  const loadCategories = useCallback(async () => {
-    try {
-      const response = await categoriesApi.getCategories();
-      setCategories(response.data);
-    } catch {
-      // Failed to load categories
-    }
-  }, []);
-
   useEffect(() => {
     if (carId) {
       void fetchCar(carId);
     }
-    void loadCategories();
-  }, [carId, fetchCar, loadCategories]);
+  }, [carId, fetchCar]);
 
   const handleBuildListCreated = () => {
     setBuildListRefreshTrigger((prev) => prev + 1);
     setIsCreateBuildListFormOpen(false); // Close dialog
-  };
-
-  const handleVoteUpdate = (
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _partId: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _newVote: 'upvote' | 'downvote' | null
-  ) => {
-    // Refresh parts list after voting
-    setPartsRefreshTrigger((prev) => prev + 1);
-  };
-
-  const handleCategoryChange = (categoryId: string | null) => {
-    setSelectedCategory(categoryId);
-    // Refresh parts list when category changes
-    setPartsRefreshTrigger((prev) => prev + 1);
   };
 
   const handleBuildListSearchChange = (
@@ -103,12 +70,6 @@ function ViewCar(): React.JSX.Element {
   ) => {
     setBuildListSearchTerm(e.target.value);
     // Reset to page 1 when search changes (handled by BuildListList component)
-  };
-
-  const handlePartsSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPartsSearchTerm(e.target.value);
-    // Refresh parts list when search changes
-    setPartsRefreshTrigger((prev) => prev + 1);
   };
 
   const openCreateBuildListDialog = () => {
@@ -219,87 +180,8 @@ function ViewCar(): React.JSX.Element {
             onAddBuildListClick={openCreateBuildListDialog}
             search={buildListSearchTerm.trim() || undefined}
           />
-          <Divider />
         </>
       )}
-
-      {/* Related Parts Section */}
-      <div className="mb-4">
-        <SectionHeader title={`Parts for ${carFullDisplayName(car)}`} />
-        <div className="mt-4">
-          <Input
-            id="search-parts"
-            type="text"
-            placeholder="Search parts by name, description, part manufacturer, or part number..."
-            value={partsSearchTerm}
-            onChange={handlePartsSearchChange}
-            className="w-full"
-          />
-        </div>
-      </div>
-
-      {/* Category Switcher */}
-      {categories.length > 0 && (
-        <div className="mb-4 overflow-x-auto">
-          <div className="flex gap-2 pb-2">
-            <button
-              type="button"
-              onClick={() => handleCategoryChange(null)}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
-                selectedCategory === null
-                  ? 'bg-info text-white'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              All
-            </button>
-            {categories
-              .filter((category) => category.is_active)
-              .sort((a, b) => a.sort_order - b.sort_order)
-              .map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => handleCategoryChange(category.id)}
-                  className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors flex items-center gap-2 ${
-                    selectedCategory === category.id
-                      ? 'bg-info text-white'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                >
-                  {category.icon && <span>{category.icon}</span>}
-                  <span>{category.display_name || category.name}</span>
-                </button>
-              ))}
-          </div>
-        </div>
-      )}
-
-      <PartList
-        params={{
-          car_id: car.id,
-          limit: CAR_VIEW_BUILD_LISTS_LIMIT,
-          ...(selectedCategory && { category_id: selectedCategory }),
-          ...(partsSearchTerm && { search: partsSearchTerm }),
-        }}
-        refreshKey={partsRefreshTrigger}
-        title=""
-        emptyMessage="No parts found for this car."
-        showVoteButtons={true}
-        onVoteUpdate={handleVoteUpdate}
-      />
-      <div className="mt-4 flex justify-center">
-        <Card className="inline-block">
-          <div className="text-center">
-            <Link
-              to={`/parts?car_id=${car.id}`}
-              className="text-info hover:text-info/90 underline font-medium"
-            >
-              See more parts →
-            </Link>
-          </div>
-        </Card>
-      </div>
     </div>
   );
 }

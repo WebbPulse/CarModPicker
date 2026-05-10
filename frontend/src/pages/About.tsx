@@ -1,6 +1,5 @@
 import { BsTools } from 'react-icons/bs';
 import {
-  FaCogs,
   FaHeart,
   FaLightbulb,
   FaRocket,
@@ -27,14 +26,6 @@ function About() {
       description:
         'Create and manage detailed build lists for your car modifications with ease.',
       color: 'from-blue-500 to-cyan-500',
-    },
-    {
-      id: 'parts-catalog',
-      icon: <FaCogs className="text-3xl" />,
-      title: 'Parts Catalog',
-      description:
-        'Browse thousands of parts from our global catalog shared by the community.',
-      color: 'from-purple-500 to-pink-500',
     },
     {
       id: 'car-management',

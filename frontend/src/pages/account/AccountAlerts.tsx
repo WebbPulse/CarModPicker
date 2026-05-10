@@ -260,12 +260,6 @@ function AccountAlerts() {
               You have no active price-drop alerts. Visit a part page to create
               one.
             </p>
-            <Link
-              to="/parts"
-              className="text-blue-400 hover:text-blue-300 underline transition-colors"
-            >
-              Browse parts
-            </Link>
           </div>
         )}
 

@@ -13,9 +13,6 @@ export const ADMIN_ITEMS_PER_PAGE = 10;
 /** Items per page for build lists in builder view */
 export const BUILDER_ITEMS_PER_PAGE = 8;
 
-/** Items per page for global parts catalog */
-export const GLOBAL_PARTS_ITEMS_PER_PAGE = 10;
-
 /** Items per page for build lists catalog (when filtering by vehicle) */
 export const BUILD_LISTS_CATALOG_ITEMS_PER_PAGE = 20;
 
@@ -36,14 +33,6 @@ export const SEARCH_RESULTS_LIMIT = 20;
 export const SEARCH_INITIAL_LIMITS = {
   build_lists: 8,
   users: 8,
-  parts: 4,
-} as const;
-
-/** Increment amount when loading more search results */
-export const SEARCH_LOAD_MORE_INCREMENT = {
-  build_lists: 8,
-  users: 8,
-  parts: 4,
 } as const;
 
 // ============================================================================

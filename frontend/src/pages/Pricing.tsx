@@ -47,7 +47,6 @@ function Pricing() {
       tagline: 'Get started tracking your first build.',
       features: [
         { label: `${FREE_TIER_BUILD_LIST_LIMIT} build list`, included: true },
-        { label: 'Full parts catalog access', included: true },
         { label: 'Post build logs & comments', included: true },
         { label: 'Chrome extension part scraping', included: true },
         { label: 'Ad-free experience', included: false },
@@ -67,7 +66,6 @@ function Pricing() {
       features: [
         { label: 'Unlimited build lists', included: true },
         { label: 'Fully ad-free experience', included: true },
-        { label: 'Full parts catalog access', included: true },
         { label: 'Post build logs & comments', included: true },
         { label: 'Chrome extension part scraping', included: true },
         { label: 'Support ongoing development', included: true },

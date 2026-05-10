@@ -37,8 +37,6 @@ vi.mock('../services/Api', async () => {
       countBuildLists: () => client.get('/build-lists/count'),
     },
     partsApi: {
-      getPartsWithVotes: (params?: unknown) =>
-        client.get('/parts/with-votes', { params }),
       countParts: () => client.get('/parts/count'),
     },
     retailersApi: {
@@ -86,7 +84,7 @@ describe('Home page', () => {
     expect(signIn).toHaveAttribute('href', '/login');
   });
 
-  it('renders authenticated hero CTAs (Create Build + Browse Parts) when user is logged in', () => {
+  it('renders authenticated hero CTA (Create Build) when user is logged in', () => {
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
       user: mockUser,
@@ -108,12 +106,9 @@ describe('Home page', () => {
     });
     expect(createBuildLinks.length).toBeGreaterThan(0);
     expect(createBuildLinks[0]).toHaveAttribute('href', '/builder');
-    // Hero "Browse Parts" CTA links to /parts.
-    const browseParts = screen.getByRole('link', { name: /browse parts/i });
-    expect(browseParts).toHaveAttribute('href', '/parts');
   });
 
-  it('renders Featured Builds and Popular Parts section headings', () => {
+  it('renders Featured Builds section heading', () => {
     render(
       <BrowserRouter>
         <Home />
@@ -122,9 +117,6 @@ describe('Home page', () => {
 
     expect(
       screen.getByRole('heading', { name: /featured builds/i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: /popular parts/i })
     ).toBeInTheDocument();
   });
 

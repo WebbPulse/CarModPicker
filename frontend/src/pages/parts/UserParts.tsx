@@ -1,11 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { Link } from 'react-router-dom';
 import PartList from '../../components/parts/PartList';
 import PartsFilterSidebar from '../../components/parts/PartsFilterSidebar';
 import PartsActiveFilterChips from '../../components/parts/PartsActiveFilterChips';
 import PageHeader from '../../components/layout/PageHeader';
 import { ErrorAlert } from '../../components/ui/alert';
-import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import { Input } from '../../components/ui/input';
@@ -141,9 +139,6 @@ const UserParts: React.FC = () => {
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <PageHeader title="My Parts" />
-        <Button asChild variant="outline">
-          <Link to="/parts">Browse All Parts</Link>
-        </Button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">

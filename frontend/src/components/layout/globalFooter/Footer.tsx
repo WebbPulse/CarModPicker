@@ -97,14 +97,6 @@ function Footer() {
                     Support Us
                   </Link>
                 </li>
-                <li>
-                  <Link
-                    to="/parts"
-                    className="text-muted-foreground hover:text-white transition-colors duration-300 text-sm"
-                  >
-                    Parts Catalog
-                  </Link>
-                </li>
               </ul>
             </div>
 
