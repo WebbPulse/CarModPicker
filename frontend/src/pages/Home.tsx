@@ -22,7 +22,7 @@ import type { BuildListReadWithVotes } from '../types/Api';
 
 export default function HomePage() {
   useDocumentMeta({
-    title: 'CarModPicker — Plan, track, and share your car build',
+    title: 'CarModPicker | Plan, track, and share your car build',
     description:
       'Discover parts, plan modifications, track build progress, and share your build with the CarModPicker community.',
     canonicalPath: '/',
