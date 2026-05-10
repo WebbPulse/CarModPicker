@@ -1,0 +1,177 @@
+# Auto-release the Chrome extension whenever chrome-extension/** lands on main.
+#
+# On each run the workflow:
+#   1. Bumps the patch version in chrome-extension/manifest.json
+#   2. Builds the extension
+#   3. Commits the version bump back to main and pushes a `chrome-extension-vX.Y.Z` tag
+#   4. Creates a GitHub Release with the built zip attached
+#   5. (Optional) Publishes the zip to the Chrome Web Store
+#
+# Auto-publish to the Chrome Web Store requires all four of these on the `production` environment:
+#   - vars: CWS_CLIENT_ID, CWS_EXTENSION_ID (not secret; public identifiers)
+#   - secrets: CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN
+# If any are missing, the publish step is skipped and the GitHub Release still succeeds.
+# See https://developer.chrome.com/docs/webstore/using-api for setting up the OAuth client.
+#
+# Note: this workflow pushes directly to main. If branch protection on main requires PRs,
+# you must allow `github-actions[bot]` to bypass it (Settings → Branches → Rule → Bypass list),
+# otherwise the push step will fail.
+name: Chrome Extension Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "chrome-extension/**"
+      - ".github/workflows/chrome-extension-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Serialize runs so back-to-back merges don't race on the version bump.
+concurrency:
+  group: chrome-extension-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump patch version in manifest.json
+        id: version
+        working-directory: chrome-extension
+        run: |
+          NEW=$(node -e "
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+            const parts = m.version.split('.').map(Number);
+            if (parts.length !== 3 || parts.some(Number.isNaN)) {
+              console.error('manifest.json version is not a valid semver: ' + m.version);
+              process.exit(1);
+            }
+            parts[2]++;
+            m.version = parts.join('.');
+            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2) + '\n');
+            console.log(m.version);
+          ")
+          echo "new=$NEW" >> $GITHUB_OUTPUT
+          echo "Bumped manifest.json to $NEW"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: chrome-extension/package-lock.json
+
+      - name: Install dependencies
+        working-directory: chrome-extension
+        run: npm ci
+
+      - name: Build extension
+        working-directory: chrome-extension
+        run: npm run build
+
+      - name: Commit version bump and push tag
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          TAG="chrome-extension-v$NEW_VERSION"
+          git add chrome-extension/manifest.json
+          git commit -m "chore(chrome-extension): bump to v$NEW_VERSION [skip ci]"
+          git tag "$TAG"
+          git push origin HEAD:main
+          git push origin "$TAG"
+
+      - name: Zip extension
+        id: zip
+        working-directory: chrome-extension
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          ZIP_NAME="carmodpicker-extension-$NEW_VERSION.zip"
+          (cd dist && zip -r "../$ZIP_NAME" .)
+          echo "zip_path=chrome-extension/$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ steps.zip.outputs.zip_path }}
+          name: Chrome Extension v${{ steps.version.outputs.new }}
+          tag_name: chrome-extension-v${{ steps.version.outputs.new }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+      - name: Check Chrome Web Store credentials
+        id: cws_check
+        env:
+          CWS_CLIENT_ID: ${{ vars.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+        run: |
+          if [[ -n "$CWS_CLIENT_ID" && -n "$CWS_CLIENT_SECRET" && -n "$CWS_REFRESH_TOKEN" && -n "$CWS_EXTENSION_ID" ]]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "Chrome Web Store credentials not set — skipping auto-publish."
+          fi
+
+      - name: Publish to Chrome Web Store
+        if: steps.cws_check.outputs.configured == 'true'
+        env:
+          CWS_CLIENT_ID: ${{ vars.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          ZIP_PATH: ${{ steps.zip.outputs.zip_path }}
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          set -euo pipefail
+
+          echo "Exchanging refresh token for access token..."
+          ACCESS_TOKEN=$(curl -sfg -X POST \
+            -d "client_id=$CWS_CLIENT_ID" \
+            -d "client_secret=$CWS_CLIENT_SECRET" \
+            -d "refresh_token=$CWS_REFRESH_TOKEN" \
+            -d "grant_type=refresh_token" \
+            "https://oauth2.googleapis.com/token" | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+
+          echo "Uploading new package to Chrome Web Store..."
+          UPLOAD_RESPONSE=$(curl -sfg \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-version: 2" \
+            -X PUT \
+            -T "$ZIP_PATH" \
+            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$CWS_EXTENSION_ID")
+          echo "$UPLOAD_RESPONSE"
+
+          UPLOAD_STATE=$(echo "$UPLOAD_RESPONSE" | python3 -c "import sys,json;print(json.load(sys.stdin).get('uploadState',''))")
+          if [[ "$UPLOAD_STATE" != "SUCCESS" ]]; then
+            echo "::error::Upload failed with state: $UPLOAD_STATE"
+            exit 1
+          fi
+
+          echo "Publishing to public channel..."
+          curl -sfg \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-version: 2" \
+            -H "Content-Length: 0" \
+            -X POST \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/$CWS_EXTENSION_ID/publish"
+
+          echo "Published v$NEW_VERSION to Chrome Web Store."

@@ -1,0 +1,62 @@
+{
+  "GMC": [
+    {
+      "generations": [
+        {
+          "description": "Sierra sibling of Silverado. LS-family V8s. Denali + C3.",
+          "end_year": 2007,
+          "generation_name": "GMT800",
+          "start_year": 1999
+        },
+        {
+          "description": "GMT900 Sierra with LS V8s.",
+          "end_year": 2013,
+          "generation_name": "GMT900",
+          "start_year": 2007
+        },
+        {
+          "description": "K2XX. L83 5.3L / L86 6.2L V8s.",
+          "end_year": 2018,
+          "generation_name": "K2",
+          "start_year": 2014
+        },
+        {
+          "description": "T1. L84 5.3L / L87 6.2L / Duramax 3.0L. AT4X.",
+          "end_year": null,
+          "generation_name": "T1",
+          "start_year": 2019
+        }
+      ],
+      "model": "Sierra"
+    },
+    {
+      "generations": [
+        {
+          "description": "GMT800 sibling to Tahoe.",
+          "end_year": 2006,
+          "generation_name": "GMT800",
+          "start_year": 2000
+        },
+        {
+          "description": "GMT900. L92 6.2L in Denali. XL long-WB.",
+          "end_year": 2014,
+          "generation_name": "GMT900",
+          "start_year": 2007
+        },
+        {
+          "description": "K2XX. L83/L86 V8s. Denali 10AT.",
+          "end_year": 2020,
+          "generation_name": "K2",
+          "start_year": 2015
+        },
+        {
+          "description": "T1 platform. L84/L87 V8s / Duramax. AT4.",
+          "end_year": null,
+          "generation_name": "T1",
+          "start_year": 2021
+        }
+      ],
+      "model": "Yukon"
+    }
+  ]
+}

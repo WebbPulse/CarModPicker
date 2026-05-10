@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Pre-commit hook: auto-format staged files before committing.
+# Mirrors exactly what CI checks: Black + isort (backend), Prettier + ESLint (frontend).
+#
+# Setup (one-time per clone):
+#   git config core.hooksPath .githooks
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# ─── Helpers ────────────────────────────────────────────────────────────────
+
+staged_files_matching() {
+  git diff --cached --name-only --diff-filter=ACMR | grep -E "$1" || true
+}
+
+re_stage() {
+  # Only re-stage files that still exist (haven't been deleted by the formatter)
+  for f in "$@"; do
+    [ -f "$REPO_ROOT/$f" ] && git add "$REPO_ROOT/$f"
+  done
+}
+
+# ─── Backend: Black + isort ──────────────────────────────────────────────────
+
+PY_FILES=$(staged_files_matching '^backend/.*\.pyi?$')
+
+if [ -n "$PY_FILES" ]; then
+  echo "▶ black (backend)"
+  # Exclude alembic versions — same as CI config (pyproject.toml extend-exclude)
+  FILTERED=$(echo "$PY_FILES" | grep -v '^backend/alembic/versions/' || true)
+  if [ -n "$FILTERED" ]; then
+    (cd "$REPO_ROOT" && echo "$FILTERED" | xargs black --config backend/pyproject.toml)
+    echo "▶ isort (backend)"
+    (cd "$REPO_ROOT/backend" && echo "$FILTERED" | sed 's|^backend/||' | xargs isort --settings-path .)
+    re_stage $FILTERED
+  fi
+fi
+
+# ─── Frontend: Prettier + ESLint + tsc ───────────────────────────────────────
+
+TS_FILES=$(staged_files_matching '^frontend/src/.*\.(ts|tsx|css|json)$')
+
+if [ -n "$TS_FILES" ]; then
+  echo "▶ prettier (frontend)"
+  (cd "$REPO_ROOT" && echo "$TS_FILES" | xargs npx --prefix frontend prettier --write)
+  echo "▶ eslint --fix (frontend)"
+  TS_LINT=$(echo "$TS_FILES" | grep -E '\.(ts|tsx)$' || true)
+  if [ -n "$TS_LINT" ]; then
+    (cd "$REPO_ROOT/frontend" && echo "$TS_LINT" | sed 's|^frontend/||' | xargs npx eslint --fix --max-warnings=0 2>/dev/null || true)
+  fi
+  re_stage $TS_FILES
+
+  # Full-project type-check — tsc is project-wide, so we can't scope to staged
+  # files. Mirrors the `npm run type-check` step in frontend-ci.yml.
+  if [ -n "$TS_LINT" ]; then
+    echo "▶ tsc --noEmit (frontend)"
+    (cd "$REPO_ROOT/frontend" && npm run -s type-check)
+  fi
+fi
+
+echo "✓ pre-commit checks passed"

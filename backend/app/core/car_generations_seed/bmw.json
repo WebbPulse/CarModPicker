@@ -1,0 +1,939 @@
+{
+  "BMW": [
+    {
+      "generations": [
+        {
+          "description": "The original M3, built for homologation. Featured high-revving S14 inline-4 engine and exceptional handling. Iconic in motorsport and highly collectible.",
+          "end_year": 1991,
+          "generation_name": "E30",
+          "start_year": 1986
+        },
+        {
+          "description": "First M3 with inline-6 engine (S50/S52). More refined and comfortable while maintaining performance. US model had different engine than European version.",
+          "end_year": 1999,
+          "generation_name": "E36",
+          "start_year": 1992
+        },
+        {
+          "description": "Widely considered one of the best M3 generations. Featured S54 inline-6 engine producing 333 horsepower. Excellent balance of performance and daily usability.",
+          "end_year": 2006,
+          "generation_name": "E46",
+          "start_year": 2000
+        },
+        {
+          "description": "First M3 with V8 engine (S65). Produced 414 horsepower with high-revving character. E92 coupe and E93 convertible variants. Last naturally aspirated M3.",
+          "end_year": 2013,
+          "generation_name": "E90/E92/E93",
+          "start_year": 2007
+        },
+        {
+          "description": "First turbocharged M3 with S55 inline-6 engine producing 425 horsepower. Improved fuel economy and torque. M3 sedan and M4 coupe separated.",
+          "end_year": 2018,
+          "generation_name": "F80",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest M3 with S58 inline-6 engine producing 473-503 horsepower. Competition and CS variants available. More aggressive styling and advanced technology.",
+          "end_year": null,
+          "generation_name": "G80",
+          "start_year": 2021
+        }
+      ],
+      "model": "M3"
+    },
+    {
+      "generations": [
+        {
+          "description": "BMW's compact executive sedan with inline-6 engines. Featured excellent handling and build quality. Established 3 Series reputation for sporty luxury.",
+          "end_year": 1990,
+          "generation_name": "E30",
+          "start_year": 1975
+        },
+        {
+          "description": "More refined 3 Series with improved technology. Featured updated inline-6 engines and better handling. Popular among enthusiasts for modification potential.",
+          "end_year": 1998,
+          "generation_name": "E36",
+          "start_year": 1991
+        },
+        {
+          "description": "Widely considered one of the best 3 Series generations. Featured updated inline-6 engines and excellent handling. Balance of performance and daily usability.",
+          "end_year": 2005,
+          "generation_name": "E46",
+          "start_year": 1999
+        },
+        {
+          "description": "3 Series sedan (E90), touring/wagon (E91), coupe (E92), convertible (E93). Turbocharged engines in 335i; 328i/330i with inline-6. Popular for modifications and daily driving.",
+          "end_year": 2011,
+          "generation_name": "E90/E91/E92/E93",
+          "start_year": 2006
+        },
+        {
+          "description": "Complete redesign with turbocharged engines standard. Featured improved fuel economy and technology. More refined while maintaining sporty character.",
+          "end_year": 2018,
+          "generation_name": "F30/F31/F34",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest 3 Series with improved technology and handling. Featured updated turbocharged engines and advanced safety features. More premium positioning.",
+          "end_year": null,
+          "generation_name": "G20/G21",
+          "start_year": 2019
+        }
+      ],
+      "model": "3 Series"
+    },
+    {
+      "generations": [
+        {
+          "description": "First use of the 330i nameplate. The E46 330i introduced the M54B30 2.5L (later 3.0L) inline-6 engine producing 225-231 hp. Widely praised for balance of performance and usability. Popular for exhaust, intakes, suspension, and engine modifications.",
+          "end_year": 2005,
+          "generation_name": "E46",
+          "start_year": 2000
+        },
+        {
+          "description": "330i with N52B30 inline-6 engine producing 255 hp. Available in sedan (E90), touring (E91), coupe (E92), convertible (E93). Popular platform for performance upgrades.",
+          "end_year": 2011,
+          "generation_name": "E90/E91/E92/E93",
+          "start_year": 2006
+        },
+        {
+          "description": "330i with turbocharged N20/N52 inline-4 or inline-6 engines. Complete redesign with improved fuel economy and technology. More refined while maintaining sporty character.",
+          "end_year": 2018,
+          "generation_name": "F30/F31/F34",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest 330i with turbocharged B46/B48 2.0L inline-4 engine producing 255 hp. CLAR platform with improved handling and technology. Available with mild-hybrid (eDrive).",
+          "end_year": null,
+          "generation_name": "G20/G21",
+          "start_year": 2019
+        }
+      ],
+      "model": "330i"
+    },
+    {
+      "generations": [
+        {
+          "description": "M4 coupe and convertible with S55 inline-6 engine producing 425 horsepower. Separated from M3 sedan. Competition variant produced 444 horsepower.",
+          "end_year": 2020,
+          "generation_name": "F82/F83",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest M4 with S58 inline-6 engine producing 473-503 horsepower. Competition and CSL variants available. More aggressive styling and advanced technology.",
+          "end_year": null,
+          "generation_name": "G82/G83",
+          "start_year": 2021
+        }
+      ],
+      "model": "M4"
+    },
+    {
+      "generations": [
+        {
+          "description": "BMW's compact car with rear-wheel drive. Featured efficient engines and good handling. 135i variant with turbocharged inline-6 was a performance model.",
+          "end_year": 2013,
+          "generation_name": "E81/E82/E87/E88",
+          "start_year": 2004
+        },
+        {
+          "description": "Refined 1 Series with front-wheel drive introduced. Featured updated engines and improved technology. M135i variant offered high performance.",
+          "end_year": 2019,
+          "generation_name": "F20/F21",
+          "start_year": 2011
+        },
+        {
+          "description": "Latest 1 Series with front-wheel drive platform. Featured updated engines and improved technology. M135i variant with all-wheel drive available.",
+          "end_year": 2024,
+          "generation_name": "F40",
+          "start_year": 2019
+        }
+      ],
+      "model": "1 Series"
+    },
+    {
+      "generations": [
+        {
+          "description": "BMW's compact coupe and convertible with rear-wheel drive. Featured turbocharged engines and excellent handling. M2 variant was track-focused.",
+          "end_year": 2021,
+          "generation_name": "F22/F23",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest 2 Series coupe with improved technology and handling. Featured updated turbocharged engines. M2 variant continued with high performance.",
+          "end_year": null,
+          "generation_name": "G42",
+          "start_year": 2022
+        }
+      ],
+      "model": "2 Series"
+    },
+    {
+      "generations": [
+        {
+          "description": "E28 5 Series (non-M); 528e, 533i, 535i.",
+          "end_year": 1987,
+          "generation_name": "E28",
+          "start_year": 1981
+        },
+        {
+          "description": "E34 5 Series (non-M); 525i, 530i, 535i, 540i. Touring wagon available.",
+          "end_year": 1996,
+          "generation_name": "E34",
+          "start_year": 1988
+        },
+        {
+          "description": "Widely considered one of the best 5 Series generations. Featured inline-6 and V8 engines. Excellent balance of luxury, performance, and build quality.",
+          "end_year": 2003,
+          "generation_name": "E39",
+          "start_year": 1995
+        },
+        {
+          "description": "Controversial styling with improved technology. Featured updated engines and introduced iDrive. More modern but some preferred previous generation.",
+          "end_year": 2010,
+          "generation_name": "E60/E61",
+          "start_year": 2004
+        },
+        {
+          "description": "More refined design with improved technology. Featured turbocharged engines and better fuel economy. More comfortable and luxurious.",
+          "end_year": 2016,
+          "generation_name": "F10/F11",
+          "start_year": 2011
+        },
+        {
+          "description": "Latest 5 Series with improved technology and handling. Featured updated engines and advanced safety features. More premium and refined.",
+          "end_year": 2024,
+          "generation_name": "G30/G31",
+          "start_year": 2017
+        }
+      ],
+      "model": "5 Series"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation M5. Hand-built with 3.5L inline-6 M88 engine derived from M1. Naturally aspirated, established M5 as the ultimate sport sedan.",
+          "end_year": 1988,
+          "generation_name": "E28",
+          "start_year": 1984
+        },
+        {
+          "description": "Second generation M5 with updated 3.6L and later 3.8L inline-6 engines. Touring (wagon) variant introduced in limited numbers. Refined and more powerful than E28.",
+          "end_year": 1995,
+          "generation_name": "E34",
+          "start_year": 1988
+        },
+        {
+          "description": "Widely considered one of the best M5 generations. Featured S62 V8 engine producing 394 horsepower. Perfect balance of luxury and performance.",
+          "end_year": 2003,
+          "generation_name": "E39",
+          "start_year": 1998
+        },
+        {
+          "description": "M5 with S85 V10 engine producing 500 horsepower. High-revving character and exceptional performance. SMG transmission was controversial.",
+          "end_year": 2010,
+          "generation_name": "E60",
+          "start_year": 2005
+        },
+        {
+          "description": "M5 with S63 twin-turbo V8 engine producing 560 horsepower. Improved torque and fuel economy. Competition variant produced 575 horsepower.",
+          "end_year": 2016,
+          "generation_name": "F10",
+          "start_year": 2011
+        },
+        {
+          "description": "Sixth generation M5 with S63 twin-turbo V8 engine producing 600-617 horsepower. All-wheel drive standard. Competition and CS variants available.",
+          "end_year": 2023,
+          "generation_name": "F90",
+          "start_year": 2018
+        },
+        {
+          "description": "Seventh generation M5 (G90 sedan, G99 Touring). S68 twin-turbo V8 plus electric motor plug-in hybrid producing 717 horsepower combined. xDrive all-wheel drive standard. First M5 Touring in the US market.",
+          "display_name": "G90/G99 M5",
+          "end_year": null,
+          "generation_name": "G90/G99",
+          "start_year": 2024
+        }
+      ],
+      "model": "M5"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance 3 Series variant with B58 turbocharged inline-6 engine producing 320 horsepower. Excellent balance of performance and daily usability.",
+          "end_year": 2018,
+          "generation_name": "F30/F31/F34",
+          "start_year": 2016
+        },
+        {
+          "description": "Latest M340i with updated B58 engine producing 382 horsepower. Improved handling and technology. All-wheel drive available.",
+          "end_year": null,
+          "generation_name": "G20/G21",
+          "start_year": 2019
+        }
+      ],
+      "model": "M340i"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance 3 Series with N54/N55 turbocharged inline-6 engine producing 300-320 horsepower. Popular for tuning potential and performance.",
+          "end_year": 2011,
+          "generation_name": "E90/E91/E92/E93",
+          "start_year": 2006
+        },
+        {
+          "description": "335i with N55 turbocharged inline-6 engine producing 300-320 horsepower. Improved fuel economy and technology. M Performance variants available.",
+          "end_year": 2018,
+          "generation_name": "F30/F31/F34",
+          "start_year": 2012
+        }
+      ],
+      "model": "335i"
+    },
+    {
+      "generations": [
+        {
+          "description": "3 Series with naturally aspirated inline-6 engines producing 230 horsepower. Good balance of performance and fuel economy. Popular daily driver.",
+          "end_year": 2011,
+          "generation_name": "E90/E91/E92/E93",
+          "start_year": 2006
+        },
+        {
+          "description": "328i with N20 turbocharged inline-4 engine producing 240 horsepower. Improved fuel economy and torque. More efficient than previous generation.",
+          "end_year": 2015,
+          "generation_name": "F30/F31/F34",
+          "start_year": 2012
+        }
+      ],
+      "model": "328i"
+    },
+    {
+      "generations": [
+        {
+          "description": "BMW's coupe, convertible, and Gran Coupe. Separated from 3 Series. Featured turbocharged engines and excellent handling. M4 was high-performance variant.",
+          "end_year": 2020,
+          "generation_name": "F32/F33/F36",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest 4 Series with updated styling and technology. Featured updated engines and improved handling. M4 continued as high-performance variant.",
+          "end_year": null,
+          "generation_name": "G22/G23/G26",
+          "start_year": 2021
+        }
+      ],
+      "model": "4 Series"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance 4 Series variant with B58 turbocharged inline-6 engine producing 320-355 horsepower. Excellent balance of performance and luxury.",
+          "end_year": 2020,
+          "generation_name": "F32/F33/F36",
+          "start_year": 2016
+        },
+        {
+          "description": "Latest M440i with updated B58 engine producing 382 horsepower. Improved handling and technology. All-wheel drive available.",
+          "end_year": null,
+          "generation_name": "G22/G23/G26",
+          "start_year": 2021
+        }
+      ],
+      "model": "M440i"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance 2 Series variant with B58 turbocharged inline-6 engine producing 335 horsepower. Excellent handling and driver engagement.",
+          "end_year": 2021,
+          "generation_name": "F22/F23",
+          "start_year": 2016
+        },
+        {
+          "description": "Latest M240i with updated B58 engine producing 382 horsepower. Improved handling and technology. All-wheel drive available.",
+          "end_year": null,
+          "generation_name": "G42",
+          "start_year": 2022
+        }
+      ],
+      "model": "M240i"
+    },
+    {
+      "generations": [
+        {
+          "description": "BMW's compact M car with N55/S55 engines producing 365-405 horsepower. Track-focused with excellent handling. Competition and CS variants available.",
+          "end_year": 2021,
+          "generation_name": "F87",
+          "start_year": 2016
+        },
+        {
+          "description": "Latest M2 with S58 inline-6 engine producing 453 horsepower. More powerful and aggressive styling. Competition variant available.",
+          "end_year": null,
+          "generation_name": "G87",
+          "start_year": 2023
+        }
+      ],
+      "model": "M2"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance 1 Series coupe and convertible with N54/N55 turbocharged inline-6 engine producing 300-320 horsepower. Popular for tuning potential.",
+          "end_year": 2013,
+          "generation_name": "E82/E88",
+          "start_year": 2008
+        },
+        {
+          "description": "M135i with N55 turbocharged inline-6 engine producing 315-320 horsepower. Front-wheel drive platform but still offered good performance.",
+          "end_year": 2019,
+          "generation_name": "F20/F21",
+          "start_year": 2012
+        }
+      ],
+      "model": "135i"
+    },
+    {
+      "generations": [
+        {
+          "description": "BMW's first supercar, developed in collaboration with Lamborghini. Mid-engined with M88/4 inline-6 engine producing 277-280 horsepower. Built for homologation and highly collectible.",
+          "end_year": 1981,
+          "generation_name": "E26",
+          "start_year": 1978
+        }
+      ],
+      "model": "M1"
+    },
+    {
+      "generations": [
+        {
+          "description": "Limited production high-performance 1 Series coupe. Twin-turbo N54 inline-6 producing 335-340 horsepower. Rear-wheel drive, 6-speed manual only. Only ~6,300 units produced globally.",
+          "end_year": 2011,
+          "generation_name": "E82",
+          "start_year": 2011
+        }
+      ],
+      "model": "1M"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation M6 (M635CSi). Featured M88/3 inline-6 engine related to M1, producing 286-340 horsepower depending on market. Naturally aspirated grand tourer.",
+          "end_year": 1989,
+          "generation_name": "E24",
+          "start_year": 1983
+        },
+        {
+          "description": "Second generation M6 with S85 V10 engine shared with E60 M5. High-revving character. Available as coupe (E63) and convertible (E64). Modern return of M6 after long hiatus.",
+          "end_year": 2010,
+          "generation_name": "E63/E64",
+          "start_year": 2005
+        },
+        {
+          "description": "Third generation M6 with S63 twin-turbo V8 engine. Available as coupe (F13), convertible (F12), and Gran Coupe (F06). More power and modern technology. Replaced by M8 in 2019.",
+          "end_year": 2019,
+          "generation_name": "F12/F13/F06",
+          "start_year": 2012
+        }
+      ],
+      "model": "M6"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance 8 Series with S63 twin-turbo V8 engine shared with F90 M5. Available as coupe (F92), convertible (F91), and Gran Coupe (F93). Competition variants available. Replaces M6.",
+          "end_year": null,
+          "generation_name": "F91/F92/F93",
+          "start_year": 2019
+        }
+      ],
+      "model": "M8"
+    },
+    {
+      "generations": [
+        {
+          "description": "M Roadster - high-performance roadster variant of Z3. Featured S50/S52/S54 inline-6 engines depending on market and year. Excellent handling and driver engagement.",
+          "end_year": 2002,
+          "generation_name": "E36/7",
+          "start_year": 1997
+        },
+        {
+          "description": "M Coupe - fixed-roof variant with 'Clown Shoe' body style. More rigid than roadster. Featured S50/S52/S54 inline-6 engines. Highly sought after by enthusiasts.",
+          "end_year": 2002,
+          "generation_name": "E36/8",
+          "start_year": 1998
+        }
+      ],
+      "model": "Z3 M"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Z4 roadster and coupe. Featured inline-6 engines. E85 roadster and E86 coupe. Shared platform with Z4 M.",
+          "end_year": 2008,
+          "generation_name": "E85/E86",
+          "start_year": 2003
+        },
+        {
+          "description": "Second generation Z4 with retractable hardtop. Featured N20/N52/N54 engines. More refined than E85/E86.",
+          "end_year": 2016,
+          "generation_name": "E89",
+          "start_year": 2009
+        },
+        {
+          "description": "Third generation Z4 roadster. Shares B58/S58 engines and platform with Toyota Supra. Popular for B58 tuning and shared aftermarket parts.",
+          "end_year": null,
+          "generation_name": "G29",
+          "start_year": 2019
+        }
+      ],
+      "model": "Z4"
+    },
+    {
+      "generations": [
+        {
+          "description": "Z4 M Roadster (E85) and M Coupe (E86) with S54 inline-6 engine producing 330 horsepower. High-revving naturally aspirated engine. Excellent handling and driver engagement.",
+          "end_year": 2008,
+          "generation_name": "E85/E86",
+          "start_year": 2006
+        }
+      ],
+      "model": "Z4 M"
+    },
+    {
+      "generations": [
+        {
+          "description": "Limited production roadster with aluminum space frame. Featured S62 V8 engine producing 400 horsepower. 6-speed manual transmission. Only ~5,703 units produced. Highly collectible.",
+          "end_year": 2003,
+          "generation_name": "E52",
+          "start_year": 2000
+        }
+      ],
+      "model": "Z8"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation X3 M with S58 twin-turbo inline-6 engine producing 473-503 horsepower. Competition variant standard for 2021+. xDrive all-wheel drive standard.",
+          "end_year": 2024,
+          "generation_name": "F97",
+          "start_year": 2019
+        }
+      ],
+      "model": "X3 M"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation X4 M coupe-SUV with S58 twin-turbo inline-6 engine producing 473-503 horsepower. Shares platform with F97 X3 M. Competition variant standard for 2021+.",
+          "end_year": 2024,
+          "generation_name": "F98",
+          "start_year": 2019
+        }
+      ],
+      "model": "X4 M"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation X5 M with S63 twin-turbo V8 engine producing 547 horsepower. Introduced M performance to SUV segment. All-wheel drive standard.",
+          "end_year": 2013,
+          "generation_name": "E70",
+          "start_year": 2010
+        },
+        {
+          "description": "Second generation X5 M with updated S63 engine producing 575 horsepower. Improved styling and technology. Shares platform with F86 X6 M.",
+          "end_year": 2018,
+          "generation_name": "F85",
+          "start_year": 2015
+        },
+        {
+          "description": "Third generation X5 M with Competition variant producing up to 616 horsepower. 2024 LCI update introduced mild-hybrid S68 V8. Standard X5 M dropped, Competition only.",
+          "end_year": null,
+          "generation_name": "F95",
+          "start_year": 2020
+        }
+      ],
+      "model": "X5 M"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation X6 M with S63 twin-turbo V8 engine producing 547-560 horsepower. Crossover coupe SUV with dramatic styling and strong performance.",
+          "end_year": 2014,
+          "generation_name": "E71",
+          "start_year": 2010
+        },
+        {
+          "description": "Second generation X6 M with S63 engine producing 567 horsepower. Updated styling and technology. Shares platform with F85 X5 M.",
+          "end_year": 2019,
+          "generation_name": "F86",
+          "start_year": 2015
+        },
+        {
+          "description": "Third generation X6 M producing 600-617 horsepower. Competition variants available. 2023 LCI update introduced mild-hybrid S68 V8. Improved power and efficiency.",
+          "end_year": null,
+          "generation_name": "F96",
+          "start_year": 2020
+        }
+      ],
+      "model": "X6 M"
+    },
+    {
+      "generations": [
+        {
+          "description": "First electrified M Original since M1. Plug-in hybrid with V8 + electric motor producing 644 horsepower. Label Red variant produces 738 horsepower, making it the most powerful production BMW M model. Standalone performance SUV.",
+          "end_year": null,
+          "generation_name": "F95",
+          "start_year": 2023
+        }
+      ],
+      "model": "XM"
+    },
+    {
+      "generations": [
+        {
+          "description": "Electric M Performance variant of i4 Gran Coupe. Dual-motor all-wheel drive producing 536 horsepower. 0-60 mph in 3.7 seconds. EPA range 227-269 miles. Features adaptive M suspension and M Sport Brakes.",
+          "end_year": null,
+          "generation_name": "G26",
+          "start_year": 2022
+        }
+      ],
+      "model": "i4 M50"
+    },
+    {
+      "generations": [
+        {
+          "description": "Electric M Performance variant of i5 sedan. Dual-motor xDrive producing 593 horsepower and 586 lb-ft torque. 0-60 mph in 3.7 seconds. EPA range 240-256 miles. 84.3 kWh usable battery.",
+          "end_year": null,
+          "generation_name": "G60",
+          "start_year": 2024
+        }
+      ],
+      "model": "i5 M60"
+    },
+    {
+      "generations": [
+        {
+          "description": "Electric M Performance variant of i7 flagship sedan. Dual-motor all-wheel drive producing 650 horsepower, up to 811 lb-ft torque with M Sport Boost. 0-60 mph in 3.5 seconds. EPA range ~295 miles. 101.7 kWh usable battery.",
+          "end_year": null,
+          "generation_name": "G70",
+          "start_year": 2023
+        }
+      ],
+      "model": "i7 M70"
+    },
+    {
+      "generations": [
+        {
+          "description": "Electric M Performance variant of iX SUV. Dual-motor all-wheel drive producing 610 horsepower and 749 lb-ft torque. 0-60 mph in 3.6 seconds. EPA range ~285 miles. 109.5 kWh battery with fast DC charging.",
+          "end_year": null,
+          "generation_name": "I20",
+          "start_year": 2022
+        }
+      ],
+      "model": "iX M60"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen X1, rear-wheel-drive compact SUV on E9x platform.",
+          "end_year": 2015,
+          "generation_name": "E84",
+          "start_year": 2009
+        },
+        {
+          "description": "Second-gen X1 on UKL FWD-based platform; M35i variant with B48 engine.",
+          "end_year": 2022,
+          "generation_name": "F48",
+          "start_year": 2016
+        },
+        {
+          "description": "Third-gen X1 on FAAR platform; iX1 EV variant.",
+          "end_year": null,
+          "generation_name": "U11",
+          "start_year": 2023
+        }
+      ],
+      "model": "X1"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen X2 on UKL platform; M35i high-performance variant.",
+          "end_year": 2023,
+          "generation_name": "F39",
+          "start_year": 2018
+        }
+      ],
+      "model": "X2"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen X3 on E46 3-Series platform.",
+          "end_year": 2010,
+          "generation_name": "E83",
+          "start_year": 2003
+        },
+        {
+          "description": "Second-gen X3; N20/N52/N55 engines.",
+          "end_year": 2017,
+          "generation_name": "F25",
+          "start_year": 2011
+        },
+        {
+          "description": "Third-gen X3 on CLAR platform; M40i variant with B58 engine.",
+          "end_year": 2024,
+          "generation_name": "G01",
+          "start_year": 2018
+        }
+      ],
+      "model": "X3"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen X4 on X3 F25 platform.",
+          "end_year": 2018,
+          "generation_name": "F26",
+          "start_year": 2015
+        },
+        {
+          "description": "Second-gen X4 on CLAR; M40i variant with B58 engine.",
+          "end_year": 2024,
+          "generation_name": "G02",
+          "start_year": 2019
+        }
+      ],
+      "model": "X4"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen X5; V8 and inline-6 engines.",
+          "end_year": 2006,
+          "generation_name": "E53",
+          "start_year": 2000
+        },
+        {
+          "description": "Second-gen X5 (non-M); includes 35d diesel and 50i V8 variants.",
+          "end_year": 2013,
+          "generation_name": "E70",
+          "start_year": 2007
+        },
+        {
+          "description": "Third-gen X5; xDrive35i/35d/50i and M50d.",
+          "end_year": 2018,
+          "generation_name": "F15",
+          "start_year": 2014
+        },
+        {
+          "description": "Fourth-gen X5 on CLAR; M60i with S68 V8.",
+          "end_year": null,
+          "generation_name": "G05",
+          "start_year": 2019
+        }
+      ],
+      "model": "X5"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen X6 (non-M); shared E70 platform.",
+          "end_year": 2014,
+          "generation_name": "E71",
+          "start_year": 2008
+        },
+        {
+          "description": "Second-gen X6 on F15 platform.",
+          "end_year": 2019,
+          "generation_name": "F16",
+          "start_year": 2015
+        },
+        {
+          "description": "Third-gen X6 on CLAR; M60i variant.",
+          "end_year": null,
+          "generation_name": "G06",
+          "start_year": 2020
+        }
+      ],
+      "model": "X6"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen X7; three-row SUV flagship. M60i and Alpina XB7 variants.",
+          "end_year": null,
+          "generation_name": "G07",
+          "start_year": 2019
+        }
+      ],
+      "model": "X7"
+    },
+    {
+      "generations": [
+        {
+          "description": "Four-door coupe on UKL FWD-based platform; M235i xDrive variant.",
+          "end_year": 2024,
+          "generation_name": "F44",
+          "start_year": 2020
+        }
+      ],
+      "model": "2 Series Gran Coupe"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen 6-Series grand tourer; 630CSi, 633CSi, 635CSi, L6 (non-M).",
+          "end_year": 1989,
+          "generation_name": "E24",
+          "start_year": 1976
+        },
+        {
+          "description": "Second-gen 6-Series coupe (E63) / convertible (E64); 645Ci, 650i.",
+          "end_year": 2010,
+          "generation_name": "E63/E64",
+          "start_year": 2004
+        },
+        {
+          "description": "Third-gen 6-Series convertible (F12), coupe (F13), Gran Coupe (F06); 640i, 650i.",
+          "end_year": 2019,
+          "generation_name": "F12/F13/F06",
+          "start_year": 2011
+        }
+      ],
+      "model": "6 Series"
+    },
+    {
+      "generations": [
+        {
+          "description": "6-Series Gran Turismo five-door fastback; replaced 5-Series GT.",
+          "end_year": 2024,
+          "generation_name": "G32",
+          "start_year": 2018
+        }
+      ],
+      "model": "6 Series GT"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen 7 Series; 733i, 735i, 745i Euro turbocharged.",
+          "end_year": 1987,
+          "generation_name": "E23",
+          "start_year": 1977
+        },
+        {
+          "description": "Second-gen 7 Series; M30 straight-6 and M70 V12 (750iL).",
+          "end_year": 1994,
+          "generation_name": "E32",
+          "start_year": 1988
+        },
+        {
+          "description": "Third-gen 7 Series; 740i, 740iL, 750iL V12.",
+          "end_year": 2001,
+          "generation_name": "E38",
+          "start_year": 1995
+        },
+        {
+          "description": "Fourth-gen 7 Series; 745i/745Li, 750i/750Li, 760Li V12. First iDrive.",
+          "end_year": 2008,
+          "generation_name": "E65/E66",
+          "start_year": 2002
+        },
+        {
+          "description": "Fifth-gen 7 Series; twin-turbo N54/N55/N63 engines.",
+          "end_year": 2015,
+          "generation_name": "F01/F02",
+          "start_year": 2009
+        },
+        {
+          "description": "Sixth-gen 7 Series on CLAR; M760i V12 available.",
+          "end_year": 2022,
+          "generation_name": "G11/G12",
+          "start_year": 2016
+        },
+        {
+          "description": "Seventh-gen 7 Series (non-M70; non-i7 variants).",
+          "end_year": null,
+          "generation_name": "G70",
+          "start_year": 2023
+        }
+      ],
+      "model": "7 Series"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen 8 Series grand tourer; 840Ci, 850i, 850Ci, 850CSi V12.",
+          "end_year": 1999,
+          "generation_name": "E31",
+          "start_year": 1990
+        },
+        {
+          "description": "Second-gen 8 Series; convertible (G14), coupe (G15), Gran Coupe (G16). 840i, M850i.",
+          "end_year": null,
+          "generation_name": "G14/G15/G16",
+          "start_year": 2019
+        }
+      ],
+      "model": "8 Series"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-gen i3 electric compact on LifeDrive CFRP chassis; range-extender variant available.",
+          "end_year": 2022,
+          "generation_name": "I01",
+          "start_year": 2013
+        }
+      ],
+      "model": "i3"
+    },
+    {
+      "generations": [
+        {
+          "description": "Electric Gran Coupe; eDrive35, eDrive40, xDrive40 variants (M50 is separate model).",
+          "end_year": null,
+          "generation_name": "G26",
+          "start_year": 2022
+        }
+      ],
+      "model": "i4"
+    },
+    {
+      "generations": [
+        {
+          "description": "Electric 5-Series; eDrive40 and xDrive40 (M60 is separate model).",
+          "end_year": null,
+          "generation_name": "G60",
+          "start_year": 2024
+        }
+      ],
+      "model": "i5"
+    },
+    {
+      "generations": [
+        {
+          "description": "Electric 7-Series; xDrive60 (M70 is separate model).",
+          "end_year": null,
+          "generation_name": "G70",
+          "start_year": 2023
+        }
+      ],
+      "model": "i7"
+    },
+    {
+      "generations": [
+        {
+          "description": "Z3 roadster (E36/7) / coupe (E36/8). 1.9L-3.0L I6. Base Z3 (Z3 M seeded separately).",
+          "end_year": 2002,
+          "generation_name": "E36/7 E36/8",
+          "start_year": 1996
+        }
+      ],
+      "model": "Z3"
+    }
+  ]
+}

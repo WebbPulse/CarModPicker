@@ -1,0 +1,21 @@
+{
+  "Holden": [
+    {
+      "generations": [
+        {
+          "description": "Zeta. SS: LS2/LS3 V8. Basis for Pontiac G8 (2008-2009).",
+          "end_year": 2013,
+          "generation_name": "VE",
+          "start_year": 2006
+        },
+        {
+          "description": "Zeta refined. SS: LS3 V8 415 hp. Basis for Chevy SS 2014-17. HSV GTS: LSA 577 hp.",
+          "end_year": 2017,
+          "generation_name": "VF",
+          "start_year": 2013
+        }
+      ],
+      "model": "Commodore"
+    }
+  ]
+}

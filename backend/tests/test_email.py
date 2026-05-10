@@ -1,0 +1,358 @@
+"""Tests for email sending functionality."""
+
+import os
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+os.environ["ENABLE_RATE_LIMITING"] = "false"
+
+from app.core.email import (  # noqa: E402
+    _render_archive_rescrape_result_html,
+    _render_crawler_failure_samples,
+    _render_crawler_result_html,
+    send_reset_password_email,
+    send_verify_email,
+)
+
+
+class TestEmailService:
+    """Test cases for the SES-based email service."""
+
+    @patch("app.core.email.settings")
+    @patch("app.core.email.boto3.client")
+    def test_send_verify_email_success(self, mock_boto_client: MagicMock, mock_settings: MagicMock) -> None:
+        """send_verify_email returns True and calls SES send_email on success."""
+        mock_settings.EMAIL_ENABLED = True
+        mock_settings.EMAIL_FROM = "noreply@example.com"
+        mock_settings.AWS_REGION = "us-east-1"
+        mock_ses = MagicMock()
+        mock_boto_client.return_value = mock_ses
+
+        result = send_verify_email("user@example.com", "https://example.com/verify?token=abc")
+
+        assert result is True
+        mock_ses.send_email.assert_called_once()
+        call_kwargs = mock_ses.send_email.call_args[1]
+        assert call_kwargs["Destination"] == {"ToAddresses": ["user@example.com"]}
+        assert "https://example.com/verify?token=abc" in call_kwargs["Content"]["Simple"]["Body"]["Html"]["Data"]
+
+    @patch("app.core.email.settings")
+    @patch("app.core.email.boto3.client")
+    def test_send_reset_password_email_success(self, mock_boto_client: MagicMock, mock_settings: MagicMock) -> None:
+        """send_reset_password_email returns True and calls SES send_email on success."""
+        mock_settings.EMAIL_ENABLED = True
+        mock_settings.EMAIL_FROM = "noreply@example.com"
+        mock_settings.AWS_REGION = "us-east-1"
+        mock_ses = MagicMock()
+        mock_boto_client.return_value = mock_ses
+
+        result = send_reset_password_email("user@example.com", "https://example.com/reset?token=xyz")
+
+        assert result is True
+        mock_ses.send_email.assert_called_once()
+        call_kwargs = mock_ses.send_email.call_args[1]
+        assert call_kwargs["Destination"] == {"ToAddresses": ["user@example.com"]}
+        assert "https://example.com/reset?token=xyz" in call_kwargs["Content"]["Simple"]["Body"]["Html"]["Data"]
+
+    @patch("app.core.email.boto3.client")
+    def test_send_verify_email_ses_error(self, mock_boto_client: MagicMock) -> None:
+        """send_verify_email returns False when SES raises an error."""
+        from botocore.exceptions import ClientError
+
+        mock_ses = MagicMock()
+        mock_ses.send_email.side_effect = ClientError(
+            {"Error": {"Code": "MessageRejected", "Message": "Email address not verified"}},
+            "SendEmail",
+        )
+        mock_boto_client.return_value = mock_ses
+
+        result = send_verify_email("unverified@example.com", "https://example.com/verify")
+
+        assert result is False
+
+    @patch("app.core.email.boto3.client")
+    def test_send_reset_password_email_ses_error(self, mock_boto_client: MagicMock) -> None:
+        """send_reset_password_email returns False when SES raises an error."""
+        from botocore.exceptions import BotoCoreError
+
+        mock_ses = MagicMock()
+        mock_ses.send_email.side_effect = BotoCoreError()
+        mock_boto_client.return_value = mock_ses
+
+        result = send_reset_password_email("user@example.com", "https://example.com/reset")
+
+        assert result is False
+
+    def test_verify_email_template_contains_placeholder(self) -> None:
+        """Rendered verify_email.html template file contains the placeholder token."""
+        from app.core.email import _TEMPLATES_DIR
+
+        html = (_TEMPLATES_DIR / "verify_email.html").read_text()
+        assert "{{VERIFY_EMAIL_LINK}}" in html
+
+    def test_reset_password_template_contains_placeholder(self) -> None:
+        """Rendered reset_password.html template file contains the placeholder token."""
+        from app.core.email import _TEMPLATES_DIR
+
+        html = (_TEMPLATES_DIR / "reset_password.html").read_text()
+        assert "{{RESET_PASSWORD_LINK}}" in html
+
+    @patch("app.core.email.settings")
+    @patch("app.core.email.boto3.client")
+    def test_config_set_name_passed_to_ses(self, mock_boto_client: MagicMock, mock_settings: MagicMock) -> None:
+        """SES calls include the carmodpicker-transactional configuration set."""
+        mock_settings.EMAIL_ENABLED = True
+        mock_settings.EMAIL_FROM = "noreply@example.com"
+        mock_settings.AWS_REGION = "us-east-1"
+        mock_ses = MagicMock()
+        mock_boto_client.return_value = mock_ses
+
+        send_verify_email("user@example.com", "https://example.com/verify")
+
+        call_kwargs = mock_ses.send_email.call_args[1]
+        assert call_kwargs["ConfigurationSetName"] == "carmodpicker-transactional"
+
+
+class TestJobReportRendering:
+    """Verify the job report renderers surface parse failures and skips."""
+
+    def test_archive_rescrape_report_shows_each_failure_with_reason(self) -> None:
+        summary = {
+            "parsed_ok": 5,
+            "parse_failed": 1,
+            "ingest_failed": 1,
+            "skipped_no_adapter": 0,
+            "skipped_no_html": 1,
+            "failures": [
+                {
+                    "url": "https://example.com/parse-fail",
+                    "source": "example",
+                    "outcome": "parse_failed",
+                    "error": "Parser 'example' returned no payload",
+                },
+                {
+                    "url": "https://example.com/ingest-fail",
+                    "source": "example",
+                    "outcome": "ingest_failed",
+                    "error": "DB constraint violation on parts.sku",
+                },
+                {
+                    "url": "https://example.com/missing-html",
+                    "source": "example",
+                    "outcome": "skipped_no_html",
+                    "error": "No archived HTML available (S3 key missing or unreadable)",
+                },
+            ],
+            "failures_total": 3,
+            "failures_truncated": False,
+        }
+
+        html = _render_archive_rescrape_result_html(summary)
+
+        for url in (
+            "https://example.com/parse-fail",
+            "https://example.com/ingest-fail",
+            "https://example.com/missing-html",
+        ):
+            assert url in html
+        assert "parse_failed" in html
+        assert "ingest_failed" in html
+        assert "skipped_no_html" in html
+        assert "DB constraint violation" in html
+
+    def test_archive_rescrape_report_honours_truncation_flag(self) -> None:
+        summary = {
+            "parsed_ok": 0,
+            "parse_failed": 0,
+            "ingest_failed": 0,
+            "skipped_no_adapter": 0,
+            "skipped_no_html": 500,
+            "failures": [{"url": f"https://example.com/p/{i}", "outcome": "skipped_no_html"} for i in range(200)],
+            "failures_total": 500,
+            "failures_truncated": True,
+        }
+
+        html = _render_archive_rescrape_result_html(summary)
+
+        assert "500" in html
+        assert "worker capped" in html
+
+    def test_crawler_report_surfaces_per_adapter_error_urls_and_parse_misses(self) -> None:
+        summary = {
+            "summary": {"total_ingested": 0, "total_skipped": 2, "total_errors": 1},
+            "results": [
+                {
+                    "adapter": "broken-store",
+                    "ingested": 0,
+                    "total": 3,
+                    "skipped": 2,
+                    "skipped_robots": 0,
+                    "skipped_not_product": 2,
+                    "skipped_gone": 0,
+                    "errors": 1,
+                    "http_errors": {"503": 1},
+                    "error_urls": [
+                        {
+                            "url": "https://broken-store.com/part/abc",
+                            "status": 503,
+                            "bucket": "503",
+                            "error": "upstream 503",
+                        },
+                    ],
+                    "error_urls_truncated": False,
+                    "parse_miss_urls": [
+                        {"url": "https://broken-store.com/category/alloy"},
+                        {"url": "https://broken-store.com/category/tires"},
+                    ],
+                    "parse_miss_urls_truncated": False,
+                }
+            ],
+            "failed": [],
+        }
+
+        html = _render_crawler_result_html(summary)
+
+        assert "broken-store" in html
+        assert "https://broken-store.com/part/abc" in html
+        assert "upstream 503" in html
+        assert "https://broken-store.com/category/alloy" in html
+        assert "Parse misses" in html
+        assert "Errors" in html
+
+    def test_crawler_failure_samples_silent_for_healthy_adapters(self) -> None:
+        """An adapter with zero errors/misses produces no details block."""
+        html = _render_crawler_failure_samples(
+            [
+                {
+                    "adapter": "healthy",
+                    "ingested": 100,
+                    "errors": 0,
+                    "skipped_not_product": 0,
+                    "error_urls": [],
+                    "parse_miss_urls": [],
+                }
+            ]
+        )
+        assert html == ""
+
+
+# ---------------------------------------------------------------------------
+# CRAWL-07 (Plan 03-03): ParseFailures block in the per-adapter email row.
+# ---------------------------------------------------------------------------
+
+
+def test_crawler_parse_failures_block_renders() -> None:
+    """When parse_failures > 0 and sample_failure_urls is non-empty, the renderer
+    emits a 'ParseFailures: N / total' line and includes every sample URL."""
+    summary = {
+        "summary": {"total_ingested": 7, "total_skipped": 3, "total_errors": 0},
+        "results": [
+            {
+                "adapter": "test_adapter",
+                "ingested": 7,
+                "skipped": 3,
+                "skipped_robots": 0,
+                "skipped_not_product": 3,
+                "skipped_gone": 0,
+                "errors": 0,
+                "total": 10,
+                "http_errors": {},
+                "error_urls": [],
+                "error_urls_truncated": False,
+                "parse_miss_urls": [],
+                "parse_miss_urls_truncated": False,
+                "parse_failures": 3,
+                "sample_failure_urls": [
+                    "https://ex.com/p1",
+                    "https://ex.com/p2",
+                    "https://ex.com/p3",
+                ],
+                "rate_limit_bailout": False,
+                "rate_limit_bailout_after": 0,
+                "health_skipped": False,
+                "health_reason": None,
+                "health_status_code": None,
+                "elapsed_seconds": 4.2,
+            }
+        ],
+        "failed": [],
+    }
+    html = _render_crawler_result_html(summary)
+    assert "ParseFailures:" in html
+    assert "3 / 10" in html
+    for url in summary["results"][0]["sample_failure_urls"]:
+        assert url in html
+
+
+def test_crawler_parse_failures_block_omitted_when_empty() -> None:
+    """parse_failures == 0 → no ParseFailures block emitted (silent for healthy adapters)."""
+    summary = {
+        "summary": {"total_ingested": 5, "total_skipped": 0, "total_errors": 0},
+        "results": [
+            {
+                "adapter": "a",
+                "ingested": 5,
+                "skipped": 0,
+                "skipped_robots": 0,
+                "skipped_not_product": 0,
+                "skipped_gone": 0,
+                "errors": 0,
+                "total": 5,
+                "http_errors": {},
+                "error_urls": [],
+                "error_urls_truncated": False,
+                "parse_miss_urls": [],
+                "parse_miss_urls_truncated": False,
+                "parse_failures": 0,
+                "sample_failure_urls": [],
+                "rate_limit_bailout": False,
+                "rate_limit_bailout_after": 0,
+                "health_skipped": False,
+                "health_reason": None,
+                "health_status_code": None,
+                "elapsed_seconds": 1.0,
+            }
+        ],
+        "failed": [],
+    }
+    html = _render_crawler_result_html(summary)
+    assert "ParseFailures:" not in html
+
+
+def test_crawler_parse_failures_url_truncation() -> None:
+    """URLs >160 chars are truncated (Pitfall PR-01): ellipsis appears, full URL does not."""
+    long_url = "https://ex.com/" + ("q" * 300)
+    summary = {
+        "summary": {"total_ingested": 0, "total_skipped": 1, "total_errors": 0},
+        "results": [
+            {
+                "adapter": "a",
+                "ingested": 0,
+                "skipped": 1,
+                "skipped_robots": 0,
+                "skipped_not_product": 1,
+                "skipped_gone": 0,
+                "errors": 0,
+                "total": 1,
+                "http_errors": {},
+                "error_urls": [],
+                "error_urls_truncated": False,
+                "parse_miss_urls": [],
+                "parse_miss_urls_truncated": False,
+                "parse_failures": 1,
+                "sample_failure_urls": [long_url],
+                "rate_limit_bailout": False,
+                "rate_limit_bailout_after": 0,
+                "health_skipped": False,
+                "health_reason": None,
+                "health_status_code": None,
+                "elapsed_seconds": 0.1,
+            }
+        ],
+        "failed": [],
+    }
+    html = _render_crawler_result_html(summary)
+    assert "…" in html  # ellipsis marker from truncation
+    # Full 300-char URL NOT present verbatim.
+    assert long_url not in html

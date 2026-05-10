@@ -1,0 +1,37 @@
+{
+  "Datsun": [
+    {
+      "generations": [
+        {
+          "description": "L24 I6.",
+          "end_year": 1973,
+          "generation_name": "S30",
+          "start_year": 1969
+        }
+      ],
+      "model": "240Z"
+    },
+    {
+      "generations": [
+        {
+          "description": "L26/L28.",
+          "end_year": 1978,
+          "generation_name": "S30",
+          "start_year": 1974
+        }
+      ],
+      "model": "260Z"
+    },
+    {
+      "generations": [
+        {
+          "description": "L28E fuel-injected.",
+          "end_year": 1978,
+          "generation_name": "S30",
+          "start_year": 1975
+        }
+      ],
+      "model": "280Z"
+    }
+  ]
+}

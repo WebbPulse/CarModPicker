@@ -1,0 +1,193 @@
+"""OBS-04 regression guard — every log record during a request scope MUST have
+non-default request_id + user_id. Fails CI if a future dev adds a handler that
+drops RequestContextFilter coverage or uses print() instead of logger.
+
+Decision refs: 02-CONTEXT.md D-44 (audit, not redesign), D-45 (regression guard),
+D-46 (bg_log_context), D-47 (CLI context), D-48 (sqlalchemy propagation).
+
+Landmine: pytest caplog does NOT inherit root-logger filters — the
+`caplog_with_context` fixture (conftest.py) attaches RequestContextFilter
+to caplog.handler so records carry request_id + user_id attributes.
+Without this fixture, every assertion below AttributeErrors.
+"""
+
+from __future__ import annotations
+
+import logging
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.api.models.user import User
+from app.core.log_context import (
+    bg_log_context,
+    request_id_var,
+    user_id_var,
+)
+from tests.conftest import login_user
+
+# Loggers that emit OUTSIDE the request middleware scope in TestClient context
+# (TestClient's own httpx/asyncio machinery fires before middleware sets
+# ContextVars, and python_multipart runs during form parsing before the
+# middleware adds user context).  These are infrastructure, not app code;
+# OBS-04 cares about OUR log output, not TestClient plumbing.  In production
+# (uvicorn + real HTTP) these loggers also run outside request scope and are
+# not subject to the OBS-04 invariant.
+_OUT_OF_SCOPE_LOGGERS = (
+    "asyncio",
+    "httpx",
+    "httpcore",
+    "python_multipart",
+    "urllib3",
+)
+
+
+def _in_request_scope(rec: logging.LogRecord) -> bool:
+    """True if the record comes from code that should be inside a request scope."""
+    return not any(rec.name == n or rec.name.startswith(f"{n}.") for n in _OUT_OF_SCOPE_LOGGERS)
+
+
+def test_log_propagation_request_scope(
+    client: TestClient,
+    test_user: User,
+    caplog_with_context,
+) -> None:
+    """Every in-scope log record during an authenticated request has non-default
+    request_id + user_id.  We inject a dependency override on get_current_user
+    that calls the original dependency (so user_id_var.set runs) and THEN emits
+    an app-logger record from inside the request scope.  This proves:
+
+      * request_context_middleware populated request_id_var (per-request UUID)
+      * get_current_user populated user_id_var (authenticated user UUID)
+      * RequestContextFilter wired both ContextVars into the LogRecord
+
+    "In-scope" = records emitted by application code (not TestClient plumbing).
+    """
+    from fastapi import Depends
+    from sqlalchemy.orm import Session
+
+    from app.api.dependencies.auth import get_current_user, oauth2_scheme
+    from app.db.session import get_db
+    from app.main import app as fastapi_app
+
+    emitted_request_ids: list[str] = []
+    emitted_user_ids: list[str] = []
+
+    # Override with a FastAPI-compatible signature so Depends() introspection works.
+    async def logging_current_user(
+        token: str = Depends(oauth2_scheme),
+        db: Session = Depends(get_db),
+    ) -> User:
+        result = await get_current_user(token=token, db=db)  # type: ignore[arg-type]
+        test_logger = logging.getLogger("app.tests.log_propagation")
+        test_logger.info("post-auth request scope log emit")
+        emitted_request_ids.append(request_id_var.get())
+        emitted_user_ids.append(user_id_var.get())
+        return result
+
+    # Perform login OUTSIDE caplog capture so login's pre-auth records don't
+    # pollute the authenticated-request assertion.
+    token = login_user(client, test_user.username)
+
+    caplog_with_context.set_level(logging.DEBUG)
+    caplog_with_context.clear()
+
+    fastapi_app.dependency_overrides[get_current_user] = logging_current_user
+    try:
+        response = client.get(
+            "/api/users/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    finally:
+        fastapi_app.dependency_overrides.pop(get_current_user, None)
+    assert response.status_code == 200, response.text
+
+    # ContextVars observed inside the override were populated.
+    assert len(emitted_request_ids) == 1, "override did not run exactly once"
+    assert emitted_request_ids[0] != "-", "request_id_var not set inside request scope"
+    assert emitted_user_ids[0] != "-", "user_id_var not set after get_current_user ran"
+
+    # In-scope log records captured by caplog carry both context fields.
+    in_scope = [r for r in caplog_with_context.records if _in_request_scope(r)]
+    assert len(in_scope) > 0, "no in-scope log records captured during request"
+    for rec in in_scope:
+        assert getattr(rec, "request_id", "-") != "-", f"missing request_id on '{rec.getMessage()}' (logger={rec.name})"
+        assert getattr(rec, "user_id", "-") != "-", f"missing user_id on '{rec.getMessage()}' (logger={rec.name})"
+
+
+def test_bg_log_context(caplog_with_context) -> None:
+    """bg_log_context sets request_id=bg:{task}:{job} + user_id=bg."""
+    caplog_with_context.set_level(logging.DEBUG)
+    logger = logging.getLogger("app.test.bg")
+    with bg_log_context("crawler", "job-1"):
+        logger.info("running bg task")
+    matches = [r for r in caplog_with_context.records if "running bg task" in r.getMessage()]
+    assert len(matches) == 1
+    rec = matches[0]
+    assert rec.request_id == "bg:crawler:job-1"
+    assert rec.user_id == "bg"
+
+
+def test_bg_log_context_job_id_none(caplog_with_context) -> None:
+    """bg_log_context with no job_id renders 'bg:{task}:-'."""
+    caplog_with_context.set_level(logging.DEBUG)
+    logger = logging.getLogger("app.test.bg")
+    with bg_log_context("sweep"):
+        logger.info("sweep running")
+    rec = next(r for r in caplog_with_context.records if "sweep running" in r.getMessage())
+    assert rec.request_id == "bg:sweep:-"
+
+
+def test_bg_log_context_resets(caplog_with_context) -> None:
+    """Token-based reset leaves ContextVars at default after exit."""
+    with bg_log_context("scope", "1"):
+        assert request_id_var.get() == "bg:scope:1"
+    assert request_id_var.get() == "-"
+    assert user_id_var.get() == "-"
+
+
+def test_cli_log_context(caplog_with_context) -> None:
+    """CLI scope produces request_id=cli:<pid>, user_id=cli."""
+    caplog_with_context.set_level(logging.DEBUG)
+    logger = logging.getLogger("app.test.cli")
+    rid_token = request_id_var.set("cli:12345")
+    uid_token = user_id_var.set("cli")
+    try:
+        logger.info("cli startup")
+    finally:
+        request_id_var.reset(rid_token)
+        user_id_var.reset(uid_token)
+    rec = next(r for r in caplog_with_context.records if "cli startup" in r.getMessage())
+    assert rec.request_id == "cli:12345"
+    assert rec.user_id == "cli"
+
+
+def test_log_propagation_sqlalchemy(
+    client: TestClient,
+    test_user: User,
+    caplog_with_context,
+) -> None:
+    """SQL query log records during a request carry the request's request_id
+    (D-48: third-party loggers propagate via root logger filter)."""
+    # Login OUTSIDE the capture window so only authenticated-request records
+    # are evaluated.
+    token = login_user(client, test_user.username)
+
+    sa_logger = logging.getLogger("sqlalchemy.engine")
+    prior_level = sa_logger.level
+    sa_logger.setLevel(logging.INFO)
+    caplog_with_context.set_level(logging.INFO)
+    caplog_with_context.clear()
+    try:
+        resp = client.get(
+            "/api/users/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+    finally:
+        sa_logger.setLevel(prior_level)
+    sa_records = [r for r in caplog_with_context.records if r.name.startswith("sqlalchemy")]
+    if not sa_records:
+        pytest.skip("sqlalchemy did not emit INFO log records in test env")
+    for rec in sa_records:
+        assert getattr(rec, "request_id", "-") != "-", f"sqlalchemy log missing request_id: {rec.getMessage()}"

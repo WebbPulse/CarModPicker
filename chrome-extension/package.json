@@ -1,0 +1,29 @@
+{
+  "name": "carmodpicker-chrome-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for CarModPicker part scraping",
+  "type": "module",
+  "scripts": {
+    "build": "NODE_ENV=production vite build && node scripts/inline-content.js",
+    "build:dev": "vite build && node scripts/inline-content.js",
+    "watch": "vite build --watch",
+    "dev": "vite build --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.7",
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^25.1.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react-swc": "^3.9.0",
+    "canvas": "^3.2.1",
+    "sharp": "^0.34.5",
+    "typescript": "~5.8.3",
+    "vite": "^6.4.2"
+  }
+}

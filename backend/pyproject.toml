@@ -1,0 +1,81 @@
+[tool.black]
+line-length = 120
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  # alembic migrations: exclude so format-on-save and CI use same result (avoid Black version drift)
+  | alembic/versions
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 120
+known_first_party = ["app"]
+known_third_party = ["fastapi", "sqlalchemy", "pydantic", "pytest"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+exclude = [
+    "alembic/.*",
+    "venv/.*",
+    "__pycache__/.*",
+    "\\.pytest_cache/.*",
+    "\\.mypy_cache/.*",
+    "../scripts/.*"
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "fastapi.*",
+    "sqlalchemy.*",
+    "alembic.*",
+    "pytest.*",
+    "httpx.*",
+    "bcrypt.*",
+    "jose.*"
+]
+ignore_missing_imports = true
+
+[tool.bandit]
+# Bandit security scanner configuration
+# This complements the .bandit file for IDE integration
+
+# Exclude directories from scanning
+exclude_dirs = [
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    "alembic/versions"
+]
+
+# Skip certain test IDs that are false positives
+# B404: subprocess import - We use subprocess safely for migrations (marked with # nosec)
+# B603: subprocess call - We use hardcoded commands, not user input (marked with # nosec)
+# B607: partial path - We use pip-installed executables (alembic) (marked with # nosec)
+skips = ["B404", "B603", "B607"]

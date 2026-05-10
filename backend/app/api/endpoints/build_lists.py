@@ -1,0 +1,886 @@
+"""
+Refactored build lists endpoint using common patterns to eliminate redundancy.
+
+This endpoint now uses standardized patterns for pagination, error handling,
+and response documentation while maintaining build list-specific functionality.
+"""
+
+import logging
+from typing import Any, Dict, List, Optional, cast
+from uuid import UUID
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy import func, select
+
+from app.api.dependencies.auth import get_current_user, get_optional_current_user
+from app.api.models.build_list import BuildList as DBBuildList
+from app.api.models.build_list_labor_estimate import BuildListLaborEstimate as DBBuildListLaborEstimate
+from app.api.models.build_list_part import BuildListPart as DBBuildListPart
+from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
+from app.api.models.car_generation import CarGeneration as DBCar
+from app.api.models.part_listing import PartListing as DBPartListing
+from app.api.models.user import User as DBUser
+from app.api.models.vote import Vote as DBVote
+from app.api.schemas.build_list import (
+    MAX_IMAGES_PER_BUILDLIST,
+    BuildListAppendImages,
+    BuildListCreate,
+    BuildListRead,
+    BuildListReadWithVotes,
+    BuildListSetPrimaryImageRequest,
+    BuildListUpdate,
+)
+from app.api.schemas.build_list_labor_estimate import (
+    BuildListLaborEstimateCreate,
+    BuildListLaborEstimateRead,
+)
+from app.api.schemas.build_list_phase import BuildListPhaseCreate, BuildListPhaseRead
+from app.api.services.build_list_service import BuildListService
+from app.api.utils.base_endpoint_router import BaseEndpointRouter
+from app.api.utils.common_operations import verify_entity_exists
+from app.api.utils.common_patterns import (
+    PublicEndpointDeps,
+    apply_standard_filters,
+    get_entity_or_404,
+    get_standard_public_endpoint_dependencies,
+    validate_pagination_params,
+    verify_user_access_or_admin,
+)
+from app.api.utils.endpoint_decorators import (
+    pagination_responses,
+    standard_responses,
+)
+from app.api.utils.pagination_utils import create_paginated_response
+
+# Create router
+router = APIRouter()
+
+# Create service
+build_list_service = BuildListService()
+
+# Create base endpoint router
+# Disable the base GET endpoint since we have a custom one that allows read access for all authenticated users
+base_router = BaseEndpointRouter(
+    service=build_list_service,
+    router=router,
+    entity_name="build list",
+    allow_public_read=False,  # Build lists are private
+    additional_create_data={},  # No additional data needed
+    create_schema=BuildListCreate,
+    read_schema=BuildListRead,
+    update_schema=BuildListUpdate,
+    search_fields=["name", "description"],
+    disable_endpoints=["get"],  # Disable base GET endpoint, use custom one below
+)
+
+
+# Register custom endpoints BEFORE BaseEndpointRouter to ensure proper route precedence
+# (More specific routes like /with-votes must be registered before generic routes like /{entity_id})
+
+
+@router.get(
+    "/with-votes",
+    response_model=Dict[str, Any],
+    responses=pagination_responses("build list", allow_public_read=True),
+)
+async def read_build_lists_with_votes(
+    skip: int = Query(0, ge=0, description="Number of build lists to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
+    search: Optional[str] = Query(None, description="Search in build list names and descriptions"),
+    car_id: Optional[UUID] = Query(None, description="Filter by car ID (single generation)"),
+    car_ids: Optional[List[UUID]] = Query(
+        None, description="Filter by car IDs (e.g. all generations for a make or model)"
+    ),
+    owner_id: Optional[UUID] = Query(None, description="Filter by owner (user) ID"),
+    min_cost_cents: Optional[int] = Query(None, ge=0, description="Minimum total build list cost (cents)"),
+    max_cost_cents: Optional[int] = Query(None, ge=0, description="Maximum total build list cost (cents)"),
+    sort: Optional[str] = Query(
+        None,
+        description="Sort order: votes (default), votes_asc, price_asc, price_desc",
+    ),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+) -> Dict[str, Any]:
+    """Get all build lists with vote data and optional filtering and search."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    skip, limit = validate_pagination_params(skip=skip, limit=limit)
+
+    # Subquery: best price (min last_known_price_cents) per part
+    min_prices = (
+        select(
+            DBPartListing.part_id,
+            func.min(DBPartListing.last_known_price_cents).label("min_price"),
+        )
+        .where(DBPartListing.last_known_price_cents.isnot(None))
+        .group_by(DBPartListing.part_id)
+        .subquery()
+    )
+    # Subquery: parts cost per build list (sum of quantity * best_price per part)
+    parts_cost_subq = (
+        select(
+            DBBuildListPart.build_list_id,
+            func.sum(DBBuildListPart.quantity * func.coalesce(min_prices.c.min_price, 0)).label("parts_cost_cents"),
+        )
+        .outerjoin(min_prices, DBBuildListPart.part_id == min_prices.c.part_id)
+        .group_by(DBBuildListPart.build_list_id)
+        .subquery()
+    )
+
+    # Subquery: labor cost per build list
+    labor_cost_subq = (
+        select(
+            DBBuildListLaborEstimate.build_list_id,
+            func.sum(DBBuildListLaborEstimate.cost_cents).label("labor_cost_cents"),
+        )
+        .group_by(DBBuildListLaborEstimate.build_list_id)
+        .subquery()
+    )
+
+    # Subquery: combined total (base + parts + labor) per build list, used for sorting/filtering
+    # This UNION-style approach keeps the logic in one column the existing joins reference.
+    total_cost_subq = (
+        select(
+            DBBuildList.id.label("build_list_id"),
+            (
+                func.coalesce(DBBuildList.base_price_cents, 0)
+                + func.coalesce(parts_cost_subq.c.parts_cost_cents, 0)
+                + func.coalesce(labor_cost_subq.c.labor_cost_cents, 0)
+            ).label("total_cost_cents"),
+        )
+        .select_from(DBBuildList)
+        .outerjoin(parts_cost_subq, DBBuildList.id == parts_cost_subq.c.build_list_id)
+        .outerjoin(labor_cost_subq, DBBuildList.id == labor_cost_subq.c.build_list_id)
+        .subquery()
+    )
+
+    # Create subquery for upvote counts
+    upvote_counts = (
+        select(
+            DBVote.entity_id,
+            func.count(DBVote.id).label("upvote_count"),
+        )
+        .where(
+            DBVote.entity_type == "build_list",
+            DBVote.vote_type == "upvote",
+        )
+        .group_by(DBVote.entity_id)
+        .subquery()
+    )
+
+    # Create subquery for downvote counts
+    downvote_counts = (
+        select(
+            DBVote.entity_id,
+            func.count(DBVote.id).label("downvote_count"),
+        )
+        .where(
+            DBVote.entity_type == "build_list",
+            DBVote.vote_type == "downvote",
+        )
+        .group_by(DBVote.entity_id)
+        .subquery()
+    )
+
+    # IN-01: single helper for the /with-votes filter stack so the count-select
+    # and the main result-select cannot drift apart. Both selects must apply
+    # identical predicates — otherwise `total` and the paginated page would be
+    # taken from different populations.
+    def _apply_build_list_filters(stmt_: Any) -> Any:
+        stmt_ = apply_standard_filters(
+            query=stmt_,
+            search=search,
+            category_id=None,  # Build lists don't have categories
+            search_fields=["name", "description"],
+        )
+        # Car filter: car_ids (make/model) takes precedence over single car_id
+        if car_ids:
+            stmt_ = stmt_.where(DBBuildList.car_id.in_(car_ids))
+        elif car_id is not None:
+            stmt_ = stmt_.where(DBBuildList.car_id == car_id)
+        if owner_id is not None:
+            stmt_ = stmt_.where(DBBuildList.user_id == owner_id)
+        if min_cost_cents is not None:
+            stmt_ = stmt_.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) >= min_cost_cents)
+        if max_cost_cents is not None:
+            stmt_ = stmt_.where(func.coalesce(total_cost_subq.c.total_cost_cents, 0) <= max_cost_cents)
+        return stmt_
+
+    # Build base select for counting; join total_cost for cost filtering
+    base_stmt = select(DBBuildList).outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
+    base_stmt = _apply_build_list_filters(base_stmt)
+
+    # Get total count from base select
+    total = db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
+
+    # Build main select with LEFT JOINs to vote count and total cost for sorting and retrieval
+    stmt = (
+        select(DBBuildList)
+        .outerjoin(upvote_counts, DBBuildList.id == upvote_counts.c.entity_id)
+        .outerjoin(downvote_counts, DBBuildList.id == downvote_counts.c.entity_id)
+        .outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
+    )
+
+    # Apply the same filters via the shared helper
+    stmt = _apply_build_list_filters(stmt)
+
+    # Sort: votes (default), votes_asc, price_asc, price_desc
+    order_by_total_cost = func.coalesce(total_cost_subq.c.total_cost_cents, 0)
+    order_by_votes = func.coalesce(upvote_counts.c.upvote_count, 0) - func.coalesce(downvote_counts.c.downvote_count, 0)
+    if sort == "price_asc":
+        stmt = stmt.order_by(order_by_total_cost.asc(), DBBuildList.id.asc())
+    elif sort == "price_desc":
+        stmt = stmt.order_by(order_by_total_cost.desc(), DBBuildList.id.desc())
+    elif sort == "votes_asc":
+        stmt = stmt.order_by(order_by_votes.asc(), DBBuildList.id.asc())
+    else:
+        # votes (default): net votes descending, then id
+        stmt = stmt.order_by(order_by_votes.desc(), DBBuildList.id.desc())
+
+    # Get paginated IDs first so we can re-order the final fetch deterministically.
+    id_stmt = stmt.with_only_columns(DBBuildList.id).order_by(None)
+    # Reapply the same sort criteria to the id-only select
+    if sort == "price_asc":
+        id_stmt = id_stmt.order_by(order_by_total_cost.asc(), DBBuildList.id.asc())
+    elif sort == "price_desc":
+        id_stmt = id_stmt.order_by(order_by_total_cost.desc(), DBBuildList.id.desc())
+    elif sort == "votes_asc":
+        id_stmt = id_stmt.order_by(order_by_votes.asc(), DBBuildList.id.asc())
+    else:
+        id_stmt = id_stmt.order_by(order_by_votes.desc(), DBBuildList.id.desc())
+    ordered_ids = list(db.scalars(id_stmt.offset(skip).limit(limit)).all())
+
+    if not ordered_ids:
+        build_lists = []
+    else:
+        # Fetch full objects; apply same sort for consistent ordering
+        if sort == "price_asc":
+            build_lists_stmt = (
+                select(DBBuildList)
+                .where(DBBuildList.id.in_(ordered_ids))
+                .outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
+                .order_by(
+                    func.coalesce(total_cost_subq.c.total_cost_cents, 0).asc(),
+                    DBBuildList.id.asc(),
+                )
+            )
+        elif sort == "price_desc":
+            build_lists_stmt = (
+                select(DBBuildList)
+                .where(DBBuildList.id.in_(ordered_ids))
+                .outerjoin(total_cost_subq, DBBuildList.id == total_cost_subq.c.build_list_id)
+                .order_by(
+                    func.coalesce(total_cost_subq.c.total_cost_cents, 0).desc(),
+                    DBBuildList.id.desc(),
+                )
+            )
+        elif sort == "votes_asc":
+            build_lists_stmt = (
+                select(DBBuildList)
+                .where(DBBuildList.id.in_(ordered_ids))
+                .outerjoin(upvote_counts, DBBuildList.id == upvote_counts.c.entity_id)
+                .outerjoin(downvote_counts, DBBuildList.id == downvote_counts.c.entity_id)
+                .order_by(order_by_votes.asc(), DBBuildList.id.asc())
+            )
+        else:
+            build_lists_stmt = (
+                select(DBBuildList)
+                .where(DBBuildList.id.in_(ordered_ids))
+                .outerjoin(upvote_counts, DBBuildList.id == upvote_counts.c.entity_id)
+                .outerjoin(downvote_counts, DBBuildList.id == downvote_counts.c.entity_id)
+                .order_by(order_by_votes.desc(), DBBuildList.id.desc())
+            )
+        build_lists = list(db.scalars(build_lists_stmt).all())
+        # Reorder to match the original order (in case the second query changes it)
+        build_lists_dict = {bl.id: bl for bl in build_lists}
+        build_lists = [build_lists_dict[bl_id] for bl_id in ordered_ids if bl_id in build_lists_dict]
+    logger.info(f"Retrieved {len(build_lists)} build lists (skip: {skip}, limit: {limit})")
+
+    if not build_lists:
+        # Return empty response
+        return create_paginated_response(data=[], total=total, skip=skip, limit=limit, entity_name="build lists")
+
+    # Get build list IDs
+    build_list_ids = [bl.id for bl in build_lists]
+
+    # Get total_cost_cents per build list (from same subquery logic)
+    cost_rows = db.execute(
+        select(
+            total_cost_subq.c.build_list_id,
+            total_cost_subq.c.total_cost_cents,
+        ).where(total_cost_subq.c.build_list_id.in_(build_list_ids))
+    ).all()
+    total_cost_cents_dict: Dict[UUID, Optional[int]] = {}
+    for row in cost_rows:
+        total_cost_cents_dict[row.build_list_id] = (
+            int(row.total_cost_cents) if row.total_cost_cents is not None else None
+        )
+
+    # Pull parts/labor breakdowns separately so the response can show the split.
+    parts_cost_dict: Dict[UUID, Optional[int]] = {}
+    parts_rows = db.execute(
+        select(parts_cost_subq.c.build_list_id, parts_cost_subq.c.parts_cost_cents).where(
+            parts_cost_subq.c.build_list_id.in_(build_list_ids)
+        )
+    ).all()
+    for row in parts_rows:
+        parts_cost_dict[row.build_list_id] = int(row.parts_cost_cents) if row.parts_cost_cents is not None else None
+
+    labor_cost_dict: Dict[UUID, Optional[int]] = {}
+    labor_rows = db.execute(
+        select(labor_cost_subq.c.build_list_id, labor_cost_subq.c.labor_cost_cents).where(
+            labor_cost_subq.c.build_list_id.in_(build_list_ids)
+        )
+    ).all()
+    for row in labor_rows:
+        labor_cost_dict[row.build_list_id] = int(row.labor_cost_cents) if row.labor_cost_cents is not None else None
+
+    # Build vote count dictionaries
+    vote_counts = db.execute(
+        select(
+            DBVote.entity_id,
+            DBVote.vote_type,
+            func.count(DBVote.id).label("count"),
+        )
+        .where(
+            DBVote.entity_type == "build_list",
+            DBVote.entity_id.in_(build_list_ids),
+        )
+        .group_by(DBVote.entity_id, DBVote.vote_type)
+    ).all()
+
+    # Build vote count dictionaries
+    upvotes_dict: Dict[UUID, int] = {}
+    downvotes_dict: Dict[UUID, int] = {}
+    for entity_id, vote_type, count in vote_counts:
+        if vote_type == "upvote":
+            upvotes_dict[entity_id] = count
+        elif vote_type == "downvote":
+            downvotes_dict[entity_id] = count
+
+    # Bulk fetch user votes if user is authenticated
+    user_votes_dict: Dict[UUID, str] = {}
+    if current_user:
+        user_votes = db.execute(
+            select(DBVote.entity_id, DBVote.vote_type).where(
+                DBVote.entity_type == "build_list",
+                DBVote.entity_id.in_(build_list_ids),
+                DBVote.user_id == current_user.id,
+            )
+        ).all()
+        user_votes_dict = {entity_id: vote_type for entity_id, vote_type in user_votes}
+
+    # Convert build lists to schema with vote data and total cost
+    build_lists_data: List[BuildListReadWithVotes] = []
+    for build_list in build_lists:
+        build_list_dict = BuildListRead.model_validate(build_list).model_dump()
+        build_list_dict["upvotes"] = upvotes_dict.get(build_list.id, 0)
+        build_list_dict["downvotes"] = downvotes_dict.get(build_list.id, 0)
+        build_list_dict["total_votes"] = build_list_dict["upvotes"] + build_list_dict["downvotes"]
+        build_list_dict["user_vote"] = user_votes_dict.get(build_list.id, None)
+        build_list_dict["total_cost_cents"] = total_cost_cents_dict.get(build_list.id)
+        build_list_dict["total_parts_cost_cents"] = parts_cost_dict.get(build_list.id)
+        build_list_dict["total_labor_cost_cents"] = labor_cost_dict.get(build_list.id)
+        build_list_with_votes = BuildListReadWithVotes(**build_list_dict)
+        build_lists_data.append(build_list_with_votes)
+
+    # Return paginated response
+    return create_paginated_response(
+        data=cast(List[Any], build_lists_data), total=total, skip=skip, limit=limit, entity_name="build lists"
+    )
+
+
+# Override the GET endpoint to allow public read access
+# (but keep update/delete restricted to owners)
+@router.get(
+    "/{build_list_id}",
+    response_model=BuildListRead,
+    responses={
+        200: {"description": "Build list retrieved successfully"},
+        404: {"description": "Build list not found"},
+    },
+)
+async def read_build_list(
+    build_list_id: UUID,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+) -> BuildListRead:
+    """
+    Retrieve a build list by ID.
+    Public read access - anyone can view build lists.
+    Only owners can edit or delete.
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+
+    # Allow public read access - just verify it exists
+    build_list = verify_entity_exists(db, DBBuildList, build_list_id, "build list")
+
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
+    logger.info(f"{user_info} retrieved build list {build_list_id}")
+    return BuildListRead.model_validate(build_list)
+
+
+@router.get(
+    "/{build_list_id}/phases",
+    response_model=List[BuildListPhaseRead],
+    responses=standard_responses(
+        success_description="Build list phases retrieved successfully",
+        not_found=True,
+    ),
+)
+async def list_build_list_phases(
+    build_list_id: UUID,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+) -> List[BuildListPhaseRead]:
+    """List phases for a build list. Public read access."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    phases = list(
+        db.scalars(
+            select(DBBuildListPhase)
+            .where(DBBuildListPhase.build_list_id == build_list_id)
+            .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
+        ).all()
+    )
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
+    logger.info(f"{user_info}: Retrieved {len(phases)} phases for build list {build_list_id}")
+    return [BuildListPhaseRead.model_validate(p) for p in phases]
+
+
+@router.post(
+    "/{build_list_id}/phases",
+    response_model=BuildListPhaseRead,
+    responses=standard_responses(
+        success_description="Build list phase created successfully",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def create_build_list_phase(
+    build_list_id: UUID,
+    body: BuildListPhaseCreate,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListPhaseRead:
+    """Create a phase for a build list. Only build list owner or admin."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+
+    # Next sort_order: max + 1
+    max_order = db.scalar(
+        select(func.coalesce(func.max(DBBuildListPhase.sort_order), -1)).where(
+            DBBuildListPhase.build_list_id == build_list_id
+        )
+    )
+    sort_order = (max_order + 1) if max_order is not None else 0
+
+    db_phase = DBBuildListPhase(
+        build_list_id=build_list_id,
+        name=body.name,
+        sort_order=body.sort_order if body.sort_order != 0 else sort_order,
+    )
+    db.add(db_phase)
+    db.commit()
+    db.refresh(db_phase)
+
+    logger.info(f"User {current_user.id} created phase {db_phase.id} for build list {build_list_id}")
+    return BuildListPhaseRead.model_validate(db_phase)
+
+
+@router.get(
+    "/{build_list_id}/labor-estimates",
+    response_model=List[BuildListLaborEstimateRead],
+    responses=standard_responses(
+        success_description="Build list labor estimates retrieved successfully",
+        not_found=True,
+    ),
+)
+async def list_build_list_labor_estimates(
+    build_list_id: UUID,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+) -> List[BuildListLaborEstimateRead]:
+    """List labor estimates for a build list. Public read access."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    estimates = list(
+        db.scalars(
+            select(DBBuildListLaborEstimate)
+            .where(DBBuildListLaborEstimate.build_list_id == build_list_id)
+            .order_by(DBBuildListLaborEstimate.sort_order, DBBuildListLaborEstimate.id)
+        ).all()
+    )
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
+    logger.info(f"{user_info}: Retrieved {len(estimates)} labor estimates for build list {build_list_id}")
+    return [BuildListLaborEstimateRead.model_validate(e) for e in estimates]
+
+
+@router.post(
+    "/{build_list_id}/labor-estimates",
+    response_model=BuildListLaborEstimateRead,
+    responses=standard_responses(
+        success_description="Build list labor estimate created successfully",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def create_build_list_labor_estimate(
+    build_list_id: UUID,
+    body: BuildListLaborEstimateCreate,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListLaborEstimateRead:
+    """Create a labor estimate for a build list. Only build list owner or admin."""
+    db = deps["db"]
+    logger = deps["logger"]
+
+    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+
+    if body.build_list_phase_id is not None:
+        phase = db.get(DBBuildListPhase, body.build_list_phase_id)
+        if phase is None or phase.build_list_id != build_list_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phase does not belong to this build list",
+            )
+
+    # Next sort_order: max + 1 (mirrors phase auto-numbering)
+    max_order = db.scalar(
+        select(func.coalesce(func.max(DBBuildListLaborEstimate.sort_order), -1)).where(
+            DBBuildListLaborEstimate.build_list_id == build_list_id
+        )
+    )
+    sort_order = (max_order + 1) if max_order is not None else 0
+
+    db_estimate = DBBuildListLaborEstimate(
+        build_list_id=build_list_id,
+        build_list_phase_id=body.build_list_phase_id,
+        name=body.name,
+        description=body.description,
+        cost_cents=body.cost_cents,
+        sort_order=body.sort_order if body.sort_order != 0 else sort_order,
+    )
+    db.add(db_estimate)
+    db.commit()
+    db.refresh(db_estimate)
+
+    logger.info(f"User {current_user.id} created labor estimate {db_estimate.id} for build list {build_list_id}")
+    return BuildListLaborEstimateRead.model_validate(db_estimate)
+
+
+# Add custom endpoints specific to build lists
+@router.get(
+    "/car/{car_id}",
+    response_model=Dict[str, Any],
+    responses=pagination_responses("build list", allow_public_read=True),
+)
+async def read_build_lists_by_car(
+    car_id: UUID,
+    skip: int = Query(0, ge=0, description="Number of build lists to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
+    search: Optional[str] = Query(None, description="Search in build list names and descriptions"),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+) -> Dict[str, Any]:
+    """
+    Retrieve all build lists associated with a specific car with pagination.
+    Public read access - anyone can view build lists for any car.
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+
+    skip, limit = validate_pagination_params(skip=skip, limit=limit)
+
+    # Verify the car exists (cars are now centrally managed, no ownership check needed)
+    get_entity_or_404(db, DBCar, car_id, "car")
+
+    # Build base select with search filter
+    base_stmt = select(DBBuildList).where(DBBuildList.car_id == car_id)
+    base_stmt = apply_standard_filters(
+        query=base_stmt,
+        search=search,
+        category_id=None,  # Build lists don't have categories
+        search_fields=["name", "description"],
+    )
+
+    # Get total count
+    total = db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
+
+    # Get paginated results
+    build_lists = list(db.scalars(base_stmt.offset(skip).limit(limit)).all())
+    user_info = f"User {current_user.id}" if current_user else "Anonymous user"
+    if not build_lists:
+        logger.info(f"{user_info}: No Build Lists found for car with id {car_id}")
+    else:
+        logger.info(msg=f"{user_info}: Build Lists retrieved for car {car_id}: {build_lists}")
+
+    build_lists_data = [BuildListRead.model_validate(build_list) for build_list in build_lists]
+    return create_paginated_response(
+        data=build_lists_data, total=total, skip=skip, limit=limit, entity_name="build lists"
+    )
+
+
+@router.get(
+    "/user/me",
+    response_model=Dict[str, Any],
+    responses=pagination_responses("build list", allow_public_read=False),
+)
+async def read_my_build_lists(
+    skip: int = Query(0, ge=0, description="Number of build lists to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Retrieve all build lists owned by the current user with pagination.
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+
+    skip, limit = validate_pagination_params(skip=skip, limit=limit)
+
+    # Get total count
+    total = db.scalar(select(func.count()).select_from(DBBuildList).where(DBBuildList.user_id == current_user.id)) or 0
+
+    # Get paginated results
+    build_lists = list(
+        db.scalars(select(DBBuildList).where(DBBuildList.user_id == current_user.id).offset(skip).limit(limit)).all()
+    )
+    if not build_lists:
+        logger.info(f"No Build Lists found for user with id {current_user.id}")
+    else:
+        logger.info(msg=f"Build Lists retrieved for user {current_user.id}: {build_lists}")
+
+    build_lists_data = [BuildListRead.model_validate(build_list) for build_list in build_lists]
+    return create_paginated_response(
+        data=build_lists_data, total=total, skip=skip, limit=limit, entity_name="build lists"
+    )
+
+
+@router.get(
+    "/user/{user_id}",
+    response_model=List[BuildListRead],
+    responses=pagination_responses("build list", allow_public_read=True),
+)
+async def read_build_lists_by_user(
+    user_id: UUID,
+    skip: int = Query(0, ge=0, description="Number of build lists to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of build lists to return"),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+) -> List[BuildListRead]:
+    """
+    Retrieve all build lists owned by a specific user.
+    Public endpoint - build lists are discoverable via search and catalog, so listing by user is allowed for profile pages.
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+
+    skip, limit = validate_pagination_params(skip=skip, limit=limit)
+
+    build_lists = list(
+        db.scalars(select(DBBuildList).where(DBBuildList.user_id == user_id).offset(skip).limit(limit)).all()
+    )
+    if not build_lists:
+        logger.info(f"No Build Lists found for user with id {user_id}")
+    else:
+        logger.info(msg=f"Build Lists retrieved for user {user_id}: {build_lists}")
+    return [BuildListRead.model_validate(build_list) for build_list in build_lists]
+
+
+# Add count endpoint
+base_router.add_count_endpoint()
+
+
+# Schema for copy build list request
+class CopyBuildListRequest(BaseModel):
+    """Request model for copying a build list."""
+
+    new_name: Optional[str] = None
+
+
+@router.post(
+    "/{build_list_id}/copy",
+    response_model=BuildListRead,
+    responses=standard_responses(
+        success_description="Build list copied successfully",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def copy_build_list(
+    build_list_id: UUID,
+    request: CopyBuildListRequest = Body(default=CopyBuildListRequest()),
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListRead:
+    """
+    Copy a build list and all its parts.
+    Creates a new build list owned by the current user with all parts from the original.
+    All authenticated users can copy any build list.
+    """
+    db = deps["db"]
+    logger = deps["logger"]
+
+    # Verify the build list exists (any authenticated user can copy any build list)
+    verify_entity_exists(db, DBBuildList, build_list_id, "build list")
+
+    # Copy the build list
+    new_build_list = build_list_service.copy_build_list(
+        db=db,
+        build_list_id=build_list_id,
+        current_user=current_user,
+        logger=logger,
+        new_name=request.new_name,
+    )
+
+    logger.info(f"User {current_user.id} copied build list {build_list_id} to {new_build_list.id}")
+    return BuildListRead.model_validate(new_build_list)
+
+
+# Image management endpoints (mirror parts.py pattern).
+# Build list owner or admin only.
+
+
+def _get_build_list_image_file_keys(build_list: DBBuildList) -> List[str]:
+    """Return ordered list of image file keys. First entry is the primary/display image."""
+    return list(build_list.image_urls or [])
+
+
+@router.post(
+    "/{build_list_id}/append-images",
+    response_model=BuildListRead,
+    responses=standard_responses(
+        success_description="Images appended to build list",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def append_images_to_build_list(
+    build_list_id: UUID,
+    data: BuildListAppendImages,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListRead:
+    """Append image file keys to a build list's gallery."""
+    db = deps["db"]
+    logger = deps["logger"]
+    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
+
+    existing = list(build_list.image_urls or [])
+    if len(existing) >= MAX_IMAGES_PER_BUILDLIST:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Build list already has the maximum number of images ({MAX_IMAGES_PER_BUILDLIST}).",
+        )
+
+    seen = set(existing)
+    for fk in data.file_keys:
+        if fk and fk not in seen and len(existing) < MAX_IMAGES_PER_BUILDLIST:
+            existing.append(fk)
+            seen.add(fk)
+
+    build_list.image_urls = existing[:MAX_IMAGES_PER_BUILDLIST]
+    db.commit()
+    db.refresh(build_list)
+    return BuildListRead.model_validate(build_list)
+
+
+@router.delete(
+    "/{build_list_id}/images/{image_index}",
+    response_model=BuildListRead,
+    responses=standard_responses(
+        success_description="Image removed from build list",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def remove_image_from_build_list(
+    build_list_id: UUID,
+    image_index: int,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListRead:
+    """Remove the image at the given index from the build list's gallery."""
+    from app.api.services.storage_service import storage_service
+    from app.api.utils.image_utils import is_file_key
+
+    db = deps["db"]
+    logger = deps["logger"]
+    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
+
+    file_keys = _get_build_list_image_file_keys(build_list)
+    if image_index < 0 or image_index >= len(file_keys):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image index {image_index}. Build list has {len(file_keys)} image(s).",
+        )
+
+    removed_key = file_keys[image_index]
+    new_keys = [fk for i, fk in enumerate(file_keys) if i != image_index]
+
+    build_list.image_urls = new_keys if new_keys else None
+
+    if removed_key and is_file_key(removed_key):
+        try:
+            storage_service.delete_image(removed_key)
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                "Failed to delete image from storage for build list %s: %s",
+                build_list_id,
+                e,
+            )
+
+    db.commit()
+    db.refresh(build_list)
+    return BuildListRead.model_validate(build_list)
+
+
+@router.patch(
+    "/{build_list_id}/primary-image",
+    response_model=BuildListRead,
+    responses=standard_responses(
+        success_description="Primary image updated",
+        not_found=True,
+        forbidden=True,
+    ),
+)
+async def set_primary_image_for_build_list(
+    build_list_id: UUID,
+    data: BuildListSetPrimaryImageRequest,
+    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    current_user: DBUser = Depends(get_current_user),
+) -> BuildListRead:
+    """Set the image at the given index as the primary (display) image."""
+    db = deps["db"]
+    logger = deps["logger"]
+    build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
+
+    file_keys = _get_build_list_image_file_keys(build_list)
+    if data.index < 0 or data.index >= len(file_keys):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image index {data.index}. Build list has {len(file_keys)} image(s).",
+        )
+
+    primary_key = file_keys[data.index]
+    new_order = [primary_key] + [fk for i, fk in enumerate(file_keys) if i != data.index]
+    build_list.image_urls = new_order
+    db.commit()
+    db.refresh(build_list)
+    return BuildListRead.model_validate(build_list)

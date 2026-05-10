@@ -1,0 +1,82 @@
+{
+  "Plymouth": [
+    {
+      "generations": [
+        {
+          "description": "First-generation Plymouth Barracuda on the A-body platform. Often referred to as the 'fish-bowl' fastback. Slant-six and 273 V8 power.",
+          "end_year": 1966,
+          "generation_name": "1st Gen",
+          "start_year": 1964
+        },
+        {
+          "description": "Second-generation Barracuda on the redesigned A-body. Notchback, fastback, and convertible body styles. 273/340/383 V8 options including the Formula S package.",
+          "end_year": 1969,
+          "generation_name": "2nd Gen",
+          "start_year": 1967
+        },
+        {
+          "description": "Third-generation Barracuda on the E-body platform shared with Dodge Challenger. Big-block era including 340, 383, 440, and 426 Hemi 'Cuda variants. Iconic American muscle car. Final MY 1974.",
+          "end_year": 1974,
+          "generation_name": "E-body",
+          "start_year": 1970
+        }
+      ],
+      "model": "Barracuda"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth Belvedere mid-size sedan/coupe/wagon on the B-body platform. Donor for the original GTX performance variant. Final MY 1970 before consolidation under Satellite/Road Runner naming.",
+          "end_year": 1970,
+          "generation_name": "B-body",
+          "start_year": 1962
+        }
+      ],
+      "model": "Belvedere"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth GTX performance variant of the Belvedere/Satellite. 440 Super Commando and 426 Hemi V8 options. 'Gentleman's muscle car' positioning. Final MY 1971.",
+          "end_year": 1971,
+          "generation_name": "B-body",
+          "start_year": 1967
+        }
+      ],
+      "model": "GTX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth Road Runner muscle coupe on the B-body platform. Cartoon-themed budget muscle car with 383 / 440 / 426 Hemi options. Iconic in muscle car era. Continued on later platforms until final MY 1980.",
+          "end_year": 1975,
+          "generation_name": "B-body",
+          "start_year": 1968
+        }
+      ],
+      "model": "Road Runner"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth Duster compact coupe on the A-body platform. Slant-six standard, 340/360 V8 in 340/Twister/Feather Duster variants. Final MY 1976 before nameplate retirement.",
+          "end_year": 1976,
+          "generation_name": "A-body",
+          "start_year": 1970
+        }
+      ],
+      "model": "Duster"
+    },
+    {
+      "generations": [
+        {
+          "description": "Plymouth Laser - badge-engineered Mitsubishi Eclipse / Eagle Talon DSM coupe (1G). 4G63T turbo all-wheel-drive variants are popular in the DSM tuning community. Final MY 1994.",
+          "end_year": 1994,
+          "generation_name": "1G",
+          "start_year": 1990
+        }
+      ],
+      "model": "Laser"
+    }
+  ]
+}

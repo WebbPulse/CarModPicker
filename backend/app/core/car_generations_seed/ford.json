@@ -1,0 +1,417 @@
+{
+  "Ford": [
+    {
+      "generations": [
+        {
+          "description": "The original Mustang that created the pony car segment. Featured V8 engines and iconic styling. Fastback, coupe, and convertible variants. Established Mustang as an American icon.",
+          "end_year": 1973,
+          "generation_name": "1st Gen",
+          "start_year": 1964
+        },
+        {
+          "description": "Smaller Mustang II due to fuel crisis. Featured smaller engines and compact design. Less powerful but maintained Mustang nameplate during challenging times.",
+          "end_year": 1978,
+          "generation_name": "2nd Gen",
+          "start_year": 1974
+        },
+        {
+          "description": "Fox platform Mustang with improved performance. Featured V8 engines and became popular in drag racing. SVO turbocharged variant and 5.0L V8 became legendary.",
+          "end_year": 1993,
+          "generation_name": "3rd Gen",
+          "start_year": 1979
+        },
+        {
+          "description": "SN95 platform with retro-inspired styling. Featured modular V8 engines and improved handling. SVT Cobra and Terminator variants were high-performance models.",
+          "end_year": 2004,
+          "generation_name": "4th Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Retro-modern design honoring original Mustang. Featured updated V8 engines and improved technology. Shelby GT500 with supercharged V8 produced 500+ horsepower.",
+          "end_year": 2014,
+          "generation_name": "5th Gen",
+          "start_year": 2005
+        },
+        {
+          "description": "Complete redesign with independent rear suspension. Featured EcoBoost turbo and V8 engines. GT350 and GT500 variants were track-focused. Improved handling and technology.",
+          "end_year": 2023,
+          "generation_name": "6th Gen",
+          "start_year": 2015
+        },
+        {
+          "description": "Latest generation with updated styling and technology. Featured updated engines and improved performance. Dark Horse variant introduced. Continues Mustang legacy.",
+          "end_year": null,
+          "generation_name": "7th Gen",
+          "start_year": 2024
+        }
+      ],
+      "model": "Mustang"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ford's compact car with European design. Featured efficient engines and good handling. SVT Focus variant offered sporty performance in North America.",
+          "end_year": 2004,
+          "generation_name": "Mk1",
+          "start_year": 1998
+        },
+        {
+          "description": "Refined design with improved technology. Featured updated engines and continued Focus's reputation for handling and value.",
+          "end_year": 2011,
+          "generation_name": "Mk2",
+          "start_year": 2005
+        },
+        {
+          "description": "Complete redesign with improved fuel economy. Featured EcoBoost engines and improved technology. ST and RS variants offered high-performance options.",
+          "end_year": 2018,
+          "generation_name": "Mk3",
+          "start_year": 2012
+        }
+      ],
+      "model": "Focus"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ford's subcompact car with European design. Featured efficient engines and good handling. Popular for its value and fuel economy.",
+          "end_year": 2012,
+          "generation_name": "Mk6",
+          "start_year": 2008
+        },
+        {
+          "description": "Refined design with improved technology. Featured EcoBoost engines and improved fuel economy. ST variant offered sporty performance.",
+          "end_year": 2019,
+          "generation_name": "Mk7",
+          "start_year": 2013
+        }
+      ],
+      "model": "Fiesta"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance Focus with turbocharged engine and all-wheel drive. Produced 300+ horsepower. European hot hatch legend, not sold in US.",
+          "end_year": 2011,
+          "generation_name": "Mk2",
+          "start_year": 2009
+        },
+        {
+          "description": "First RS sold in US market. Featured 2.3L EcoBoost engine producing 350 horsepower and advanced all-wheel drive. Drift mode feature. Highly sought after.",
+          "end_year": 2018,
+          "generation_name": "Mk3",
+          "start_year": 2016
+        }
+      ],
+      "model": "Focus RS"
+    },
+    {
+      "generations": [
+        {
+          "description": "Hot hatch variant with 1.6L EcoBoost engine producing 197 horsepower. Excellent handling and driver engagement. Popular among enthusiasts for its fun-to-drive character.",
+          "end_year": 2019,
+          "generation_name": "Mk7",
+          "start_year": 2014
+        }
+      ],
+      "model": "Fiesta ST"
+    },
+    {
+      "generations": [
+        {
+          "description": "Modern supercar inspired by GT40. Featured mid-engine layout with 5.4L supercharged V8 producing 550 horsepower. Carbon fiber body, advanced aerodynamics. Limited production American supercar.",
+          "end_year": 2006,
+          "generation_name": "1st Gen",
+          "start_year": 2005
+        },
+        {
+          "description": "Second generation supercar with advanced carbon fiber construction. Featured 3.5L twin-turbo EcoBoost V6 producing 647 horsepower. Race-derived aerodynamics and technology. Limited production, highly sought after.",
+          "end_year": 2022,
+          "generation_name": "2nd Gen",
+          "start_year": 2017
+        }
+      ],
+      "model": "GT"
+    },
+    {
+      "generations": [
+        {
+          "description": "Original off-road SUV that created the segment. Featured removable doors and top, V8 engines, and legendary off-road capability. Iconic American 4x4 that competed with Jeep CJ.",
+          "end_year": 1977,
+          "generation_name": "1st Gen",
+          "start_year": 1966
+        },
+        {
+          "description": "Refined design with improved comfort. Featured updated styling and continued off-road capability. Maintained Bronco's reputation as capable off-roader.",
+          "end_year": 1979,
+          "generation_name": "2nd Gen",
+          "start_year": 1978
+        },
+        {
+          "description": "Larger design with improved interior space. Featured V6 and V8 engines. Continued Bronco's off-road heritage with improved on-road comfort.",
+          "end_year": 1986,
+          "generation_name": "3rd Gen",
+          "start_year": 1980
+        },
+        {
+          "description": "Aerodynamic redesign with improved fuel economy. Featured updated engines and technology. Last generation before full-size SUV transition.",
+          "end_year": 1991,
+          "generation_name": "4th Gen",
+          "start_year": 1987
+        },
+        {
+          "description": "Full-size SUV based on F-Series platform. Featured V8 engines and improved towing capacity. Last generation before discontinuation.",
+          "end_year": 1996,
+          "generation_name": "5th Gen",
+          "start_year": 1992
+        },
+        {
+          "description": "Bronco revival with modern off-road technology. Featured 2.3L EcoBoost and 2.7L twin-turbo V6 engines. Removable doors and top, advanced 4x4 systems. Raptor variant with 418 horsepower. Highly anticipated return of iconic off-roader.",
+          "end_year": null,
+          "generation_name": "6th Gen",
+          "start_year": 2021
+        }
+      ],
+      "model": "Bronco"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ford's best-selling truck. Featured inline-6 and V8 engine options with OHV pushrod design. Last generation before the introduction of the triton modular V8. Popular for towing, hauling, and mild performance modifications.",
+          "end_year": 1996,
+          "generation_name": "9th Gen",
+          "start_year": 1992
+        },
+        {
+          "description": "Redesigned F-150 introducing the Triton modular V8 (4.6L and 5.4L). New body-on-frame platform. Lightning and Harley-Davidson editions available. America's best-selling truck. Strong aftermarket for exhaust, intakes, superchargers, and suspension.",
+          "end_year": 2003,
+          "generation_name": "10th Gen",
+          "start_year": 1997
+        },
+        {
+          "description": "New 'Super Duty-inspired' styling with improved interior. 5.4L Triton V8 as top engine. FX4 off-road package. SVT Lightning discontinued. Popular platform for performance upgrades including supercharger kits, exhaust, and suspension.",
+          "end_year": 2008,
+          "generation_name": "11th Gen",
+          "start_year": 2004
+        },
+        {
+          "description": "Refined design with better fuel economy. Introduced the 3.5L twin-turbo EcoBoost V6 (2011+) as a high-output option. 5.0L Coyote V8 introduced in 2011. Growing aftermarket for EcoBoost performance, intercoolers, tunes, and downpipes.",
+          "end_year": 2014,
+          "generation_name": "12th Gen",
+          "start_year": 2009
+        },
+        {
+          "description": "Landmark aluminum-body redesign reducing weight by up to 700 lbs. Gen 2 3.5L EcoBoost (2017+) and 5.0L Coyote V8. 10-speed automatic transmission. Raptor revival. Massive aftermarket: EcoBoost tunes, downpipes, intercoolers, intakes, lift kits, off-road accessories.",
+          "end_year": 2020,
+          "generation_name": "13th Gen",
+          "start_year": 2015
+        },
+        {
+          "description": "Complete redesign with onboard generator (Pro Power Onboard), available hybrid powertrain (PowerBoost), and updated 3.5L Gen 3 EcoBoost. Lightning EV variant. Growing aftermarket for performance tunes, suspension upgrades, and accessories.",
+          "end_year": 2024,
+          "generation_name": "14th Gen",
+          "start_year": 2021
+        }
+      ],
+      "model": "F-150"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance off-road truck based on F-150. Featured 6.2L V8 producing 411 horsepower. Fox Racing shocks, off-road tires, and enhanced suspension. Created the high-performance truck segment.",
+          "end_year": 2014,
+          "generation_name": "1st Gen",
+          "start_year": 2010
+        },
+        {
+          "description": "Second generation with 3.5L twin-turbo EcoBoost V6 producing 450 horsepower. Advanced off-road technology, improved suspension travel. More efficient while maintaining performance.",
+          "end_year": 2020,
+          "generation_name": "2nd Gen",
+          "start_year": 2017
+        },
+        {
+          "description": "Latest generation with updated 3.5L twin-turbo EcoBoost V6 producing 450 horsepower (Raptor R with 5.2L supercharged V8 producing 700 horsepower). Advanced off-road systems, improved technology. Continues Raptor's dominance.",
+          "end_year": null,
+          "generation_name": "3rd Gen",
+          "start_year": 2021
+        }
+      ],
+      "model": "F-150 Raptor"
+    },
+    {
+      "generations": [
+        {
+          "description": "First high-performance F-150 from SVT. Featured 5.8L V8 producing 240 horsepower. Sport-tuned suspension and styling. Limited production performance truck.",
+          "end_year": 1995,
+          "generation_name": "1st Gen",
+          "start_year": 1993
+        },
+        {
+          "description": "Second generation with 5.4L supercharged V8 producing 360-380 horsepower. Improved performance and handling. 0-60 in 5.2 seconds. Iconic performance truck that established the segment.",
+          "end_year": 2004,
+          "generation_name": "2nd Gen",
+          "start_year": 1999
+        }
+      ],
+      "model": "SVT Lightning"
+    },
+    {
+      "generations": [
+        {
+          "description": "Performance sedan with Yamaha-built 3.0L DOHC V6 producing 220 horsepower. Manual transmission available, sport-tuned suspension. Created the modern performance sedan segment.",
+          "end_year": 1995,
+          "generation_name": "1st Gen",
+          "start_year": 1989
+        },
+        {
+          "description": "Second generation with 3.4L V8 producing 235 horsepower. Updated styling and improved performance. Last generation before hiatus.",
+          "end_year": 1999,
+          "generation_name": "2nd Gen",
+          "start_year": 1996
+        },
+        {
+          "description": "SHO revival with 3.5L twin-turbo EcoBoost V6 producing 365 horsepower. All-wheel drive standard, sport-tuned suspension. Modern performance sedan with advanced technology.",
+          "end_year": 2019,
+          "generation_name": "3rd Gen",
+          "start_year": 2010
+        }
+      ],
+      "model": "Taurus SHO"
+    },
+    {
+      "generations": [
+        {
+          "description": "Hot hatch variant with 2.0L EcoBoost engine producing 252 horsepower. Front-wheel drive, sport-tuned suspension, and aggressive styling. Popular among enthusiasts for its balance of performance and practicality.",
+          "end_year": 2018,
+          "generation_name": "Mk3",
+          "start_year": 2013
+        }
+      ],
+      "model": "Focus ST"
+    },
+    {
+      "generations": [
+        {
+          "description": "Original two-seat personal luxury car. Featured V8 engines and iconic styling. Created the personal luxury car segment. Classic American design icon.",
+          "end_year": 1957,
+          "generation_name": "1st Gen",
+          "start_year": 1955
+        },
+        {
+          "description": "Larger four-seat design with distinctive styling. Featured V8 engines and continued Thunderbird's luxury focus. Squarebird design became iconic.",
+          "end_year": 1960,
+          "generation_name": "2nd Gen",
+          "start_year": 1958
+        },
+        {
+          "description": "Bullet Bird design with sleeker styling. Featured V8 engines and improved performance. Popular among collectors and enthusiasts.",
+          "end_year": 1963,
+          "generation_name": "3rd Gen",
+          "start_year": 1961
+        },
+        {
+          "description": "Flair Bird design with updated styling. Featured V8 engines and continued luxury focus. Last generation of classic Thunderbird design.",
+          "end_year": 1966,
+          "generation_name": "4th Gen",
+          "start_year": 1964
+        }
+      ],
+      "model": "Thunderbird"
+    },
+    {
+      "generations": [
+        {
+          "description": "Full-size rear-wheel-drive sedan. Featured 4.6L V8 engine, body-on-frame construction. Popular for police and taxi use. Large aftermarket support for modifications. Last American full-size sedan.",
+          "end_year": 2011,
+          "generation_name": "Panther Platform",
+          "start_year": 1992
+        }
+      ],
+      "model": "Crown Victoria"
+    },
+    {
+      "generations": [
+        {
+          "description": "Mid-size pickup reintroduced to NA. 2.3L EcoBoost I4 270 hp. Raptor: 2.3L or 3.0L V6.",
+          "end_year": 2023,
+          "generation_name": "T6",
+          "start_year": 2019
+        },
+        {
+          "description": "Global Ranger. 2.3L / 2.7L V6 / 3.0L V6 Raptor 405 hp.",
+          "end_year": null,
+          "generation_name": "Next Gen",
+          "start_year": 2024
+        }
+      ],
+      "model": "Ranger"
+    },
+    {
+      "generations": [
+        {
+          "description": "US-market Ranger Raptor with 3.0L EcoBoost V6. First Ranger Raptor sold in North America.",
+          "end_year": null,
+          "generation_name": "1st Gen",
+          "start_year": 2024
+        }
+      ],
+      "model": "Ranger Raptor"
+    },
+    {
+      "generations": [
+        {
+          "description": "Compact unibody pickup. 2.5L hybrid or 2.0L EcoBoost 250 hp. Tremor/Lobo.",
+          "end_year": null,
+          "generation_name": "1st Gen",
+          "start_year": 2022
+        }
+      ],
+      "model": "Maverick"
+    },
+    {
+      "generations": [
+        {
+          "description": "Compact crossover on Escape platform. 2.0L EcoBoost Badlands is COBB target.",
+          "end_year": null,
+          "generation_name": "1st Gen",
+          "start_year": 2021
+        }
+      ],
+      "model": "Bronco Sport"
+    },
+    {
+      "generations": [
+        {
+          "description": "F-250/F-350/F-450. 5.4L Triton, 6.8L V10, 7.3L then 6.0L Power Stroke diesel.",
+          "end_year": 2007,
+          "generation_name": "1st Gen",
+          "start_year": 1999
+        },
+        {
+          "description": "5.4L Triton, 6.8L V10, 6.4L Power Stroke diesel.",
+          "end_year": 2010,
+          "generation_name": "2nd Gen",
+          "start_year": 2008
+        },
+        {
+          "description": "6.2L Boss gas V8, 6.7L Power Stroke 390-440 hp.",
+          "end_year": 2016,
+          "generation_name": "3rd Gen",
+          "start_year": 2011
+        },
+        {
+          "description": "Aluminum body. 6.2L / 7.3L Godzilla, 6.7L Power Stroke 450 hp.",
+          "end_year": 2022,
+          "generation_name": "4th Gen",
+          "start_year": 2017
+        },
+        {
+          "description": "6.8L gas V8, 7.3L Godzilla, 6.7L Power Stroke 500 hp / 1200 lb-ft HO.",
+          "end_year": null,
+          "generation_name": "5th Gen",
+          "start_year": 2023
+        }
+      ],
+      "model": "F-Series Super Duty"
+    }
+  ]
+}

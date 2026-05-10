@@ -1,0 +1,593 @@
+{
+  "Audi": [
+    {
+      "generations": [
+        {
+          "description": "Audi's compact executive sedan with all-wheel drive. Featured turbocharged engines and established A4 as a premium compact car. S4 variant was high-performance.",
+          "end_year": 2001,
+          "generation_name": "B5",
+          "start_year": 1994
+        },
+        {
+          "description": "Refined A4 with updated styling and technology. Featured updated engines and improved handling. Continued A4's reputation for all-wheel drive capability.",
+          "end_year": 2005,
+          "generation_name": "B6",
+          "start_year": 2002
+        },
+        {
+          "description": "Facelifted A4 with updated styling and engines. Featured FSI direct injection technology. Improved fuel economy and performance.",
+          "end_year": 2008,
+          "generation_name": "B7",
+          "start_year": 2006
+        },
+        {
+          "description": "Complete redesign with longitudinal engine layout. Featured updated engines and improved technology. More spacious and refined.",
+          "end_year": 2015,
+          "generation_name": "B8",
+          "start_year": 2009
+        },
+        {
+          "description": "Latest A4 with updated styling and technology. Featured updated engines and advanced safety features. More premium positioning.",
+          "end_year": 2023,
+          "generation_name": "B9",
+          "start_year": 2016
+        },
+        {
+          "description": "Newest A4 generation with updated design and technology. Featured updated engines and improved efficiency. More modern and refined.",
+          "end_year": null,
+          "generation_name": "B10",
+          "start_year": 2024
+        }
+      ],
+      "model": "A4"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance A4 with twin-turbo V6 engine producing 250-265 horsepower. All-wheel drive standard. Popular among enthusiasts for tuning potential.",
+          "end_year": 2001,
+          "generation_name": "B5",
+          "start_year": 1994
+        },
+        {
+          "description": "S4 with naturally aspirated V8 engine producing 339 horsepower. High-revving character and excellent performance. All-wheel drive standard.",
+          "end_year": 2005,
+          "generation_name": "B6",
+          "start_year": 2002
+        },
+        {
+          "description": "S4 with updated V8 engine producing 344 horsepower. Improved technology and handling. All-wheel drive standard.",
+          "end_year": 2008,
+          "generation_name": "B7",
+          "start_year": 2006
+        },
+        {
+          "description": "S4 with supercharged V6 engine producing 333 horsepower. Improved fuel economy and torque. All-wheel drive standard.",
+          "end_year": 2015,
+          "generation_name": "B8",
+          "start_year": 2009
+        },
+        {
+          "description": "S4 with turbocharged V6 engine producing 349 horsepower. Improved technology and handling. All-wheel drive standard.",
+          "end_year": 2023,
+          "generation_name": "B9",
+          "start_year": 2016
+        }
+      ],
+      "model": "S4"
+    },
+    {
+      "generations": [
+        {
+          "description": "Audi's compact sports car with distinctive styling. Featured turbocharged engines and all-wheel drive. TT RS variant was high-performance.",
+          "end_year": 2006,
+          "generation_name": "8N",
+          "start_year": 1998
+        },
+        {
+          "description": "Refined TT with updated styling and engines. Featured improved handling and technology. TT RS variant with 5-cylinder engine was powerful.",
+          "end_year": 2014,
+          "generation_name": "8J",
+          "start_year": 2007
+        },
+        {
+          "description": "Latest TT with updated styling and technology. Featured updated engines and improved handling. TT RS variant was track-focused.",
+          "end_year": 2023,
+          "generation_name": "8S",
+          "start_year": 2015
+        }
+      ],
+      "model": "TT"
+    },
+    {
+      "generations": [
+        {
+          "description": "Audi's compact car with all-wheel drive option. Featured efficient engines and good handling. Established A3 as a premium compact car.",
+          "end_year": 2003,
+          "generation_name": "8L",
+          "start_year": 1996
+        },
+        {
+          "description": "Refined A3 with updated styling and technology. Featured updated engines and improved handling. S3 variant was high-performance.",
+          "end_year": 2013,
+          "generation_name": "8P",
+          "start_year": 2004
+        },
+        {
+          "description": "Complete redesign with updated styling and technology. Featured updated engines and improved fuel economy. S3 and RS3 variants available.",
+          "end_year": 2020,
+          "generation_name": "8V",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest A3 with updated design and technology. Featured updated engines and advanced safety features. S3 and RS3 variants available.",
+          "end_year": null,
+          "generation_name": "8Y",
+          "start_year": 2021
+        }
+      ],
+      "model": "A3"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance A3 with turbocharged engine producing 210-225 horsepower. All-wheel drive standard. Hot hatch variant.",
+          "end_year": 2003,
+          "generation_name": "8L",
+          "start_year": 1999
+        },
+        {
+          "description": "S3 with turbocharged engine producing 265 horsepower. All-wheel drive standard. Improved performance and handling.",
+          "end_year": 2013,
+          "generation_name": "8P",
+          "start_year": 2006
+        },
+        {
+          "description": "S3 with turbocharged engine producing 292 horsepower. All-wheel drive standard. Improved technology and performance.",
+          "end_year": 2020,
+          "generation_name": "8V",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest S3 with turbocharged engine producing 306 horsepower. All-wheel drive standard. Improved technology and handling.",
+          "end_year": null,
+          "generation_name": "8Y",
+          "start_year": 2021
+        }
+      ],
+      "model": "S3"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance A3 with 5-cylinder turbocharged engine producing 335-340 horsepower. All-wheel drive standard. Hot hatch variant.",
+          "end_year": 2012,
+          "generation_name": "8P",
+          "start_year": 2011
+        },
+        {
+          "description": "RS3 with 5-cylinder turbocharged engine producing 394-400 horsepower. All-wheel drive standard. Exceptional performance and sound.",
+          "end_year": 2021,
+          "generation_name": "8V",
+          "start_year": 2015
+        },
+        {
+          "description": "Latest RS3 with 5-cylinder turbocharged engine producing 401 horsepower. All-wheel drive standard. Improved technology and performance.",
+          "end_year": null,
+          "generation_name": "8Y",
+          "start_year": 2021
+        }
+      ],
+      "model": "RS3"
+    },
+    {
+      "generations": [
+        {
+          "description": "Audi's coupe and convertible with elegant styling. Featured efficient engines and all-wheel drive option. S5 variant was high-performance.",
+          "end_year": 2016,
+          "generation_name": "8T",
+          "start_year": 2007
+        },
+        {
+          "description": "Latest A5 with updated styling and technology. Featured updated engines and improved handling. S5 and RS5 variants available.",
+          "end_year": 2024,
+          "generation_name": "F5",
+          "start_year": 2017
+        }
+      ],
+      "model": "A5"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance A5 with V8 or supercharged V6 engine producing 333-354 horsepower. All-wheel drive standard. Coupe and convertible variants.",
+          "end_year": 2016,
+          "generation_name": "8T",
+          "start_year": 2007
+        },
+        {
+          "description": "S5 with turbocharged V6 engine producing 349 horsepower. All-wheel drive standard. Improved technology and performance.",
+          "end_year": 2024,
+          "generation_name": "F5",
+          "start_year": 2017
+        }
+      ],
+      "model": "S5"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance A4 with naturally aspirated V6 engine producing 380 horsepower. All-wheel drive standard. Avant wagon variant.",
+          "end_year": 2001,
+          "generation_name": "B5",
+          "start_year": 2000
+        },
+        {
+          "description": "RS4 with naturally aspirated V8 engine producing 420 horsepower. All-wheel drive standard. Avant wagon and sedan variants.",
+          "end_year": 2008,
+          "generation_name": "B7",
+          "start_year": 2006
+        },
+        {
+          "description": "RS4 with naturally aspirated V8 engine producing 450 horsepower. All-wheel drive standard. Avant wagon variant only.",
+          "end_year": 2015,
+          "generation_name": "B8",
+          "start_year": 2012
+        },
+        {
+          "description": "RS4 with twin-turbo V6 engine producing 450 horsepower. All-wheel drive standard. Avant wagon variant. Improved torque and efficiency.",
+          "end_year": 2023,
+          "generation_name": "B9",
+          "start_year": 2017
+        }
+      ],
+      "model": "RS4"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance A5 with naturally aspirated V8 engine producing 450 horsepower. All-wheel drive standard. Coupe variant.",
+          "end_year": 2016,
+          "generation_name": "8T",
+          "start_year": 2010
+        },
+        {
+          "description": "RS5 with twin-turbo V6 engine producing 444-450 horsepower. All-wheel drive standard. Coupe and Sportback variants. Improved torque.",
+          "end_year": 2024,
+          "generation_name": "F5",
+          "start_year": 2017
+        }
+      ],
+      "model": "RS5"
+    },
+    {
+      "generations": [
+        {
+          "description": "Audi's mid-engine supercar with 4.2L V8 or 5.2L V10 engines. Available as coupe and Spyder. Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. Strong aftermarket support for modifications.",
+          "end_year": 2015,
+          "generation_name": "Mk1",
+          "start_year": 2007
+        },
+        {
+          "description": "Second generation R8 with updated styling and technology. Featured 5.2L V10 producing 532-602 horsepower. Available as coupe and Spyder. Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. Strong aftermarket support.",
+          "end_year": 2024,
+          "generation_name": "Mk2",
+          "start_year": 2016
+        }
+      ],
+      "model": "R8"
+    },
+    {
+      "generations": [
+        {
+          "description": "First Audi RS model, co-developed with Porsche. Turbocharged 5-cylinder engine producing 315 horsepower. All-wheel drive standard. Limited production high-performance wagon. Highly sought after by enthusiasts.",
+          "end_year": 1995,
+          "generation_name": "1st Gen",
+          "start_year": 1994
+        }
+      ],
+      "model": "RS2 Avant"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance A6 wagon with twin-turbo V8 engine producing 450 horsepower. All-wheel drive standard. Avant wagon variant only. Exceptional performance in a practical package.",
+          "end_year": 2004,
+          "generation_name": "C5",
+          "start_year": 2002
+        },
+        {
+          "description": "RS6 Avant with twin-turbo V10 engine producing 580 horsepower. All-wheel drive standard. Avant wagon variant. Incredible power and performance.",
+          "end_year": 2010,
+          "generation_name": "C6",
+          "start_year": 2008
+        },
+        {
+          "description": "RS6 Avant with twin-turbo V8 engine producing 560-605 horsepower. All-wheel drive standard. Avant wagon variant. Improved efficiency and technology.",
+          "end_year": 2018,
+          "generation_name": "C7",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest RS6 Avant with twin-turbo V8 engine producing 591-621 horsepower. All-wheel drive standard. Avant wagon variant. Performance variant available. Exceptional handling and power.",
+          "end_year": null,
+          "generation_name": "C8",
+          "start_year": 2019
+        }
+      ],
+      "model": "RS6 Avant"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance A7 Sportback with twin-turbo V8 engine producing 560-605 horsepower. All-wheel drive standard. Sportback fastback design. Exceptional performance and styling.",
+          "end_year": 2019,
+          "generation_name": "C7",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest RS7 Sportback with twin-turbo V8 engine producing 591-621 horsepower. All-wheel drive standard. Performance variant available. Improved technology and handling.",
+          "end_year": null,
+          "generation_name": "C8",
+          "start_year": 2019
+        }
+      ],
+      "model": "RS7 Sportback"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance Q3 compact SUV with turbocharged 5-cylinder engine producing 310-340 horsepower. All-wheel drive standard. Compact performance SUV.",
+          "end_year": 2018,
+          "generation_name": "8U",
+          "start_year": 2013
+        },
+        {
+          "description": "Latest RS Q3 with turbocharged 5-cylinder engine producing 400 horsepower. All-wheel drive standard. Available as standard Q3 and Sportback variant. Improved power and technology.",
+          "end_year": 2024,
+          "generation_name": "F3",
+          "start_year": 2018
+        }
+      ],
+      "model": "RS Q3"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance Q8 SUV coupe with twin-turbo V8 engine producing 591-631 horsepower. All-wheel drive standard. Performance variant introduced in 2024. Flagship performance SUV.",
+          "end_year": null,
+          "generation_name": "4M",
+          "start_year": 2019
+        }
+      ],
+      "model": "RS Q8"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance A1 with turbocharged 4-cylinder engine producing 228 horsepower. All-wheel drive standard. Hot hatch variant. Compact performance car.",
+          "end_year": 2018,
+          "generation_name": "8X",
+          "start_year": 2014
+        }
+      ],
+      "model": "S1"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance A6 with turbocharged inline-5 engine producing 227 horsepower. All-wheel drive standard. Sedan and Avant wagon variants.",
+          "end_year": 1997,
+          "generation_name": "C4",
+          "start_year": 1994
+        },
+        {
+          "description": "S6 with twin-turbo V8 engine producing 335-340 horsepower. All-wheel drive standard. Sedan and Avant wagon variants. Improved performance.",
+          "end_year": 2003,
+          "generation_name": "C5",
+          "start_year": 1999
+        },
+        {
+          "description": "S6 with naturally aspirated V10 engine producing 435 horsepower. All-wheel drive standard. Sedan and Avant wagon variants. High-revving character.",
+          "end_year": 2011,
+          "generation_name": "C6",
+          "start_year": 2006
+        },
+        {
+          "description": "S6 with twin-turbo V8 engine producing 420 horsepower. All-wheel drive standard. Sedan and Avant wagon variants. Improved efficiency and torque.",
+          "end_year": 2018,
+          "generation_name": "C7",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest S6 with twin-turbo V8 engine producing 444 horsepower. All-wheel drive standard. Sedan and Avant wagon variants. Improved technology and performance.",
+          "end_year": null,
+          "generation_name": "C8",
+          "start_year": 2019
+        }
+      ],
+      "model": "S6"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance A7 Sportback with twin-turbo V8 engine producing 420 horsepower. All-wheel drive standard. Sportback fastback design. Powerful and elegant.",
+          "end_year": 2018,
+          "generation_name": "C7",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest S7 Sportback with twin-turbo V8 engine producing 444 horsepower. All-wheel drive standard. Improved technology and performance. More refined.",
+          "end_year": null,
+          "generation_name": "C8",
+          "start_year": 2020
+        }
+      ],
+      "model": "S7 Sportback"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance A8 with naturally aspirated V8 engine producing 360 horsepower. All-wheel drive standard. Flagship performance sedan. Featured in Transporter films.",
+          "end_year": 2003,
+          "generation_name": "D2",
+          "start_year": 1996
+        },
+        {
+          "description": "S8 with naturally aspirated V10 engine producing 450 horsepower. All-wheel drive standard. Flagship performance sedan. High-revving V10 character.",
+          "end_year": 2010,
+          "generation_name": "D3",
+          "start_year": 2006
+        },
+        {
+          "description": "S8 with twin-turbo V8 engine producing 520 horsepower. All-wheel drive standard. Flagship performance sedan. Plus variant produced 605 horsepower.",
+          "end_year": 2018,
+          "generation_name": "D4",
+          "start_year": 2012
+        },
+        {
+          "description": "Latest S8 with twin-turbo V8 engine producing 563 horsepower. All-wheel drive standard. Flagship performance sedan. Improved technology and luxury.",
+          "end_year": null,
+          "generation_name": "D5",
+          "start_year": 2019
+        }
+      ],
+      "model": "S8"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance Q5 compact SUV with supercharged V6 engine producing 354 horsepower. All-wheel drive standard. Performance-oriented SUV.",
+          "end_year": 2017,
+          "generation_name": "8R",
+          "start_year": 2012
+        },
+        {
+          "description": "SQ5 with turbocharged V6 engine producing 349-354 horsepower. All-wheel drive standard. Available as standard Q5 and Sportback variant. Improved technology.",
+          "end_year": null,
+          "generation_name": "FY",
+          "start_year": 2017
+        },
+        {
+          "description": "Latest SQ5 with updated powertrain and technology. All-wheel drive standard. Available as standard Q5 and Sportback variant. More refined and efficient.",
+          "end_year": null,
+          "generation_name": "FYS",
+          "start_year": 2024
+        }
+      ],
+      "model": "SQ5"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-high-performance TT with turbocharged 5-cylinder engine producing 340-360 horsepower. All-wheel drive standard. Available as coupe and roadster. Exceptional performance and sound.",
+          "end_year": 2014,
+          "generation_name": "8J",
+          "start_year": 2009
+        },
+        {
+          "description": "TT RS with turbocharged 5-cylinder engine producing 400 horsepower. All-wheel drive standard. Available as coupe and roadster. Track-focused performance.",
+          "end_year": 2023,
+          "generation_name": "8S",
+          "start_year": 2014
+        }
+      ],
+      "model": "TT RS"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance TT with turbocharged 4-cylinder engine producing 265-272 horsepower. All-wheel drive standard. Available as coupe and roadster. Sport-oriented variant.",
+          "end_year": 2014,
+          "generation_name": "8J",
+          "start_year": 2008
+        },
+        {
+          "description": "TTS with turbocharged 4-cylinder engine producing 292-306 horsepower. All-wheel drive standard. Available as coupe and roadster. Improved performance and technology.",
+          "end_year": 2023,
+          "generation_name": "8S",
+          "start_year": 2014
+        }
+      ],
+      "model": "TTS"
+    },
+    {
+      "generations": [
+        {
+          "description": "The original turbocharged quattro coupe that gave Audi's AWD system its name. Based on the Typ 85 platform sharing architecture with the B2 Audi 80. 2.1L and later 2.2L five-cylinder turbo (WR/KV/MB/RR engines) producing up to 220 PS; 20-valve RR engine in 1989-91 made 220 PS. Homologated for Group B and Group A rally. The iconic rallye Quattro. Popular for restoration and 034Motorsport-catalog vintage builds.",
+          "end_year": 1991,
+          "generation_name": "Typ 85",
+          "start_year": 1980
+        }
+      ],
+      "model": "UrQuattro",
+      "model_display_name": "Ur-Quattro"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second-generation Audi 80 on the B2 platform, sold in US as the Audi 4000. Quattro AWD variants introduced. Inline-4 and inline-5 engines. Coupe GT/Coupe Quattro used the UrQuattro's turbocharged inline-5. Popular with vintage quattro enthusiasts.",
+          "end_year": 1987,
+          "generation_name": "B2",
+          "start_year": 1978
+        },
+        {
+          "description": "Third-generation 80/90 on the B3 platform with flush modern styling. 90 quattro 20v featured 2.3L 20v naturally aspirated inline-5 (164 hp). Coupe Quattro B3 sold alongside. Very popular for turbo conversions and 034Motorsport small-chassis builds.",
+          "end_year": 1992,
+          "generation_name": "B3",
+          "start_year": 1987
+        },
+        {
+          "description": "Final generation of the classic 80/90 on the B4 platform, shared with the S2 and RS2 Avant. Cabriolet continued to 2000. Last of the 'small chassis' Audis before the B5 revolution.",
+          "end_year": 1996,
+          "generation_name": "B4",
+          "start_year": 1992
+        }
+      ],
+      "model": "80/90",
+      "model_display_name": "80 / 90 / Coupe Quattro"
+    },
+    {
+      "generations": [
+        {
+          "description": "Third-generation Audi 100 (sold in US as the Audi 5000). 200 Turbo Quattro used the MC engine (162-182 hp); 200 20v Quattro (1989-91) used the 3B engine (20v turbo, 217 hp). Popular in 034Motorsport's catalog for intake, intercooler, and drivetrain upgrades on the C3 platform.",
+          "end_year": 1990,
+          "generation_name": "C3",
+          "start_year": 1982
+        },
+        {
+          "description": "Final Audi 100 generation on the C4 platform. Sold in US as the 100 and 100 quattro. This platform underpins the UrS4 and UrS6 with the AAN turbocharged 2.2L 20v inline-5 (227 hp). Popular for AAN engine builds and forced induction tuning.",
+          "end_year": 1994,
+          "generation_name": "C4",
+          "start_year": 1991
+        }
+      ],
+      "model": "100/200",
+      "model_display_name": "100 / 200 / 5000"
+    },
+    {
+      "generations": [
+        {
+          "description": "The original UrS4 on the C4 platform (shared with the Audi 100). 2.2L five-cylinder 20v turbo (AAN engine, 227 hp US spec). All-wheel drive. Predecessor to the B5 S4. One of the most beloved Audi tuner platforms for AAN engine builds, turbo upgrades, intercooler kits, and exhaust systems. Closely related to the UrS6.",
+          "end_year": 1994,
+          "generation_name": "C4",
+          "start_year": 1991
+        }
+      ],
+      "model": "S4 (UrS4)",
+      "model_display_name": "S4 (UrS4)",
+      "slug": "s4-urs4"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance coupe and avant on the B4 platform with the 2.2L 20v turbo inline-5 (ABY engine, 220 PS). Developed alongside the RS2 Avant. Europe only. Popular for turbo, intercooler, and drivetrain upgrades. Often grouped with the RS2 in 034Motorsport B4 platform parts.",
+          "end_year": 1995,
+          "generation_name": "B4",
+          "start_year": 1990
+        }
+      ],
+      "model": "S2"
+    }
+  ]
+}

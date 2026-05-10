@@ -1,0 +1,26 @@
+{
+  "Volvo": [
+    {
+      "generations": [
+        {
+          "description": "V40 wagon.",
+          "end_year": 2004,
+          "generation_name": "V1",
+          "start_year": 1995
+        }
+      ],
+      "model": "V40"
+    },
+    {
+      "generations": [
+        {
+          "description": "S40 sedan.",
+          "end_year": 2004,
+          "generation_name": "V1",
+          "start_year": 1995
+        }
+      ],
+      "model": "S40"
+    }
+  ]
+}

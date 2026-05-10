@@ -1,0 +1,60 @@
+# .github/dependabot.yml
+# SAFE-10: weekly grouped dependency PRs across backend (pip), frontend +
+# chrome-extension (npm), and GitHub Actions workflows.
+#
+# D-28: GitHub-native Dependabot — no extra infra.
+# D-29: Mondays; three ecosystems (pip / npm / github-actions).
+# D-30: Group minor + patch updates into one PR per ecosystem per week.
+#       Major updates are raised AUTOMATICALLY as individual PRs for
+#       any dependency not matched by a group — no `ignore` block needed.
+#       (RESEARCH Pitfall 6: `ignore` SUPPRESSES majors; do NOT use it.)
+# D-31: This file at .github/dependabot.yml (not under workflows/).
+#
+# Source (schema v2 + groups + multi-directory npm):
+#   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/optimizing-pr-creation-version-updates
+
+version: 2
+updates:
+  # Backend Python dependencies (backend/requirements.txt)
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Frontend + Chrome extension npm dependencies
+  # Single ecosystem entry with multi-directory (schema v2) — one config,
+  # two targets. Dependabot opens grouped PRs per directory.
+  - package-ecosystem: "npm"
+    directories:
+      - "/frontend"
+      - "/chrome-extension"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # GitHub Actions (all workflow files under .github/workflows/)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

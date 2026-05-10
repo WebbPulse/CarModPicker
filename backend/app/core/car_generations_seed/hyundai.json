@@ -1,0 +1,129 @@
+{
+  "Hyundai": [
+    {
+      "generations": [
+        {
+          "description": "Hyundai's sporty front-wheel-drive coupe. Featured 1.6L, 1.8L, and 2.0L inline-4 engines. Popular for its affordable entry into the sport coupe segment. Good aftermarket support for modifications.",
+          "end_year": 1999,
+          "generation_name": "RD1",
+          "start_year": 1997
+        },
+        {
+          "description": "Facelifted first generation Tiburon with updated styling. Featured improved engines and refreshed interior. Popular for modifications and affordable sporty driving.",
+          "end_year": 2001,
+          "generation_name": "RD2",
+          "start_year": 2000
+        },
+        {
+          "description": "Complete redesign with larger size and optional 2.7L V6 engine. Featured improved styling and performance. Popular for engine swaps, turbo kits, suspension upgrades, and body modifications. Strong enthusiast following.",
+          "end_year": 2008,
+          "generation_name": "GK",
+          "start_year": 2003
+        }
+      ],
+      "model": "Tiburon"
+    },
+    {
+      "generations": [
+        {
+          "description": "Hyundai's rear-wheel-drive sports coupe. Featured turbocharged 4-cylinder and V6 engines. Popular for its value and performance potential.",
+          "end_year": 2012,
+          "generation_name": "BK",
+          "start_year": 2009
+        },
+        {
+          "description": "Refined Genesis Coupe with updated styling and engines. Featured improved turbocharged 4-cylinder and V6 engines. Better handling and performance.",
+          "end_year": 2016,
+          "generation_name": "BK2",
+          "start_year": 2013
+        }
+      ],
+      "model": "Genesis Coupe"
+    },
+    {
+      "generations": [
+        {
+          "description": "Hyundai's compact sedan with efficient engines. Featured good value and reliability. Popular for its affordability.",
+          "end_year": 2006,
+          "generation_name": "XD",
+          "start_year": 2000
+        },
+        {
+          "description": "Refined Elantra with updated styling and engines. Featured improved fuel economy and technology. Better value proposition.",
+          "end_year": 2010,
+          "generation_name": "HD",
+          "start_year": 2007
+        },
+        {
+          "description": "Complete redesign with updated styling. Featured updated engines and improved fuel economy. More modern and refined.",
+          "end_year": 2015,
+          "generation_name": "MD",
+          "start_year": 2011
+        },
+        {
+          "description": "Latest Elantra with updated styling and technology. Featured updated engines and improved fuel economy. More premium positioning.",
+          "end_year": 2020,
+          "generation_name": "AD",
+          "start_year": 2016
+        },
+        {
+          "description": "Newest Elantra with updated design and technology. Featured updated engines and advanced safety features. More modern and efficient.",
+          "end_year": null,
+          "generation_name": "CN7",
+          "start_year": 2021
+        }
+      ],
+      "model": "Elantra"
+    },
+    {
+      "generations": [
+        {
+          "description": "Hyundai's high-performance sedan under the N sub-brand. Featured 2.0L turbocharged inline-4 producing 276 horsepower and 289 lb-ft torque. Available with 6-speed manual or 8-speed dual-clutch transmission. Includes electronic limited-slip differential, variable exhaust, and launch control. Popular for ECU tuning, exhaust upgrades, suspension modifications, and track-focused builds. Strong aftermarket support.",
+          "end_year": null,
+          "generation_name": "CN7",
+          "start_year": 2021
+        }
+      ],
+      "model": "Elantra N"
+    },
+    {
+      "generations": [
+        {
+          "description": "Hyundai's unique 3-door compact car. Featured efficient engines and distinctive styling. Turbo variant was sporty.",
+          "end_year": 2017,
+          "generation_name": "FS",
+          "start_year": 2011
+        },
+        {
+          "description": "Refined Veloster with updated styling and engines. Featured turbocharged engine option. N variant was high-performance hot hatch.",
+          "end_year": 2022,
+          "generation_name": "JS",
+          "start_year": 2018
+        }
+      ],
+      "model": "Veloster"
+    },
+    {
+      "generations": [
+        {
+          "description": "Hyundai's high-performance compact SUV under the N sub-brand. Featured 2.0L turbocharged inline-4 producing 290 horsepower with N Grin Shift boost mode. 8-speed dual-clutch transmission with front-wheel drive. Popular for ECU tuning, exhaust upgrades, suspension modifications, and performance enhancements. Unique in being a performance-oriented SUV with strong enthusiast appeal.",
+          "end_year": 2024,
+          "generation_name": "OS",
+          "start_year": 2022
+        }
+      ],
+      "model": "Kona N"
+    },
+    {
+      "generations": [
+        {
+          "description": "Hyundai's first electric performance vehicle under the N sub-brand. Featured dual-motor all-wheel-drive system producing 601 horsepower (641 hp with N Grin Boost). 84 kWh battery with 350 kW DC fast charging. 0-60 mph in 3.4 seconds. Popular for software tuning, suspension modifications, and performance enhancements. Represents the future of Hyundai N performance with electric powertrain.",
+          "end_year": null,
+          "generation_name": "NE",
+          "start_year": 2024
+        }
+      ],
+      "model": "Ioniq 5 N"
+    }
+  ]
+}

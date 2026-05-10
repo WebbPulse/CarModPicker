@@ -1,0 +1,80 @@
+{
+  "Tesla": [
+    {
+      "generations": [
+        {
+          "description": "First generation Model 3 (pre-facelift). Mass-market compact electric sedan. RWD, Long Range AWD, and Performance trims. Popular platform for aftermarket aero, wheels, and interior upgrades.",
+          "display_name": "Model 3 Pre-Highland",
+          "end_year": 2023,
+          "generation_name": "Pre-Highland",
+          "start_year": 2017
+        },
+        {
+          "description": "Facelifted Model 3 (project Highland). Revised front fascia, interior, and noise insulation. Long Range and Performance variants available. Performance trim produces 510 horsepower.",
+          "display_name": "Model 3 Highland",
+          "end_year": null,
+          "generation_name": "Highland",
+          "start_year": 2024
+        }
+      ],
+      "model": "Model 3"
+    },
+    {
+      "generations": [
+        {
+          "description": "Compact electric SUV based on the Model 3 platform. Long Range, Performance, and Standard Range variants. Tesla's best-selling vehicle globally.",
+          "display_name": "1st Gen Model Y",
+          "end_year": 2025,
+          "generation_name": "1st Gen",
+          "start_year": 2020
+        },
+        {
+          "description": "Facelifted Model Y (project Juniper). Refreshed styling inspired by Cybertruck and Model 3 Highland, improved interior, and updated powertrain.",
+          "display_name": "Juniper Model Y",
+          "end_year": null,
+          "generation_name": "Juniper",
+          "start_year": 2025
+        }
+      ],
+      "model": "Model Y"
+    },
+    {
+      "generations": [
+        {
+          "description": "Original Model S full-size electric sedan. P85, P85D, P90D, P100D, and Ludicrous variants. Established Tesla's premium electric reputation.",
+          "display_name": "Model S Pre-Refresh",
+          "end_year": 2020,
+          "generation_name": "Pre-Refresh",
+          "start_year": 2012
+        },
+        {
+          "description": "Refreshed Model S with updated styling, yoke steering wheel, and tri-motor Plaid variant producing 1,020 horsepower. 0-60 mph in under 2 seconds.",
+          "display_name": "Model S Plaid",
+          "end_year": null,
+          "generation_name": "Plaid",
+          "start_year": 2021
+        }
+      ],
+      "model": "Model S"
+    },
+    {
+      "generations": [
+        {
+          "description": "Original Model X full-size electric SUV with signature falcon wing doors. Long Range, Performance, and Ludicrous variants.",
+          "display_name": "Model X Pre-Refresh",
+          "end_year": 2020,
+          "generation_name": "Pre-Refresh",
+          "start_year": 2016
+        },
+        {
+          "description": "Refreshed Model X with updated interior, yoke steering wheel, and tri-motor Plaid variant producing 1,020 horsepower. Retains falcon wing doors.",
+          "display_name": "Model X Plaid",
+          "end_year": null,
+          "generation_name": "Plaid",
+          "start_year": 2021
+        }
+      ],
+      "model": "Model X"
+    }
+  ]
+}

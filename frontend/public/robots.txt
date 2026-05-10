@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /checkout
+Disallow: /profile
+Disallow: /my-parts
+Disallow: /verify-email
+Disallow: /forgot-password
+Disallow: /extension-auth
+Disallow: /builder
+Disallow: /parts/*/edit
+
+Sitemap: https://www.carmodpicker.com/sitemap.xml

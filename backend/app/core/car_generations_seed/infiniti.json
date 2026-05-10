@@ -1,0 +1,244 @@
+{
+  "Infiniti": [
+    {
+      "generations": [
+        {
+          "description": "Infiniti's sporty crossover SUV. Featured V6 engines and available all-wheel drive. Popular for its car-like handling and performance. Strong enthusiast following for modifications including ECU tuning, exhaust upgrades, and suspension enhancements.",
+          "end_year": 2008,
+          "generation_name": "S50",
+          "start_year": 2003
+        }
+      ],
+      "model": "FX35"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance variant of FX35 with 4.5L V8 engine producing 315 horsepower. Sporty crossover with excellent acceleration and handling. Very popular with enthusiasts for modifications including ECU tuning, exhaust, and brake upgrades.",
+          "end_year": 2008,
+          "generation_name": "S50",
+          "start_year": 2003
+        }
+      ],
+      "model": "FX45"
+    },
+    {
+      "generations": [
+        {
+          "description": "Updated FX with 5.0L V8 engine producing 390 horsepower. Featured improved styling and technology. Sporty crossover with excellent performance. Popular for modifications including ECU tuning, exhaust upgrades, and suspension work.",
+          "end_year": 2013,
+          "generation_name": "S51",
+          "start_year": 2009
+        }
+      ],
+      "model": "FX50"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's compact sedan based on Nissan Primera. Featured SR20DE 4-cylinder engine. Popular with tuners for modifications including ECU tuning, intake/exhaust upgrades, and suspension work. Manual transmission available.",
+          "end_year": 1996,
+          "generation_name": "P10",
+          "start_year": 1991
+        },
+        {
+          "description": "Updated G20 with refined styling and improved engines. Featured SR20DE engine with better power output. Continued popularity with enthusiasts for modifications. Manual transmission available.",
+          "end_year": 2002,
+          "generation_name": "P11",
+          "start_year": 1997
+        }
+      ],
+      "model": "G20"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's compact executive sedan and coupe. Featured V6 engines and rear-wheel drive. Popular for its value and performance. G35 coupe was sporty.",
+          "end_year": 2007,
+          "generation_name": "V35",
+          "start_year": 2002
+        }
+      ],
+      "model": "G35"
+    },
+    {
+      "generations": [
+        {
+          "description": "Refined G35 successor with updated styling and engines. Featured V6 engines producing up to 330 horsepower. Coupe and sedan variants. Popular among enthusiasts.",
+          "end_year": 2013,
+          "generation_name": "V36",
+          "start_year": 2007
+        }
+      ],
+      "model": "G37"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's compact sedan based on Nissan Maxima. Featured VG30DE V6 engine producing 190-227 horsepower. Popular for modifications including suspension upgrades, exhaust, and ECU tuning. Good value for performance.",
+          "end_year": 2001,
+          "generation_name": "A32",
+          "start_year": 1996
+        }
+      ],
+      "model": "I30"
+    },
+    {
+      "generations": [
+        {
+          "description": "Updated I30 with refined styling and improved V6 engine producing 255 horsepower. Based on Nissan Maxima platform. Popular for modifications and good value proposition.",
+          "end_year": 2004,
+          "generation_name": "A33",
+          "start_year": 2002
+        }
+      ],
+      "model": "I35"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's mid-size luxury sedan. Featured VG30DE V6 engine. Unique styling and luxury features. Less common but has enthusiast following for modifications.",
+          "end_year": 1997,
+          "generation_name": "J30",
+          "start_year": 1993
+        }
+      ],
+      "model": "J30"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's luxury coupe and convertible. Featured VG30DE V6 engine. Rare and collectible, especially the convertible variant. Enthusiast-focused model.",
+          "end_year": 1992,
+          "generation_name": "M30",
+          "start_year": 1990
+        }
+      ],
+      "model": "M30"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's mid-size luxury sedan with V6 engine. Featured 3.5L V6 producing 275-303 horsepower. Popular for modifications including ECU tuning, exhaust upgrades, and suspension work. Good balance of luxury and performance.",
+          "end_year": 2010,
+          "generation_name": "Y50",
+          "start_year": 2006
+        }
+      ],
+      "model": "M35"
+    },
+    {
+      "generations": [
+        {
+          "description": "Updated M35 with 3.7L V6 engine producing 330 horsepower. Refined styling and improved technology. Popular with enthusiasts for modifications and performance upgrades.",
+          "end_year": 2013,
+          "generation_name": "Y51",
+          "start_year": 2011
+        }
+      ],
+      "model": "M37"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance M sedan with 4.5L V8 engine producing 340 horsepower. Sporty variant with excellent acceleration. Popular with enthusiasts for modifications including ECU tuning and exhaust upgrades.",
+          "end_year": 2004,
+          "generation_name": "Y34",
+          "start_year": 2003
+        },
+        {
+          "description": "Updated M45 with 4.5L V8 engine producing 325 horsepower. Featured improved styling and technology. Very popular with enthusiasts for V8 performance and modification potential.",
+          "end_year": 2010,
+          "generation_name": "Y50",
+          "start_year": 2006
+        }
+      ],
+      "model": "M45"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance M sedan with 5.6L V8 engine producing 420 horsepower. Ultimate performance variant with excellent acceleration. Very popular with enthusiasts for modifications and track use.",
+          "end_year": 2013,
+          "generation_name": "Y51",
+          "start_year": 2011
+        }
+      ],
+      "model": "M56"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's original flagship sedan. Featured 4.5L V8 engine (VH45DE) producing 278 horsepower. Highly popular with enthusiasts for modifications including ECU tuning, supercharger kits, suspension upgrades, and brake improvements. Strong aftermarket support.",
+          "end_year": 1996,
+          "generation_name": "FY33",
+          "start_year": 1990
+        },
+        {
+          "description": "Updated Q45 with refined styling and improved V8 engine. Featured 4.1L V8 producing 266 horsepower. Continued popularity with enthusiasts for modifications and luxury features.",
+          "end_year": 2001,
+          "generation_name": "Y33",
+          "start_year": 1997
+        },
+        {
+          "description": "Final Q45 generation with updated styling and 4.5L V8 engine producing 340 horsepower. Featured improved technology and performance. Popular with enthusiasts for modifications.",
+          "end_year": 2006,
+          "generation_name": "F50",
+          "start_year": 2002
+        }
+      ],
+      "model": "Q45"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's compact executive sedan replacing G37. Featured V6 engines and improved technology. Red Sport variant was high-performance.",
+          "end_year": 2020,
+          "generation_name": "V37",
+          "start_year": 2014
+        },
+        {
+          "description": "Updated Q50 with refreshed styling and technology (V37 LCI / facelift). Featured updated engines and improved fuel economy. More refined and efficient.",
+          "end_year": null,
+          "generation_name": "V37 LCI",
+          "slug": "v37-facelift",
+          "start_year": 2021
+        }
+      ],
+      "model": "Q50"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's compact coupe replacing G37 coupe. Featured V6 engines and updated styling. Red Sport variant was high-performance.",
+          "end_year": 2024,
+          "generation_name": "V37",
+          "start_year": 2017
+        }
+      ],
+      "model": "Q60"
+    },
+    {
+      "generations": [
+        {
+          "description": "Infiniti's full-size luxury sedan (renamed from M series). Featured V6 and V8 engines. Q70L was long-wheelbase variant. Popular with enthusiasts for modifications including ECU tuning, exhaust upgrades, and suspension work.",
+          "end_year": 2019,
+          "generation_name": "Y51",
+          "start_year": 2014
+        }
+      ],
+      "model": "Q70"
+    },
+    {
+      "generations": [
+        {
+          "description": "Renamed FX series sporty crossover. Featured V6 and V8 engines. Maintained sporty character and performance. Popular with enthusiasts for modifications including ECU tuning, exhaust, and suspension upgrades.",
+          "end_year": 2017,
+          "generation_name": "S51",
+          "start_year": 2014
+        }
+      ],
+      "model": "QX70"
+    }
+  ]
+}

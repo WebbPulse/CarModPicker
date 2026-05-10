@@ -1,0 +1,25 @@
+{
+  "name": "@carmodpicker/email-templates",
+  "version": "1.0.0",
+  "private": true,
+  "description": "React Email templates for CarModPicker transactional emails",
+  "scripts": {
+    "build": "tsx scripts/build.ts",
+    "preview": "email dev --dir emails --port 3030"
+  },
+  "dependencies": {
+    "@react-email/components": "^0.0.32",
+    "@react-email/render": "^1.0.5"
+  },
+  "overrides": {
+    "prismjs": "^1.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "react-email": "^4.0.7",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

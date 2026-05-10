@@ -1,0 +1,32 @@
+{
+  "Jaguar": [
+    {
+      "generations": [
+        {
+          "description": "Mondeo-based 2.5/3.0 V6 AWD.",
+          "end_year": 2009,
+          "generation_name": "CF1",
+          "start_year": 2001
+        }
+      ],
+      "model": "X-Type"
+    },
+    {
+      "generations": [
+        {
+          "description": "XFR / XFR-S V8.",
+          "end_year": 2015,
+          "generation_name": "X250",
+          "start_year": 2008
+        },
+        {
+          "description": "2nd-gen XF.",
+          "end_year": 2024,
+          "generation_name": "X260",
+          "start_year": 2016
+        }
+      ],
+      "model": "XF"
+    }
+  ]
+}

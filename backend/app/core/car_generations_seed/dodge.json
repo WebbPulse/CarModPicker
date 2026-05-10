@@ -1,0 +1,286 @@
+{
+  "Dodge": [
+    {
+      "generations": [
+        {
+          "description": "The original Challenger, competitor to Mustang and Camaro. Featured V8 engines and iconic styling. R/T and SRT variants were high-performance.",
+          "end_year": 1974,
+          "generation_name": "1st Gen",
+          "start_year": 1970
+        },
+        {
+          "description": "Smaller Challenger due to fuel crisis. Featured smaller engines and compact design. Less powerful but maintained Challenger nameplate.",
+          "end_year": 1983,
+          "generation_name": "2nd Gen",
+          "start_year": 1978
+        },
+        {
+          "description": "Challenger revival with retro-modern design. Featured V6 and V8 engines. SRT and Hellcat variants with supercharged V8 produced 700+ horsepower. Long production run.",
+          "end_year": 2023,
+          "generation_name": "3rd Gen",
+          "start_year": 2008
+        }
+      ],
+      "model": "Challenger"
+    },
+    {
+      "generations": [
+        {
+          "description": "The original Charger, introduced as a fastback specialty car. Featured V8 engines including the legendary 426 HEMI. Full-length center console and bucket seats. Only 468 Chargers had the 426 HEMI in 1966, making them extremely rare.",
+          "end_year": 1967,
+          "generation_name": "1st Gen",
+          "start_year": 1966
+        },
+        {
+          "description": "Iconic 'coke bottle' design with flying buttress roof. Featured the famous Charger Daytona (1969) for NASCAR homologation. Available with 318, 383, 440, and 426 HEMI engines. One of the most iconic muscle car designs.",
+          "end_year": 1970,
+          "generation_name": "2nd Gen",
+          "start_year": 1968
+        },
+        {
+          "description": "Fuselage body style with smoother, rounded design. Featured 426 HEMI in 1971 only, plus 340, 360, 383, and 440 V8s. Peak production year was 1973. R/T and Super Bee variants available. Last of the true muscle car Chargers.",
+          "end_year": 1974,
+          "generation_name": "3rd Gen",
+          "start_year": 1971
+        },
+        {
+          "description": "Transitioned to personal luxury coupe, sharing body with Chrysler Cordoba. Featured smaller V8s (318, 360, 400). Less performance-focused, more comfort-oriented. SE and Daytona appearance packages available.",
+          "end_year": 1978,
+          "generation_name": "4th Gen",
+          "start_year": 1975
+        },
+        {
+          "description": "Radical departure - front-wheel drive subcompact hatchback based on Omni platform. Featured 2.2L turbocharged engines. Shelby Charger variants (1983-1987) with up to 175 hp in GLHS trim. Very different from classic Chargers but popular with tuners.",
+          "end_year": 1987,
+          "generation_name": "5th Gen",
+          "start_year": 1981
+        },
+        {
+          "description": "Dodge's full-size sedan with V6 and V8 engines. Featured rear-wheel drive and good performance. SRT8 variant was high-performance.",
+          "end_year": 2010,
+          "generation_name": "LX",
+          "start_year": 2006
+        },
+        {
+          "description": "Refined Charger with updated styling and technology. Featured updated V6 and V8 engines. SRT and Hellcat variants with supercharged V8 produced 700+ horsepower.",
+          "end_year": 2023,
+          "generation_name": "LD",
+          "start_year": 2011
+        },
+        {
+          "description": "Latest Charger with updated design and technology (LB platform, electrified Daytona variants). Featured updated engines and improved efficiency. SRT and Hellcat variants available.",
+          "end_year": null,
+          "generation_name": "LB",
+          "slug": "2024",
+          "start_year": 2024
+        }
+      ],
+      "model": "Charger"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation Viper, Dodge's flagship sports car. Featured 8.0L naturally aspirated V10 producing 400 hp and 465 lb-ft torque. Roadster only (RT/10). Minimal amenities - no exterior door handles initially, raw driving experience. Established Viper as American supercar.",
+          "end_year": 1995,
+          "generation_name": "SR I",
+          "start_year": 1992
+        },
+        {
+          "description": "Second generation with roadster (RT/10) and GTS coupe introduced mid-1996. Featured 8.0L V10 with 415-460 hp depending on variant. Improved safety with airbags, better finish, and aluminum components. ACR track variant available. Top speed ~189 mph.",
+          "end_year": 2002,
+          "generation_name": "SR II",
+          "start_year": 1996
+        },
+        {
+          "description": "Third generation with major redesign. Featured 8.3L V10 producing 500-510 hp and 525 lb-ft torque. Available as convertible and coupe. Upgraded rigidity, lighter components, sharp bodywork. Improved handling and performance.",
+          "end_year": 2006,
+          "generation_name": "ZB I",
+          "start_year": 2003
+        },
+        {
+          "description": "Fourth generation with increased displacement to 8.4L V10. Produced 600 hp and 560 lb-ft torque. Featured ACR track-focused variant and Final Edition to mark end of production. Peak power output before hiatus.",
+          "end_year": 2010,
+          "generation_name": "ZB II",
+          "start_year": 2008
+        },
+        {
+          "description": "Fifth and final generation, initially branded as SRT Viper. Featured 8.4L V10 producing 640-645 hp and 600 lb-ft torque. Modern safety equipment (ABS, traction/stability control), electronics, and aero. ACR and Time Attack variants available. Discontinued in 2017 due to low sales and safety regulations.",
+          "end_year": 2017,
+          "generation_name": "VX I",
+          "start_year": 2013
+        }
+      ],
+      "model": "Viper"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance turbocharged variant of the Neon, built by Dodge's Performance Vehicle Operations (PVO/SRT). Featured 2.4L turbocharged inline-4 producing 215 hp (2003) or 230 hp (2004-2005). 0-60 in 5.3-5.6 seconds. Popular in tuning community. 2005 ACR variant with track-focused upgrades. Front-wheel drive, 5-speed manual only.",
+          "end_year": 2005,
+          "generation_name": "SRT-4",
+          "start_year": 2003
+        }
+      ],
+      "model": "Neon SRT-4"
+    },
+    {
+      "generations": [
+        {
+          "description": "Successor to Neon SRT-4. Featured turbocharged 4-cylinder engine with high output. Maintained SRT-4 concept of turbo 4-cyl performance. Compact crossover with sporty character.",
+          "end_year": 2009,
+          "generation_name": "SRT-4",
+          "start_year": 2008
+        }
+      ],
+      "model": "Caliber SRT-4"
+    },
+    {
+      "generations": [
+        {
+          "description": "Dodge version of Mitsubishi 3000GT. Featured 3.0L twin-turbocharged V6 (Mitsubishi 6G72) producing 300-320 hp and 307-315 lb-ft torque. All-wheel drive with selectable driver settings. Available with 5-speed manual or 4-speed automatic. Featured four-wheel steering (some years), active aerodynamics, and advanced performance tuning. High-tech sports car with impressive capabilities.",
+          "end_year": 1996,
+          "generation_name": "R/T Turbo",
+          "start_year": 1990
+        }
+      ],
+      "model": "Stealth"
+    },
+    {
+      "generations": [
+        {
+          "description": "Performance wagon variant of the Magnum. Featured 6.1L HEMI V8 producing 425 hp and 420 lb-ft torque. 0-60 in 5.0-5.4 seconds, quarter-mile in 13.1-13.7 seconds. Featured 20-inch wheels, Brembo brakes (14.2\" front / 13.8\" rear), stiffer suspension, and lower ride height. Unique SRT body styling. 5-speed automatic with AutoStick, rear-wheel drive.",
+          "end_year": 2008,
+          "generation_name": "SRT-8",
+          "start_year": 2005
+        }
+      ],
+      "model": "Magnum"
+    },
+    {
+      "generations": [
+        {
+          "description": "Performance SUV variant with 6.4L (392 cu-in) HEMI V8 producing 475 hp and 470 lb-ft torque. High-performance SUV with track capability. Featured SRT-tuned suspension, brakes, and styling.",
+          "end_year": 2024,
+          "generation_name": "SRT 392",
+          "start_year": 2018
+        },
+        {
+          "description": "Most powerful SUV ever produced. Featured supercharged 6.2L HEMI Hellcat V8 producing 710 hp and 645 lb-ft torque. Initially planned as one-year model but revived due to strong demand. Available in 2021, 2023, 2024, and continuing into 2025-2026. Ultimate performance SUV.",
+          "end_year": 2024,
+          "generation_name": "SRT Hellcat",
+          "start_year": 2021
+        }
+      ],
+      "model": "Durango"
+    },
+    {
+      "generations": [
+        {
+          "description": "Performance coupe built on Chrysler K/G-platform. Featured turbocharged 2.2L engines producing 93-146 hp depending on year and trim. Turbo, Turbo Z, Shelby, and IROC variants available. Shelby trim introduced in 1987 with premium features and performance tuning. Popular in 1980s performance car scene. Front-wheel drive with sporty handling.",
+          "end_year": 1993,
+          "generation_name": "Turbo/Shelby",
+          "start_year": 1984
+        }
+      ],
+      "model": "Daytona"
+    },
+    {
+      "generations": [
+        {
+          "description": "Shelby-tuned hot hatch variants. GLH (Goes Like Hell) featured turbocharged 2.2L producing 146 hp. GLHS (1986) was Shelby's final Omni project with upgraded turbo, intercooler, and tuning producing ~175 hp and 175 lb-ft torque. Only ~500 GLHS units built, making them rare collectibles. 0-60 in ~6.5 seconds, quarter-mile ~14.8 seconds. Iconic American hot hatch from the 1980s.",
+          "end_year": 1986,
+          "generation_name": "GLH/GLHS",
+          "start_year": 1984
+        }
+      ],
+      "model": "Omni"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second-generation Dodge Ram (BR/BE platform). Bold 'big rig' styling. 5.2L / 5.9L Magnum V8s; 5.9L Cummins 12-valve through 1998, 24-valve ISB from MY1998.5. Final MY 2002 before DR redesign.",
+          "end_year": 2002,
+          "generation_name": "2nd Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Third-generation Dodge Ram 1500 (DR/DH platform). 4.7L Magnum V8 standard; 5.7L Hemi (Magnum) introduced in MY2003 — first modern Mopar HEMI. SRT-10 variant carried the Viper-derived 8.3L V10.",
+          "end_year": 2008,
+          "generation_name": "3rd Gen",
+          "start_year": 2002
+        },
+        {
+          "description": "Fourth-generation Ram 1500 (DS platform). Coil-spring rear suspension introduced. 3.6L Pentastar V6, 5.7L Hemi V8 (eTorque on later trims), 6.4L Hemi (Power Wagon-only on HD). Brand split: Ram became its own marque from MY2011 forward.",
+          "end_year": 2018,
+          "generation_name": "4th Gen",
+          "start_year": 2009
+        },
+        {
+          "description": "Fifth-generation Ram 1500 (DT platform). 3.6L Pentastar V6 (eTorque), 5.7L Hemi V8 (eTorque), 3.0L Hurricane I6 from MY2025. TRX trim with 6.2L Hellcat-supercharged V8 produced 702 hp.",
+          "end_year": null,
+          "generation_name": "5th Gen",
+          "start_year": 2019
+        }
+      ],
+      "model": "Ram 1500"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second-generation Dodge Ram 2500 HD (BR/BE platform). 5.9L Cummins 12-valve through MY1998, 24-valve ISB from MY1998.5. The diesel-tuning community's favorite Cummins-era truck.",
+          "end_year": 2002,
+          "generation_name": "2nd Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Third-generation Ram 2500 HD (DR/DH platform). 5.9L Cummins 24-valve common-rail (CR) MY2003-2007, 6.7L Cummins introduced MY2007.5. 5.7L Hemi gas option also offered.",
+          "end_year": 2009,
+          "generation_name": "3rd Gen",
+          "start_year": 2003
+        },
+        {
+          "description": "Fourth-generation Ram 2500 HD (DJ platform). 6.7L Cummins (multiple horsepower tunings — 350/370/385 hp depending on MY/transmission). 5.7L Hemi gas standard; 6.4L Hemi 'Power Wagon' variant. Final MY 2018 before DT HD redesign.",
+          "end_year": 2018,
+          "generation_name": "4th Gen",
+          "start_year": 2010
+        },
+        {
+          "description": "Fifth-generation Ram 2500 HD (DT/HD platform). 6.7L Cummins continued (370-420 hp depending on tune). 6.4L Hemi gas standard.",
+          "end_year": null,
+          "generation_name": "5th Gen",
+          "start_year": 2019
+        }
+      ],
+      "model": "Ram 2500"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second-generation Dodge Ram 3500 HD (BR/BE platform). 5.9L Cummins (12v then 24v ISB). Dual-rear-wheel option for fifth-wheel towing.",
+          "end_year": 2002,
+          "generation_name": "2nd Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Third-generation Ram 3500 HD (DR/DH platform). 5.9L Cummins common-rail then 6.7L Cummins from MY2007.5. Dual-rear-wheel chassis-cab also offered.",
+          "end_year": 2009,
+          "generation_name": "3rd Gen",
+          "start_year": 2003
+        },
+        {
+          "description": "Fourth-generation Ram 3500 HD (DJ platform). 6.7L Cummins with Aisin AS69RC transmission on high-output tune. 5.7L / 6.4L Hemi gas options.",
+          "end_year": 2018,
+          "generation_name": "4th Gen",
+          "start_year": 2010
+        },
+        {
+          "description": "Fifth-generation Ram 3500 HD (DT/HD platform). 6.7L Cummins (high-output 420 hp / 1000 lb-ft).",
+          "end_year": null,
+          "generation_name": "5th Gen",
+          "start_year": 2019
+        }
+      ],
+      "model": "Ram 3500"
+    }
+  ]
+}

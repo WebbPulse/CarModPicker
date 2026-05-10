@@ -1,0 +1,61 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Check code formatting
+        run: |
+          cd frontend
+          npx prettier --check "src/**/*.{ts,tsx,json,css}" "*.{ts,tsx,json}" ".prettierrc.json"
+
+      - name: Run linting
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Run type checking
+        run: |
+          cd frontend
+          npm run type-check
+
+      - name: Audit dependencies for vulnerabilities
+        run: |
+          cd frontend
+          npm audit --audit-level=moderate
+
+      - name: Run tests
+        run: |
+          cd frontend
+          npm test -- --run --coverage
+
+      - name: Check circular imports
+        run: |
+          cd frontend
+          npx madge --circular --extensions ts,tsx src/
+
+      - name: Build application
+        run: |
+          cd frontend
+          npm run build

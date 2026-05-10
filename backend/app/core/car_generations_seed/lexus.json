@@ -1,0 +1,311 @@
+{
+  "Lexus": [
+    {
+      "generations": [
+        {
+          "description": "Lexus' compact executive sedan. Featured inline-6 engines and excellent build quality. Established IS as a sporty luxury car.",
+          "end_year": 2005,
+          "generation_name": "XE10",
+          "start_year": 1998
+        },
+        {
+          "description": "Refined IS with updated styling and engines. Featured V6 engines and improved technology. IS F variant with V8 was high-performance.",
+          "end_year": 2013,
+          "generation_name": "XE20",
+          "start_year": 2006
+        },
+        {
+          "description": "Complete redesign with updated styling and technology. Featured updated V6 engines and improved handling. More modern and refined.",
+          "end_year": 2020,
+          "generation_name": "XE30",
+          "start_year": 2014
+        },
+        {
+          "description": "Latest IS with updated design and technology. Featured updated engines and advanced safety features. More premium positioning.",
+          "end_year": null,
+          "generation_name": "XE40",
+          "start_year": 2021
+        }
+      ],
+      "model": "IS"
+    },
+    {
+      "generations": [
+        {
+          "description": "Lexus' mid-size executive sedan. Featured inline-6 and V8 engines. Excellent balance of luxury and performance.",
+          "end_year": 2005,
+          "generation_name": "JZS160",
+          "start_year": 1998
+        },
+        {
+          "description": "Refined GS with updated styling and engines. Featured V6 and V8 engines. Improved technology and handling.",
+          "end_year": 2011,
+          "generation_name": "GRS190",
+          "start_year": 2006
+        },
+        {
+          "description": "Latest GS with updated styling and technology. Featured updated engines and improved fuel economy. More refined and efficient.",
+          "end_year": 2020,
+          "generation_name": "GRL10",
+          "start_year": 2012
+        }
+      ],
+      "model": "GS"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance GS with naturally aspirated 5.0L V8 engine (2UR-GSE) producing 467 horsepower. Track-focused variant with excellent handling and build quality. Popular for exhaust upgrades, suspension modifications, and performance tuning.",
+          "end_year": 2020,
+          "generation_name": "URL10",
+          "start_year": 2016
+        }
+      ],
+      "model": "GS F"
+    },
+    {
+      "generations": [
+        {
+          "description": "Lexus' compact coupe with sporty styling. Featured V6 and V8 engines. RC F variant with V8 was high-performance.",
+          "end_year": null,
+          "generation_name": "ZRC",
+          "start_year": 2015
+        }
+      ],
+      "model": "RC"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance IS with naturally aspirated V8 engine producing 416 horsepower. Excellent handling and build quality. Track-focused variant.",
+          "end_year": 2013,
+          "generation_name": "XE20",
+          "start_year": 2008
+        }
+      ],
+      "model": "IS F"
+    },
+    {
+      "generations": [
+        {
+          "description": "High-performance RC with naturally aspirated V8 engine producing 467 horsepower. Track-focused with excellent handling and build quality.",
+          "end_year": null,
+          "generation_name": "ZRC",
+          "start_year": 2015
+        }
+      ],
+      "model": "RC F"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation SC coupe with 3.0L inline-6 engine (2JZ-GE) producing 225 horsepower. Available with 5-speed manual (1992-1997) or automatic. Highly popular in enthusiast community for 2JZ-GTE swaps, NA-T conversions, and drift builds. VVT-i added in 1998. Popular for suspension upgrades, turbo conversions, and stance modifications.",
+          "end_year": 2000,
+          "generation_name": "JZZ31",
+          "start_year": 1992
+        }
+      ],
+      "model": "SC300"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation SC coupe with 4.0L V8 engine (1UZ-FE) producing 250-290 horsepower. Automatic transmission only. Smooth V8 power delivery. Popular for luxury modifications, V8 swaps into other platforms, and VIP/stance builds. VVT-i added in 1998. Known for reliability and smooth operation.",
+          "end_year": 2000,
+          "generation_name": "UZZ31",
+          "start_year": 1992
+        }
+      ],
+      "model": "SC400"
+    },
+    {
+      "generations": [
+        {
+          "description": "Second generation SC with retractable hardtop convertible. Features 4.3L V8 engine (3UZ-FE) producing 288-300 horsepower. Luxury-focused grand tourer. Popular for comfort modifications, suspension upgrades, and luxury customization. Less performance-focused than first generation but still has enthusiast following.",
+          "end_year": 2010,
+          "generation_name": "UZZ40",
+          "start_year": 2002
+        }
+      ],
+      "model": "SC430"
+    },
+    {
+      "generations": [
+        {
+          "description": "Lexus' flagship grand tourer with stunning design. Features 5.0L naturally aspirated V8 (LC500) producing 471 horsepower or 3.5L V6 hybrid (LC500h). Available as coupe and convertible. Built on GA-L platform with excellent handling. Popular for exhaust upgrades, aero modifications, and luxury customization. Convertible introduced in 2021, major interior/tech updates in 2024.",
+          "end_year": null,
+          "generation_name": "URZ100",
+          "start_year": 2018
+        }
+      ],
+      "model": "LC"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation LS, establishing Lexus as a luxury brand. Featured V8 engine and exceptional build quality. Popular for VIP/stance modifications and luxury customization.",
+          "end_year": 1994,
+          "generation_name": "UCF10",
+          "start_year": 1990
+        },
+        {
+          "description": "Second generation LS with more refined design. Featured improved engines and technology. Highly popular in VIP/stance culture for modifications.",
+          "end_year": 2000,
+          "generation_name": "UCF20",
+          "start_year": 1995
+        },
+        {
+          "description": "Third generation LS with updated styling and technology. Featured V8 engines and improved luxury features. Popular for VIP modifications and custom builds.",
+          "end_year": 2006,
+          "generation_name": "UCF30",
+          "start_year": 2001
+        },
+        {
+          "description": "Fourth generation LS with more modern design. Featured V8 and hybrid powertrains. Popular for luxury modifications, VIP styling, and custom interiors.",
+          "end_year": 2017,
+          "generation_name": "UCF40",
+          "start_year": 2007
+        },
+        {
+          "description": "Fifth generation LS with bold new design language. Featured V6 twin-turbo and hybrid powertrains. Popular for luxury customization, VIP modifications, and high-end builds.",
+          "end_year": null,
+          "generation_name": "URF50",
+          "start_year": 2018
+        }
+      ],
+      "model": "LS"
+    },
+    {
+      "generations": [
+        {
+          "description": "Lexus' limited-production supercar with naturally aspirated 4.8L V10 engine producing 552 horsepower. Only 500 units produced. Features carbon fiber construction and Yamaha-tuned exhaust. Highly collectible, modifications typically focus on wheels, suspension, and subtle performance enhancements while preserving value.",
+          "end_year": 2012,
+          "generation_name": "LFA10",
+          "start_year": 2010
+        }
+      ],
+      "model": "LFA"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation GX luxury SUV. Based on Land Cruiser Prado platform. Featured V8 engine and excellent off-road capability. Popular for off-road modifications, lift kits, and overlanding builds.",
+          "end_year": 2009,
+          "generation_name": "J120",
+          "start_year": 2003
+        },
+        {
+          "description": "Second generation GX with updated styling. Featured V8 engine and improved technology. Popular for off-road modifications, luxury overlanding builds, and suspension upgrades.",
+          "end_year": 2023,
+          "generation_name": "J150",
+          "start_year": 2010
+        },
+        {
+          "description": "Third generation GX with complete redesign. Features new platform, updated engines, and modern technology. Popular for off-road modifications and luxury overlanding builds.",
+          "end_year": null,
+          "generation_name": "J250",
+          "start_year": 2024
+        }
+      ],
+      "model": "GX"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation LX. Luxury version of Land Cruiser. Featured V8 engine and luxury appointments. Popular for luxury off-road modifications.",
+          "end_year": 1997,
+          "generation_name": "J80",
+          "start_year": 1996
+        },
+        {
+          "description": "Second generation LX with more refined design. Featured V8 engines and improved luxury. Popular for luxury off-road modifications and overlanding builds.",
+          "end_year": 2007,
+          "generation_name": "J100",
+          "start_year": 1998
+        },
+        {
+          "description": "Third generation LX with updated styling and technology. Featured powerful V8 engines and advanced suspension. Popular for luxury off-road modifications, lift kits, and high-end overlanding builds.",
+          "end_year": 2021,
+          "generation_name": "J200",
+          "start_year": 2008
+        },
+        {
+          "description": "Fourth generation LX with complete redesign. Features new platform, updated engines, and modern technology. Popular for luxury off-road modifications and premium overlanding builds.",
+          "end_year": null,
+          "generation_name": "J310",
+          "start_year": 2022
+        }
+      ],
+      "model": "LX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Lexus' compact hybrid hatchback with 1.8L hybrid powertrain (2ZR-FXE) producing 134 combined horsepower. Popular in tuning scene despite hybrid limitations. Common modifications include suspension upgrades, brake improvements, F-Sport styling parts, and aesthetic modifications. Known for head gasket issues in some years, addressed with catch cans and EGR cleaning. Popular for stance builds and handling-focused modifications.",
+          "end_year": 2017,
+          "generation_name": "ZWA10",
+          "start_year": 2011
+        }
+      ],
+      "model": "CT200h"
+    },
+    {
+      "generations": [
+        {
+          "description": "First generation ES luxury sedan. Based on Camry platform with luxury appointments. Popular for subtle modifications and luxury customization.",
+          "end_year": 1996,
+          "generation_name": "V20",
+          "start_year": 1990
+        },
+        {
+          "description": "Second generation ES with updated design. Featured V6 engines and improved luxury. Popular for modifications and custom builds.",
+          "end_year": 2001,
+          "generation_name": "XV20",
+          "start_year": 1997
+        },
+        {
+          "description": "Third generation ES with more modern styling. Featured V6 engines and improved technology. Popular for modifications and luxury customization.",
+          "end_year": 2006,
+          "generation_name": "XV30",
+          "start_year": 2002
+        },
+        {
+          "description": "Fourth generation ES with updated design. Featured V6 and hybrid powertrains. Popular for modifications and custom builds.",
+          "end_year": 2012,
+          "generation_name": "XV40",
+          "start_year": 2007
+        },
+        {
+          "description": "Fifth generation ES with more aggressive styling. Featured V6 and hybrid powertrains. Popular for modifications and luxury customization.",
+          "end_year": 2018,
+          "generation_name": "XV60",
+          "start_year": 2013
+        },
+        {
+          "description": "Sixth generation ES with complete redesign. Features new platform, updated engines, and modern technology. Popular for modifications and luxury customization.",
+          "end_year": null,
+          "generation_name": "XV70",
+          "start_year": 2019
+        }
+      ],
+      "model": "ES"
+    },
+    {
+      "generations": [
+        {
+          "description": "RX330/RX350/RX400h.",
+          "end_year": 2009,
+          "generation_name": "XU30",
+          "start_year": 2004
+        },
+        {
+          "description": "RX350/RX450h.",
+          "end_year": 2015,
+          "generation_name": "AL10",
+          "start_year": 2010
+        }
+      ],
+      "model": "RX"
+    }
+  ]
+}

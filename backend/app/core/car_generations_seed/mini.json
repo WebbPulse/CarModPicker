@@ -1,0 +1,66 @@
+{
+  "Mini": [
+    {
+      "generations": [
+        {
+          "description": "First modern MINI Cooper. R50 (hatch), R52 (convertible), R53 (Cooper S with supercharger). Featured supercharged 1.6L engine in S trim producing 163-210 hp. Very popular for supercharger upgrades, suspension lowering, exhaust modifications, and cosmetic mods. Strong tuning culture.",
+          "end_year": 2006,
+          "generation_name": "R50/R52/R53",
+          "start_year": 2002
+        },
+        {
+          "description": "Second generation MINI with turbocharged engines replacing the supercharger. R56 (hatch), R55 (Clubman), R57 (convertible), R58 (Coupe), R59 (Roadster). Cooper S features 1.6L turbocharged engine producing 181-208 hp. JCW version produces 208 hp. Popular for turbo upgrades, intercooler upgrades, suspension, and exhaust modifications.",
+          "end_year": 2013,
+          "generation_name": "R55/R56/R57/R58/R59",
+          "start_year": 2007
+        },
+        {
+          "description": "Third generation MINI on BMW UKL platform. F56 (3-door hatch), F55 (5-door hatch), F57 (convertible). Cooper S features 2.0L turbocharged engine producing 189-228 hp. JCW produces 228 hp. Popular for intake upgrades, ECU tuning, exhaust modifications, and suspension work.",
+          "end_year": 2023,
+          "generation_name": "F55/F56/F57",
+          "start_year": 2014
+        }
+      ],
+      "model": "Cooper"
+    },
+    {
+      "generations": [
+        {
+          "description": "First MINI Countryman compact crossover. Available with ALL4 all-wheel drive. Cooper S features 1.6L turbocharged engine. John Cooper Works version produces 218 hp. Popular for suspension, exhaust, and cosmetic modifications.",
+          "end_year": 2016,
+          "generation_name": "R60",
+          "start_year": 2011
+        },
+        {
+          "description": "Second-generation Countryman on BMW UKL platform. Larger and more premium than predecessor. Cooper S features 2.0L turbocharged engine. JCW produces 228 hp. Popular for ECU tuning and exhaust upgrades.",
+          "end_year": 2023,
+          "generation_name": "F60",
+          "start_year": 2017
+        }
+      ],
+      "model": "Countryman"
+    },
+    {
+      "generations": [
+        {
+          "description": "Cooper / Cooper S / JCW.",
+          "end_year": 2015,
+          "generation_name": "R58",
+          "start_year": 2012
+        }
+      ],
+      "model": "Coupé"
+    },
+    {
+      "generations": [
+        {
+          "description": "Convertible.",
+          "end_year": 2015,
+          "generation_name": "R59",
+          "start_year": 2012
+        }
+      ],
+      "model": "Roadster"
+    }
+  ]
+}

@@ -1,0 +1,194 @@
+{
+  "Aston Martin": [
+    {
+      "generations": [
+        {
+          "description": "Classic standalone V8 Vantage flagship with 5.3L naturally aspirated V8. Iconic William Towns design. Popular for engine rebuilds, suspension upgrades, and restoration modifications.",
+          "end_year": 1989,
+          "generation_name": "V8 Vantage I",
+          "slug": "v8-vantage-classic",
+          "start_year": 1977
+        },
+        {
+          "description": "Aston Martin's compact sports car with 4.3L-4.7L V8 engines. Available as coupe and Roadster. Popular for exhaust upgrades, ECU tuning (Monte Tuning), intake modifications, aero enhancements, and carbon fiber bodywork. Strong aftermarket support for modifications.",
+          "end_year": 2017,
+          "generation_name": "V8 Vantage",
+          "start_year": 2005
+        },
+        {
+          "description": "High-performance Vantage with 5.9L naturally aspirated V12 producing 510-565 horsepower. Available as coupe and Roadster. Popular for exhaust upgrades, ECU tuning, intake modifications, aero enhancements, and performance modifications. Highly sought after by enthusiasts.",
+          "end_year": 2018,
+          "generation_name": "V12 Vantage",
+          "start_year": 2009
+        },
+        {
+          "description": "New generation Vantage with 4.0L twin-turbo V8 producing 503-535 horsepower. Available as coupe and Roadster. V12 version available in limited production (2022-2023). Popular for exhaust upgrades, ECU tuning, aero modifications, and performance enhancements. Good aftermarket support.",
+          "end_year": null,
+          "generation_name": "Vantage",
+          "start_year": 2018
+        }
+      ],
+      "model": "Vantage"
+    },
+    {
+      "generations": [
+        {
+          "description": "Iconic grand tourer with 4.0L inline-6 engine. Made famous by James Bond films. Available as coupe, convertible (Volante), and shooting brake. Highly collectible with strong restoration and modification community.",
+          "end_year": 1965,
+          "generation_name": "DB5",
+          "start_year": 1963
+        }
+      ],
+      "model": "DB5"
+    },
+    {
+      "generations": [
+        {
+          "description": "Evolution of the DB5 with improved aerodynamics and longer wheelbase. 4.0L inline-6 engine. Available as coupe, Volante, and shooting brake. Classic collector car with restoration and modification support.",
+          "end_year": 1970,
+          "generation_name": "DB6",
+          "start_year": 1965
+        }
+      ],
+      "model": "DB6"
+    },
+    {
+      "generations": [
+        {
+          "description": "Modern grand tourer with supercharged 3.2L inline-6 (Vantage) or 5.9L V12 engines. Available as coupe and Volante. Popular for exhaust upgrades, supercharger modifications, ECU tuning, and suspension improvements. Strong aftermarket support.",
+          "end_year": 2004,
+          "generation_name": "DB7",
+          "start_year": 1994
+        }
+      ],
+      "model": "DB7"
+    },
+    {
+      "generations": [
+        {
+          "description": "Aston Martin's grand tourer with 5.9L V12 engine producing 470-510 horsepower. Available as coupe and Volante. Popular for exhaust upgrades, ECU tuning, intake modifications, aero enhancements (V-Collection, Mansory), carbon fiber bodywork, and luxury customization. Strong aftermarket support for modifications.",
+          "end_year": 2016,
+          "generation_name": "DB9",
+          "start_year": 2004
+        }
+      ],
+      "model": "DB9"
+    },
+    {
+      "generations": [
+        {
+          "description": "Grand tourer with 5.2L twin-turbo V12 (600-630 hp) or 4.0L twin-turbo V8 (510 hp) engines. Available as coupe and Volante. Popular for exhaust upgrades, ECU tuning, intake modifications, aero enhancements, and luxury customization. Good aftermarket support.",
+          "end_year": 2023,
+          "generation_name": "DB11",
+          "start_year": 2016
+        }
+      ],
+      "model": "DB11"
+    },
+    {
+      "generations": [
+        {
+          "description": "Current flagship 'Super Tourer' with 5.2L twin-turbo V12 producing 671 horsepower. Available as coupe and Volante. DB12 S offers higher performance. Popular for exhaust upgrades, ECU tuning, and luxury customization. Growing aftermarket support.",
+          "end_year": null,
+          "generation_name": "DB12",
+          "start_year": 2023
+        }
+      ],
+      "model": "DB12"
+    },
+    {
+      "generations": [
+        {
+          "description": "Original DBS fastback GT with 4.0L inline-6 or 5.3L V8 engines. Iconic William Towns design. Available as coupe. Classic collector car with restoration and modification support.",
+          "end_year": 1972,
+          "generation_name": "DBS I",
+          "slug": "dbs-classic",
+          "start_year": 1967
+        },
+        {
+          "description": "Flagship grand tourer with 5.9L V12 producing 510-517 horsepower. Available as coupe and Volante. Popular for exhaust upgrades, ECU tuning, intake modifications, aero enhancements, and luxury customization. Strong aftermarket support.",
+          "end_year": 2012,
+          "generation_name": "DBS",
+          "start_year": 2007
+        },
+        {
+          "description": "Flagship super GT with 5.2L twin-turbo V12 producing 715 horsepower. Available as coupe and Volante. Advanced aerodynamics and carbon fiber construction. Popular for exhaust upgrades, ECU tuning, and performance modifications. Good aftermarket support.",
+          "end_year": 2024,
+          "generation_name": "DBS Superleggera",
+          "start_year": 2018
+        }
+      ],
+      "model": "DBS"
+    },
+    {
+      "generations": [
+        {
+          "description": "Original flagship with 5.9L V12 producing 460-520 horsepower. Available as coupe. Popular for exhaust upgrades, ECU tuning, intake modifications, and suspension improvements. Strong aftermarket support.",
+          "end_year": 2007,
+          "generation_name": "Vanquish I",
+          "slug": "vanquish-i",
+          "start_year": 2001
+        },
+        {
+          "description": "VH-platform Vanquish with 5.9L V12 producing 565-600 horsepower. Available as coupe and Volante. Vanquish S variant available. Popular for exhaust upgrades, ECU tuning, aero enhancements, and luxury customization. Strong aftermarket support.",
+          "end_year": 2018,
+          "generation_name": "Vanquish II",
+          "slug": "vanquish-ii",
+          "start_year": 2012
+        },
+        {
+          "description": "Revived flagship with new twin-turbo V12 engine. Replaces DBS Superleggera as top model. Available as coupe and Volante. Popular for exhaust upgrades, ECU tuning, and performance modifications. Growing aftermarket support.",
+          "end_year": null,
+          "generation_name": "Vanquish III",
+          "slug": "vanquish-iii",
+          "start_year": 2024
+        }
+      ],
+      "model": "Vanquish"
+    },
+    {
+      "generations": [
+        {
+          "description": "Four-door sport sedan grand tourer with 5.9L V12 producing 470-552 horsepower. Available as Rapide and Rapide S. Popular for exhaust upgrades, ECU tuning, intake modifications, and luxury customization. Moderate aftermarket support.",
+          "end_year": 2020,
+          "generation_name": "Rapide",
+          "start_year": 2010
+        }
+      ],
+      "model": "Rapide"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-exclusive limited production (77 units) hypercar with 7.3L naturally aspirated V12 producing 750 horsepower. Hand-built, extremely rare. Minimal aftermarket modifications due to exclusivity and value.",
+          "end_year": 2012,
+          "generation_name": "One-77",
+          "start_year": 2009
+        }
+      ],
+      "model": "One-77"
+    },
+    {
+      "generations": [
+        {
+          "description": "Ultra-exclusive hypercar with 6.5L naturally aspirated V12 hybrid powertrain producing over 1,000 horsepower. Available as Coupe, Spider, AMR Pro, and LM racing variants. Extremely limited production. Minimal aftermarket modifications due to exclusivity.",
+          "end_year": null,
+          "generation_name": "Valkyrie",
+          "start_year": 2019
+        }
+      ],
+      "model": "Valkyrie"
+    },
+    {
+      "generations": [
+        {
+          "description": "Hybrid supercar with 4.0L twin-turbo V8 hybrid powertrain producing 998 horsepower. Mid-engine layout. Limited production. Popular for exhaust upgrades and performance modifications. Growing aftermarket support.",
+          "end_year": null,
+          "generation_name": "Valhalla",
+          "start_year": 2024
+        }
+      ],
+      "model": "Valhalla"
+    }
+  ]
+}

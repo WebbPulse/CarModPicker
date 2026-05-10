@@ -1,0 +1,84 @@
+{
+  "Pontiac": [
+    {
+      "generations": [
+        {
+          "description": "Pontiac's rear-wheel-drive sport sedan based on the Holden Commodore VE platform. GT trim featured 3.6L V6 (256 hp); GXP trim had the 6.0L LS2 V8 (361 hp) and available 6.2L LS3 V8 (402 hp). Only sold for two model years before Pontiac brand discontinuation. Beloved by enthusiasts for its LS engine tuning potential, rear-wheel drive, and performance value. Strong aftermarket for exhaust, suspension, superchargers, and engine upgrades.",
+          "end_year": 2009,
+          "generation_name": "VE",
+          "start_year": 2008
+        }
+      ],
+      "model": "G8"
+    },
+    {
+      "generations": [
+        {
+          "description": "The original muscle car, often credited with creating the muscle car segment. Featured 389 and 400 cubic inch V8 engines. Tripower carburetion, Ram Air options. Simple, lightweight platform popular for performance builds and restorations.",
+          "end_year": 1967,
+          "generation_name": "1st Gen",
+          "start_year": 1964
+        },
+        {
+          "description": "Redesigned with more flowing Endura bumper styling. 400 and 455 cubic inch V8 engines. The Judge performance package (1969-71) with Ram Air IV engine. Peak of the classic GTO era.",
+          "end_year": 1972,
+          "generation_name": "2nd Gen",
+          "start_year": 1968
+        },
+        {
+          "description": "Revived GTO based on Holden Monaro. Featured 5.7L LS1 V8 (2004, 350 hp) and 6.0L LS2 V8 (2005-2006, 400 hp). Rear-wheel drive with 6-speed manual or 4-speed automatic. Popular for LS engine swaps and performance modifications.",
+          "end_year": 2006,
+          "generation_name": "Holden",
+          "start_year": 2004
+        }
+      ],
+      "model": "GTO"
+    },
+    {
+      "generations": [
+        {
+          "description": "Original Firebird sharing body with Camaro but with Pontiac-specific styling and powertrain options. Available with six-cylinder and V8 engines including the 400 cubic inch option. Sprint (OHC six), 326, 400, and 400 H.O. variants. Established Firebird as a performance brand.",
+          "end_year": 1969,
+          "generation_name": "1st Gen",
+          "start_year": 1967
+        },
+        {
+          "description": "Iconic long-hood styling on the F-body platform. Trans Am became the performance flagship with 400/455 V8 engines in the early years. Screaming Chicken hood decal era. SD-455 produced 310 hp in 1973-74. Production survived the emissions era with T/A 6.6L engines. Smokey and the Bandit Trans Am defined the era.",
+          "end_year": 1981,
+          "generation_name": "2nd Gen",
+          "start_year": 1970
+        },
+        {
+          "description": "F-body Firebird with aerodynamic styling. Trans Am with TPI 5.0L V8 and optional 5.7L. IROC-Z equivalent in Formula trim. Popular platform for performance upgrades.",
+          "end_year": 1992,
+          "generation_name": "3rd Gen",
+          "start_year": 1982
+        },
+        {
+          "description": "Final Firebird generation with LS1 V8 in Formula and Trans Am trims producing 305-325 hp. Firehawk special edition with 327 hp. Shared F-body platform with Camaro. Excellent value high-performance cars with strong tuning community.",
+          "end_year": 2002,
+          "generation_name": "4th Gen",
+          "start_year": 1993
+        }
+      ],
+      "model": "Firebird"
+    },
+    {
+      "generations": [
+        {
+          "description": "GTP supercharged 3.8L L67.",
+          "end_year": 2003,
+          "generation_name": "7th Gen",
+          "start_year": 1997
+        },
+        {
+          "description": "GXP 5.3L LS4 V8 FWD.",
+          "end_year": 2008,
+          "generation_name": "8th Gen",
+          "start_year": 2004
+        }
+      ],
+      "model": "Grand Prix"
+    }
+  ]
+}

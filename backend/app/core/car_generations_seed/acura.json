@@ -1,0 +1,259 @@
+{
+  "Acura": [
+    {
+      "generations": [
+        {
+          "description": "Acura's sporty compact coupe and sedan. Featured advanced suspension and became popular in the tuning scene. Same as Honda Integra with Acura branding.",
+          "end_year": 1989,
+          "generation_name": "1st Gen",
+          "start_year": 1986
+        },
+        {
+          "description": "Refined Integra with improved styling. The GS-R trim introduced VTEC technology, making it a favorite among enthusiasts.",
+          "end_year": 1993,
+          "generation_name": "2nd Gen",
+          "start_year": 1990
+        },
+        {
+          "description": "Widely considered the best Integra generation. Featured the legendary B18C engine in GS-R and Type R variants. Iconic in import tuning culture.",
+          "end_year": 2001,
+          "generation_name": "3rd Gen",
+          "start_year": 1994
+        },
+        {
+          "description": "Final generation with modern styling. Featured K-series engines and improved safety. Some enthusiasts preferred previous generation's character.",
+          "end_year": 2006,
+          "generation_name": "4th Gen",
+          "start_year": 2002
+        },
+        {
+          "description": "Modern Integra revival as a liftback. Featured turbocharged 4-cylinder engines. Type S variant introduced in 2024 with 320 hp, 6-speed manual, and limited-slip differential. High-performance variant with Brembo brakes and sport-tuned suspension.",
+          "end_year": null,
+          "generation_name": "5th Gen",
+          "start_year": 2023
+        }
+      ],
+      "model": "Integra"
+    },
+    {
+      "generations": [
+        {
+          "description": "Acura's luxury coupe. Featured 2.2L and 2.3L 4-cylinder engines, or 3.0L V6. Premium coupe with good handling and luxury features.",
+          "end_year": 1999,
+          "generation_name": "1st Gen",
+          "start_year": 1997
+        },
+        {
+          "description": "Refined CL with updated styling. Featured 3.2L V6 engine. Type S variant introduced in 2001 as Acura's first Type S model in North America, producing 260 hp with sport-tuned suspension, larger brakes, and optional 6-speed manual with limited-slip differential.",
+          "end_year": 2003,
+          "generation_name": "2nd Gen",
+          "start_year": 2001
+        }
+      ],
+      "model": "CL"
+    },
+    {
+      "generations": [
+        {
+          "description": "Acura's mid-size luxury SUV (YD1 chassis). Featured 3.5L V6 with VTM-4 all-wheel drive. Popular for suspension upgrades and exhaust modifications.",
+          "end_year": 2006,
+          "generation_name": "1st Gen",
+          "slug": "yd1",
+          "start_year": 2001
+        },
+        {
+          "description": "Refined MDX (YD2 chassis) with 3.7L V6 producing 300 hp. SH-AWD torque-vectoring all-wheel drive. Improved technology and safety features. Popular for exhaust and suspension modifications.",
+          "end_year": 2013,
+          "generation_name": "2nd Gen",
+          "slug": "yd2",
+          "start_year": 2007
+        },
+        {
+          "description": "Third-generation MDX (YD3 chassis) with 3.5L V6 producing 290 hp. Sport Hybrid SH-AWD model available. Improved fuel economy and technology. Popular for exhaust upgrades and suspension modifications.",
+          "end_year": 2020,
+          "generation_name": "3rd Gen",
+          "slug": "yd3",
+          "start_year": 2014
+        },
+        {
+          "description": "Fourth-generation MDX (YD4 chassis) on all-new platform. Featured 3.5L V6 producing 290 hp or Sport Hybrid system with 325 hp. Type S variant introduced in 2022 with 3.0L turbocharged V6 producing 355 hp, SH-AWD, Brembo brakes, and air suspension.",
+          "end_year": null,
+          "generation_name": "4th Gen",
+          "slug": "yd4",
+          "start_year": 2021
+        }
+      ],
+      "model": "MDX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Acura's mid-engine supercar. Featured VTEC V6 engine and aluminum construction. Revolutionary design and exceptional handling. Highly collectible.",
+          "end_year": 2005,
+          "generation_name": "NA1/NA2",
+          "start_year": 1990
+        },
+        {
+          "description": "Modern NSX revival with hybrid powertrain. Featured twin-turbo V6 with electric motors producing 573 horsepower (Type S variant in 2022 produced 600 hp). Advanced technology and all-wheel drive. Production ended in 2022.",
+          "end_year": 2022,
+          "generation_name": "NC1",
+          "start_year": 2016
+        }
+      ],
+      "model": "NSX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Acura's sporty compact coupe. Featured K20A2 engine in Type-S variant. Popular among enthusiasts for its high-revving character and handling.",
+          "end_year": 2006,
+          "generation_name": "DC5",
+          "start_year": 2001
+        }
+      ],
+      "model": "RSX"
+    },
+    {
+      "generations": [
+        {
+          "description": "UA1/UA2 TL. 2.5L I5 / 3.2L V6.",
+          "end_year": 1998,
+          "generation_name": "1st Gen",
+          "start_year": 1996
+        },
+        {
+          "description": "Acura's mid-size sedan with V6 engines. Featured good performance and reliability. Type S variant available in 2002-2003 with 260 hp. Popular for its value and sporty character.",
+          "end_year": 2003,
+          "generation_name": "2nd Gen",
+          "start_year": 1999
+        },
+        {
+          "description": "Refined TL with updated styling and engines. Featured improved technology and handling. Type S variant (2007-2008) was high-performance with 3.5L V6 producing 286 hp, optional 6-speed manual, Brembo brakes, and limited-slip differential.",
+          "end_year": 2008,
+          "generation_name": "3rd Gen",
+          "start_year": 2004
+        },
+        {
+          "description": "Latest TL with updated styling and technology. Featured updated V6 engines and improved fuel economy. SH-AWD all-wheel drive available.",
+          "end_year": 2014,
+          "generation_name": "4th Gen",
+          "start_year": 2009
+        }
+      ],
+      "model": "TL"
+    },
+    {
+      "generations": [
+        {
+          "description": "Acura's mid-size sedan replacing TL and TSX. Featured V6 and turbocharged 4-cylinder engines. SH-AWD all-wheel drive available.",
+          "end_year": 2020,
+          "generation_name": "1st Gen",
+          "start_year": 2015
+        },
+        {
+          "description": "Latest TLX with updated styling and technology. Featured updated engines and improved handling. Type S variant introduced in 2021 with 3.0L turbocharged V6 producing 355 hp, SH-AWD, Brembo brakes, and sport-tuned suspension.",
+          "end_year": null,
+          "generation_name": "2nd Gen",
+          "start_year": 2021
+        }
+      ],
+      "model": "TLX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Acura's compact sedan based on European Accord. Featured efficient 4-cylinder engines and good handling. Popular for its value and sporty character.",
+          "end_year": 2008,
+          "generation_name": "CL9",
+          "start_year": 2004
+        },
+        {
+          "description": "Refined TSX with updated styling and engines. Featured V6 option and improved technology. Continued TSX's reputation for value and performance.",
+          "end_year": 2014,
+          "generation_name": "CU2",
+          "start_year": 2009
+        }
+      ],
+      "model": "TSX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Acura's luxury crossover coupe. Featured V6 engines and SH-AWD all-wheel drive. Unique styling with coupe-like roofline. Discontinued after 2013.",
+          "end_year": 2013,
+          "generation_name": "1st Gen",
+          "start_year": 2010
+        },
+        {
+          "description": "Electric ZDX revival built on GM's Ultium platform. Featured all-electric powertrain with dual motors and all-wheel drive. Type S variant introduced with nearly 500 hp, Brembo brakes, height-adjustable air suspension, and 22-inch wheels. Production ended in 2025.",
+          "end_year": 2025,
+          "generation_name": "2nd Gen",
+          "start_year": 2024
+        }
+      ],
+      "model": "ZDX"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-generation Acura RDX compact luxury crossover. Featured 2.3L turbocharged K23A1 engine producing 240 hp — first Acura to use a turbocharged engine in the US. SH-AWD standard. Popular for ECU tuning, exhaust upgrades, intercooler upgrades, and suspension modifications.",
+          "end_year": 2012,
+          "generation_name": "TB1/TB2",
+          "start_year": 2007
+        },
+        {
+          "description": "Second-generation RDX switched to naturally aspirated 3.5L V6 producing 273 hp. AWD with torque vectoring available. Improved interior quality. Popular for exhaust upgrades and suspension modifications.",
+          "end_year": 2018,
+          "generation_name": "TB3/TB4",
+          "start_year": 2013
+        },
+        {
+          "description": "Third-generation RDX on all-new platform. Featured 2.0L turbocharged K20C4 engine producing 272 hp. A-Spec and PMC editions for performance enthusiasts. Popular for intake, exhaust, and suspension modifications.",
+          "end_year": null,
+          "generation_name": "TC1",
+          "start_year": 2019
+        }
+      ],
+      "model": "RDX"
+    },
+    {
+      "generations": [
+        {
+          "description": "Acura's entry-level luxury sedan based on the 9th generation Civic platform. Featured 2.4L K24Z7 engine producing 201 hp with 8-speed dual-clutch transmission. A-Spec package available for sportier appearance. Popular for suspension upgrades, exhaust modifications, and cosmetic enhancements.",
+          "end_year": 2022,
+          "generation_name": "DE3",
+          "start_year": 2013
+        }
+      ],
+      "model": "ILX"
+    },
+    {
+      "generations": [
+        {
+          "description": "First-generation Acura RL flagship sedan. Featured 3.5L C35A1 V6 producing 210 hp. FWD only. Popular for exhaust upgrades and suspension modifications.",
+          "end_year": 2004,
+          "generation_name": "KA9",
+          "start_year": 1996
+        },
+        {
+          "description": "Second-generation Acura RL with 3.5L J35A8 V6 producing 300 hp. Standard SH-AWD torque-vectoring all-wheel drive. Popular for exhaust, suspension, and intake modifications.",
+          "end_year": 2012,
+          "generation_name": "KB1",
+          "start_year": 2005
+        }
+      ],
+      "model": "RL"
+    },
+    {
+      "generations": [
+        {
+          "description": "Acura's full-size luxury sedan. Featured 3.5L V6 with available P-AWS (Precision All-Wheel Steer). Sport Hybrid SH-AWD model offered 377 combined hp. Flagship sedan with advanced technology.",
+          "end_year": 2020,
+          "generation_name": "KC2",
+          "start_year": 2014
+        }
+      ],
+      "model": "RLX"
+    }
+  ]
+}

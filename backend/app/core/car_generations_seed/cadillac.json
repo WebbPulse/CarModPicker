@@ -1,0 +1,89 @@
+{
+  "Cadillac": [
+    {
+      "generations": [
+        {
+          "description": "First CTS-V: 5.7L LS6 (2004) then 6.0L LS2 V8 (2005-2007), 400 hp. RWD Sigma platform.",
+          "end_year": 2007,
+          "generation_name": "1st Gen",
+          "start_year": 2004
+        },
+        {
+          "description": "Supercharged 6.2L LSA V8, 556 hp. Sedan/coupe/wagon. Massive LSA aftermarket.",
+          "end_year": 2015,
+          "generation_name": "2nd Gen",
+          "start_year": 2009
+        },
+        {
+          "description": "Supercharged 6.2L LT4 V8, 640 hp. Alpha platform shared with Camaro. Sedan only.",
+          "end_year": 2019,
+          "generation_name": "3rd Gen",
+          "start_year": 2016
+        }
+      ],
+      "model": "CTS-V"
+    },
+    {
+      "generations": [
+        {
+          "description": "Supercharged 6.2L LT4 V8, 668 hp. 6MT or 10AT. Alpha platform successor to CTS-V.",
+          "end_year": null,
+          "generation_name": "1st Gen",
+          "start_year": 2022
+        }
+      ],
+      "model": "CT5-V Blackwing"
+    },
+    {
+      "generations": [
+        {
+          "description": "Twin-turbo 3.6L V6, 472 hp. 6MT or 10AT. Alpha platform successor to ATS-V.",
+          "end_year": null,
+          "generation_name": "1st Gen",
+          "start_year": 2022
+        }
+      ],
+      "model": "CT4-V Blackwing"
+    },
+    {
+      "generations": [
+        {
+          "description": "Twin-turbo 3.6L V6, 464 hp. Alpha platform. Predecessor to CT4-V Blackwing.",
+          "end_year": 2019,
+          "generation_name": "1st Gen",
+          "start_year": 2016
+        }
+      ],
+      "model": "ATS-V"
+    },
+    {
+      "generations": [
+        {
+          "description": "GMT800 luxury SUV. 6.0L LQ9 V8 in ESV/EXT.",
+          "end_year": 2006,
+          "generation_name": "GMT800",
+          "start_year": 2002
+        },
+        {
+          "description": "GMT900 with 6.2L L92/L9H V8, 403 hp.",
+          "end_year": 2014,
+          "generation_name": "GMT900",
+          "start_year": 2007
+        },
+        {
+          "description": "K2XL platform, 6.2L L86 V8 420 hp.",
+          "end_year": 2020,
+          "generation_name": "K2",
+          "start_year": 2015
+        },
+        {
+          "description": "T1 platform. Escalade-V supercharged LT4 682 hp.",
+          "end_year": null,
+          "generation_name": "T1",
+          "start_year": 2021
+        }
+      ],
+      "model": "Escalade"
+    }
+  ]
+}
