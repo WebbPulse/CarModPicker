@@ -254,7 +254,7 @@ class ResponsePatterns:
             message=message,
             error_code="VALIDATION_ERROR",
             details=details,
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
 
     @staticmethod
@@ -398,7 +398,7 @@ class ResponsePatterns:
             HTTPException: 422 error with standardized format
         """
         ResponsePatterns.raise_http_exception(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             message=message,
             error_code="VALIDATION_ERROR",
             details=details,

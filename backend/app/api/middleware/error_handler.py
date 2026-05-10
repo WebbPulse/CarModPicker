@@ -140,7 +140,7 @@ def handle_validation_error(exc: RequestValidationError) -> JSONResponse:
         "details": error_details,
     }
 
-    return JSONResponse(content=error_data, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+    return JSONResponse(content=error_data, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 def handle_unexpected_error(exc: Exception) -> JSONResponse:
