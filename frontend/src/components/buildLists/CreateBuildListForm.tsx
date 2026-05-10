@@ -212,7 +212,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                 Make
               </label>
               <Select
-                value={selectedMake || undefined}
+                value={selectedMake || ''}
                 onValueChange={(v) => setSelectedMake(v)}
                 disabled={isLoadingMakes}
               >
@@ -235,7 +235,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                 Model
               </label>
               <Select
-                value={selectedModel || undefined}
+                value={selectedModel || ''}
                 onValueChange={(v) => setSelectedModel(v)}
                 disabled={!selectedMake || isLoadingCars}
               >
@@ -264,7 +264,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                 Generation
               </label>
               <Select
-                value={selectedGeneration ? String(selectedGeneration.id) : undefined}
+                value={selectedGeneration ? String(selectedGeneration.id) : ''}
                 onValueChange={(v) => {
                   const gen = generations.find((g) => String(g.id) === v) ?? null;
                   setSelectedGeneration(gen);
