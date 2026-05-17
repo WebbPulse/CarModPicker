@@ -41,7 +41,7 @@ jobs:
         run: test -f dist/manifest.json
 
       - name: Upload built extension as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: chrome-extension-dist-${{ github.sha }}
           path: chrome-extension/dist/
