@@ -375,7 +375,31 @@ def upgrade() -> None:
 
     # 7. INSERT new still-in-production generations where missing.
     #    Match key: (car_model_id, slug). Skip if already present.
-    for _make, _model, gen_name, slug, start_year, car_model_id in NEW_OPEN_ENDED_GENS:
+    #
+    #    car_model_id is resolved at runtime by (make, model) rather than
+    #    trusting the hardcoded UUID in NEW_OPEN_ENDED_GENS: those UUIDs
+    #    only exist if the app's car-seed had already run, but migrations
+    #    execute before app startup, so on a forward-migrating prod DB the
+    #    hardcoded id has no matching car_models row and the INSERT used to
+    #    fail with a ForeignKeyViolation (rolling back every deploy). If the
+    #    model can't be resolved we skip the row — it will be created by the
+    #    app's idempotent car seed on startup instead.
+    for _make, _model, gen_name, slug, start_year, _hardcoded_id in NEW_OPEN_ENDED_GENS:
+        model_row = conn.execute(
+            sa.text("""
+                SELECT m.id
+                FROM car_models m
+                JOIN car_makes mk ON mk.id = m.car_make_id
+                WHERE mk.name = :make AND m.name = :model
+                LIMIT 1
+            """),
+            {'make': _make, 'model': _model},
+        ).first()
+        if model_row is None:
+            # Model not seeded yet at migration time — app startup seed
+            # will create both the model and this generation.
+            continue
+        car_model_id = str(model_row[0])
         if dialect == 'postgresql':
             existing_sql = (
                 "SELECT 1 FROM car_generations "

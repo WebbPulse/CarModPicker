@@ -21,6 +21,7 @@ seeds data, not schema. Schema for ``categories`` is unchanged.
 """
 
 import uuid
+from datetime import UTC, datetime
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -48,6 +49,8 @@ def upgrade() -> None:
         sa.column("icon", sa.String()),
         sa.column("is_active", sa.Boolean()),
         sa.column("sort_order", sa.Integer()),
+        sa.column("created_at", sa.DateTime()),
+        sa.column("updated_at", sa.DateTime()),
     )
 
     # Re-sort the existing ``other`` row first so we never have two rows
@@ -65,6 +68,12 @@ def upgrade() -> None:
         sa.select(categories.c.id).where(categories.c.name == sa.literal("accessories"))
     ).first()
     if existing is None:
+        # created_at/updated_at are NOT NULL on ``categories`` but their
+        # defaults live on the ORM model (Python-side), not as DB
+        # server_defaults. A core sa.insert() bypasses the ORM, so we must
+        # set them explicitly or Postgres rejects the row with a NOT NULL
+        # violation (this previously broke every prod deploy).
+        now = datetime.now(UTC)
         op.execute(
             sa.insert(categories).values(
                 id=uuid7(),
@@ -74,6 +83,8 @@ def upgrade() -> None:
                 icon="🎽",
                 is_active=True,
                 sort_order=10,
+                created_at=now,
+                updated_at=now,
             )
         )
 
