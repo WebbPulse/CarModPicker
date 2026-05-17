@@ -461,9 +461,9 @@ function ViewPart() {
         </div>
       )}
       <Card>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:justify-between sm:items-center sm:gap-4">
           <SectionHeader title="Part Information" />
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             {currentUser && (
               <Button
                 type="button"
