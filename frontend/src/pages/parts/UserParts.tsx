@@ -79,8 +79,6 @@ const UserParts: React.FC = () => {
     clearAllFilters: filters.clearAllFilters,
     showUniversalParts: filters.showUniversalParts,
     setShowUniversalParts: filters.setShowUniversalParts,
-    showUgc: filters.showUgc,
-    setShowUgc: filters.setShowUgc,
     selectedMake: filters.selectedMake,
     selectedModel: filters.selectedModel,
     selectedGeneration: filters.selectedGeneration,

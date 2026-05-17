@@ -101,8 +101,6 @@ class PartRead(BaseModel):
             "resolve to the referenced canonical part for display."
         ),
     )
-    is_verified: bool
-    source: str
     edit_count: int
     created_at: datetime
     updated_at: datetime

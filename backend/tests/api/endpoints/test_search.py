@@ -178,11 +178,7 @@ class TestSearch:
     def test_search_parts_by_part_manufacturer(
         self, client: TestClient, test_user: DBUser, test_category, db_session: Session
     ) -> None:
-        """Search by manufacturer name surfaces parts only for *curated* manufacturers.
-
-        UGC mfrs intentionally don't pull parts into search via name match — see
-        the search endpoint's curated-only OR clause for rationale.
-        """
+        """Search by manufacturer name surfaces parts for that manufacturer."""
         from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 
         car = create_car_in_db(db_session)
@@ -190,13 +186,10 @@ class TestSearch:
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Seed a curated manufacturer directly (the API would route a regular
-        # user's POST to a UGC row, which we want to keep out of search).
         curated = DBPartManufacturer(
             name=get_unique_name("ACME"),
             description="ACME part_manufacturer",
             is_active=True,
-            is_curated=True,
         )
         db_session.add(curated)
         db_session.commit()
@@ -218,48 +211,6 @@ class TestSearch:
         data = response.json()
         assert len(data["parts"]["data"]) > 0
         assert any(gp.get("part_manufacturer_id") == part_manufacturer_id for gp in data["parts"]["data"])
-
-    def test_search_parts_by_ugc_manufacturer_name_excluded(
-        self, client: TestClient, test_user: DBUser, test_category, db_session: Session
-    ) -> None:
-        """A UGC manufacturer's name does not pull parts into search."""
-        car = create_car_in_db(db_session)
-        token = get_auth_token(client, test_user.username)
-        headers = get_auth_headers(token)
-
-        ugc_name = get_unique_name("UgcOnlyBrand")
-        # Create as a regular user -> UGC row.
-        pm_resp = client.post(
-            f"{settings.API_STR}/part-manufacturers/",
-            json={"name": ugc_name, "is_active": True},
-            headers=headers,
-        )
-        assert pm_resp.status_code == 200
-        assert pm_resp.json()["is_curated"] is False
-        ugc_id = pm_resp.json()["id"]
-
-        part_resp = client.post(
-            f"{settings.API_STR}/parts/",
-            json={
-                "name": get_unique_name("ugc_brand_part"),
-                "description": "Plain part desc unrelated to brand",
-                "category_id": str(test_category.id),
-                "car_id": str(car["id"]),
-                "part_manufacturer_id": ugc_id,
-            },
-            headers=headers,
-        )
-        assert part_resp.status_code == 200
-
-        # Searching for the UGC mfr name (with include_ugc=true so the part
-        # itself isn't filtered) should still not pull this part in via the
-        # manufacturer-name OR clause, because that clause is curated-gated.
-        response = client.get(f"{settings.API_STR}/search/?q={ugc_name}&include_ugc=true")
-        assert response.status_code == 200
-        names = [gp["name"] for gp in response.json()["parts"]["data"]]
-        # The part's own name doesn't contain ugc_name, so the only way it
-        # could appear is via the manufacturer-name match. Asserting absence.
-        assert all(ugc_name not in n for n in names)
 
     def test_search_empty_query(self, client: TestClient) -> None:
         """Test search with empty query."""

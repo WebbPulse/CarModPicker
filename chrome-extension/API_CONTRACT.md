@@ -578,10 +578,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       "title": "Is Universal",
       "type": "boolean"
     },
-    "is_verified": {
-      "title": "Is Verified",
-      "type": "boolean"
-    },
     "name": {
       "title": "Name",
       "type": "string"
@@ -609,10 +605,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       ],
       "title": "Part Number"
     },
-    "source": {
-      "title": "Source",
-      "type": "string"
-    },
     "updated_at": {
       "format": "date-time",
       "title": "Updated At",
@@ -629,8 +621,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
     "name",
     "category_id",
     "user_id",
-    "is_verified",
-    "source",
     "edit_count",
     "created_at",
     "updated_at"
@@ -800,10 +790,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       "title": "Is Universal",
       "type": "boolean"
     },
-    "is_verified": {
-      "title": "Is Verified",
-      "type": "boolean"
-    },
     "name": {
       "title": "Name",
       "type": "string"
@@ -831,10 +817,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       ],
       "title": "Part Number"
     },
-    "source": {
-      "title": "Source",
-      "type": "string"
-    },
     "updated_at": {
       "format": "date-time",
       "title": "Updated At",
@@ -851,8 +833,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
     "name",
     "category_id",
     "user_id",
-    "is_verified",
-    "source",
     "edit_count",
     "created_at",
     "updated_at"
@@ -1141,10 +1121,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       "title": "Is Universal",
       "type": "boolean"
     },
-    "is_verified": {
-      "title": "Is Verified",
-      "type": "boolean"
-    },
     "name": {
       "title": "Name",
       "type": "string"
@@ -1172,10 +1148,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       ],
       "title": "Part Number"
     },
-    "source": {
-      "title": "Source",
-      "type": "string"
-    },
     "updated_at": {
       "format": "date-time",
       "title": "Updated At",
@@ -1192,8 +1164,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
     "name",
     "category_id",
     "user_id",
-    "is_verified",
-    "source",
     "edit_count",
     "created_at",
     "updated_at"
@@ -1465,14 +1435,13 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 **Summary:** Get Part Manufacturers
 
-**Description:** List part manufacturers. Curated-only by default; admins may opt-in to UGC.
+**Description:** List part manufacturers.
 
 **Parameters:**
 
 | Name | In | Required | Schema |
 |------|----|----------|--------|
 | `active_only` | query | no | boolean |
-| `include_ugc` | query | no | boolean |
 
 **Responses:**
 
@@ -1515,16 +1484,14 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 **Description:** Create a manufacturer.
 
-- service-account or admin caller -> curated row.
-- regular user -> UGC row scoped to them. If a curated row matches the
-  name (case-insensitive), the user's part silently links to the curated
-  row instead of creating a duplicate.
+Dedupes by case-insensitive name (and canonical key) so the same brand
+isn't minted twice — an existing match is returned instead.
 
 **Request body (`application/json`):**
 
 ```json
 {
-  "description": "User-supplied create payload. is_curated and created_by_user_id are set server-side.",
+  "description": "User-supplied create payload.",
   "properties": {
     "description": {
       "anyOf": [
@@ -1570,18 +1537,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       "title": "Created At",
       "type": "string"
     },
-    "created_by_user_id": {
-      "anyOf": [
-        {
-          "format": "uuid",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "title": "Created By User Id"
-    },
     "description": {
       "anyOf": [
         {
@@ -1605,10 +1560,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       "title": "Is Active",
       "type": "boolean"
     },
-    "is_curated": {
-      "title": "Is Curated",
-      "type": "boolean"
-    },
     "name": {
       "description": "Part manufacturer name",
       "title": "Name",
@@ -1623,8 +1574,6 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
   "required": [
     "name",
     "id",
-    "is_curated",
-    "created_by_user_id",
     "created_at",
     "updated_at"
   ],

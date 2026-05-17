@@ -2448,6 +2448,27 @@
         "title": "DeleteAllPartsResponse",
         "type": "object"
       },
+      "DeleteCrawlerPartsResponse": {
+        "description": "Response for delete crawler-created parts (admin only).",
+        "properties": {
+          "deleted_count": {
+            "description": "Number of parts deleted",
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "service_account_count": {
+            "description": "Number of service-account users whose parts were targeted",
+            "title": "Service Account Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted_count",
+          "service_account_count"
+        ],
+        "title": "DeleteCrawlerPartsResponse",
+        "type": "object"
+      },
       "FlaggedEntitySummary": {
         "properties": {
           "created_at": {
@@ -3067,7 +3088,7 @@
         "type": "object"
       },
       "PartManufacturerAdminUpdate": {
-        "description": "Admin-only update payload that additionally allows toggling is_curated (promote/demote).",
+        "description": "Admin-only update payload (same fields; kept as a distinct type for the admin route).",
         "properties": {
           "description": {
             "anyOf": [
@@ -3093,18 +3114,6 @@
             "description": "Whether the part manufacturer is active",
             "title": "Is Active"
           },
-          "is_curated": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Whether the part manufacturer is part of the curated catalog",
-            "title": "Is Curated"
-          },
           "name": {
             "anyOf": [
               {
@@ -3122,7 +3131,7 @@
         "type": "object"
       },
       "PartManufacturerCreate": {
-        "description": "User-supplied create payload. is_curated and created_by_user_id are set server-side.",
+        "description": "User-supplied create payload.",
         "properties": {
           "description": {
             "anyOf": [
@@ -3161,18 +3170,6 @@
             "title": "Created At",
             "type": "string"
           },
-          "created_by_user_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created By User Id"
-          },
           "description": {
             "anyOf": [
               {
@@ -3196,10 +3193,6 @@
             "title": "Is Active",
             "type": "boolean"
           },
-          "is_curated": {
-            "title": "Is Curated",
-            "type": "boolean"
-          },
           "name": {
             "description": "Part manufacturer name",
             "title": "Name",
@@ -3214,8 +3207,6 @@
         "required": [
           "name",
           "id",
-          "is_curated",
-          "created_by_user_id",
           "created_at",
           "updated_at"
         ],
@@ -3487,10 +3478,6 @@
             "title": "Is Universal",
             "type": "boolean"
           },
-          "is_verified": {
-            "title": "Is Verified",
-            "type": "boolean"
-          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -3518,10 +3505,6 @@
             ],
             "title": "Part Number"
           },
-          "source": {
-            "title": "Source",
-            "type": "string"
-          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -3538,8 +3521,6 @@
           "name",
           "category_id",
           "user_id",
-          "is_verified",
-          "source",
           "edit_count",
           "created_at",
           "updated_at"
@@ -3656,10 +3637,6 @@
             "title": "Is Universal",
             "type": "boolean"
           },
-          "is_verified": {
-            "title": "Is Verified",
-            "type": "boolean"
-          },
           "listings": {
             "description": "Retailer listings with current price",
             "items": {
@@ -3695,10 +3672,6 @@
             ],
             "title": "Part Number"
           },
-          "source": {
-            "title": "Source",
-            "type": "string"
-          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -3715,8 +3688,6 @@
           "name",
           "category_id",
           "user_id",
-          "is_verified",
-          "source",
           "edit_count",
           "created_at",
           "updated_at"
@@ -6013,6 +5984,36 @@
           }
         ],
         "summary": "Delete All Parts",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/db-ops/parts/delete-crawler-created": {
+      "post": {
+        "description": "Delete all parts created by the legacy crawler service account (admin only).\n\nTargets only parts whose creator is a User with is_service_account=True.\nUser-contributed and Chrome-extension parts are unaffected. Cascades to\npart listings, votes, reports, build list parts, and car associations.\nThe service account user itself is not deleted. This action cannot be undone.",
+        "operationId": "delete_crawler_created_parts_api_admin_db_ops_parts_delete_crawler_created_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteCrawlerPartsResponse"
+                }
+              }
+            },
+            "description": "Crawler-created parts deleted"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Crawler Created Parts",
         "tags": [
           "admin"
         ]
@@ -11964,7 +11965,7 @@
     },
     "/api/part-manufacturers/": {
       "get": {
-        "description": "List part manufacturers. Curated-only by default; admins may opt-in to UGC.",
+        "description": "List part manufacturers.",
         "operationId": "get_part_manufacturers_api_part_manufacturers__get",
         "parameters": [
           {
@@ -11976,18 +11977,6 @@
               "default": true,
               "description": "Only return active part manufacturers",
               "title": "Active Only",
-              "type": "boolean"
-            }
-          },
-          {
-            "description": "Include user-created (UGC) manufacturers. Honored only for admins; ignored otherwise.",
-            "in": "query",
-            "name": "include_ugc",
-            "required": false,
-            "schema": {
-              "default": false,
-              "description": "Include user-created (UGC) manufacturers. Honored only for admins; ignored otherwise.",
-              "title": "Include Ugc",
               "type": "boolean"
             }
           }
@@ -12018,18 +12007,13 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
         "summary": "Get Part Manufacturers",
         "tags": [
           "part_manufacturers"
         ]
       },
       "post": {
-        "description": "Create a manufacturer.\n\n- service-account or admin caller -> curated row.\n- regular user -> UGC row scoped to them. If a curated row matches the\n  name (case-insensitive), the user's part silently links to the curated\n  row instead of creating a duplicate.",
+        "description": "Create a manufacturer.\n\nDedupes by case-insensitive name (and canonical key) so the same brand\nisn't minted twice \u2014 an existing match is returned instead.",
         "operationId": "create_part_manufacturer_api_part_manufacturers__post",
         "requestBody": {
           "content": {
@@ -12104,7 +12088,7 @@
     },
     "/api/part-manufacturers/counts/by-source": {
       "get": {
-        "description": "Total/curated/UGC manufacturer counts for the admin dashboard.",
+        "description": "Total manufacturer count for the admin dashboard.",
         "operationId": "get_part_manufacturer_counts_by_source_api_part_manufacturers_counts_by_source_get",
         "responses": {
           "200": {
@@ -12119,7 +12103,7 @@
                 }
               }
             },
-            "description": "Counts of curated vs UGC part manufacturers"
+            "description": "Total part manufacturer count"
           }
         },
         "summary": "Get Part Manufacturer Counts By Source",
@@ -12130,7 +12114,7 @@
     },
     "/api/part-manufacturers/search": {
       "get": {
-        "description": "Search part manufacturers. Curated-only by default; admins may opt-in to UGC.",
+        "description": "Search part manufacturers by name or description.",
         "operationId": "search_part_manufacturers_api_part_manufacturers_search_get",
         "parameters": [
           {
@@ -12170,18 +12154,6 @@
               "title": "Limit",
               "type": "integer"
             }
-          },
-          {
-            "description": "Include user-created (UGC) manufacturers. Honored only for admins; ignored otherwise.",
-            "in": "query",
-            "name": "include_ugc",
-            "required": false,
-            "schema": {
-              "default": false,
-              "description": "Include user-created (UGC) manufacturers. Honored only for admins; ignored otherwise.",
-              "title": "Include Ugc",
-              "type": "boolean"
-            }
           }
         ],
         "responses": {
@@ -12213,11 +12185,6 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
         "summary": "Search Part Manufacturers",
         "tags": [
           "part_manufacturers"
@@ -12226,7 +12193,7 @@
     },
     "/api/part-manufacturers/{part_manufacturer_id}": {
       "delete": {
-        "description": "Delete a manufacturer.\n\n- admin/superuser: any row.\n- creator of a UGC row: their own row only.\nCannot delete if any Part still references it.",
+        "description": "Delete a manufacturer (admin/superuser only).\n\nCannot delete if any Part still references it.",
         "operationId": "delete_part_manufacturer_api_part_manufacturers__part_manufacturer_id__delete",
         "parameters": [
           {
@@ -12282,7 +12249,7 @@
         ]
       },
       "get": {
-        "description": "Get a manufacturer by id. Public; no read boundary between curated and UGC.",
+        "description": "Get a manufacturer by id.",
         "operationId": "get_part_manufacturer_api_part_manufacturers__part_manufacturer_id__get",
         "parameters": [
           {
@@ -12324,7 +12291,7 @@
         ]
       },
       "put": {
-        "description": "Update a manufacturer.\n\n- admin/superuser: any row, including ``is_curated`` toggle.\n- creator of a UGC row: name/description/is_active only. ``is_curated``\n  changes are silently dropped for non-admin callers.",
+        "description": "Update a manufacturer (admin/superuser only).",
         "operationId": "update_part_manufacturer_api_part_manufacturers__part_manufacturer_id__put",
         "parameters": [
           {
@@ -12391,7 +12358,7 @@
     },
     "/api/part-manufacturers/{part_manufacturer_id}/parts": {
       "get": {
-        "description": "Parts that reference this manufacturer.\n\nCurated mfr: catalog-only (excludes ``source='user_created'`` parts).\nUGC mfr: only the creator's parts (a UGC mfr only ever has one creator).",
+        "description": "All parts that reference this manufacturer.",
         "operationId": "get_parts_by_part_manufacturer_api_part_manufacturers__part_manufacturer_id__parts_get",
         "parameters": [
           {
@@ -13268,18 +13235,6 @@
               "description": "When true, scope to parts that fit all cars (is_universal)",
               "title": "Universal"
             }
-          },
-          {
-            "description": "When false, hide community-contributed parts from the filter option computation.",
-            "in": "query",
-            "name": "include_ugc",
-            "required": false,
-            "schema": {
-              "default": true,
-              "description": "When false, hide community-contributed parts from the filter option computation.",
-              "title": "Include Ugc",
-              "type": "boolean"
-            }
           }
         ],
         "responses": {
@@ -13752,18 +13707,6 @@
               ],
               "description": "When true, return only parts that fit all cars (is_universal)",
               "title": "Universal"
-            }
-          },
-          {
-            "description": "When false, hide community-contributed parts (source='user_created') from the catalog. Scraped parts are unaffected.",
-            "in": "query",
-            "name": "include_ugc",
-            "required": false,
-            "schema": {
-              "default": true,
-              "description": "When false, hide community-contributed parts (source='user_created') from the catalog. Scraped parts are unaffected.",
-              "title": "Include Ugc",
-              "type": "boolean"
             }
           }
         ],
@@ -15377,18 +15320,6 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
-            }
-          },
-          {
-            "description": "When false, exclude community-contributed parts (source='user_created') from part results.",
-            "in": "query",
-            "name": "include_ugc",
-            "required": false,
-            "schema": {
-              "default": true,
-              "description": "When false, exclude community-contributed parts (source='user_created') from part results.",
-              "title": "Include Ugc",
-              "type": "boolean"
             }
           }
         ],

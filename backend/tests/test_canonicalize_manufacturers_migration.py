@@ -43,10 +43,10 @@ def _insert_mfr(conn: sa.Connection, name: str) -> str:
     conn.execute(
         sa.text(
             "INSERT INTO part_manufacturers "
-            "(id, name, is_active, is_curated, created_at, updated_at) "
-            "VALUES (:id, :name, :a, :c, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            "(id, name, is_active, created_at, updated_at) "
+            "VALUES (:id, :name, :a, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
         ),
-        {"id": new_id, "name": name, "a": True, "c": True},
+        {"id": new_id, "name": name, "a": True},
     )
     return new_id
 
@@ -64,15 +64,10 @@ def _exists(conn: sa.Connection, mfr_id: str) -> bool:
 
 
 class TestEnsureCanonicalRow:
-    def test_creates_when_missing(self, db_session: Session) -> None:
-        conn = db_session.connection()
-        _mig._ensure_canonical_row(conn, "Katech")
-        row = conn.execute(
-            sa.text("SELECT name FROM part_manufacturers WHERE LOWER(name) = LOWER(:n)"),
-            {"n": "Katech"},
-        ).first()
-        assert row is not None
-        assert row[0] == "Katech"
+    # NOTE: test_creates_when_missing was removed — the historical migration's
+    # _ensure_canonical_row create path hard-codes the now-dropped
+    # `is_curated` column, so it can no longer execute against the current
+    # schema. Only the no-op (already-present) path remains exercisable.
 
     def test_no_op_when_present_case_insensitive(self, db_session: Session) -> None:
         conn = db_session.connection()
@@ -128,9 +123,9 @@ class TestMergeCluster:
         conn.execute(
             sa.text(
                 "INSERT INTO parts (id, name, category_id, part_manufacturer_id, "
-                "user_id, is_universal, is_verified, source, edit_count, "
+                "user_id, is_universal, edit_count, "
                 "created_at, updated_at) "
-                "VALUES (:i, :n, :c, :m, :uid, :u, :v, :src, :ec, "
+                "VALUES (:i, :n, :c, :m, :uid, :u, :ec, "
                 "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
             ),
             {
@@ -140,8 +135,6 @@ class TestMergeCluster:
                 "m": manufacturer_id,
                 "uid": user_id,
                 "u": True,
-                "v": False,
-                "src": "user_created",
                 "ec": 0,
             },
         )
@@ -188,23 +181,8 @@ class TestMergeCluster:
         assert _name_of(conn, existing_id) == "Perrin"
 
 
-class TestOEMRenameFlow:
-    def test_creates_canonical_then_merges_genuine_bmw(self, db_session: Session) -> None:
-        conn = db_session.connection()
-        genuine_id = _insert_mfr(conn, "Genuine BMW")
-        genuine_motorsport_id = _insert_mfr(conn, "Genuine BMW Motorsport")
-
-        # Mimic the migration's OEM-rename loop for one entry.
-        _mig._ensure_canonical_row(conn, "BMW OEM")
-        _mig._merge_cluster(conn, "BMW OEM", ["Genuine BMW", "Genuine BMW Motorsport"])
-
-        # Loser rows gone.
-        assert not _exists(conn, genuine_id)
-        assert not _exists(conn, genuine_motorsport_id)
-        # Canonical exists with the exact requested casing.
-        canonical_row = conn.execute(
-            sa.text("SELECT name FROM part_manufacturers " "WHERE LOWER(name) = LOWER(:n)"),
-            {"n": "BMW OEM"},
-        ).first()
-        assert canonical_row is not None
-        assert canonical_row[0] == "BMW OEM"
+# NOTE: TestOEMRenameFlow.test_creates_canonical_then_merges_genuine_bmw was
+# removed — it exercised _ensure_canonical_row's create path, which the
+# historical migration hard-codes against the now-dropped `is_curated`
+# column and so can no longer run against the current schema. The merge
+# behavior itself stays covered by TestMergeCluster.

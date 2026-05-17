@@ -92,7 +92,6 @@ describe('partsApi', () => {
       min_price_cents: 100,
       max_price_cents: 99999,
       universal: false,
-      include_ugc: true,
       search: 'coilover',
     });
 
@@ -105,7 +104,6 @@ describe('partsApi', () => {
         min_price_cents: 100,
         max_price_cents: 99999,
         universal: false,
-        include_ugc: true,
         search: 'coilover',
       }),
     });
@@ -123,7 +121,7 @@ describe('partsApi', () => {
     });
   });
 
-  it('getFilterOptions forwards category_ids/car_ids/search/user_id/universal/include_ugc', async () => {
+  it('getFilterOptions forwards category_ids/car_ids/search/user_id/universal', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: {
         category_ids: [mockCategory.id],
@@ -139,7 +137,6 @@ describe('partsApi', () => {
       search: 'brake',
       user_id: 'user-1',
       universal: true,
-      include_ugc: false,
     });
 
     expect(apiClient.get).toHaveBeenCalledWith('/parts/filter-options', {
@@ -150,7 +147,6 @@ describe('partsApi', () => {
         search: 'brake',
         user_id: 'user-1',
         universal: true,
-        include_ugc: false,
       }),
     });
   });

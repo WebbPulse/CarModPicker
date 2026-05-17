@@ -411,6 +411,67 @@ async def delete_all_parts(
         db.close()
 
 
+class DeleteCrawlerPartsResponse(BaseModel):
+    """Response for delete crawler-created parts (admin only)."""
+
+    deleted_count: int = Field(..., description="Number of parts deleted")
+    service_account_count: int = Field(..., description="Number of service-account users whose parts were targeted")
+
+
+@router.post(
+    "/parts/delete-crawler-created",
+    response_model=DeleteCrawlerPartsResponse,
+    responses=standard_responses(
+        success_description="Crawler-created parts deleted",
+        forbidden=True,
+    ),
+)
+async def delete_crawler_created_parts(
+    current_user: DBUser = Depends(get_current_admin_user),
+) -> DeleteCrawlerPartsResponse:
+    """
+    Delete all parts created by the legacy crawler service account (admin only).
+
+    Targets only parts whose creator is a User with is_service_account=True.
+    User-contributed and Chrome-extension parts are unaffected. Cascades to
+    part listings, votes, reports, build list parts, and car associations.
+    The service account user itself is not deleted. This action cannot be undone.
+    """
+    db = SessionLocal()
+    try:
+        service_account_ids = list(db.scalars(select(DBUser.id).where(DBUser.is_service_account.is_(True))).all())
+        if not service_account_ids:
+            logger.info(
+                "Admin %s ran delete crawler-created parts: no service accounts found",
+                current_user.id,
+            )
+            return DeleteCrawlerPartsResponse(deleted_count=0, service_account_count=0)
+        parts = list(db.scalars(select(DBPart).where(DBPart.user_id.in_(service_account_ids))).all())
+        count = len(parts)
+        for part in parts:
+            db.delete(part)
+        db.commit()
+        logger.info(
+            "Admin %s deleted %s crawler-created parts from %s service account(s)",
+            current_user.id,
+            count,
+            len(service_account_ids),
+        )
+        return DeleteCrawlerPartsResponse(
+            deleted_count=count,
+            service_account_count=len(service_account_ids),
+        )
+    except Exception as e:
+        db.rollback()
+        logger.exception("Delete crawler-created parts failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+    finally:
+        db.close()
+
+
 class DeleteAllPartManufacturersResponse(BaseModel):
     """Response for delete-all part manufacturers (admin only)."""
 

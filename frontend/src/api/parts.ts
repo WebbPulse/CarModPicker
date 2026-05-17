@@ -41,8 +41,6 @@ export const partsApi = {
     min_price_cents?: number;
     max_price_cents?: number;
     universal?: boolean;
-    // Set false to hide community-contributed (user_created) parts.
-    include_ugc?: boolean;
   }) =>
     apiClient.get<PaginatedResponse<PartReadWithVotes>>('/parts/with-votes', {
       params,
@@ -57,7 +55,6 @@ export const partsApi = {
     search?: string;
     user_id?: string;
     universal?: boolean;
-    include_ugc?: boolean;
   }) =>
     apiClient.get<{
       category_ids: string[];

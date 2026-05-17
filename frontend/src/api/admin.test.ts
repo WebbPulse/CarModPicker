@@ -242,25 +242,6 @@ describe('adminApi — crawlers base', () => {
     expect(result.data.adapter_info[0]?.tier).toBe('http');
   });
 
-  it('getCrawlerServiceAccount GETs /admin/crawlers/service-account', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: {
-        id: '22222222-2222-7222-8222-222222222222',
-        username: 'crawler-bot',
-        email: 'crawler@example.com',
-        is_service_account: true,
-        created_at: '2026-04-24T00:00:00Z',
-      },
-    });
-
-    const result = await adminApi.getCrawlerServiceAccount();
-
-    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
-      '/admin/crawlers/service-account'
-    );
-    expect(result.data.is_service_account).toBe(true);
-  });
-
   it('runCrawlers POSTs body to /admin/crawlers/run', async () => {
     const body = {
       adapters: ['test-adapter'],

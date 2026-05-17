@@ -69,6 +69,19 @@ function SystemAdmin() {
   } | null>(null);
 
   const [
+    isDeleteCrawlerPartsConfirmOpen,
+    setIsDeleteCrawlerPartsConfirmOpen,
+  ] = useState(false);
+  const [isDeletingCrawlerParts, setIsDeletingCrawlerParts] = useState(false);
+  const [deleteCrawlerPartsError, setDeleteCrawlerPartsError] = useState<
+    string | null
+  >(null);
+  const [deleteCrawlerPartsResult, setDeleteCrawlerPartsResult] = useState<{
+    deleted_count: number;
+    service_account_count: number;
+  } | null>(null);
+
+  const [
     isDeleteAllPartManufacturersConfirmOpen,
     setIsDeleteAllPartManufacturersConfirmOpen,
   ] = useState(false);
@@ -227,6 +240,24 @@ function SystemAdmin() {
       );
     } finally {
       setIsDeletingAllParts(false);
+    }
+  };
+
+  const handleConfirmDeleteCrawlerParts = async () => {
+    setIsDeletingCrawlerParts(true);
+    setDeleteCrawlerPartsError(null);
+    try {
+      const response = await adminApi.deleteCrawlerCreatedParts();
+      setDeleteCrawlerPartsResult(response.data);
+      setIsDeleteCrawlerPartsConfirmOpen(false);
+    } catch (error) {
+      setDeleteCrawlerPartsError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete crawler-created parts.'
+      );
+    } finally {
+      setIsDeletingCrawlerParts(false);
     }
   };
 
@@ -582,9 +613,12 @@ function SystemAdmin() {
                   <>
                     Permanently remove every global part from the catalog (also
                     removes their part listings, votes, reports, and build list
-                    part associations). Or remove only part manufacturers (parts
-                    keep their data; part manufacturer references are cleared).
-                    These actions cannot be undone.
+                    part associations). Or delete only parts that were created
+                    by the legacy crawler service account &mdash;
+                    user-contributed and Chrome-extension parts are unaffected.
+                    Or remove only part manufacturers (parts keep their data;
+                    part manufacturer references are cleared). These actions
+                    cannot be undone.
                   </>
                 }
               >
@@ -619,8 +653,25 @@ function SystemAdmin() {
                       ? 'Deleting...'
                       : 'Delete all part manufacturers'}
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      setDeleteCrawlerPartsError(null);
+                      setDeleteCrawlerPartsResult(null);
+                      setIsDeleteCrawlerPartsConfirmOpen(true);
+                    }}
+                    disabled={isDeletingCrawlerParts}
+                    loading={isDeletingCrawlerParts}
+                  >
+                    {isDeletingCrawlerParts
+                      ? 'Deleting...'
+                      : 'Delete crawler-created parts'}
+                  </Button>
                 </div>
-                {(deleteAllPartsResult || deleteAllPartManufacturersResult) && (
+                {(deleteAllPartsResult ||
+                  deleteCrawlerPartsResult ||
+                  deleteAllPartManufacturersResult) && (
                   <div className="space-y-1 mt-2">
                     {deleteAllPartsResult && (
                       <div className="p-2 rounded border border-success bg-success/20 text-sm text-success">
@@ -628,6 +679,17 @@ function SystemAdmin() {
                           Deleted{' '}
                           {deleteAllPartsResult.deleted_count.toLocaleString()}{' '}
                           global part(s).
+                        </p>
+                      </div>
+                    )}
+                    {deleteCrawlerPartsResult && (
+                      <div className="p-2 rounded border border-success bg-success/20 text-sm text-success">
+                        <p className="font-semibold">
+                          Deleted{' '}
+                          {deleteCrawlerPartsResult.deleted_count.toLocaleString()}{' '}
+                          crawler-created part(s) from{' '}
+                          {deleteCrawlerPartsResult.service_account_count.toLocaleString()}{' '}
+                          service account(s).
                         </p>
                       </div>
                     )}
@@ -643,6 +705,9 @@ function SystemAdmin() {
                     )}
                     {deleteAllPartsError && (
                       <ErrorAlert message={deleteAllPartsError} />
+                    )}
+                    {deleteCrawlerPartsError && (
+                      <ErrorAlert message={deleteCrawlerPartsError} />
                     )}
                     {deleteAllPartManufacturersError && (
                       <ErrorAlert message={deleteAllPartManufacturersError} />
@@ -781,6 +846,37 @@ function SystemAdmin() {
         error={
           deleteAllPartsError
             ? `Failed to delete catalog: ${deleteAllPartsError}`
+            : null
+        }
+      />
+      <ConfirmDialog
+        open={isDeleteCrawlerPartsConfirmOpen}
+        onOpenChange={(next) => {
+          if (!next) {
+            setIsDeleteCrawlerPartsConfirmOpen(false);
+            setDeleteCrawlerPartsError(null);
+          }
+        }}
+        onConfirm={() => void handleConfirmDeleteCrawlerParts()}
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to delete{' '}
+            <span className="font-semibold text-foreground">
+              "all crawler-created parts"
+            </span>
+            ? Only parts created by the legacy crawler service account will be
+            removed; user-contributed and Chrome-extension parts are
+            unaffected. This action cannot be undone.
+          </>
+        }
+        confirmLabel="Confirm Delete"
+        loadingLabel="Deleting..."
+        variant="destructive"
+        loading={isDeletingCrawlerParts}
+        error={
+          deleteCrawlerPartsError
+            ? `Failed to delete crawler-created parts: ${deleteCrawlerPartsError}`
             : null
         }
       />

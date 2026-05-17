@@ -28,6 +28,11 @@ export interface InitDataResult {
   message: string;
 }
 
+export interface DeleteCrawlerPartsResult {
+  deleted_count: number;
+  service_account_count: number;
+}
+
 /** A persisted background job record. */
 export interface BackgroundJob {
   id: string;
@@ -71,14 +76,6 @@ export interface CrawlerRunResponse {
   adapters: string[];
   triggered_by: 'manual' | 'scheduled';
   message: string;
-}
-
-export interface CrawlerServiceAccount {
-  id: string;
-  username: string;
-  email: string;
-  is_service_account: true;
-  created_at: string;
 }
 
 export interface CrawlerRunRequest {
@@ -337,8 +334,6 @@ export const adminApi = {
       adapters: string[];
       adapter_info: { name: string; tier: 'http' | 'tls' | 'browser' }[];
     }>('/admin/crawlers/'),
-  getCrawlerServiceAccount: () =>
-    apiClient.get<CrawlerServiceAccount>('/admin/crawlers/service-account'),
   runCrawlers: (body: CrawlerRunRequest) =>
     apiClient.post<CrawlerRunResponse>('/admin/crawlers/run', body),
 
@@ -379,6 +374,12 @@ export const adminApi = {
   /** Delete all global parts (admin only). Cascades to listings, votes, reports, build list parts. */
   deleteAllParts: () =>
     apiClient.post<{ deleted_count: number }>('/admin/db-ops/parts/delete-all'),
+
+  /** Delete only parts created by the legacy crawler service account (admin only). User and extension parts are unaffected. */
+  deleteCrawlerCreatedParts: () =>
+    apiClient.post<DeleteCrawlerPartsResult>(
+      '/admin/db-ops/parts/delete-crawler-created'
+    ),
 
   /** Delete all cars / car generations (admin only). Also deletes car models and makes for a clean init. */
   deleteAllCars: () =>

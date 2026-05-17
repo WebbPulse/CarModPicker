@@ -282,8 +282,6 @@ export interface PartRead {
   part_manufacturer?: string | null;
   part_number?: string | null;
   canonical_part_id?: string | null; // Set when this part is a duplicate; clients redirect to the canonical
-  is_verified: boolean;
-  source: string;
   edit_count: number;
   created_at: string;
   updated_at: string;
@@ -463,11 +461,6 @@ export interface PartManufacturerResponse {
   name: string;
   description?: string | null;
   is_active: boolean;
-  // True for crawler/admin-curated catalog rows; false for UGC entries
-  // scoped to created_by_user_id. UGC rows are reachable by id but excluded
-  // from catalog browse / search / facet UIs.
-  is_curated: boolean;
-  created_by_user_id: string | null;
   created_at: string;
   updated_at: string;
 }
