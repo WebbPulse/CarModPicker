@@ -1,10 +1,10 @@
 # Core FastAPI and web framework dependencies
 annotated-types==0.7.0
 anyio==4.13.0
-click==8.3.3
+click==8.4.0
 fastapi==0.136.1
 h11==0.16.0
-idna==3.14
+idna==3.15
 pydantic==2.13.3
 pydantic[email]
 pydantic-settings==2.14.1
@@ -14,7 +14,7 @@ sniffio==1.3.1
 starlette==1.0.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
-uvicorn==0.46.0
+uvicorn==0.47.0
 
 # Database dependencies
 sqlalchemy==2.0.49
@@ -30,9 +30,9 @@ python-multipart==0.0.28
 pyotp==2.9.0
 qrcode[pil]==8.2
 webauthn==2.7.1
-google-auth==2.52.0
+google-auth==2.53.0
 
-requests==2.34.0
+requests==2.34.2
 beautifulsoup4==4.14.3
 defusedxml==0.7.1
 # Circuit breaker for crawler rate-limit protection (CRAWL-04). Pinned exact
@@ -47,8 +47,8 @@ pybreaker==1.4.1
 curl_cffi==0.15.0
 
 # Image storage and processing
-boto3==1.43.6
-boto3-stubs[s3,sesv2]==1.43.6  # Type stubs for boto3 S3 and SES clients
+boto3==1.43.9
+boto3-stubs[s3,sesv2]==1.43.9  # Type stubs for boto3 S3 and SES clients
 Pillow==12.2.0
 
 # Observability (Phase 2 / OBS-01 + OBS-02)
@@ -72,7 +72,7 @@ pytest-recording==0.13.4
 httpx==0.28.1
 
 # Development tools
-black==26.3.1
+black==26.5.0
 isort==8.0.1
 mypy==2.1.0
 watchdog==6.0.0
