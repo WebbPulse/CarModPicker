@@ -74,7 +74,7 @@ httpx==0.28.1
 # Development tools
 black==26.3.1
 isort==8.0.1
-mypy==1.17.1
+mypy==2.1.0
 watchdog==6.0.0
 
 # Perf-gate load testing (M002/S05/T05). Pure-Python load runner; the gate
