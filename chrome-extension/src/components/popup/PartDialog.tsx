@@ -53,7 +53,7 @@ const BlockingPartPanel: React.FC<{
       : "You already created this part";
   const subline =
     blocking.reason === "non_ugc_exists"
-      ? "Community submissions can't duplicate scraped parts. Open the existing part to record a price or add missing data."
+      ? "Community submissions can't duplicate catalog parts. Open the existing part to record a price or add missing data."
       : "You've already submitted a community-contributed part for this product. Open yours instead of making another.";
   return (
     <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/40 text-sm text-neutral-100 space-y-2">

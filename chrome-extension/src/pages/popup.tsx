@@ -93,7 +93,7 @@ function Popup() {
             : String(injectError);
         if (msg.includes("Cannot access") || msg.includes("restricted")) {
           showStatus(
-            "Cannot scrape this page. Try a product page on a regular website.",
+            "Can't pull from this page. Try a product page on a regular website.",
             "error"
           );
         } else {
@@ -132,7 +132,7 @@ function Popup() {
       );
     } catch (error) {
       showStatus(
-        "Error scraping page: " +
+        "Error pulling from page: " +
           (error instanceof Error ? error.message : "Unknown error"),
         "error"
       );

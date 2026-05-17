@@ -188,7 +188,7 @@ function PrivacyPolicy() {
             <ul className="list-disc list-inside space-y-2 ml-2">
               <li>
                 Data captured by the extension (the URL and sanitized HTML of
-                the page you explicitly scrape) is used <strong>only</strong> to
+                the page you explicitly capture) is used <strong>only</strong> to
                 parse product information for you and to let you add that part
                 to your CarModPicker account.
               </li>
@@ -228,7 +228,7 @@ function PrivacyPolicy() {
               <li>or simply because we decide to.</li>
             </ul>
             <p>
-              <strong>Scraped page archives.</strong> Sanitized HTML captured
+              <strong>Captured page archives.</strong> Sanitized HTML captured
               via the Chrome extension is stored so that the parsed product
               information can be refreshed or corrected later. We retain it only
               for as long as it remains useful for that purpose, and we may

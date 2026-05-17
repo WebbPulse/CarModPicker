@@ -41,7 +41,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ user, onLogout, onScrape, statu
         className="w-full py-4 px-6 rounded-xl font-semibold text-lg bg-linear-to-br from-white/10 to-white/5 border border-white/20 text-white transition-all duration-300 backdrop-blur-[15px] hover:bg-linear-to-br hover:from-white/20 hover:to-white/10 hover:border-white/30 hover:-translate-y-[3px] hover:shadow-[0_10px_25px_rgba(0,0,0,0.2)] relative overflow-hidden cursor-pointer flex items-center justify-center gap-2"
       >
         <span>📦</span>
-        <span>Scrape Current Page</span>
+        <span>Pull In Current Page</span>
       </button>
 
       {statusMessage && (
