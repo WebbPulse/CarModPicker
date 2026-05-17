@@ -39,7 +39,6 @@ export interface UsePartsFiltersReturn {
     max_price_cents?: number;
     user_id?: string;
     universal?: boolean;
-    include_ugc?: boolean;
   };
   currentPage: number;
   setCurrentPage: (page: number) => void;
@@ -57,8 +56,6 @@ export interface UsePartsFiltersReturn {
   setSelectedGeneration: (car: CarGenerationRead | null) => void;
   showUniversalParts: boolean;
   setShowUniversalParts: (v: boolean) => void;
-  showUgc: boolean;
-  setShowUgc: (v: boolean) => void;
   setSelectedMake: (make: string) => void;
   setSelectedModel: (model: string) => void;
   searchTerm: string;
@@ -118,9 +115,6 @@ export function usePartsFilters(
   const [selectedGeneration, setSelectedGeneration] =
     useState<CarGenerationRead | null>(null);
   const [showUniversalParts, setShowUniversalParts] = useState(false);
-  // When true, include community-contributed (user_created) parts in the
-  // catalog. Default false — UGC is hidden unless the user opts in.
-  const [showUgc, setShowUgc] = useState(false);
   const [selectedPartManufacturerIds, setSelectedPartManufacturerIds] =
     useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -270,7 +264,7 @@ export function usePartsFilters(
   );
 
   // Stable key so we only fetch filter-options when the logical request changes (avoids duplicate fetches from re-renders)
-  const filterOptionsRequestKey = `${selectedCategoryIds.join(',')}-${selectedPartManufacturerIds.join(',')}-${showUniversalParts}-${effectiveCarIds.join(',')}-${searchTerm}-${userId ?? ''}-${showUgc ? '1' : '0'}`;
+  const filterOptionsRequestKey = `${selectedCategoryIds.join(',')}-${selectedPartManufacturerIds.join(',')}-${showUniversalParts}-${effectiveCarIds.join(',')}-${searchTerm}-${userId ?? ''}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -285,7 +279,6 @@ export function usePartsFilters(
     if (showUniversalParts) filterOptionsParams.universal = true;
     if (searchTerm.trim()) filterOptionsParams.search = searchTerm;
     if (userId !== undefined) filterOptionsParams.user_id = userId;
-    if (!showUgc) filterOptionsParams.include_ugc = false;
     void partsApi
       .getFilterOptions(filterOptionsParams)
       .then((res) => {
@@ -377,7 +370,6 @@ export function usePartsFilters(
     }
     const sortParamFromUrl = searchParams.get('sort');
     if (sortParamFromUrl) setSortParamState(sortParamFromUrl);
-    if (searchParams.get('show_ugc') === '1') setShowUgc(true);
     setIsInitializedFromUrl(true);
   }, [
     syncToUrl,
@@ -479,7 +471,6 @@ export function usePartsFilters(
     if (currentPage > 1) newParams.set('page', currentPage.toString());
     if (sortParam && sortParam !== 'votes_desc')
       newParams.set('sort', sortParam);
-    if (showUgc) newParams.set('show_ugc', '1');
     const next = newParams.toString();
     if (searchParams.toString() === next) return;
     setSearchParams(newParams, { replace: true });
@@ -497,7 +488,6 @@ export function usePartsFilters(
     priceMax,
     currentPage,
     sortParam,
-    showUgc,
     searchParams,
     setSearchParams,
   ]);
@@ -518,7 +508,6 @@ export function usePartsFilters(
     priceMax,
     currentPage,
     sortParam,
-    showUgc,
     syncFiltersToUrl,
   ]);
 
@@ -539,7 +528,6 @@ export function usePartsFilters(
     priceMin,
     priceMax,
     sortParam,
-    showUgc,
   ]);
 
   const uniqueModels = useMemo(
@@ -585,8 +573,7 @@ export function usePartsFilters(
     selectedPartManufacturerIds.length > 0 ||
     effectiveCarIds.length > 0 ||
     showUniversalParts ||
-    hasPriceRange ||
-    showUgc;
+    hasPriceRange;
 
   const toggleCategory = useCallback((categoryId: string) => {
     setSelectedCategoryIds((prev) =>
@@ -614,7 +601,6 @@ export function usePartsFilters(
     setSearchTerm('');
     setPriceMin('');
     setPriceMax('');
-    setShowUgc(false);
     setCurrentPage(1);
   }, []);
 
@@ -671,7 +657,6 @@ export function usePartsFilters(
       ...(sortParam && { sort: sortParam }),
       ...(min_price_cents !== undefined && { min_price_cents }),
       ...(max_price_cents !== undefined && { max_price_cents }),
-      ...(!showUgc && { include_ugc: false }),
     };
   }, [
     currentPage,
@@ -684,7 +669,6 @@ export function usePartsFilters(
     sortParam,
     priceMin,
     priceMax,
-    showUgc,
   ]);
 
   return {
@@ -703,8 +687,6 @@ export function usePartsFilters(
     setSelectedGeneration,
     showUniversalParts,
     setShowUniversalParts,
-    showUgc,
-    setShowUgc,
     setSelectedMake,
     setSelectedModel,
     searchTerm,

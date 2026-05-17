@@ -112,7 +112,6 @@ describe('usePartsFilters — initial state', () => {
     expect(result.current.selectedCategoryIds).toEqual([]);
     expect(result.current.selectedMake).toBe('');
     expect(result.current.showUniversalParts).toBe(false);
-    expect(result.current.showUgc).toBe(false);
     expect(result.current.sortParam).toBe('votes_desc');
     expect(result.current.hasActiveFilters).toBe(false);
   });
@@ -183,7 +182,6 @@ describe('usePartsFilters — setters', () => {
 
     act(() => {
       result.current.setSearchTerm('brakes');
-      result.current.setShowUgc(true);
       result.current.setPriceMin('10');
       result.current.setShowUniversalParts(true);
       result.current.toggleCategory('cat-1');
@@ -197,7 +195,6 @@ describe('usePartsFilters — setters', () => {
     expect(result.current.selectedCategoryIds).toEqual([]);
     expect(result.current.searchTerm).toBe('');
     expect(result.current.priceMin).toBe('');
-    expect(result.current.showUgc).toBe(false);
     expect(result.current.showUniversalParts).toBe(false);
     expect(result.current.hasActiveFilters).toBe(false);
   });

@@ -63,7 +63,6 @@ import CrawlerAdmin from './CrawlerAdmin';
 //   /admin/crawler-schedules/              (list/create/reconcile)
 //   /admin/crawler-adapter-configs/        (list/update tuning)
 //   /admin/crawlers                        (list of adapter names + tiers)
-//   /admin/crawlers/service-account        (service account)
 //   /admin/crawlers/run                    (POST — manual run)
 //   /admin/crawlers/rescrape-archives      (POST — rescrape)
 //   /admin/jobs                            (background job list)
@@ -74,13 +73,6 @@ const defaultGetImpl = (url: string) => {
     return Promise.resolve({ data: makeScheduleList() });
   if (url.startsWith('/admin/crawler-adapter-configs'))
     return Promise.resolve({ data: makeAdapterList() });
-  if (url.startsWith('/admin/crawlers/service-account'))
-    return Promise.resolve({
-      data: {
-        id: '77777777-7777-7777-8777-777777777777',
-        username: 'crawler-service',
-      },
-    });
   if (url.startsWith('/admin/crawlers'))
     return Promise.resolve({ data: makeAdapterCatalog() });
   if (url.startsWith('/admin/jobs'))

@@ -426,22 +426,9 @@ function ViewPart() {
     !!part.canonical_part_id &&
     part.canonical_part_id !== part.id;
 
-  const isUserContributed = part.source === 'user_created';
-
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader title={part.name} />
-      {isUserContributed && (
-        <div className="mb-4 rounded-lg border border-sky-600/60 bg-sky-900/20 px-4 py-3 text-sm text-sky-100">
-          <div className="font-semibold">Community-contributed part</div>
-          <div className="mt-1 text-xs text-sky-200/90">
-            This part was submitted by a user, not scraped from a retailer.
-            Details (name, specs, fitment, pricing) may be incomplete or
-            inaccurate. Verify with the manufacturer or retailer before
-            purchasing.
-          </div>
-        </div>
-      )}
       {isDuplicateAdminView && (
         <div className="mb-4 rounded-lg border border-warning/60 bg-warning/20 px-4 py-3 text-sm text-warning">
           <div className="font-semibold">
@@ -556,14 +543,6 @@ function ViewPart() {
             <CardInfoItem label="Part Manufacturer:">
               <span className="text-gray-300">
                 {part_manufacturer.name}
-                {!part_manufacturer.is_curated && (
-                  <span
-                    className="ml-2 inline-block rounded bg-gray-700 px-1.5 py-0.5 text-xs text-gray-300 align-middle"
-                    title="Custom entry — not in the curated catalog"
-                  >
-                    custom
-                  </span>
-                )}
               </span>
             </CardInfoItem>
           )}

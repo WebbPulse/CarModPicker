@@ -127,152 +127,67 @@ def get_or_create_retailer(
     return retailer
 
 
-def _find_curated_pm_by_name(db: Session, name_normalized: str) -> Optional[DBPartManufacturer]:
-    """Look up a curated manufacturer by name.
+def _find_pm_by_name(db: Session, name_normalized: str) -> Optional[DBPartManufacturer]:
+    """Look up a manufacturer by name.
 
     Two-pass match:
       1. Exact case-insensitive name match (preserves ``ilike`` semantics —
-         this is the fast path and the only path the partial unique index
-         on ``lower(name)`` enforces).
-      2. Canonical-key match: compute ``manufacturer_name_canonical`` for
-         the input, then for each curated row, and return the first row
-         whose canonical key matches. This is what lets adapters submitting
-         ``"APR Performance"`` resolve to the existing ``"APR"`` row, or
-         ``"AEM Electronics"`` to the existing ``"AEM"``, without minting
-         a duplicate. Pulls all curated rows in memory; the curated catalog
-         is small (~hundreds), so the cost is negligible compared to the
-         dedup win. If two curated rows happen to share a canonical key
-         (post-migration this should be rare), we return the first sorted
-         by name for determinism.
+         the fast path, and the only path the unique index on ``lower(name)``
+         enforces).
+      2. Canonical-key match: compute ``manufacturer_name_canonical`` for the
+         input, then for each row, and return the first row whose canonical
+         key matches. This lets ``"APR Performance"`` resolve to the existing
+         ``"APR"`` row, or ``"AEM Electronics"`` to ``"AEM"``, without minting
+         a duplicate. Pulls all rows in memory; the catalog is small
+         (~hundreds), so the cost is negligible compared to the dedup win. If
+         two rows share a canonical key, return the first sorted by name for
+         determinism.
     """
-    exact = db.scalars(
-        select(DBPartManufacturer).where(
-            DBPartManufacturer.is_curated.is_(True),
-            DBPartManufacturer.name.ilike(name_normalized),
-        )
-    ).first()
+    exact = db.scalars(select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(name_normalized))).first()
     if exact is not None:
         return exact
 
     canonical_key = manufacturer_name_canonical(name_normalized)
     if not canonical_key:
         return None
-    for pm in db.scalars(
-        select(DBPartManufacturer)
-        .where(DBPartManufacturer.is_curated.is_(True))
-        .order_by(DBPartManufacturer.name)
-    ).all():
+    for pm in db.scalars(select(DBPartManufacturer).order_by(DBPartManufacturer.name)).all():
         if manufacturer_name_canonical(pm.name) == canonical_key:
             return pm
     return None
 
 
-def _find_ugc_pm_for_user(db: Session, name_normalized: str, creator_id: UUID) -> Optional[DBPartManufacturer]:
-    return db.scalars(
-        select(DBPartManufacturer).where(
-            DBPartManufacturer.is_curated.is_(False),
-            DBPartManufacturer.created_by_user_id == creator_id,
-            DBPartManufacturer.name.ilike(name_normalized),
-        )
-    ).first()
+def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[DBPartManufacturer]:
+    """Get-or-create a manufacturer by name (case-insensitive).
 
-
-def get_or_create_curated_part_manufacturer(db: Session, name: str) -> Optional[DBPartManufacturer]:
-    """Get-or-create a curated (catalog) manufacturer by name (case-insensitive).
-
-    Used by the crawler service account, the seed script, and admin-driven
-    creates. UGC submissions go through ``get_or_create_ugc_part_manufacturer``
-    instead so user-typed names don't pollute the catalog.
+    Used by the Chrome extension, the seed script, admin-driven creates, and
+    user part creates. There is a single global manufacturer namespace.
 
     Returns ``None`` if the name is empty.
     """
     if not name or not name.strip():
         return None
     name_normalized = name.strip()
-    existing = _find_curated_pm_by_name(db, name_normalized)
+    existing = _find_pm_by_name(db, name_normalized)
     if existing:
         return existing
-    # SAVEPOINT-scoped insert: parallel rescrape workers can race here and both
-    # try to insert the same manufacturer. The partial unique index on lower(name)
-    # WHERE is_curated rejects the loser; rolling back just this savepoint lets
-    # us re-query for the row the winner created without poisoning the outer txn.
+    # SAVEPOINT-scoped insert: parallel workers can race here and both try to
+    # insert the same manufacturer. The unique index on lower(name) rejects the
+    # loser; rolling back just this savepoint lets us re-query for the row the
+    # winner created without poisoning the outer txn.
     try:
         with db.begin_nested():
             part_manufacturer = DBPartManufacturer(
                 name=name_normalized,
                 is_active=True,
-                is_curated=True,
-                created_by_user_id=None,
             )
             db.add(part_manufacturer)
             db.flush()
         return part_manufacturer
     except IntegrityError:
-        existing = _find_curated_pm_by_name(db, name_normalized)
+        existing = _find_pm_by_name(db, name_normalized)
         if existing is not None:
             return existing
         raise
-
-
-def get_or_create_ugc_part_manufacturer(
-    db: Session,
-    name: str,
-    *,
-    creator_id: UUID,
-) -> Optional[DBPartManufacturer]:
-    """Get-or-create a UGC manufacturer for a specific user.
-
-    Resolution order:
-      1. If a curated row matches ``lower(strip(name))``, return the curated row.
-         User-confirmed dedup behavior: a UGC submission for "HKS" silently links
-         to the curated "HKS" rather than minting a private duplicate.
-      2. Else if this user already has a UGC row for the same name, return it.
-      3. Else create a new UGC row owned by ``creator_id``.
-
-    Returns ``None`` if the name is empty.
-    """
-    if not name or not name.strip():
-        return None
-    name_normalized = name.strip()
-
-    curated = _find_curated_pm_by_name(db, name_normalized)
-    if curated:
-        return curated
-
-    existing_ugc = _find_ugc_pm_for_user(db, name_normalized, creator_id)
-    if existing_ugc:
-        return existing_ugc
-
-    try:
-        with db.begin_nested():
-            part_manufacturer = DBPartManufacturer(
-                name=name_normalized,
-                is_active=True,
-                is_curated=False,
-                created_by_user_id=creator_id,
-            )
-            db.add(part_manufacturer)
-            db.flush()
-        return part_manufacturer
-    except IntegrityError:
-        # Someone (this user, racing) inserted in parallel, or a curated row was
-        # promoted in between. Re-query both paths.
-        curated = _find_curated_pm_by_name(db, name_normalized)
-        if curated is not None:
-            return curated
-        existing_ugc = _find_ugc_pm_for_user(db, name_normalized, creator_id)
-        if existing_ugc is not None:
-            return existing_ugc
-        raise
-
-
-def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[DBPartManufacturer]:
-    """Deprecated alias preserved for callers (crawler, seed script, adapter docstrings).
-
-    Always routes to the curated variant — every existing caller is the crawler
-    service account or the seed script, both of which seed the catalog.
-    """
-    return get_or_create_curated_part_manufacturer(db, name)
 
 
 def _normalize_url(url: Optional[str]) -> Optional[str]:
@@ -308,26 +223,18 @@ def find_part_by_product_url(
     db: Session,
     product_url: str,
     *,
-    include_ugc: bool = False,
     creator_id: Optional[UUID] = None,
 ) -> Optional[DBPart]:
     """
-    Find the part that owns a PartListing with this product URL.
-
-    By default, parts with ``source == "user_created"`` (UGC) are excluded — the
-    scraped catalog and linker never match against UGC, and multiple UGC rows
-    are allowed to share a URL so one user's bad entry can't block another's.
-    Callers that specifically want to consider UGC (e.g. the UGC-create dup
-    check) pass ``include_ugc=True``.
+    Find a part that owns a PartListing with this product URL.
 
     ``creator_id`` scopes the search to parts owned by that user — used by the
-    UGC-create dup check to ask "does *this* user already have a UGC row for
-    this URL?" without being fooled by a different user's UGC happening to sort
-    first in ``.first()``.
+    create dup check to ask "does *this* user already have a part for this
+    URL?" without being fooled by another user's part sorting first in
+    ``.first()``.
 
-    Returns any matching Part (canonical or duplicate) — one URL only ever has
-    one owning non-UGC Part. Callers doing canonical dedup (e.g. the linker)
-    should resolve the result to its canonical.
+    Returns any matching Part (canonical or duplicate). Callers doing canonical
+    dedup should resolve the result to its canonical.
     """
     normalized = _normalize_url(product_url)
     if not normalized:
@@ -337,8 +244,6 @@ def find_part_by_product_url(
         .join(DBPart, DBPart.id == DBPartListing.part_id)
         .where(DBPartListing.product_url == normalized)
     )
-    if not include_ugc:
-        stmt = stmt.where(DBPart.source != "user_created")
     if creator_id is not None:
         stmt = stmt.where(DBPart.user_id == creator_id)
     listing = db.scalars(stmt).first()
@@ -352,7 +257,6 @@ def find_part_by_part_manufacturer_and_part_number(
     part_manufacturer_id: UUID,
     part_number: str,
     *,
-    include_ugc: bool = False,
     creator_id: Optional[UUID] = None,
 ) -> Optional[DBPart]:
     """
@@ -362,11 +266,7 @@ def find_part_by_part_manufacturer_and_part_number(
     form) for matching so styling drift between ``"AEM-30-2400"`` and
     ``"AEM 30/2400"`` collapses into one dedup key. Only returns canonicals.
 
-    By default excludes UGC (``source == "user_created"``) so the scraped
-    catalog and linker stay isolated from user-contributed rows. Pass
-    ``include_ugc=True`` to consider UGC, optionally narrowed to a specific
-    ``creator_id`` — used by the UGC-create dup check to find a user's own
-    prior UGC row.
+    ``creator_id`` optionally scopes to parts owned by that user.
     """
     from app.api.services.page_parser import part_number_canonical
 
@@ -378,8 +278,6 @@ def find_part_by_part_manufacturer_and_part_number(
         DBPart.part_number_normalized == canonical,
         DBPart.canonical_part_id.is_(None),
     )
-    if not include_ugc:
-        stmt = stmt.where(DBPart.source != "user_created")
     if creator_id is not None:
         stmt = stmt.where(DBPart.user_id == creator_id)
     return db.scalars(stmt).first()
@@ -400,7 +298,6 @@ def find_part_by_gtin(
     db: Session,
     gtin: str,
     *,
-    include_ugc: bool = False,
     creator_id: Optional[UUID] = None,
 ) -> Optional[DBPart]:
     """
@@ -409,7 +306,7 @@ def find_part_by_gtin(
     Uses normalized digits-only for matching. Only returns canonicals so the
     linker never recommends a duplicate as a merge target.
 
-    By default excludes UGC — see ``find_part_by_product_url`` for rationale.
+    ``creator_id`` optionally scopes to parts owned by that user.
     """
     normalized = normalize_gtin(gtin)
     if not normalized:
@@ -418,8 +315,6 @@ def find_part_by_gtin(
         DBPart.gtin == normalized,
         DBPart.canonical_part_id.is_(None),
     )
-    if not include_ugc:
-        exact_stmt = exact_stmt.where(DBPart.source != "user_created")
     if creator_id is not None:
         exact_stmt = exact_stmt.where(DBPart.user_id == creator_id)
     part = db.scalars(exact_stmt).first()
@@ -429,8 +324,6 @@ def find_part_by_gtin(
         DBPart.gtin.isnot(None),
         DBPart.canonical_part_id.is_(None),
     )
-    if not include_ugc:
-        fuzzy_stmt = fuzzy_stmt.where(DBPart.source != "user_created")
     if creator_id is not None:
         fuzzy_stmt = fuzzy_stmt.where(DBPart.user_id == creator_id)
     for c in db.scalars(fuzzy_stmt).all():
@@ -439,48 +332,33 @@ def find_part_by_gtin(
     return None
 
 
-def find_existing_part_for_ugc_create(
+def find_existing_part_for_create(
     db: Session,
     *,
     creator_id: UUID,
     product_url: Optional[str] = None,
 ) -> Optional[tuple[DBPart, str]]:
     """
-    Decide whether a UGC create attempt should be denied in favor of an existing part.
+    Decide whether a part-create attempt should be denied in favor of an
+    existing part the same user already owns.
 
-    Policy — URL-only matching:
-    - If a non-UGC part already owns a listing for this exact ``product_url``,
-      deny and point the user at it. Scraped data is authoritative; a UGC
-      submission on the same retailer URL would just shadow real data.
-    - Else, if the same user already has a UGC part with a listing for this
-      URL, deny and point them at their own prior entry (no accidental
-      self-duplicates).
-    - Else, allow the create. We intentionally do NOT block on GTIN or on
-      manufacturer+part_number: UGC submissions coming from a new retailer's
-      URL for an already-catalogued ADRO/etc. part are legitimate, and the
-      "messiness" of UGC is tolerated as long as URLs don't collide.
+    Policy — URL-only, per-user matching: if the creator already has a part
+    with a listing for this exact ``product_url``, deny and point them at
+    their own prior entry (no accidental self-duplicates). Different users may
+    each contribute their own row for the same URL.
 
-    Returns ``(existing_part, reason)`` where reason is one of
-    ``"non_ugc_exists"`` or ``"own_ugc_exists"``; returns ``None`` if nothing
+    Returns ``(existing_part, "own_part_exists")`` or ``None`` if nothing
     blocks the create.
     """
     if not product_url or not product_url.strip():
         return None
 
-    # Cross-user check against scraped parts: a UGC submission on a URL a
-    # crawler already owns would just shadow authoritative data.
-    non_ugc = find_part_by_product_url(db, product_url, include_ugc=False)
-    if non_ugc is not None:
-        return non_ugc, "non_ugc_exists"
-
-    # Per-user check against the creator's own UGC at this URL. Scoping the
-    # DB query by ``creator_id`` (rather than filtering in Python after
-    # ``.first()``) matters when multiple users independently submitted UGC
-    # for the same URL — we must not miss the creator's own row just because
-    # another user's row sorts first.
-    own_ugc = find_part_by_product_url(db, product_url, include_ugc=True, creator_id=creator_id)
-    if own_ugc is not None and own_ugc.source == "user_created":
-        return own_ugc, "own_ugc_exists"
+    # Scope by ``creator_id`` in the query (not after ``.first()``) so we
+    # don't miss the creator's own row when another user also has one for
+    # this URL.
+    own = find_part_by_product_url(db, product_url, creator_id=creator_id)
+    if own is not None:
+        return own, "own_part_exists"
 
     return None
 

@@ -126,8 +126,6 @@ export const createMockPart = (overrides = {}) => ({
   is_universal: false,
   part_manufacturer: 'TestPartManufacturer',
   part_number: 'TP001',
-  is_verified: true,
-  source: 'user',
   edit_count: 0,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',

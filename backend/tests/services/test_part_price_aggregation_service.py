@@ -74,7 +74,6 @@ def _make_part(
         user_id=user.id,
         is_universal=True,
         canonical_part_id=canonical_part_id,
-        source="scraped",
     )
     db.add(part)
     db.flush()

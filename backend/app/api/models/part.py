@@ -55,8 +55,6 @@ class Part(Base):
     )
     """When set, this part is a duplicate whose surface representation is the referenced canonical part."""
 
-    is_verified: Mapped[bool] = mapped_column(default=False)
-    source: Mapped[str] = mapped_column(default="user_created")
     edit_count: Mapped[int] = mapped_column(default=0)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

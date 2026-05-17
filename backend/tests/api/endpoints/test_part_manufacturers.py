@@ -114,18 +114,14 @@ class TestPartManufacturers:
             assert b.get("is_active", True) is True
 
     def test_get_part_manufacturers_active_only_param(self, client: TestClient, db_session: Session) -> None:
-        """Test get part_manufacturers with active_only=false returns all curated part_manufacturers."""
+        """Test get part_manufacturers with active_only=false returns all part_manufacturers."""
         _, token = create_and_login_user(client, "part_manufacturers_all")
         create_part_manufacturer_via_api(client, token, get_unique_name("inactive_part_manufacturer"))
 
-        # Create inactive curated mfr via DB. The list endpoint defaults to
-        # curated-only (UGC entries are excluded from catalog browse), so the
-        # row must be flagged is_curated=True to appear here.
         inactive = DBPartManufacturer(
             name=get_unique_name("inactive"),
             description="Inactive",
             is_active=False,
-            is_curated=True,
         )
         db_session.add(inactive)
         db_session.commit()
@@ -250,12 +246,11 @@ class TestPartManufacturers:
     def test_update_part_manufacturer_curated_forbidden_non_admin(
         self, client: TestClient, db_session: Session
     ) -> None:
-        """Non-admin can't edit curated (catalog) manufacturers — those are admin-only."""
+        """Non-admin can't edit catalog manufacturers — edits are admin-only."""
         curated = DBPartManufacturer(
             name=get_unique_name("CuratedNoEdit"),
             description="Curated",
             is_active=True,
-            is_curated=True,
         )
         db_session.add(curated)
         db_session.commit()
@@ -447,115 +442,57 @@ class TestPartManufacturers:
         assert "count" in data
         assert isinstance(data["count"], int)
 
-    # --- UGC vs curated boundary -----------------------------------------
+    # --- name dedup + counts ---------------------------------------------
 
-    def test_create_pm_as_user_marks_ugc(self, client: TestClient, db_session: Session) -> None:
-        """Regular user POST creates a UGC row owned by them."""
-        user_id, token = create_and_login_user(client, "ugc_create")
-        created = create_part_manufacturer_via_api(client, token, get_unique_name("MyOwnBrand"))
-        assert created["is_curated"] is False
-        assert created["created_by_user_id"] == str(user_id)
-
-    def test_create_pm_as_user_dedups_into_curated(
+    def test_create_pm_dedups_into_existing(
         self, client: TestClient, db_session: Session
     ) -> None:
-        """User typing a curated brand name auto-links to the curated row (no UGC dup)."""
-        curated_name = get_unique_name("HKS")
-        curated = DBPartManufacturer(
-            name=curated_name,
+        """A user typing an existing brand name auto-links to that row (no dup).
+
+        Manufacturers live in a single global namespace, deduped
+        case-insensitively by name.
+        """
+        existing_name = get_unique_name("HKS")
+        existing = DBPartManufacturer(
+            name=existing_name,
             is_active=True,
-            is_curated=True,
         )
-        db_session.add(curated)
+        db_session.add(existing)
         db_session.commit()
-        db_session.refresh(curated)
+        db_session.refresh(existing)
 
-        _, token = create_and_login_user(client, "dedup_into_curated")
+        _, token = create_and_login_user(client, "dedup_into_existing")
         # Use a case variant to also confirm case-insensitive match.
-        result = create_part_manufacturer_via_api(client, token, curated_name.lower())
-        assert result["id"] == str(curated.id)
-        assert result["is_curated"] is True
-        assert result["created_by_user_id"] is None
+        result = create_part_manufacturer_via_api(client, token, existing_name.lower())
+        assert result["id"] == str(existing.id)
 
-    def test_two_users_can_each_have_ugc_with_same_name(
+    def test_create_pm_dedups_into_own_prior_create(
         self, client: TestClient, db_session: Session
     ) -> None:
-        """Two users independently create a UGC with the same name -> two distinct rows."""
-        name = get_unique_name("BarCo")
-        user_a_id, token_a = create_and_login_user(client, "ugc_same_name_a")
-        user_b_id, token_b = create_and_login_user(client, "ugc_same_name_b")
-
-        a = create_part_manufacturer_via_api(client, token_a, name)
-        b = create_part_manufacturer_via_api(client, token_b, name)
-        assert a["id"] != b["id"]
-        assert a["is_curated"] is False and b["is_curated"] is False
-        assert a["created_by_user_id"] == str(user_a_id)
-        assert b["created_by_user_id"] == str(user_b_id)
-
-    def test_create_pm_as_user_dedups_into_own_ugc(
-        self, client: TestClient, db_session: Session
-    ) -> None:
-        """A user POSTing the same name twice gets the same UGC row back."""
-        _, token = create_and_login_user(client, "ugc_dedup_self")
+        """A user POSTing the same name twice gets the same row back."""
+        _, token = create_and_login_user(client, "dedup_self")
         name = get_unique_name("FooCo")
         first = create_part_manufacturer_via_api(client, token, name)
         second = create_part_manufacturer_via_api(client, token, name)
         assert first["id"] == second["id"]
 
-    def test_list_excludes_ugc_by_default(self, client: TestClient, db_session: Session) -> None:
-        """Default list endpoint excludes UGC manufacturers (catalog browse stays clean)."""
-        _, token = create_and_login_user(client, "list_excludes_ugc")
-        ugc_name = get_unique_name("UgcOnly")
-        ugc = create_part_manufacturer_via_api(client, token, ugc_name)
-        assert ugc["is_curated"] is False
+    def test_two_users_same_name_dedup_to_one_row(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        """Manufacturers are globally unique by case-insensitive name: two
+        users POSTing the same name resolve to a single shared row."""
+        name = get_unique_name("BarCo")
+        _, token_a = create_and_login_user(client, "same_name_a")
+        _, token_b = create_and_login_user(client, "same_name_b")
 
-        response = client.get(f"{settings.API_STR}/part-manufacturers/")
-        assert response.status_code == 200
-        names = [b["name"] for b in response.json()]
-        assert ugc_name not in names
+        a = create_part_manufacturer_via_api(client, token_a, name)
+        b = create_part_manufacturer_via_api(client, token_b, name)
+        assert a["id"] == b["id"]
 
-    def test_list_admin_can_opt_in_to_ugc(self, client: TestClient, db_session: Session) -> None:
-        """Admin can pass include_ugc=true to see UGC entries; regular user cannot."""
-        _, user_token = create_and_login_user(client, "list_optin_ugc_user")
-        ugc_name = get_unique_name("UgcOptIn")
-        create_part_manufacturer_via_api(client, user_token, ugc_name)
-
-        # Regular user with include_ugc=true: still excluded.
-        regular_resp = client.get(
-            f"{settings.API_STR}/part-manufacturers/",
-            params={"include_ugc": "true"},
-            headers={"Authorization": f"Bearer {user_token}"},
-        )
-        assert regular_resp.status_code == 200
-        assert ugc_name not in [b["name"] for b in regular_resp.json()]
-
-        # Admin with include_ugc=true: included.
-        _, admin_token = create_and_login_admin_user(client, db_session, "list_optin_ugc_admin")
-        admin_resp = client.get(
-            f"{settings.API_STR}/part-manufacturers/",
-            params={"include_ugc": "true"},
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
-        assert admin_resp.status_code == 200
-        assert ugc_name in [b["name"] for b in admin_resp.json()]
-
-    def test_search_excludes_ugc_by_default(self, client: TestClient, db_session: Session) -> None:
-        """Search endpoint also defaults to curated-only."""
-        _, token = create_and_login_user(client, "search_excludes_ugc")
-        ugc_name = get_unique_name("UgcSearchable")
-        create_part_manufacturer_via_api(client, token, ugc_name)
-
-        response = client.get(
-            f"{settings.API_STR}/part-manufacturers/search",
-            params={"q": ugc_name},
-        )
-        assert response.status_code == 200
-        assert all(b["name"] != ugc_name for b in response.json())
-
-    def test_get_ugc_pm_still_returns_200(self, client: TestClient, db_session: Session) -> None:
-        """No read boundary: a UGC row is fetchable by id by anyone."""
-        _, creator_token = create_and_login_user(client, "ugc_readable_creator")
-        created = create_part_manufacturer_via_api(client, creator_token, get_unique_name("UgcReadable"))
+    def test_get_pm_still_returns_200(self, client: TestClient, db_session: Session) -> None:
+        """No read boundary: a manufacturer row is fetchable by id by anyone."""
+        _, creator_token = create_and_login_user(client, "pm_readable_creator")
+        created = create_part_manufacturer_via_api(client, creator_token, get_unique_name("PmReadable"))
 
         # Anonymous fetch still works.
         client.cookies.clear()
@@ -563,14 +500,13 @@ class TestPartManufacturers:
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == created["id"]
-        assert data["is_curated"] is False
 
-    def test_get_ugc_pm_parts_returns_only_owner_parts(
+    def test_get_pm_parts_returns_only_owner_parts(
         self, client: TestClient, db_session: Session
     ) -> None:
-        """GET /{id}/parts on a UGC mfr returns only the creator's parts."""
-        creator_id, creator_token = create_and_login_user(client, "ugc_parts_creator", db_session)
-        ugc = create_part_manufacturer_via_api(client, creator_token, get_unique_name("UgcParts"))
+        """GET /{id}/parts returns only the creator's parts."""
+        creator_id, creator_token = create_and_login_user(client, "pm_parts_creator", db_session)
+        pm = create_part_manufacturer_via_api(client, creator_token, get_unique_name("PmParts"))
         category_id = str(get_default_category_id(db_session))
 
         # Creator adds a part.
@@ -579,55 +515,39 @@ class TestPartManufacturers:
             json={
                 "name": get_unique_name("OwnerPart"),
                 "category_id": category_id,
-                "part_manufacturer_id": ugc["id"],
+                "part_manufacturer_id": pm["id"],
             },
             headers={"Authorization": f"Bearer {creator_token}"},
         )
         assert part_resp.status_code == 200
 
-        response = client.get(f"{settings.API_STR}/part-manufacturers/{ugc['id']}/parts")
+        response = client.get(f"{settings.API_STR}/part-manufacturers/{pm['id']}/parts")
         assert response.status_code == 200
         parts = response.json()
         assert all(p["user_id"] == str(creator_id) for p in parts)
 
-    def test_creator_can_update_own_ugc(self, client: TestClient, db_session: Session) -> None:
-        """A UGC row's creator can update name/description on their own row."""
-        _, token = create_and_login_user(client, "ugc_creator_can_update")
+    def test_creator_cannot_update_own_manufacturer(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        """Edits are admin-only: a non-admin creator can't update their own row."""
+        _, token = create_and_login_user(client, "creator_cannot_update")
         created = create_part_manufacturer_via_api(client, token, get_unique_name("MyEditable"))
-        new_name = get_unique_name("MyEditableRenamed")
 
         response = client.put(
             f"{settings.API_STR}/part-manufacturers/{created['id']}",
-            json={"name": new_name, "description": "Renamed by owner"},
+            json={"name": get_unique_name("Renamed"), "description": "Renamed by owner"},
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert response.status_code == 200
-        body = response.json()
-        assert body["name"] == new_name
-        assert body["description"] == "Renamed by owner"
-        assert body["is_curated"] is False
-
-    def test_creator_cannot_promote_own_ugc(self, client: TestClient, db_session: Session) -> None:
-        """A non-admin creator passing is_curated=true is silently ignored — no self-promotion."""
-        _, token = create_and_login_user(client, "ugc_no_self_promote")
-        created = create_part_manufacturer_via_api(client, token, get_unique_name("NoPromote"))
-
-        response = client.put(
-            f"{settings.API_STR}/part-manufacturers/{created['id']}",
-            json={"is_curated": True, "description": "trying to promote"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 200
-        assert response.json()["is_curated"] is False
+        assert response.status_code == 403
 
     def test_counts_by_source(self, client: TestClient, db_session: Session) -> None:
-        """The counts/by-source endpoint splits curated vs UGC."""
+        """The counts/by-source endpoint returns only a total."""
         before = client.get(f"{settings.API_STR}/part-manufacturers/counts/by-source").json()
+        assert set(before.keys()) == {"total"}
 
-        _, token = create_and_login_user(client, "counts_split_ugc")
-        create_part_manufacturer_via_api(client, token, get_unique_name("UgcForCount"))
+        _, token = create_and_login_user(client, "counts_total")
+        create_part_manufacturer_via_api(client, token, get_unique_name("PmForCount"))
 
         after = client.get(f"{settings.API_STR}/part-manufacturers/counts/by-source").json()
-        assert after["ugc"] == before["ugc"] + 1
-        assert after["curated"] == before["curated"]
+        assert set(after.keys()) == {"total"}
         assert after["total"] == before["total"] + 1

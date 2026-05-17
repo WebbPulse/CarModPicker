@@ -102,8 +102,6 @@ const mockManufacturer = {
   description: null,
   image_urls: [],
   is_active: true,
-  is_curated: true,
-  created_by_user_id: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };

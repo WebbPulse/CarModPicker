@@ -44,7 +44,6 @@ def _seed_part(
         part_number=part_number,
         part_number_normalized=part_number_normalized,
         is_universal=True,
-        source="scraped",
     )
     db_session.add(part)
     db_session.flush()

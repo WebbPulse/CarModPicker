@@ -95,15 +95,8 @@ def require_build_list_part_edit_permission(
 
 
 def can_edit_part_manufacturer(user: DBUser, pm: DBPartManufacturer) -> bool:
-    """Whether the user can update name/description on a manufacturer.
-
-    Curated rows are admin/superuser only. UGC rows can additionally be edited
-    by their original creator. (is_curated toggling stays admin-only — enforced
-    at the endpoint via the admin-update schema.)
-    """
-    if user.is_admin or user.is_superuser:
-        return True
-    return (not pm.is_curated) and pm.created_by_user_id == user.id
+    """Whether the user can update a manufacturer. Admin/superuser only."""
+    return user.is_admin or user.is_superuser
 
 
 def can_delete_part_manufacturer(user: DBUser, pm: DBPartManufacturer) -> bool:

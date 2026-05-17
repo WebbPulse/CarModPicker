@@ -22,7 +22,6 @@ from app.api.models.car_make import CarMake as DBMake
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.utils.endpoint_decorators import standard_responses
@@ -413,62 +412,58 @@ async def delete_all_parts(
 
 
 class DeleteCrawlerPartsResponse(BaseModel):
-    """Response for delete-crawler parts (admin only)."""
+    """Response for delete crawler-created parts (admin only)."""
 
-    deleted_count: int = Field(..., description="Number of crawler-sourced parts deleted")
-
-
-#: Part.source values that represent human-entered content and must be kept by
-#: the crawler-parts purge. Everything else (adapter names like "a90shop",
-#: "studiorsr", etc.) is treated as crawler/service-account sourced.
-_NON_CRAWLER_PART_SOURCES = ("user_created", "chrome_extension")
+    deleted_count: int = Field(..., description="Number of parts deleted")
+    service_account_count: int = Field(..., description="Number of service-account users whose parts were targeted")
 
 
 @router.post(
-    "/parts/delete-crawler",
+    "/parts/delete-crawler-created",
     response_model=DeleteCrawlerPartsResponse,
     responses=standard_responses(
-        success_description="All crawler-sourced parts deleted",
+        success_description="Crawler-created parts deleted",
         forbidden=True,
     ),
 )
-async def delete_crawler_parts(
+async def delete_crawler_created_parts(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> DeleteCrawlerPartsResponse:
     """
-    Delete all crawler/service-account-sourced parts (admin only).
+    Delete all parts created by the legacy crawler service account (admin only).
 
-    Removes every part whose ``source`` is not user-entered content
-    (i.e. not ``user_created`` and not ``chrome_extension``). User-created
-    parts and parts added via the browser companion extension are kept.
-
-    Cascades (via ORM relationships) to part listings, votes, reports, and
-    build list parts. ``part_price_alerts`` has no FK cascade and is not an
-    ORM relationship on Part, so matching rows are deleted explicitly first
-    to avoid a ForeignKeyViolation (see commit 11bf33f).
-    This action cannot be undone.
+    Targets only parts whose creator is a User with is_service_account=True.
+    User-contributed and Chrome-extension parts are unaffected. Cascades to
+    part listings, votes, reports, build list parts, and car associations.
+    The service account user itself is not deleted. This action cannot be undone.
     """
     db = SessionLocal()
     try:
-        parts = list(db.scalars(select(DBPart).where(DBPart.source.notin_(_NON_CRAWLER_PART_SOURCES))).all())
-        part_ids = [part.id for part in parts]
-        count = len(parts)
-        if part_ids:
-            # part_price_alerts.part_id FK has no ON DELETE and Part has no
-            # relationship to it — remove dependent rows before deleting parts.
-            db.execute(
-                sql_delete(DBPartPriceAlert)
-                .where(DBPartPriceAlert.part_id.in_(part_ids))
-                .execution_options(synchronize_session=False)
+        service_account_ids = list(db.scalars(select(DBUser.id).where(DBUser.is_service_account.is_(True))).all())
+        if not service_account_ids:
+            logger.info(
+                "Admin %s ran delete crawler-created parts: no service accounts found",
+                current_user.id,
             )
-            for part in parts:
-                db.delete(part)
+            return DeleteCrawlerPartsResponse(deleted_count=0, service_account_count=0)
+        parts = list(db.scalars(select(DBPart).where(DBPart.user_id.in_(service_account_ids))).all())
+        count = len(parts)
+        for part in parts:
+            db.delete(part)
         db.commit()
-        logger.info("Admin %s deleted %s crawler-sourced parts", current_user.id, count)
-        return DeleteCrawlerPartsResponse(deleted_count=count)
+        logger.info(
+            "Admin %s deleted %s crawler-created parts from %s service account(s)",
+            current_user.id,
+            count,
+            len(service_account_ids),
+        )
+        return DeleteCrawlerPartsResponse(
+            deleted_count=count,
+            service_account_count=len(service_account_ids),
+        )
     except Exception as e:
         db.rollback()
-        logger.exception("Delete crawler-sourced parts failed: %s", e)
+        logger.exception("Delete crawler-created parts failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

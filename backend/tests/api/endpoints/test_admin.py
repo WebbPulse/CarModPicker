@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.models.user import User as DBUser
 from app.core.config import settings
 from tests.conftest import INVALID_UUID_STR
@@ -297,7 +296,12 @@ class TestAdminCrawlBucketSummary:
 
 
 class TestAdminDeleteCrawlerParts:
-    """POST /admin/db-ops/parts/delete-crawler — delete only crawler-sourced parts.
+    """POST /admin/db-ops/parts/delete-crawler-created — delete parts created by
+    the legacy crawler service account.
+
+    The endpoint targets parts whose creator is a User with
+    ``is_service_account=True``; user-contributed and Chrome-extension parts
+    (created by ordinary users) are unaffected.
 
     The endpoint opens its own session via ``SessionLocal()`` (it does not use
     the ``get_db`` dependency), so it bypasses the SQLite test session. We patch
@@ -306,7 +310,23 @@ class TestAdminDeleteCrawlerParts:
     test sees the endpoint's deletions (all inside the rolled-back outer txn).
     """
 
-    _URL = f"{settings.API_STR}/admin/db-ops/parts/delete-crawler"
+    _URL = f"{settings.API_STR}/admin/db-ops/parts/delete-crawler-created"
+
+    @staticmethod
+    def _make_service_account(db_session: Session, suffix: str) -> DBUser:
+        """Create and persist a service-account user; returns the user."""
+        sa_user = DBUser(
+            username=f"svc_account_{suffix}",
+            email=f"svc_account_{suffix}@example.com",
+            hashed_password=get_password_hash("testpassword"),
+            is_service_account=True,
+            email_verified=True,
+            disabled=False,
+        )
+        db_session.add(sa_user)
+        db_session.commit()
+        db_session.refresh(sa_user)
+        return sa_user
 
     @staticmethod
     def _patch_session_local(monkeypatch: "pytest.MonkeyPatch", db_session: Session) -> None:
@@ -334,16 +354,18 @@ class TestAdminDeleteCrawlerParts:
         response = client.post(self._URL, headers=headers)
         assert response.status_code == 403
 
-    def test_delete_crawler_parts_empty_success(
+    def test_delete_crawler_parts_no_service_accounts(
         self, client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """No parts -> 200 with deleted_count=0."""
+        """No service-account users -> 200 with deleted_count=0, service_account_count=0."""
         token = create_and_login_admin_user(client, db_session, "delete_crawler_parts_empty")
         self._patch_session_local(monkeypatch, db_session)
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(self._URL, headers=headers)
         assert response.status_code == 200
-        assert response.json()["deleted_count"] == 0
+        body = response.json()
+        assert body["deleted_count"] == 0
+        assert body["service_account_count"] == 0
 
     def test_delete_crawler_parts_keeps_user_and_extension_parts(
         self,
@@ -353,30 +375,28 @@ class TestAdminDeleteCrawlerParts:
         test_user,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Deletes adapter-sourced parts; keeps user_created and chrome_extension parts."""
+        """Deletes parts owned by service accounts; keeps parts owned by ordinary users."""
+        sa_user = self._make_service_account(db_session, "mix")
+
         user_part = DBPart(
             name="User part",
             category_id=test_category.id,
             user_id=test_user.id,
-            source="user_created",
         )
         ext_part = DBPart(
             name="Browser companion part",
             category_id=test_category.id,
             user_id=test_user.id,
-            source="chrome_extension",
         )
         crawler_part_a = DBPart(
             name="Crawler part A",
             category_id=test_category.id,
-            user_id=test_user.id,
-            source="a90shop",
+            user_id=sa_user.id,
         )
         crawler_part_b = DBPart(
             name="Crawler part B",
             category_id=test_category.id,
-            user_id=test_user.id,
-            source="studiorsr",
+            user_id=sa_user.id,
         )
         db_session.add_all([user_part, ext_part, crawler_part_a, crawler_part_b])
         db_session.commit()
@@ -389,41 +409,34 @@ class TestAdminDeleteCrawlerParts:
         response = client.post(self._URL, headers=headers)
 
         assert response.status_code == 200
-        assert response.json()["deleted_count"] == 2
+        body = response.json()
+        assert body["deleted_count"] == 2
+        assert body["service_account_count"] == 1
 
         db_session.expire_all()
         remaining = {p.id for p in db_session.query(DBPart).all()}
         assert remaining == {user_part_id, ext_part_id}
 
-    def test_delete_crawler_parts_clears_price_alerts(
+    def test_delete_crawler_parts_keeps_service_account_user(
         self,
         client: TestClient,
         db_session: Session,
         test_category,
-        test_user,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """A price alert on a crawler part is removed (no FK cascade) so the delete succeeds."""
+        """Service-account parts are deleted but the service-account user itself survives."""
+        sa_user = self._make_service_account(db_session, "keepuser")
+        sa_user_id = sa_user.id
+
         crawler_part = DBPart(
-            name="Crawler part with alert",
+            name="Crawler part",
             category_id=test_category.id,
-            user_id=test_user.id,
-            source="a90shop",
+            user_id=sa_user.id,
         )
         db_session.add(crawler_part)
         db_session.commit()
-        db_session.refresh(crawler_part)
 
-        alert = DBPartPriceAlert(
-            user_id=test_user.id,
-            part_id=crawler_part.id,
-            threshold_cents=12345,
-        )
-        db_session.add(alert)
-        db_session.commit()
-        alert_id = alert.id
-
-        token = create_and_login_admin_user(client, db_session, "delete_crawler_parts_alert")
+        token = create_and_login_admin_user(client, db_session, "delete_crawler_parts_keepuser")
         self._patch_session_local(monkeypatch, db_session)
         headers = {"Authorization": f"Bearer {token}"}
         response = client.post(self._URL, headers=headers)
@@ -433,4 +446,4 @@ class TestAdminDeleteCrawlerParts:
 
         db_session.expire_all()
         assert db_session.query(DBPart).count() == 0
-        assert db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == alert_id).first() is None
+        assert db_session.query(DBUser).filter(DBUser.id == sa_user_id).first() is not None

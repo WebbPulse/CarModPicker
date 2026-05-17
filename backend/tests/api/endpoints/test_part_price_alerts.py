@@ -38,7 +38,6 @@ def _make_part(db: Session, owner: DBUser, *, name: str = "Brake Disc") -> DBPar
         category_id=get_default_category_id(db),
         user_id=owner.id,
         is_universal=True,
-        source="user_created",
     )
     db.add(part)
     db.commit()

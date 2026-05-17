@@ -20,7 +20,6 @@ import type {
   CrawlerSchedule,
   CrawlerScheduleCreate,
   CrawlerScheduleUpdate,
-  CrawlerServiceAccount,
   RescrapeArchivesQueuedResponse,
   RescrapeArchivesRequest,
 } from '../../services/Api';
@@ -2421,8 +2420,6 @@ function CrawlerAdmin() {
   // changes until this counter ticks — keeping typing snappy without losing
   // the click-to-set behaviour.
   const [globalLimitSyncKey, setGlobalLimitSyncKey] = useState(0);
-  const [crawlerServiceAccount, setCrawlerServiceAccount] =
-    useState<CrawlerServiceAccount | null>(null);
   const [crawlerDefaultCategoryId, setCrawlerDefaultCategoryId] =
     useState<string>('');
   const [crawlerCategories, setCrawlerCategories] = useState<
@@ -2487,15 +2484,13 @@ function CrawlerAdmin() {
     if (!user?.is_admin) return;
     setIsLoadingCrawlers(true);
     try {
-      const [adaptersRes, categoriesRes, serviceAccountRes, countsRes] =
-        await Promise.all([
-          adminApi.getCrawlers(),
-          categoriesApi.getCategories(),
-          adminApi.getCrawlerServiceAccount(),
-          adminApi
-            .getCrawledPageCountsBySourceAndStatus()
-            .catch(() => ({ data: {} })),
-        ]);
+      const [adaptersRes, categoriesRes, countsRes] = await Promise.all([
+        adminApi.getCrawlers(),
+        categoriesApi.getCategories(),
+        adminApi
+          .getCrawledPageCountsBySourceAndStatus()
+          .catch(() => ({ data: {} })),
+      ]);
       setCrawlerAdapters(adaptersRes.data.adapters);
       // Default to all selected on first load so the common workflow is
       // "set a global limit, uncheck anything to skip, Run selected."
@@ -2510,7 +2505,6 @@ function CrawlerAdmin() {
       }
       setAdapterTiers(tiers);
       setCrawlerCategories(categoriesRes.data);
-      setCrawlerServiceAccount(serviceAccountRes.data);
       setAdapterStatusCounts(countsRes.data);
       const otherCategory = categoriesRes.data.find(
         (c: CategoryResponse) => c.name.toLowerCase() === 'other'
@@ -2974,26 +2968,7 @@ function CrawlerAdmin() {
             ) : (
               <>
                 <div className="mb-2 p-2 rounded-lg border border-white/15 bg-gray-900/40">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">
-                        Crawler service account
-                      </label>
-                      {crawlerServiceAccount ? (
-                        <div className="flex items-center gap-2 px-2 py-1 rounded border border-white/10 bg-gray-800/60 text-xs">
-                          <span className="font-mono text-foreground">
-                            {crawlerServiceAccount.username}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            #{crawlerServiceAccount.id}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center px-2 py-1 rounded border border-yellow-600/40 bg-yellow-900/20 text-[10px] text-yellow-400">
-                          Not found — restart app
-                        </div>
-                      )}
-                    </div>
+                  <div className="grid grid-cols-1 gap-2">
                     <div>
                       <label className="block text-[10px] font-medium text-muted-foreground mb-0.5 uppercase tracking-wide">
                         Default category

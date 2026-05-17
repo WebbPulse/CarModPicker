@@ -167,7 +167,7 @@ describe('ViewPart page', () => {
     expect(screen.getByText('+4')).toBeInTheDocument();
   });
 
-  it('renders a UGC manufacturer as plain text (no link) with a "custom" badge', async () => {
+  it('renders a manufacturer as plain text (no link)', async () => {
     const ugcMfrId = 'pm-ugc-1111-7111-8111-111111111111';
     const ugcMfrName = 'UserSubmittedBrand';
     const partWithUgcMfr = { ...mockPart, part_manufacturer_id: ugcMfrId };
@@ -198,8 +198,6 @@ describe('ViewPart page', () => {
             name: ugcMfrName,
             description: null,
             is_active: true,
-            is_curated: false,
-            created_by_user_id: mockUser.id,
             created_at: '2024-01-01T00:00:00Z',
             updated_at: '2024-01-01T00:00:00Z',
           },
@@ -225,8 +223,6 @@ describe('ViewPart page', () => {
       .queryAllByRole('link')
       .filter((a) => a.getAttribute('href')?.includes('part_manufacturer_id='));
     expect(links).toHaveLength(0);
-    // The "custom" badge is rendered.
-    expect(screen.getByText(/custom/i)).toBeInTheDocument();
   });
 
   it('posts to the vote endpoint when the user clicks a vote button', async () => {

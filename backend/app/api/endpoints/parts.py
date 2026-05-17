@@ -43,7 +43,7 @@ from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.page_parser import part_number_canonical
 from app.api.services.part_listing_service import (
     create_or_update_listing_and_price,
-    find_existing_part_for_ugc_create,
+    find_existing_part_for_create,
     find_part_by_part_manufacturer_and_part_number,
     normalize_gtin,
     normalize_part_number,
@@ -97,7 +97,7 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
         their own row for the same URL.
         """
         if data.product_url and data.product_url.strip():
-            blocker = find_existing_part_for_ugc_create(
+            blocker = find_existing_part_for_create(
                 db,
                 creator_id=current_user.id,
                 product_url=data.product_url,
@@ -112,7 +112,6 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
                         "message": "You already have a part for this product.",
                         "existing_part_id": str(existing.id),
                         "existing_part_name": existing.name,
-                        "existing_part_source": existing.source,
                     },
                 )
 
@@ -130,9 +129,7 @@ class PartService(BaseCRUDService[DBPart, PartCreate, PartRead, PartUpdate]):
             normalize_part_number(data.part_number) if data.part_number else entity_data.get("part_number")
         )
         entity_data["part_number_normalized"] = (
-            part_number_canonical(data.part_number)
-            if data.part_number
-            else entity_data.get("part_number_normalized")
+            part_number_canonical(data.part_number) if data.part_number else entity_data.get("part_number_normalized")
         )
         if data.gtin:
             entity_data["gtin"] = normalize_gtin(data.gtin) or entity_data.get("gtin")
@@ -295,13 +292,6 @@ async def read_parts_with_votes(
     universal: Optional[bool] = Query(
         None, description="When true, return only parts that fit all cars (is_universal)"
     ),
-    include_ugc: bool = Query(
-        True,
-        description=(
-            "When false, hide community-contributed parts (source='user_created') "
-            "from the catalog. Scraped parts are unaffected."
-        ),
-    ),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> Dict[str, Any]:
@@ -355,7 +345,6 @@ async def read_parts_with_votes(
         user_id,
         retailer_id,
         universal=universal,
-        include_ugc=include_ugc,
     )
 
     stmt: Select[Any] = (
@@ -372,7 +361,6 @@ async def read_parts_with_votes(
         user_id,
         retailer_id,
         universal=universal,
-        include_ugc=include_ugc,
     )
 
     # Aggregate listings to their canonical part: a duplicate's listings count
@@ -555,7 +543,6 @@ def _apply_parts_list_filters(
     retailer_id: Optional[UUID],
     *,
     universal: Optional[bool] = None,
-    include_ugc: bool = True,
 ):
     """Apply list filters to a query that has DBPart as root.
 
@@ -563,11 +550,6 @@ def _apply_parts_list_filters(
     the public catalog by default so duplicates don't clutter results. The
     "My Parts" view (``user_id`` set) keeps non-canonicals visible so a user
     still sees every part they created, even those later linked as duplicates.
-
-    ``include_ugc=False`` drops community-contributed parts (``source =
-    "user_created"``) so users who want a cleaner, scraper-only catalog can
-    toggle UGC out of browse/search. The "My Parts" view ignores this flag so
-    a user always sees their own UGC.
     """
     query = apply_standard_filters(
         query=query,
@@ -588,8 +570,6 @@ def _apply_parts_list_filters(
         query = query.where(DBPart.user_id == user_id)
     else:
         query = query.where(DBPart.canonical_part_id.is_(None))
-        if not include_ugc:
-            query = query.where(DBPart.source != "user_created")
     if retailer_id is not None:
         query = query.join(DBPartListing).where(
             DBPartListing.part_id == DBPart.id,
@@ -608,7 +588,6 @@ def _parts_base_query(
     retailer_id: Optional[UUID],
     *,
     universal: Optional[bool] = None,
-    include_ugc: bool = True,
 ):
     """Build base select for parts list with filters applied (no pagination/sort)."""
     q: Select[Any] = select(DBPart)
@@ -621,7 +600,6 @@ def _parts_base_query(
         user_id,
         retailer_id,
         universal=universal,
-        include_ugc=include_ugc,
     )
 
 
@@ -641,10 +619,6 @@ async def get_parts_filter_options(
     search: Optional[str] = Query(None, description="Search in names and descriptions"),
     user_id: Optional[UUID] = Query(None, description="Filter to parts created by this user (e.g. for My Parts)"),
     universal: Optional[bool] = Query(None, description="When true, scope to parts that fit all cars (is_universal)"),
-    include_ugc: bool = Query(
-        True,
-        description="When false, hide community-contributed parts from the filter option computation.",
-    ),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
 ) -> Dict[str, Any]:
     """
@@ -661,21 +635,13 @@ async def get_parts_filter_options(
         user_id=user_id,
         retailer_id=None,
         universal=universal,
-        include_ugc=include_ugc,
     )
     available_categories = list(
         db.scalars(q.with_only_columns(DBPart.category_id).distinct().where(DBPart.category_id.isnot(None))).all()
     )
-    # Facet must not surface UGC manufacturer ids — the catalog sidebar should
-    # only offer curated brands as filter options. Constrain the distinct set
-    # to ids that exist as curated rows.
-    curated_pm_subq = select(DBPartManufacturer.id).where(DBPartManufacturer.is_curated.is_(True))
     available_part_manufacturers = list(
         db.scalars(
-            q.with_only_columns(DBPart.part_manufacturer_id)
-            .distinct()
-            .where(DBPart.part_manufacturer_id.isnot(None))
-            .where(DBPart.part_manufacturer_id.in_(curated_pm_subq))
+            q.with_only_columns(DBPart.part_manufacturer_id).distinct().where(DBPart.part_manufacturer_id.isnot(None))
         ).all()
     )
     result: Dict[str, Any] = {
@@ -694,7 +660,6 @@ async def get_parts_filter_options(
             user_id=user_id,
             retailer_id=None,
             universal=universal,
-            include_ugc=include_ugc,
         )
         available_car_ids = list(
             db.scalars(
