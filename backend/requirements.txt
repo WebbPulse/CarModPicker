@@ -58,7 +58,7 @@ sentry-sdk>=2.60.0,<3
 # or PutMetricData API calls are required. `AWS_EMF_ENVIRONMENT=Local` must
 # be set in the runtime (plan 02-02 terraform) to force the stdout sink on
 # ECS Fargate + App Runner (RESEARCH Landmine 4).
-aws-embedded-metrics>=3.0,<4
+aws-embedded-metrics>=3.5.0,<4
 
 # Testing: in-memory S3 mock (used with pytest fixtures; never runs in production)
 moto[s3]==5.1.22
