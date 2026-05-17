@@ -51,7 +51,6 @@ const VerifyEmailConfirm = lazy(
 const ExtensionAuth = lazy(
   () => import('./pages/authentication/ExtensionAuth.tsx')
 );
-const AccountAlerts = lazy(() => import('./pages/account/AccountAlerts.tsx'));
 const Builder = lazy(() => import('./pages/builder/Builder.tsx'));
 const ViewCar = lazy(() => import('./pages/builder/ViewCar.tsx'));
 const ViewUser = lazy(() => import('./pages/ViewUser.tsx'));
@@ -314,10 +313,6 @@ function App() {
                     <Route path="/verify-email" element={<VerifyEmail />} />
                     <Route element={<EmailVerifiedRoute />}>
                       <Route path="/profile" element={<Profile />} />
-                      <Route
-                        path="/account/alerts"
-                        element={<AccountAlerts />}
-                      />
                       <Route path="/builder" element={<Builder />} />
                       <Route path="/my-parts" element={<UserParts />} />
                       <Route

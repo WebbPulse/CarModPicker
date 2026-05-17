@@ -2,12 +2,14 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
+from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.models.user import User as DBUser
 from app.core.config import settings
 from tests.conftest import INVALID_UUID_STR
@@ -292,3 +294,143 @@ class TestAdminCrawlBucketSummary:
         assert isinstance(data["crawl_bucket_total"], int)
         assert "crawl_bucket_by_prefix" in data
         assert isinstance(data["crawl_bucket_by_prefix"], dict)
+
+
+class TestAdminDeleteCrawlerParts:
+    """POST /admin/db-ops/parts/delete-crawler — delete only crawler-sourced parts.
+
+    The endpoint opens its own session via ``SessionLocal()`` (it does not use
+    the ``get_db`` dependency), so it bypasses the SQLite test session. We patch
+    ``db_ops.SessionLocal`` to a sessionmaker bound to the same connection the
+    test's ``db_session`` uses, so the endpoint sees test-created rows and the
+    test sees the endpoint's deletions (all inside the rolled-back outer txn).
+    """
+
+    _URL = f"{settings.API_STR}/admin/db-ops/parts/delete-crawler"
+
+    @staticmethod
+    def _patch_session_local(monkeypatch: "pytest.MonkeyPatch", db_session: Session) -> None:
+        from sqlalchemy.orm import sessionmaker
+
+        from app.api.endpoints.admin import db_ops
+
+        bound = sessionmaker(
+            bind=db_session.connection(),
+            autocommit=False,
+            autoflush=False,
+            join_transaction_mode="create_savepoint",
+        )
+        monkeypatch.setattr(db_ops, "SessionLocal", bound)
+
+    def test_delete_crawler_parts_unauthorized(self, client: TestClient) -> None:
+        """No auth returns 401."""
+        response = client.post(self._URL)
+        assert response.status_code == 401
+
+    def test_delete_crawler_parts_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+        """Non-admin returns 403."""
+        token = create_and_login_user(client, db_session, "delete_crawler_parts_forbidden")
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.post(self._URL, headers=headers)
+        assert response.status_code == 403
+
+    def test_delete_crawler_parts_empty_success(
+        self, client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No parts -> 200 with deleted_count=0."""
+        token = create_and_login_admin_user(client, db_session, "delete_crawler_parts_empty")
+        self._patch_session_local(monkeypatch, db_session)
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.post(self._URL, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["deleted_count"] == 0
+
+    def test_delete_crawler_parts_keeps_user_and_extension_parts(
+        self,
+        client: TestClient,
+        db_session: Session,
+        test_category,
+        test_user,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Deletes adapter-sourced parts; keeps user_created and chrome_extension parts."""
+        user_part = DBPart(
+            name="User part",
+            category_id=test_category.id,
+            user_id=test_user.id,
+            source="user_created",
+        )
+        ext_part = DBPart(
+            name="Browser companion part",
+            category_id=test_category.id,
+            user_id=test_user.id,
+            source="chrome_extension",
+        )
+        crawler_part_a = DBPart(
+            name="Crawler part A",
+            category_id=test_category.id,
+            user_id=test_user.id,
+            source="a90shop",
+        )
+        crawler_part_b = DBPart(
+            name="Crawler part B",
+            category_id=test_category.id,
+            user_id=test_user.id,
+            source="studiorsr",
+        )
+        db_session.add_all([user_part, ext_part, crawler_part_a, crawler_part_b])
+        db_session.commit()
+        user_part_id = user_part.id
+        ext_part_id = ext_part.id
+
+        token = create_and_login_admin_user(client, db_session, "delete_crawler_parts_mix")
+        self._patch_session_local(monkeypatch, db_session)
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.post(self._URL, headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["deleted_count"] == 2
+
+        db_session.expire_all()
+        remaining = {p.id for p in db_session.query(DBPart).all()}
+        assert remaining == {user_part_id, ext_part_id}
+
+    def test_delete_crawler_parts_clears_price_alerts(
+        self,
+        client: TestClient,
+        db_session: Session,
+        test_category,
+        test_user,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A price alert on a crawler part is removed (no FK cascade) so the delete succeeds."""
+        crawler_part = DBPart(
+            name="Crawler part with alert",
+            category_id=test_category.id,
+            user_id=test_user.id,
+            source="a90shop",
+        )
+        db_session.add(crawler_part)
+        db_session.commit()
+        db_session.refresh(crawler_part)
+
+        alert = DBPartPriceAlert(
+            user_id=test_user.id,
+            part_id=crawler_part.id,
+            threshold_cents=12345,
+        )
+        db_session.add(alert)
+        db_session.commit()
+        alert_id = alert.id
+
+        token = create_and_login_admin_user(client, db_session, "delete_crawler_parts_alert")
+        self._patch_session_local(monkeypatch, db_session)
+        headers = {"Authorization": f"Bearer {token}"}
+        response = client.post(self._URL, headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["deleted_count"] == 1
+
+        db_session.expire_all()
+        assert db_session.query(DBPart).count() == 0
+        assert db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == alert_id).first() is None

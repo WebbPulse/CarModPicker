@@ -2448,6 +2448,21 @@
         "title": "DeleteAllPartsResponse",
         "type": "object"
       },
+      "DeleteCrawlerPartsResponse": {
+        "description": "Response for delete-crawler parts (admin only).",
+        "properties": {
+          "deleted_count": {
+            "description": "Number of crawler-sourced parts deleted",
+            "title": "Deleted Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted_count"
+        ],
+        "title": "DeleteCrawlerPartsResponse",
+        "type": "object"
+      },
       "FlaggedEntitySummary": {
         "properties": {
           "created_at": {
@@ -6013,6 +6028,36 @@
           }
         ],
         "summary": "Delete All Parts",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/db-ops/parts/delete-crawler": {
+      "post": {
+        "description": "Delete all crawler/service-account-sourced parts (admin only).\n\nRemoves every part whose ``source`` is not user-entered content\n(i.e. not ``user_created`` and not ``chrome_extension``). User-created\nparts and parts added via the browser companion extension are kept.\n\nCascades (via ORM relationships) to part listings, votes, reports, and\nbuild list parts. ``part_price_alerts`` has no FK cascade and is not an\nORM relationship on Part, so matching rows are deleted explicitly first\nto avoid a ForeignKeyViolation (see commit 11bf33f).\nThis action cannot be undone.",
+        "operationId": "delete_crawler_parts_api_admin_db_ops_parts_delete_crawler_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteCrawlerPartsResponse"
+                }
+              }
+            },
+            "description": "All crawler-sourced parts deleted"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Crawler Parts",
         "tags": [
           "admin"
         ]

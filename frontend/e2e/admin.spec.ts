@@ -14,8 +14,8 @@ import { test, expect, type Route, type Request } from '@playwright/test';
 //   3. Keyboard focus on /admin/extraction-health: first Tab lands on a
 //      focusable control whose computed style shows a focus ring (R020).
 //
-// Conventions inherited from frontend/e2e/parts-catalog.spec.ts (S10/T04),
-// frontend/e2e/build-list.spec.ts (S09/T04), and frontend/e2e/price-alerts.spec.ts:
+// Conventions inherited from frontend/e2e/parts-catalog.spec.ts (S10/T04)
+// and frontend/e2e/build-list.spec.ts (S09/T04):
 //   - MEM082: page.route() URL matcher MUST be `/\/api\/(?!.*\.ts)/` so it
 //     does not swallow Vite's source modules at /src/api/*.ts.
 //   - MEM098/MEM103: pre-accept the cookie-consent banner via addInitScript

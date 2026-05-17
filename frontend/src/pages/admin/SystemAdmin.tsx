@@ -68,6 +68,16 @@ function SystemAdmin() {
     deleted_count: number;
   } | null>(null);
 
+  const [isDeleteCrawlerPartsConfirmOpen, setIsDeleteCrawlerPartsConfirmOpen] =
+    useState(false);
+  const [isDeletingCrawlerParts, setIsDeletingCrawlerParts] = useState(false);
+  const [deleteCrawlerPartsError, setDeleteCrawlerPartsError] = useState<
+    string | null
+  >(null);
+  const [deleteCrawlerPartsResult, setDeleteCrawlerPartsResult] = useState<{
+    deleted_count: number;
+  } | null>(null);
+
   const [
     isDeleteAllPartManufacturersConfirmOpen,
     setIsDeleteAllPartManufacturersConfirmOpen,
@@ -227,6 +237,24 @@ function SystemAdmin() {
       );
     } finally {
       setIsDeletingAllParts(false);
+    }
+  };
+
+  const handleConfirmDeleteCrawlerParts = async () => {
+    setIsDeletingCrawlerParts(true);
+    setDeleteCrawlerPartsError(null);
+    try {
+      const response = await adminApi.deleteCrawlerParts();
+      setDeleteCrawlerPartsResult(response.data);
+      setIsDeleteCrawlerPartsConfirmOpen(false);
+    } catch (error) {
+      setDeleteCrawlerPartsError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete crawler-sourced parts.'
+      );
+    } finally {
+      setIsDeletingCrawlerParts(false);
     }
   };
 
@@ -523,8 +551,8 @@ function SystemAdmin() {
           <details className="group border border-destructive/50 rounded-lg overflow-hidden">
             <summary className="cursor-pointer list-none px-3 py-2 bg-destructive/20 hover:bg-destructive/30 transition-colors flex items-center justify-between text-sm">
               <span className="font-semibold text-destructive">
-                Deletion options (cars, global parts, part manufacturers,
-                bucket)
+                Deletion options (cars, global parts, crawler parts, part
+                manufacturers, bucket)
               </span>
               <span className="text-destructive/80 group-open:rotate-180 transition-transform inline-block">
                 ▼
@@ -648,6 +676,53 @@ function SystemAdmin() {
                       <ErrorAlert message={deleteAllPartManufacturersError} />
                     )}
                   </div>
+                )}
+              </DangerActionPanel>
+
+              {/* Delete crawler-sourced parts only */}
+              <DangerActionPanel
+                title="Delete crawler-sourced parts"
+                dangerColor="destructive"
+                description={
+                  <>
+                    Permanently remove only parts sourced by crawlers / the
+                    service account (any part whose source is a crawler adapter).
+                    User-created parts and parts added via the Browser Companion
+                    extension are kept. Also removes those parts' listings,
+                    votes, reports, build list part associations, and price
+                    alerts. This action cannot be undone.
+                  </>
+                }
+              >
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      setDeleteCrawlerPartsError(null);
+                      setDeleteCrawlerPartsResult(null);
+                      setIsDeleteCrawlerPartsConfirmOpen(true);
+                    }}
+                    disabled={isDeletingCrawlerParts}
+                    loading={isDeletingCrawlerParts}
+                  >
+                    {isDeletingCrawlerParts
+                      ? 'Deleting...'
+                      : 'Delete crawler-sourced parts'}
+                  </Button>
+                </div>
+                {deleteCrawlerPartsResult && (
+                  <div className="p-2 rounded border border-success bg-success/20 text-sm text-success">
+                    <p className="font-semibold">
+                      Deleted{' '}
+                      {deleteCrawlerPartsResult.deleted_count.toLocaleString()}{' '}
+                      crawler-sourced part(s). User-created and Browser Companion
+                      parts were kept.
+                    </p>
+                  </div>
+                )}
+                {deleteCrawlerPartsError && (
+                  <ErrorAlert message={deleteCrawlerPartsError} />
                 )}
               </DangerActionPanel>
 
@@ -781,6 +856,36 @@ function SystemAdmin() {
         error={
           deleteAllPartsError
             ? `Failed to delete catalog: ${deleteAllPartsError}`
+            : null
+        }
+      />
+      <ConfirmDialog
+        open={isDeleteCrawlerPartsConfirmOpen}
+        onOpenChange={(next) => {
+          if (!next) {
+            setIsDeleteCrawlerPartsConfirmOpen(false);
+            setDeleteCrawlerPartsError(null);
+          }
+        }}
+        onConfirm={() => void handleConfirmDeleteCrawlerParts()}
+        title="Confirm Deletion"
+        description={
+          <>
+            Are you sure you want to delete{' '}
+            <span className="font-semibold text-foreground">
+              "all crawler-sourced parts"
+            </span>
+            ? User-created and Browser Companion parts are kept. This action
+            cannot be undone.
+          </>
+        }
+        confirmLabel="Confirm Delete"
+        loadingLabel="Deleting..."
+        variant="destructive"
+        loading={isDeletingCrawlerParts}
+        error={
+          deleteCrawlerPartsError
+            ? `Failed to delete crawler-sourced parts: ${deleteCrawlerPartsError}`
             : null
         }
       />

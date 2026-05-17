@@ -57,9 +57,8 @@ export const ALL_ROUTES: ReadonlyArray<CoverageRoute> = [
   { path: '/register', group: 'authentication' },
   { path: '/forgot-password', group: 'authentication' },
 
-  // ── builder ── 6 entries (ProtectedRoute + EmailVerifiedRoute — only reachable when AUTHENTICATED + email-verified)
+  // ── builder ── 5 entries (ProtectedRoute + EmailVerifiedRoute — only reachable when AUTHENTICATED + email-verified)
   { path: '/profile', group: 'builder' },
-  { path: '/account/alerts', group: 'builder' },
   { path: '/builder', group: 'builder' },
   { path: '/my-parts', group: 'builder' },
   { path: '/checkout', group: 'builder' },

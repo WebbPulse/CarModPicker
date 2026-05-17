@@ -7,12 +7,12 @@ import { ALL_ROUTES } from '../src/test/route-coverage-list';
 //
 // The 33 routes that had zero Playwright baseline coverage post-S04 get one
 // here, so the M003/S06 close gauntlet has visual signal across the entire
-// production surface — not just the 6 routes covered by admin/build-list/
-// parts-catalog/price-alerts/price-history specs.
+// production surface — not just the routes covered by admin/build-list/
+// parts-catalog/price-history specs.
 //
 // Important behavioral notes (cross-referenced with the slice plan T06 Q5):
 //   - Auth-guarded routes (builder group: /profile, /builder, /my-parts,
-//     /checkout, /account/alerts, /verify-email; authentication group:
+//     /checkout, /verify-email; authentication group:
 //     /login, /register, /forgot-password) are visited as the default
 //     unauthenticated user. Builder routes will redirect to /login;
 //     authentication routes render the requested page directly. The
@@ -96,7 +96,7 @@ async function waitForPageReady(
 ): Promise<void> {
   // networkidle can hang on routes that poll, so cap with a try/catch and
   // fall back to domcontentloaded + a fixed settle window. Fonts.ready and
-  // a 300ms tail match admin.spec.ts / price-alerts.spec.ts.
+  // a 300ms tail match admin.spec.ts.
   try {
     await page.waitForLoadState('networkidle', { timeout: 8000 });
   } catch {

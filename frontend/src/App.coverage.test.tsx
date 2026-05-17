@@ -22,9 +22,10 @@ import { ALL_ROUTES, type RouteGroup } from './test/route-coverage-list';
  * Reviewers must reject any PR that weakens the assertion to a generic body
  * check.
  *
- * Drift guard: ALL_ROUTES.length must stay >= 38 (current count from
- * `grep -cE 'path="' frontend/src/App.tsx`). Adding a <Route> without
- * categorising it here breaks CI, forcing the developer to assign a group.
+ * Drift guard: ALL_ROUTES.length must stay >= 38 (conservative floor;
+ * `grep -cE 'path="' frontend/src/App.tsx` currently returns 39). Adding a
+ * <Route> without categorising it here breaks CI, forcing the developer to
+ * assign a group.
  *
  * Backend analog: backend/tests/test_admin_auth_coverage.py +
  * backend/tests/test_auth_auth_coverage.py — same parametrize-then-drift-guard
@@ -134,7 +135,7 @@ import App from './App';
 // frontend/e2e/polish-coverage.spec.ts (M003/S05/T06) can consume the same
 // list under the e2e/Playwright tsconfig (which excludes other src/* files).
 // Source-of-truth count:
-//   `grep -cE 'path="' frontend/src/App.tsx` returns 38 (2026-04-25).
+//   `grep -cE 'path="' frontend/src/App.tsx` returns 39 (2026-05-16).
 // PR-review rule: any new <Route> in App.tsx requires a matching entry there,
 // otherwise the drift guard below fails CI.
 
@@ -185,7 +186,7 @@ describe('App route coverage (FE-03 drift guard, D-10, D-24)', () => {
     //   backend/tests/test_admin_auth_coverage.py
     //     ::test_admin_route_count_at_or_above_expected
     //
-    // Count source: `grep -cE 'path="' frontend/src/App.tsx` returns 38.
+    // Count source: `grep -cE 'path="' frontend/src/App.tsx` returns 39.
     expect(ALL_ROUTES.length).toBeGreaterThanOrEqual(38);
   });
 
