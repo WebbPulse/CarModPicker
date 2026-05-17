@@ -12,3 +12,4 @@ Disallow: /builder
 Disallow: /parts/*/edit
 
 Sitemap: https://www.carmodpicker.com/sitemap.xml
+Sitemap: https://api.carmodpicker.com/sitemap.xml

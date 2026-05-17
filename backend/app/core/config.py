@@ -80,6 +80,18 @@ class Settings(BaseSettings):
             "https://www.carmodpicker.com",
         ]
 
+    @property
+    def frontend_base_url(self) -> str:
+        """Public origin of the user-facing SPA, used to build absolute URLs
+        (e.g. sitemap <loc> entries). The backend and frontend live on
+        separate domains, so this is derived from APP_ENVIRONMENT rather than
+        the request host. No trailing slash."""
+        if not self.is_production:
+            return "http://localhost:4000"
+        if self.APP_ENVIRONMENT.lower() == "staging":
+            return "https://staging.carmodpicker.com"
+        return "https://www.carmodpicker.com"
+
     @model_validator(mode="after")
     def validate_and_normalize_settings(self) -> "Settings":
         """Validate settings and normalize storage variable names."""

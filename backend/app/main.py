@@ -2,9 +2,10 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 
 from .api.endpoints import (
     app_settings,
@@ -36,6 +37,7 @@ from .api.endpoints.auth import two_factor as auth_2fa
 from .api.endpoints.auth import webauthn as auth_webauthn
 from .api.middleware import rate_limit_middleware, request_context_middleware
 from .api.middleware.error_handler import register_error_handlers
+from .api.services import sitemap_service
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
 from .core.init_cars import init_car_generations
@@ -43,7 +45,7 @@ from .core.log_context import RequestContextFilter, bg_log_context
 from .core.logging import LOG_FORMAT, make_formatter
 from .core.sentry import init_sentry
 from .core.worker_identity import WORKER_INSTANCE_ID
-from .db.session import SessionLocal, check_db_ready
+from .db.session import SessionLocal, check_db_ready, get_db
 from .services import job_service
 
 # Configure logging for the entire application (single format, colorized levels)
@@ -322,6 +324,7 @@ endpoint_registry.register_endpoint(
     description="Runtime-mutable global app settings (e.g. global ads toggle)",
 )
 
+
 @app.get("/")
 def read_root() -> dict[str, str]:
     return {
@@ -358,4 +361,41 @@ def readiness_check() -> dict[str, Any] | JSONResponse:
             "error_code": "SERVICE_UNAVAILABLE",
         },
         headers={"Retry-After": "2"},
+    )
+
+
+# --- SEO: dynamic XML sitemap ------------------------------------------------
+# The frontend is a static SPA on CloudFront and can't generate a DB-driven
+# sitemap, so the backend serves one. robots.txt points Google Search Console
+# at /sitemap.xml (a sitemap index) which fans out to per-type child sitemaps.
+# Cached for an hour at the edge — freshness within a day is plenty for SEO.
+_SITEMAP_CACHE = "public, max-age=3600"
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_index(db: Session = Depends(get_db)) -> Response:
+    return Response(
+        content=sitemap_service.generate_sitemap_index(db),
+        media_type="application/xml",
+        headers={"Cache-Control": _SITEMAP_CACHE},
+    )
+
+
+@app.get("/sitemap-{name}.xml", include_in_schema=False)
+def sitemap_child(
+    name: str,
+    page: int = Query(1, ge=1),
+    db: Session = Depends(get_db),
+) -> Response:
+    xml = sitemap_service.generate_child_sitemap(db, name, page)
+    if xml is None:
+        return Response(
+            content="Not found",
+            status_code=404,
+            media_type="text/plain",
+        )
+    return Response(
+        content=xml,
+        media_type="application/xml",
+        headers={"Cache-Control": _SITEMAP_CACHE},
     )
