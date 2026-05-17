@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { buildListPartsApi, buildListsApi } from '../../services/Api';
 import type {
   BuildListPartCreate,
+  BuildListPhaseRead,
   BuildListRead,
   PartReadWithVotes,
 } from '../../types/Api';
@@ -37,6 +38,15 @@ function AddToBuildListDialog({
   const [buildLists, setBuildLists] = useState<BuildListRead[]>([]);
   const [isLoadingBuildLists, setIsLoadingBuildLists] = useState(false);
   const [buildListsError, setBuildListsError] = useState<string | null>(null);
+  const [phases, setPhases] = useState<BuildListPhaseRead[]>([]);
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
+
+  // Phases are scoped to a single build list, so a single picker only makes
+  // sense when exactly one list is selected.
+  const singleSelectedBuildListId =
+    selectedBuildListIds.size === 1
+      ? Array.from(selectedBuildListIds)[0]
+      : null;
 
   const toggleBuildListSelection = (id: string) => {
     setSelectedBuildListIds((prev) => {
@@ -89,8 +99,35 @@ function AddToBuildListDialog({
       setSelectedBuildListIds(new Set());
       setQuantity(1);
       setError(null);
+      setPhases([]);
+      setSelectedPhaseId(null);
     }
   }, [isOpen]);
+
+  // Fetch phases whenever exactly one build list is selected. Reset the picker
+  // when the selection changes (a phase from list A is meaningless for list B).
+  useEffect(() => {
+    setSelectedPhaseId(null);
+    if (singleSelectedBuildListId == null) {
+      setPhases([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchPhases = async () => {
+      try {
+        const response = await buildListsApi.getPhases(
+          singleSelectedBuildListId
+        );
+        if (!cancelled) setPhases(response.data);
+      } catch {
+        if (!cancelled) setPhases([]);
+      }
+    };
+    void fetchPhases();
+    return () => {
+      cancelled = true;
+    };
+  }, [singleSelectedBuildListId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +143,11 @@ function AddToBuildListDialog({
     const buildListPartData: BuildListPartCreate = {
       quantity: Math.max(1, quantity),
       notes: null,
+      // Only meaningful when a single build list is selected (see picker below).
+      ...(singleSelectedBuildListId != null &&
+        selectedPhaseId != null && {
+          build_list_phase_id: selectedPhaseId,
+        }),
     };
 
     try {
@@ -309,6 +351,36 @@ function AddToBuildListDialog({
               </div>
             )}
           </div>
+
+          {/* Phase selection — only when a single build list with phases is chosen */}
+          {singleSelectedBuildListId != null && phases.length > 0 && (
+            <div className="space-y-2">
+              <label
+                htmlFor="add-to-build-list-phase"
+                className="block text-sm font-medium text-foreground"
+              >
+                Phase
+              </label>
+              <select
+                id="add-to-build-list-phase"
+                value={selectedPhaseId ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSelectedPhaseId(v === '' ? null : v);
+                }}
+                className="block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-info focus:border-info sm:text-sm"
+              >
+                <option value="">None</option>
+                {[...phases]
+                  .sort((a, b) => a.sort_order - b.sort_order)
+                  .map((phase) => (
+                    <option key={phase.id} value={phase.id}>
+                      {phase.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           {/* Car mismatch disclaimer */}
           {hasCarMismatch && (

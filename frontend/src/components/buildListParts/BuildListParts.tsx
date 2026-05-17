@@ -114,6 +114,10 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
   const { data: phases, executeRequest: fetchPhases } =
     useApiRequest(fetchPhasesRequestFn);
 
+  const phasesList: BuildListPhaseRead[] = useMemo(
+    () => phases ?? [],
+    [phases]
+  );
   const part_manufacturers = part_manufacturersData ?? [];
   const carsById = useMemo(() => {
     const list = Array.isArray(carsData) ? carsData : [];
@@ -377,6 +381,68 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     [handleTogglePurchased]
   );
 
+  // Reassign a part to a phase (null = Unassigned). Optimistic, same pattern
+  // as handleTogglePurchased: update local state, then PUT, revert on error.
+  const handlePhaseChange = useCallback(
+    async (
+      buildListPart: BuildListPartReadWithPart,
+      phaseId: string | null
+    ) => {
+      if (!canManageParts) return;
+      if ((buildListPart.build_list_phase_id ?? null) === phaseId) return;
+
+      const prevPhaseId = buildListPart.build_list_phase_id ?? null;
+      const prevPhaseName = buildListPart.phase_name ?? null;
+      const nextPhaseName =
+        phaseId == null
+          ? null
+          : (phasesList.find((p) => p.id === phaseId)?.name ?? null);
+
+      setLocalBuildListParts((prevParts) => {
+        if (!prevParts) return prevParts;
+        return prevParts.map((part) =>
+          part.id === buildListPart.id
+            ? {
+                ...part,
+                build_list_phase_id: phaseId,
+                phase_name: nextPhaseName,
+              }
+            : part
+        );
+      });
+
+      try {
+        await buildListPartsApi.updateBuildListPart(
+          buildListId,
+          buildListPart.part_id,
+          { build_list_phase_id: phaseId }
+        );
+      } catch {
+        // Revert optimistic update on error
+        setLocalBuildListParts((prevParts) => {
+          if (!prevParts) return prevParts;
+          return prevParts.map((part) =>
+            part.id === buildListPart.id
+              ? {
+                  ...part,
+                  build_list_phase_id: prevPhaseId,
+                  phase_name: prevPhaseName,
+                }
+              : part
+          );
+        });
+      }
+    },
+    [canManageParts, buildListId, phasesList]
+  );
+
+  const handlePhaseChangeWrapper = useCallback(
+    (part: BuildListPartReadWithPart, phaseId: string | null) => {
+      void handlePhaseChange(part, phaseId);
+    },
+    [handlePhaseChange]
+  );
+
   const parts = localBuildListParts || buildListParts || [];
   const hasCarMismatchParts =
     buildListCarId != null &&
@@ -404,7 +470,6 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
     );
   }
 
-  const phasesList: BuildListPhaseRead[] = phases ?? [];
   const deletingPartName =
     buildListParts?.find((p) => p.id === deletingPartId)?.part.name ?? '';
   const deletingPhaseName =
@@ -437,7 +502,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       </div>
 
       {canManageParts && viewMode === 'phase' && (
-        <div>
+        <div className="flex items-center gap-3 flex-wrap">
           <Button
             type="button"
             variant="secondary"
@@ -446,6 +511,12 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
           >
             Manage phases
           </Button>
+          {phasesList.length > 0 && (
+            <p className="text-xs text-gray-400">
+              Drag a part onto another phase to move it, or use the phase
+              dropdown on each part.
+            </p>
+          )}
         </div>
       )}
 
@@ -614,6 +685,9 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
         onDelete={handleDelete}
         {...(canManageParts && {
           onTogglePurchased: handleTogglePurchasedWrapper,
+        })}
+        {...(canManageParts && {
+          onPhaseChange: handlePhaseChangeWrapper,
         })}
         canEdit={canManageParts}
         canDelete={canManageParts}

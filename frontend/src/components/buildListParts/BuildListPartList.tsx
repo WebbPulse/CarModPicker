@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useContainerWidth } from '../../hooks/useContainerWidth';
 import { useResponsiveColumns } from '../../hooks/useResponsiveColumns';
@@ -52,6 +52,7 @@ const COLUMN_MIN_WIDTH: Record<TableColumnKey, number> = {
 
 const DEFAULT_PART_MANUFACTURERS: PartManufacturerResponse[] = [];
 const DEFAULT_CARS_BY_ID: Record<string, CarGenerationRead> = {};
+const DEFAULT_PHASES: BuildListPhaseRead[] = [];
 
 type SortKey =
   | 'part'
@@ -88,6 +89,23 @@ interface BuildListPartTableProps {
   canMarkPurchased?: boolean;
   canEditPart?: (buildListPart: BuildListPartReadWithPart) => boolean;
   canDeletePart?: (buildListPart: BuildListPartReadWithPart) => boolean;
+  /** Phase view only: phases available for inline reassignment. */
+  phases?: BuildListPhaseRead[];
+  /** Phase view only: reassign a part to a phase (null = Unassigned). */
+  onPhaseChange?: (
+    buildListPart: BuildListPartReadWithPart,
+    phaseId: string | null
+  ) => void;
+  /** The phase id this group represents (null for the Unassigned group). */
+  groupPhaseId?: string | null;
+  /** True when the list is rendered in "By phase" view mode. */
+  phaseView?: boolean;
+  /** Drag-and-drop between phase groups is active. */
+  dndEnabled?: boolean;
+  /** Record the part that started dragging (shared across group tables). */
+  onDragStartPart?: (buildListPart: BuildListPartReadWithPart) => void;
+  /** Drop a dragged part onto this group's phase. */
+  onDropOnPhase?: (targetPhaseId: string | null) => void;
 }
 
 function formatCarName(car: CarGenerationRead): string {
@@ -262,9 +280,23 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
   canMarkPurchased = false,
   canEditPart,
   canDeletePart,
+  phases = DEFAULT_PHASES,
+  onPhaseChange,
+  groupPhaseId = null,
+  phaseView = false,
+  dndEnabled = false,
+  onDragStartPart,
+  onDropOnPhase,
 }) => {
+  const [isDragOver, setIsDragOver] = useState(false);
   const showCheckbox = canMarkPurchased && onTogglePurchased;
-  const showActions = Boolean(onEdit || onDelete);
+  const showInlinePhase =
+    phaseView && canEdit && onPhaseChange != null && phases.length > 0;
+  const showActions = Boolean(onEdit || onDelete || showInlinePhase);
+  const sortedPhases = useMemo(
+    () => [...phases].sort((a, b) => a.sort_order - b.sort_order),
+    [phases]
+  );
   const [tableRef, tableContainerWidth] = useContainerWidth<HTMLDivElement>();
 
   const tableColumnKeys = useMemo((): TableColumnKey[] => {
@@ -289,8 +321,38 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
     tableContainerWidth
   );
 
+  const dropProps = dndEnabled
+    ? {
+        onDragOver: (e: React.DragEvent) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!isDragOver) setIsDragOver(true);
+        },
+        onDragLeave: (e: React.DragEvent) => {
+          // Only clear when leaving the group entirely, not when moving
+          // between child elements inside it.
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setIsDragOver(false);
+          }
+        },
+        onDrop: (e: React.DragEvent) => {
+          e.preventDefault();
+          setIsDragOver(false);
+          onDropOnPhase?.(groupPhaseId);
+        },
+      }
+    : {};
+
   return (
-    <div ref={tableRef} className="space-y-2">
+    <div
+      ref={tableRef}
+      className={`space-y-2 rounded-lg transition-colors ${
+        isDragOver
+          ? 'ring-2 ring-info ring-offset-2 ring-offset-gray-900 bg-info/5'
+          : ''
+      }`}
+      {...dropProps}
+    >
       {/* Category Header */}
       <div className="flex items-center gap-2 px-1 py-0.5">
         <span className="text-base">{categoryIcon}</span>
@@ -396,9 +458,23 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
               return (
                 <tr
                   key={buildListPart.id}
+                  draggable={dndEnabled}
+                  onDragStart={
+                    dndEnabled
+                      ? (e) => {
+                          e.dataTransfer.effectAllowed = 'move';
+                          // Some browsers require data to be set to start a drag.
+                          e.dataTransfer.setData(
+                            'text/plain',
+                            buildListPart.id
+                          );
+                          onDragStartPart?.(buildListPart);
+                        }
+                      : undefined
+                  }
                   className={`border-b border-gray-700/70 hover:bg-gray-800/50 transition-colors group ${
                     purchased ? 'opacity-60' : ''
-                  }`}
+                  } ${dndEnabled ? 'cursor-move' : ''}`}
                 >
                   {visibleColumns.includes('checkbox') && (
                     <td className="px-4 py-2 whitespace-nowrap">
@@ -553,6 +629,28 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                   {visibleColumns.includes('actions') && (
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1">
+                        {showInlinePhase && (
+                          <select
+                            aria-label={`Phase for ${gp.name}`}
+                            title="Move to phase"
+                            value={buildListPart.build_list_phase_id ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              onPhaseChange?.(
+                                buildListPart,
+                                v === '' ? null : v
+                              );
+                            }}
+                            className="text-xs max-w-[9rem] px-2 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-200 focus:outline-none focus:ring-info focus:border-info"
+                          >
+                            <option value="">{UNASSIGNED_LABEL}</option>
+                            {sortedPhases.map((phase) => (
+                              <option key={phase.id} value={phase.id}>
+                                {phase.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         {showEdit && (
                           <Button
                             type="button"
@@ -604,6 +702,14 @@ interface BuildListPartListProps {
   canMarkPurchased?: boolean;
   canEditPart?: (buildListPart: BuildListPartReadWithPart) => boolean;
   canDeletePart?: (buildListPart: BuildListPartReadWithPart) => boolean;
+  /**
+   * Reassign a part to a phase (null = Unassigned). Enables the inline phase
+   * dropdown and drag-and-drop between phase groups in "By phase" view.
+   */
+  onPhaseChange?: (
+    buildListPart: BuildListPartReadWithPart,
+    phaseId: string | null
+  ) => void;
   emptyMessage?: string;
   /**
    * Optional sibling block rendered inside the same masonry layout as the part
@@ -616,7 +722,6 @@ const PHASE_ICON = '📋';
 const PURCHASED_ICON = '✅';
 const NOT_PURCHASED_ICON = '🛒';
 const UNASSIGNED_LABEL = 'Unassigned';
-const DEFAULT_PHASES: BuildListPhaseRead[] = [];
 
 const BuildListPartList: React.FC<BuildListPartListProps> = ({
   buildListParts,
@@ -634,9 +739,25 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
   canMarkPurchased = false,
   canEditPart,
   canDeletePart,
+  onPhaseChange,
   emptyMessage = 'No parts added to this build list yet.',
   trailingTile,
 }) => {
+  // Drag-and-drop: the part currently being dragged is shared across all phase
+  // group tables so a part can be dropped onto a different group than its own.
+  const draggedPartRef = useRef<BuildListPartReadWithPart | null>(null);
+  const dndEnabled = viewMode === 'phase' && canEdit && onPhaseChange != null;
+  const handleDropOnPhase = useCallback(
+    (targetPhaseId: string | null) => {
+      const dragged = draggedPartRef.current;
+      draggedPartRef.current = null;
+      if (dragged == null || onPhaseChange == null) return;
+      if ((dragged.build_list_phase_id ?? null) === targetPhaseId) return;
+      onPhaseChange(dragged, targetPhaseId);
+    },
+    [onPhaseChange]
+  );
+
   // Shared sort state across all groups. Resets on reload (component unmount).
   const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
   const handleSortChange = (key: SortKey) => {
@@ -702,17 +823,44 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     phases.forEach((p) => map.set(p.id, p.name));
     return map;
   }, [phases]);
+  const sortedPhasesAll = useMemo(
+    () => [...phases].sort((a, b) => a.sort_order - b.sort_order),
+    [phases]
+  );
+  // When reassignment is enabled, show every phase (incl. empty ones) so they
+  // can serve as drop targets. Otherwise keep the old behavior: hide empties.
+  const seedEmptyPhaseGroups = onPhaseChange != null && viewMode === 'phase';
 
   // Group and sort parts by phase (build_list_phase_id; null = Unassigned)
   const groupedByPhase = useMemo(() => {
     const groups = new Map<
       string,
       {
+        phaseId: string | null;
         phaseName: string;
         phaseSortOrder: number;
         parts: BuildListPartReadWithPart[];
       }
     >();
+
+    // Seed a group per known phase plus Unassigned so empty phases still render
+    // as drop targets and reassignment can move the last part out of a phase.
+    if (seedEmptyPhaseGroups) {
+      sortedPhasesAll.forEach((p) => {
+        groups.set(p.id, {
+          phaseId: p.id,
+          phaseName: p.name,
+          phaseSortOrder: p.sort_order,
+          parts: [],
+        });
+      });
+      groups.set('unassigned', {
+        phaseId: null,
+        phaseName: UNASSIGNED_LABEL,
+        phaseSortOrder: 999999,
+        parts: [],
+      });
+    }
 
     buildListParts.forEach((part) => {
       const phaseId = part.build_list_phase_id ?? 'unassigned';
@@ -725,7 +873,12 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
           ? 999999
           : (phaseOrderMap.get(phaseId) ?? 999999);
       if (!groups.has(phaseId)) {
-        groups.set(phaseId, { phaseName, phaseSortOrder, parts: [] });
+        groups.set(phaseId, {
+          phaseId: phaseId === 'unassigned' ? null : phaseId,
+          phaseName,
+          phaseSortOrder,
+          parts: [],
+        });
       }
       const g = groups.get(phaseId)!;
       if (phaseId !== 'unassigned') g.phaseName = phaseName;
@@ -739,7 +892,13 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
     return Array.from(groups.values()).sort(
       (a, b) => a.phaseSortOrder - b.phaseSortOrder
     );
-  }, [buildListParts, phaseOrderMap, phaseNameMap]);
+  }, [
+    buildListParts,
+    phaseOrderMap,
+    phaseNameMap,
+    sortedPhasesAll,
+    seedEmptyPhaseGroups,
+  ]);
 
   // Group by purchased state: "Not purchased" first, then "Purchased".
   // Empty groups are dropped so we don't render a blank section.
@@ -789,6 +948,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
         parts: withActiveSort(g.parts),
         groupLabel: g.phaseName,
         groupIcon: PHASE_ICON,
+        groupPhaseId: g.phaseId,
       }));
     }
     if (viewMode === 'purchased') {
@@ -797,6 +957,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
         parts: withActiveSort(g.parts),
         groupLabel: g.label,
         groupIcon: g.icon,
+        groupPhaseId: null as string | null,
       }));
     }
     return groupedParts.map((g) => ({
@@ -805,6 +966,7 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
       groupLabel:
         g.category?.display_name || g.category?.name || 'Uncategorized',
       groupIcon: g.category?.icon || '📦',
+      groupPhaseId: null as string | null,
     }));
   }, [
     viewMode,
@@ -847,10 +1009,10 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
             </Card>
           </div>
         )}
-        {displayGroups.map((group, index) => {
+        {displayGroups.map((group) => {
           const groupKey =
             viewMode === 'phase'
-              ? `phase-${group.groupLabel}-${index}`
+              ? `phase-${group.groupPhaseId ?? 'unassigned'}`
               : viewMode === 'purchased'
                 ? `purchased-${group.groupLabel}`
                 : String(
@@ -876,6 +1038,15 @@ const BuildListPartList: React.FC<BuildListPartListProps> = ({
                 canMarkPurchased={canMarkPurchased}
                 {...(canEditPart != null && { canEditPart })}
                 {...(canDeletePart != null && { canDeletePart })}
+                phases={phases}
+                {...(onPhaseChange != null && { onPhaseChange })}
+                groupPhaseId={group.groupPhaseId}
+                phaseView={viewMode === 'phase'}
+                dndEnabled={dndEnabled}
+                onDragStartPart={(part) => {
+                  draggedPartRef.current = part;
+                }}
+                onDropOnPhase={handleDropOnPhase}
               />
             </div>
           );
