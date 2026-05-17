@@ -52,7 +52,7 @@ boto3-stubs[s3,sesv2]==1.42.91  # Type stubs for boto3 S3 and SES clients
 Pillow==12.2.0
 
 # Observability (Phase 2 / OBS-01 + OBS-02)
-sentry-sdk>=2.0,<3
+sentry-sdk>=2.60.0,<3
 # aws-embedded-metrics: EMF emitter for CloudWatch custom metrics from the
 # crawler. Rides the existing awslogs CloudWatch Logs path so no extra IAM
 # or PutMetricData API calls are required. `AWS_EMF_ENVIRONMENT=Local` must
