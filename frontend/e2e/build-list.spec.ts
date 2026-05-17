@@ -12,7 +12,7 @@ import { test, expect, type Route, type Request } from '@playwright/test';
 //   3. Tab traversal lands visible focus on the first interactive control
 //      ("View Build Log" — see ViewBuildlist.tsx) (R020).
 //
-// Conventions inherited from frontend/e2e/price-alerts.spec.ts (S07/T06):
+// Shared Playwright conventions (S07/T06):
 //   - MEM082: page.route() URL matcher MUST be `/\/api\/(?!.*\.ts)/` so it
 //     does not swallow Vite's source modules at /src/api/*.ts.
 //   - MEM098/MEM103: pre-accept the cookie-consent banner via addInitScript

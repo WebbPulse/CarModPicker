@@ -380,6 +380,17 @@ export const adminApi = {
   deleteAllParts: () =>
     apiClient.post<{ deleted_count: number }>('/admin/db-ops/parts/delete-all'),
 
+  /**
+   * Delete crawler/service-account-sourced parts only (admin only). Keeps
+   * user-created parts and browser-companion (chrome_extension) parts;
+   * deletes everything whose source is an adapter name. Cascades to listings,
+   * votes, reports, build list parts, and clears price alerts on those parts.
+   */
+  deleteCrawlerParts: () =>
+    apiClient.post<{ deleted_count: number }>(
+      '/admin/db-ops/parts/delete-crawler'
+    ),
+
   /** Delete all cars / car generations (admin only). Also deletes car models and makes for a clean init. */
   deleteAllCars: () =>
     apiClient.post<{

@@ -34,7 +34,6 @@ import AddToBuildListDialog from '../../components/parts/AddToBuildListDialog';
 import EditPartForm from '../../components/parts/EditPartForm';
 import ImageGallery from '../../components/parts/ImageGallery';
 import ImageGalleryManage from '../../components/images/ImageGalleryManage';
-import PriceAlertSubscribeButton from '../../components/parts/PriceAlertSubscribeButton';
 import PriceHistoryLineChart from '../../components/parts/PriceHistoryLineChart';
 import {
   type DateRangeOption,
@@ -667,8 +666,7 @@ function ViewPart() {
         {/* Pricing — chart (left) and per-retailer outbound links (right) live
             side-by-side under their own column headings. Only the Price
             history column gets its own sub-card; the retailer list stays
-            inline with the surrounding part-info layout. The price-alert
-            subscribe button sits inside that card, above the chart. */}
+            inline with the surrounding part-info layout. */}
         <div className="mb-6">
           {priceSummaryApiError && (
             <p className="text-sm text-gray-400">Price summary unavailable</p>
@@ -808,14 +806,6 @@ function ViewPart() {
                       <div className="min-w-0">
                         <SectionHeader title="Price history" />
                         {summaryLine}
-                        <div className="mb-4">
-                          <PriceAlertSubscribeButton
-                            partId={part.id}
-                            currentBestPriceCents={
-                              part.best_price_cents ?? null
-                            }
-                          />
-                        </div>
                         <Card variant="glass" padding="md">
                           <PriceHistoryLineChart
                             data={history}
