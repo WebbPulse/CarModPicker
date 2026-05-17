@@ -228,10 +228,62 @@ def upgrade() -> None:
                 ),
                 {"winner": winner_id, "loser": loser_id},
             )
-            # Delete loser. CASCADE on build_list_parts / votes / reports
-            # handles their attached rows; the loser is a styling-only dup so
-            # any references through those tables fold into the winner via
-            # the cascade by design.
+            # Reattach build_list_parts. Its part_id FK is ON DELETE
+            # NO ACTION (NOT cascade — an earlier version of this comment
+            # wrongly assumed cascade and broke every prod deploy), so the
+            # loser must be unreferenced before the delete. There is no
+            # unique (build_list_id, part_id), but re-pointing every loser
+            # row would put the same part in a list twice; instead move
+            # only rows whose build list doesn't already contain the
+            # winner, then drop the rest.
+            bind.execute(
+                sa.text(
+                    """
+                    UPDATE build_list_parts
+                    SET part_id = :winner
+                    WHERE part_id = :loser
+                      AND NOT EXISTS (
+                          SELECT 1 FROM build_list_parts blp2
+                          WHERE blp2.part_id = :winner
+                            AND blp2.build_list_id = build_list_parts.build_list_id
+                      )
+                    """
+                ),
+                {"winner": winner_id, "loser": loser_id},
+            )
+            bind.execute(
+                sa.text("DELETE FROM build_list_parts WHERE part_id = :loser"),
+                {"loser": loser_id},
+            )
+            # Reattach part_price_alerts. Also ON DELETE NO ACTION, and
+            # unique on (user_id, part_id) — so move an alert to the winner
+            # only when that user has no alert on the winner already, then
+            # delete any leftover loser alerts (the user already tracks the
+            # winner, so nothing is lost).
+            bind.execute(
+                sa.text(
+                    """
+                    UPDATE part_price_alerts
+                    SET part_id = :winner
+                    WHERE part_id = :loser
+                      AND NOT EXISTS (
+                          SELECT 1 FROM part_price_alerts ppa2
+                          WHERE ppa2.part_id = :winner
+                            AND ppa2.user_id = part_price_alerts.user_id
+                      )
+                    """
+                ),
+                {"winner": winner_id, "loser": loser_id},
+            )
+            bind.execute(
+                sa.text("DELETE FROM part_price_alerts WHERE part_id = :loser"),
+                {"loser": loser_id},
+            )
+            # Delete loser. crawled_pages.part_id / parts.canonical_part_id
+            # are ON DELETE SET NULL; the canonical chain was already
+            # re-pointed above. votes / reports cascade. All remaining
+            # NO ACTION referrers (part_listings, part_cars,
+            # build_list_parts, part_price_alerts) have been reattached.
             bind.execute(
                 sa.text("DELETE FROM parts WHERE id = :loser"),
                 {"loser": loser_id},
