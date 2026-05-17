@@ -1,7 +1,7 @@
 {
   "name": "carmodpicker-chrome-extension",
   "version": "1.0.0",
-  "description": "Chrome extension for CarModPicker part scraping",
+  "description": "CarModPicker browser companion extension",
   "type": "module",
   "scripts": {
     "build": "NODE_ENV=production vite build && node scripts/inline-content.js",

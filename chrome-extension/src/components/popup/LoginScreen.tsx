@@ -108,7 +108,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, sendMessage }) => {
     <div className="p-5">
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-gradient mb-2">CarModPicker</h1>
-        <p className="text-neutral-400 text-sm">Part Scraper</p>
+        <p className="text-neutral-400 text-sm">Browser Companion</p>
       </div>
 
       {error && (

@@ -199,8 +199,8 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
 
         <div className="p-6 space-y-6 overflow-y-auto flex-1 min-h-0">
           <p className="text-neutral-300 text-sm">
-            This product URL is already in the CarModPicker catalog. Scraping
-            again is used to record an updated price for price history tracking.
+            This product URL is already in the CarModPicker catalog. Pulling it
+            in again records an updated price for price history tracking.
           </p>
 
           {error && (
@@ -224,7 +224,7 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
 
             <div>
               <span className="text-xs text-neutral-500 uppercase tracking-wide">
-                Current scraped price
+                Current price
               </span>
               <p className="text-white text-lg font-semibold">
                 {scrapedPriceFormatted}

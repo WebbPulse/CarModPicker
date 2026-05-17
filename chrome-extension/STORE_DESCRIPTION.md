@@ -1,4 +1,4 @@
-# Chrome Web Store Listing — CarModPicker Part Scraper
+# Chrome Web Store Listing — CarModPicker Browser Companion
 
 Ready-to-paste content for every field in the Web Store submission form.
 Keep this file in sync with `manifest.json` and the privacy policy at
@@ -11,7 +11,7 @@ will reject the next update.
 
 Already set in `manifest.json`:
 
-> CarModPicker Part Scraper
+> CarModPicker Browser Companion
 
 ---
 
@@ -27,7 +27,7 @@ Already set in `manifest.json`:
 
 > **Turn any retailer's product page into a CarModPicker part in one click.**
 >
-> CarModPicker is a free platform for tracking your car builds — your cars, your build lists, the parts that go on them, and the forum-style logs of what you changed and when. The Part Scraper extension lets you capture parts from anywhere on the web, not just the retailers we've built native crawlers for.
+> CarModPicker is a free platform for tracking your car builds — your cars, your build lists, the parts that go on them, and the forum-style logs of what you changed and when. The browser companion lets you capture parts from anywhere on the web, not just the retailers we've built native crawlers for.
 >
 > **How it works**
 >
@@ -68,7 +68,7 @@ Alternative: "Productivity" is less crowded. Pick based on which discovery surfa
 
 ### `activeTab`
 
-> Used to read the URL and rendered HTML of the tab the user is currently viewing, and only when the user explicitly clicks the extension's toolbar action. This is how the extension knows which page to scrape. The extension never accesses tabs the user has not explicitly invoked it on.
+> Used to read the URL and rendered HTML of the tab the user is currently viewing, and only when the user explicitly clicks the extension's toolbar action. This is how the extension knows which page to capture. The extension never accesses tabs the user has not explicitly invoked it on.
 
 ### `scripting`
 
@@ -102,7 +102,7 @@ Check **yes** on:
 
 - **Personally identifiable information** — the extension transmits the user's CarModPicker auth token with each request.
 - **Authentication information** — same reason (auth token stored in `chrome.storage`).
-- **Website content** — the extension transmits the rendered HTML of product pages the user chooses to scrape.
+- **Website content** — the extension transmits the rendered HTML of product pages the user chooses to capture.
 
 Leave **unchecked**:
 
@@ -149,9 +149,9 @@ English (United States)
 Required before submission:
 
 - **Screenshots** at 1280×800 or 640×400. Minimum one; five is the recommended sweet spot for conversion. Suggested set:
-  1. The popup before scrape (logged-in main screen).
+  1. The popup before pulling in a page (logged-in main screen).
   2. The "Analyzing page…" state on a real retailer product page.
-  3. The pre-filled part review dialog with scraped fields populated.
+  3. The pre-filled part review dialog with captured fields populated.
   4. A saved part visible in a build list on carmodpicker.com.
   5. The options page.
 - **Promo tile** at 440×280 (optional, helps with ranking on the category page).
