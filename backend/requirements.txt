@@ -28,7 +28,7 @@ PyJWT==2.12.1
 bcrypt==4.3.0
 python-multipart==0.0.27
 pyotp==2.9.0
-qrcode[pil]==7.4.2
+qrcode[pil]==8.2
 webauthn==2.5.2
 google-auth==2.45.0
 
