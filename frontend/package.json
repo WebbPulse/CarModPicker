@@ -41,7 +41,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "eslint-plugin-react-dom": "^2.12.4",
+    "eslint-plugin-react-dom": "^5.8.1",
     "eslint-plugin-react-x": "^2.12.4",
     "lucide-react": "^1.14.0",
     "react": "^19.2.6",
