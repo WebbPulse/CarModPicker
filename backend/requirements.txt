@@ -49,7 +49,7 @@ curl_cffi==0.15.0
 # Image storage and processing
 boto3==1.43.9
 boto3-stubs[s3,sesv2]==1.43.9  # Type stubs for boto3 S3 and SES clients
-Pillow==12.2.0
+Pillow==12.3.0
 
 # Observability (Phase 2 / OBS-01 + OBS-02)
 sentry-sdk>=2.60.0,<3
