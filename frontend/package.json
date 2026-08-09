@@ -73,7 +73,7 @@
     "globals": "^17.6.0",
     "jsdom": "^25.0.1",
     "madge": "^8.0.0",
-    "postcss": "^8.5.3",
+    "postcss": "^8.5.26",
     "prettier": "^3.5.3",
     "puppeteer": "^24.41.0",
     "tailwindcss": "^4.1.7",
