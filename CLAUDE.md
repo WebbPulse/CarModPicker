@@ -119,6 +119,60 @@ Content scripts scrape product data from retailer pages and POST to the backend 
 
 ---
 
+## Branching and deploys
+
+```
+feature/* ──PR──▶ staging ──PR──▶ main
+                     │              │
+                     ▼              ▼
+           AWS 748861776298   AWS 734702670403
+              (staging)          (production)
+```
+
+- Branch new work from `staging`, not `main`. PR into `staging`. Releasing is a PR from `staging` into `main` — that PR is the release boundary.
+- Never commit directly to `main` or `staging`. Never force-push either. Stacked PRs bottom out on `staging`.
+- Hotfixes branch from `main` and PR into `main`, then are immediately back-merged `main` → `staging`. Skipping the back-merge is how the branches silently diverge.
+- Both accounts are `us-west-2`. Terraform Cloud org is `WebbPulse`.
+
+**Protection is convention only.** The WebbPulse org is on GitHub Free, so every repo — public and private — runs the same configuration: no branch protection, no rulesets. The real gate is Terraform Cloud manual apply on the production workspace: a merge cannot change AWS, only an apply can. CI runs on every PR but is not blocking — you have to read it.
+
+### Workflows
+
+Six workflows in `.github/workflows/`, three CI and three deploy, each scoped by path. All six are `main`-only today.
+
+| Workflow | Trigger today | Paths |
+|---|---|---|
+| `backend-ci.yml` | `pull_request` → `main` | `backend/**` |
+| `frontend-ci.yml` | `pull_request` → `main` | `frontend/**` |
+| `chrome-extension-ci.yml` | `pull_request` → `main` | `chrome-extension/**` |
+| `backend-deploy.yml` | `push` → `main` | `backend/**` |
+| `frontend-deploy.yml` | `push` → `main` | `frontend/**` |
+| `chrome-extension-deploy.yml` | `push` → `main` | `chrome-extension/**` |
+
+The three deploy workflows are fully independent — a backend merge never rebuilds the frontend.
+
+**What has to change when `staging` exists.** The three CI workflows need `staging` added to `pull_request: branches:`, or PRs into `staging` run no checks at all. `backend-deploy.yml` and `frontend-deploy.yml` need `staging` added to `push: branches:` and their hardcoded `environment: production` selected from the branch instead. Both also hardcode `TFC_WORKSPACE_ID: ws-oh1VvpTBPxmcrSYD`, and `frontend-deploy.yml` hardcodes `VITE_API_URL: https://api.carmodpicker.com` — both must become per-environment before a staging push is safe.
+
+**`chrome-extension-deploy.yml` stays `main`-only.** It publishes to the Chrome Web Store, not to AWS: patch-bump `manifest.json`, tag `chrome-extension-vX.Y.Z`, cut a GitHub Release, upload and publish the zip via the CWS API. A browser extension has no staging-account equivalent and there is no staging store listing, so a `staging` trigger would have nothing to deploy to. It is also the one sanctioned exception to "never commit directly to `main`" — it pushes its own version bump with `git push origin HEAD:main`.
+
+### Environment-scoped variables
+
+Deploy variables are currently **repo-scoped**, and a repo-scoped variable is single-valued: a `staging` push reading `AWS_DEPLOY_ROLE_ARN` assumes the production role and deploys into 734702670403. The workflows already declare `environment:`, so the fix is to create a `staging` GitHub Environment (only `production` exists) and redefine these at environment scope **before** the staging branch is created.
+
+| Workflow | Variables | Secrets |
+|---|---|---|
+| `backend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY_NAME`, `APP_RUNNER_SERVICE_ARN` | `TFC_API_TOKEN` |
+| `frontend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `FRONTEND_S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `CWS_EXTENSION_ID` | `TFC_API_TOKEN` |
+| `chrome-extension-deploy.yml` | `CWS_CLIENT_ID`, `CWS_EXTENSION_ID` | `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` |
+
+The backend and frontend deploys poll the HCP Terraform runs API with `TFC_API_TOKEN` and wait for the workspace to reach a terminal state before touching App Runner or S3 — that poll is what prevents the App Runner `OPERATION_IN_PROGRESS` error when Terraform is mid-apply. A staging deploy must poll the staging workspace, not `ws-oh1VvpTBPxmcrSYD`.
+
+### A staging branch does not imply staging infrastructure
+
+`terraform/` is a single HCP workspace, `CarModPicker`, pinned in the `cloud` block in `versions.tf`. `var.environment` already validates `production | staging` and feeds `local.prefix`, but no staging workspace exists yet and `apprunner.tf` still hardcodes `APP_ENVIRONMENT = "production"`. Declare CarModPicker's staging profile (`none` / `reduced` / `full`) before assuming there is anything in 748861776298 to deploy to. Staging is never auto-provisioned to mirror production.
+
+---
+
 ## Key Conventions
 
 - **Alembic migrations:** Always use `alembic revision --autogenerate`. Never write migration files by hand.
