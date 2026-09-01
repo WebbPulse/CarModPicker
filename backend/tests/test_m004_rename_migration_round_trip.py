@@ -144,11 +144,10 @@ def test_emitted_rename_migration_round_trip_preserves_row_id(
     with postgres_engine.connect() as conn:
         with conn.begin():
             ctx = MigrationContext.configure(conn)
-            ops = Operations(ctx)
             # Bind alembic.op to OUR connection's Operations for the duration of
             # the upgrade()/downgrade() calls. Alembic's `op` proxy resolves
             # against the most-recent Operations.context().
-            with ops.context():
+            with Operations.context(ctx):
                 module.upgrade()  # type: ignore[attr-defined]
 
             row = conn.execute(
@@ -159,7 +158,7 @@ def test_emitted_rename_migration_round_trip_preserves_row_id(
             assert int(row.id) == gen_id
             assert row.generation_name == new_name
 
-            with ops.context():
+            with Operations.context(ctx):
                 module.downgrade()  # type: ignore[attr-defined]
 
             row = conn.execute(
