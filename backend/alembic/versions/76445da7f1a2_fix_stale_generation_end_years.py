@@ -33,8 +33,8 @@ All operations are guarded so re-runs are no-ops. INSERTs use Python-side
 uuid.uuid4() (one per row) for SQLite-test compatibility; gen_random_uuid()
 is Postgres-only and would also collide if used for multi-row INSERT...SELECT.
 """
-from typing import Sequence, Union
 import uuid
+from typing import Sequence, Union
 
 import sqlalchemy as sa
 

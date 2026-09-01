@@ -41,7 +41,25 @@ _PART_NUMBER_PREFIXES = (
 )
 
 _PART_NUMBER_CAR_MODEL_BLACKLIST = frozenset(
-    {"z4m", "1m", "e8x", "e9x", "e46", "e90", "e92", "e82", "e85", "e86", "f80", "f82", "f10", "f12", "e60", "e63", "e64"}
+    {
+        "z4m",
+        "1m",
+        "e8x",
+        "e9x",
+        "e46",
+        "e90",
+        "e92",
+        "e82",
+        "e85",
+        "e86",
+        "f80",
+        "f82",
+        "f10",
+        "f12",
+        "e60",
+        "e63",
+        "e64",
+    }
 )
 
 

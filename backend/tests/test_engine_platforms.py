@@ -6,11 +6,11 @@ engine. Designed to run as a fallback when the universal pipeline returns
 no triples.
 """
 
+from app.core.car_generations_data import CAR_GENERATIONS
 from app.core.car_inference import (
     ENGINE_PLATFORMS,
     infer_car_generations_via_engine,
 )
-from app.core.car_generations_data import CAR_GENERATIONS
 
 
 class TestEnginePlatformsLoad:
@@ -95,9 +95,7 @@ class TestInferCarGenerationsViaEngine:
         to "Hemi" — in that title only "Hemi 5.7" matches as a substring;
         6.1 and 6.4 are bracketed by slashes. Documenting that limitation
         here so future work on slash-list parsing has a baseline."""
-        triples = infer_car_generations_via_engine(
-            "Forged rotating assembly fits 5.7L Hemi and 6.4L Hemi blocks"
-        )
+        triples = infer_car_generations_via_engine("Forged rotating assembly fits 5.7L Hemi and 6.4L Hemi blocks")
         # 5.7L fitments
         assert ("Dodge", "Ram 1500", "3rd Gen") in triples
         # 6.4L fitments
@@ -120,7 +118,5 @@ class TestInferCarGenerationsViaEngine:
 
     def test_description_field_is_consulted(self) -> None:
         """Some retailers put the engine in description, not name."""
-        triples = infer_car_generations_via_engine(
-            "Forged Rods", description="Fits 6.4L Hemi (392) applications"
-        )
+        triples = infer_car_generations_via_engine("Forged Rods", description="Fits 6.4L Hemi (392) applications")
         assert ("Dodge", "Charger", "LD") in triples

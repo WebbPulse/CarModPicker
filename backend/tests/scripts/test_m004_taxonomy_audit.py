@@ -40,7 +40,6 @@ if str(_BACKEND_DIR) not in sys.path:
 
 from scripts import m004_taxonomy_audit as audit  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Pure rule-branch tests (no DB)
 # ---------------------------------------------------------------------------
@@ -258,8 +257,7 @@ def test_defensive_per_row_exception_logs_and_continues(caplog: pytest.LogCaptur
     # Defensive log surface fired at least once.
     audit_failures = [r for r in caplog.records if r.message == "audit_row_failed"]
     assert len(audit_failures) >= 1, (
-        f"expected at least one audit_row_failed log, got: "
-        f"{[r.message for r in caplog.records]}"
+        f"expected at least one audit_row_failed log, got: " f"{[r.message for r in caplog.records]}"
     )
 
 
@@ -354,9 +352,7 @@ def test_subprocess_help_exits_zero() -> None:
         check=False,
         timeout=30,
     )
-    assert result.returncode == 0, (
-        f"--help exited {result.returncode}\nstdout={result.stdout}\nstderr={result.stderr}"
-    )
+    assert result.returncode == 0, f"--help exited {result.returncode}\nstdout={result.stdout}\nstderr={result.stderr}"
     # MEM212 placement convention surfaces in --help text.
     combined = result.stdout + result.stderr
     assert "MEM212" in combined or "measurement-only" in combined

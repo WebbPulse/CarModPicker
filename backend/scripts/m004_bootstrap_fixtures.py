@@ -158,8 +158,7 @@ _FIXTURE_TOYOTA_OG_ONLY = BootstrapFixture(
     tier="T2",
     raw_name="HKS Premium Cold Air Intake — Toyota GR Supra (A90)",
     raw_description=(
-        "HKS Premium intake kit. Designed for the B58 in the A90 Supra. "
-        "Aluminum tubing, dry-flow filter element."
+        "HKS Premium intake kit. Designed for the B58 in the A90 Supra. " "Aluminum tubing, dry-flow filter element."
     ),
     html="""<!DOCTYPE html>
 <html>

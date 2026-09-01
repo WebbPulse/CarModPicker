@@ -11,7 +11,6 @@ from app.core.car_inference import (
     extract_fitment_candidates,
 )
 
-
 CURRENT_YEAR = _dt.datetime.now(_dt.timezone.utc).year
 
 
@@ -26,24 +25,18 @@ class TestMakeModelMatching:
         assert not any(c.model == "Mustang" for c in candidates)
 
     def test_bare_model_with_trusted_makes_matches(self) -> None:
-        candidates = extract_fitment_candidates(
-            "Mustang Cold Air Kit", trusted_makes={"Ford"}
-        )
+        candidates = extract_fitment_candidates("Mustang Cold Air Kit", trusted_makes={"Ford"})
         assert any(c.make == "Ford" and c.model == "Mustang" for c in candidates)
 
     def test_trusted_makes_constrains_full_phrase_match_too(self) -> None:
         # "Toyota Supra" full phrase must NOT match if Toyota isn't trusted.
-        candidates = extract_fitment_candidates(
-            "Toyota Supra Carbon Fiber Lip", trusted_makes={"Ford"}
-        )
+        candidates = extract_fitment_candidates("Toyota Supra Carbon Fiber Lip", trusted_makes={"Ford"})
         assert not any(c.make == "Toyota" for c in candidates)
 
 
 class TestYearPairing:
     def test_year_range_paired_with_adjacent_make_model(self) -> None:
-        candidates = extract_fitment_candidates(
-            "Steeda Ford Mustang (2015-2023) Cold Air Intake"
-        )
+        candidates = extract_fitment_candidates("Steeda Ford Mustang (2015-2023) Cold Air Intake")
         ford_match = next((c for c in candidates if c.model == "Mustang"), None)
         assert ford_match is not None
         assert ford_match.year_range == (2015, 2023)
@@ -62,9 +55,7 @@ class TestYearPairing:
         assert challenger.year_range == (2015, 2023)
 
     def test_no_year_in_title_yields_none_year_range(self) -> None:
-        candidates = extract_fitment_candidates(
-            "Mustang Strut Brace", trusted_makes={"Ford"}
-        )
+        candidates = extract_fitment_candidates("Mustang Strut Brace", trusted_makes={"Ford"})
         m = next((c for c in candidates if c.model == "Mustang"), None)
         assert m is not None
         assert m.year_range is None
@@ -82,31 +73,23 @@ class TestRealWorldTitles:
     """Cross-check against known-good titles from each migrated adapter's corpus."""
 
     def test_steeda_parens_year_form(self) -> None:
-        candidates = extract_fitment_candidates(
-            "Steeda Mustang (2015-2023) Cold Air Kit", trusted_makes={"Ford"}
-        )
+        candidates = extract_fitment_candidates("Steeda Mustang (2015-2023) Cold Air Kit", trusted_makes={"Ford"})
         m = next(c for c in candidates if c.model == "Mustang")
         assert m.make == "Ford"
         assert m.year_range == (2015, 2023)
 
     def test_driveshaftshop_leading_year_form(self) -> None:
-        candidates = extract_fitment_candidates(
-            "2005-08 Mustang GT 1-Piece Carbon Driveshaft", trusted_makes={"Ford"}
-        )
+        candidates = extract_fitment_candidates("2005-08 Mustang GT 1-Piece Carbon Driveshaft", trusted_makes={"Ford"})
         m = next(c for c in candidates if c.model == "Mustang")
         assert m.year_range == (2005, 2008)
 
     def test_perrin_subaru_form(self) -> None:
-        candidates = extract_fitment_candidates(
-            "Perrin 2015-2018 Subaru WRX/STI Strut Bar"
-        )
+        candidates = extract_fitment_candidates("Perrin 2015-2018 Subaru WRX/STI Strut Bar")
         m = next(c for c in candidates if c.make == "Subaru" and c.model == "WRX")
         assert m.year_range == (2015, 2018)
 
     def test_open_ended_year(self) -> None:
-        candidates = extract_fitment_candidates(
-            "2015+ Subaru WRX Front Strut Bar"
-        )
+        candidates = extract_fitment_candidates("2015+ Subaru WRX Front Strut Bar")
         m = next(c for c in candidates if c.model == "WRX")
         assert m.year_range == (2015, CURRENT_YEAR + 1)
 
@@ -114,9 +97,7 @@ class TestRealWorldTitles:
 class TestDeduplication:
     def test_duplicate_make_model_year_collapsed(self) -> None:
         # Two mentions of the same fitment (different fragments of the title).
-        candidates = extract_fitment_candidates(
-            "Subaru WRX strut brace, fits all WRX 2015-2018 trims"
-        )
+        candidates = extract_fitment_candidates("Subaru WRX strut brace, fits all WRX 2015-2018 trims")
         wrx = [c for c in candidates if c.model == "WRX"]
         # First mention pairs with no year (none nearby), second with (2015, 2018).
         # We deduplicate on (make, model, year_range) so both can coexist if year differs.

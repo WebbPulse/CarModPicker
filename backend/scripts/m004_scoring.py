@@ -35,9 +35,7 @@ def _normalize_string(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise TypeError(
-            f"expected str or None for normalization, got {type(value).__name__}={value!r}"
-        )
+        raise TypeError(f"expected str or None for normalization, got {type(value).__name__}={value!r}")
     collapsed = _WHITESPACE_RE.sub(" ", value).strip().lower()
     return collapsed
 
@@ -66,22 +64,13 @@ def _now_iso() -> str:
 
 def _normalize_triple(t: Any) -> tuple[str, str, str]:
     if not isinstance(t, tuple):
-        raise TypeError(
-            f"car triple must be a tuple of (make, model, generation), got "
-            f"{type(t).__name__}={t!r}"
-        )
+        raise TypeError(f"car triple must be a tuple of (make, model, generation), got " f"{type(t).__name__}={t!r}")
     if len(t) != 3:
-        raise TypeError(
-            f"car triple must have exactly 3 elements (make, model, generation), "
-            f"got {len(t)} in {t!r}"
-        )
+        raise TypeError(f"car triple must have exactly 3 elements (make, model, generation), " f"got {len(t)} in {t!r}")
     out: list[str] = []
     for i, part in enumerate(t):
         if not isinstance(part, str):
-            raise TypeError(
-                f"car triple element {i} must be str, got "
-                f"{type(part).__name__}={part!r}"
-            )
+            raise TypeError(f"car triple element {i} must be str, got " f"{type(part).__name__}={part!r}")
         out.append(_normalize_string(part) or "")
     return (out[0], out[1], out[2])
 
@@ -129,9 +118,7 @@ def score_car(
 # ---------------------------------------------------------------------------
 
 
-def _score_single_value(
-    predicted: Optional[str], truth: Optional[str]
-) -> dict[str, Any]:
+def _score_single_value(predicted: Optional[str], truth: Optional[str]) -> dict[str, Any]:
     """Per-part binary scorer used by manufacturer and category.
 
     Returns ``{predicted, truth, has_truth, predicted_present, correct}`` where
@@ -140,13 +127,9 @@ def _score_single_value(
     precision/recall over the universe of ``{parts where truth is non-null}``.
     """
     if predicted is not None and not isinstance(predicted, str):
-        raise TypeError(
-            f"predicted must be Optional[str], got {type(predicted).__name__}={predicted!r}"
-        )
+        raise TypeError(f"predicted must be Optional[str], got {type(predicted).__name__}={predicted!r}")
     if truth is not None and not isinstance(truth, str):
-        raise TypeError(
-            f"truth must be Optional[str], got {type(truth).__name__}={truth!r}"
-        )
+        raise TypeError(f"truth must be Optional[str], got {type(truth).__name__}={truth!r}")
 
     pred_norm = _normalize_string(predicted) or None
     truth_norm = _normalize_string(truth) or None
@@ -164,9 +147,7 @@ def _score_single_value(
     }
 
 
-def score_manufacturer(
-    predicted: Optional[str], truth: Optional[str]
-) -> dict[str, Any]:
+def score_manufacturer(predicted: Optional[str], truth: Optional[str]) -> dict[str, Any]:
     """Per-part manufacturer scorer (binary). See ``_score_single_value``."""
     return _score_single_value(predicted, truth)
 
@@ -216,9 +197,7 @@ def aggregate_car(per_part_scores: Iterable[dict[str, Any]]) -> dict[str, Any]:
     )
 
 
-def _aggregate_single_value(
-    per_part_scores: Iterable[dict[str, Any]], *, signal: str
-) -> dict[str, Any]:
+def _aggregate_single_value(per_part_scores: Iterable[dict[str, Any]], *, signal: str) -> dict[str, Any]:
     """Universe = parts where truth is non-null.
 
     Precision = correct / parts where predictor returned a value AND truth non-null
@@ -231,9 +210,7 @@ def _aggregate_single_value(
     """
     scores = list(per_part_scores)
     n_truth = sum(1 for s in scores if s["has_truth"])
-    n_truth_and_predicted = sum(
-        1 for s in scores if s["has_truth"] and s["predicted_present"]
-    )
+    n_truth_and_predicted = sum(1 for s in scores if s["has_truth"] and s["predicted_present"])
     n_correct = sum(1 for s in scores if s["correct"])
     precision = _safe_div(n_correct, n_truth_and_predicted)
     recall = _safe_div(n_correct, n_truth)
@@ -248,9 +225,7 @@ def _aggregate_single_value(
     )
 
 
-def aggregate_manufacturer(
-    per_part_scores: Iterable[dict[str, Any]]
-) -> dict[str, Any]:
+def aggregate_manufacturer(per_part_scores: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate per-part manufacturer scores into baseline envelope."""
     return _aggregate_single_value(per_part_scores, signal="manufacturer")
 

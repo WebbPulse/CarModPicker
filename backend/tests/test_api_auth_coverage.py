@@ -187,8 +187,7 @@ def test_public_routes_all_exist() -> None:
     api_set = set(API_ROUTES)
     stale = sorted(PUBLIC_ROUTES - api_set)
     assert not stale, (
-        f"PUBLIC_ROUTES has {len(stale)} entries that don't match any route in the app: {stale}. "
-        "Remove them."
+        f"PUBLIC_ROUTES has {len(stale)} entries that don't match any route in the app: {stale}. " "Remove them."
     )
 
 

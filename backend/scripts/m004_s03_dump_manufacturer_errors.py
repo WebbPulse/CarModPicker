@@ -53,15 +53,7 @@ from typing import Any, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_GOLD_SET = REPO_ROOT / ".gsd" / "milestones" / "M004" / "gold-set" / "parts.json"
-DEFAULT_OUTPUT = (
-    REPO_ROOT
-    / ".gsd"
-    / "milestones"
-    / "M004"
-    / "slices"
-    / "S03"
-    / "S03-ERROR-ANALYSIS.json"
-)
+DEFAULT_OUTPUT = REPO_ROOT / ".gsd" / "milestones" / "M004" / "slices" / "S03" / "S03-ERROR-ANALYSIS.json"
 
 HARNESS_VERSION = 1
 
@@ -94,9 +86,7 @@ class _SourceCaptureHandler(logging.Handler):
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="m004_s03_dump_manufacturer_errors",
-        description=(
-            "Dump per-row manufacturer predictions for S03 T05 error analysis."
-        ),
+        description=("Dump per-row manufacturer predictions for S03 T05 error analysis."),
     )
     parser.add_argument(
         "--gold-set",
@@ -154,9 +144,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             url = row.get("url") or row.get("product_url")
             truth = row.get("truth_manufacturer")
 
-            predicted = _predict_manufacturer(
-                part_id, name, description, html_excerpt, product_url=url
-            )
+            predicted = _predict_manufacturer(part_id, name, description, html_excerpt, product_url=url)
 
             agreed = bool(predicted == truth)
             if agreed:

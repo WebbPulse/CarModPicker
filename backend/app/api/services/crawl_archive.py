@@ -68,9 +68,7 @@ def canonicalize_url(url: str) -> str:
         path = ""
 
     qs_filtered = {
-        k: v
-        for k, v in parse_qs(parsed.query, keep_blank_values=True).items()
-        if k.lower() not in _TRACKING_PARAMS
+        k: v for k, v in parse_qs(parsed.query, keep_blank_values=True).items() if k.lower() not in _TRACKING_PARAMS
     }
     query = urlencode(qs_filtered, doseq=True)
 
@@ -181,8 +179,15 @@ def save_extension_html(
     s3_client, bucket_name = get_crawl_s3_client()
     if s3_client is not None and bucket_name is not None:
         try:
-            s3_client.put_object(Bucket=bucket_name, Key=html_key, Body=body_bytes, ContentType="text/html; charset=utf-8")
-            s3_client.put_object(Bucket=bucket_name, Key=url_key, Body=product_url.encode("utf-8"), ContentType="text/plain; charset=utf-8")
+            s3_client.put_object(
+                Bucket=bucket_name, Key=html_key, Body=body_bytes, ContentType="text/html; charset=utf-8"
+            )
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=url_key,
+                Body=product_url.encode("utf-8"),
+                ContentType="text/plain; charset=utf-8",
+            )
             log.debug("Saved page copy to bucket: %s", html_key)
             return html_key
         except Exception as e:

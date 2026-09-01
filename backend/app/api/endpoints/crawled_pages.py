@@ -102,9 +102,7 @@ def _persist_extension_crawl_archive(
         storage_key = existing.html_s3_key or existing.html_local_path
         assert storage_key is not None
     else:
-        storage_key = save_extension_html(
-            url, html, html_utf8=html_utf8, logger_instance=logger
-        )
+        storage_key = save_extension_html(url, html, html_utf8=html_utf8, logger_instance=logger)
 
     if storage_key is None:
         return None, False, False
@@ -459,5 +457,3 @@ async def list_crawled_pages(
     if to_date:
         stmt = stmt.where(DBCrawledPage.crawled_at <= to_date)
     return list(db.scalars(stmt.order_by(DBCrawledPage.crawled_at.desc()).offset(skip).limit(limit)).all())
-
-
