@@ -11,7 +11,6 @@ import pytest
 
 from app.core.car_inference import extract_year_ranges
 
-
 CURRENT_YEAR = _dt.datetime.now(_dt.timezone.utc).year
 
 
@@ -124,9 +123,7 @@ class TestPlausibilityFilter:
 class TestMultipleRanges:
     def test_returns_all_ranges_in_order(self) -> None:
         # Hasport titles can list multiple chassis-and-year segments.
-        ranges = extract_year_ranges(
-            "92-95 Civic EG / 96-00 Civic EK"
-        )
+        ranges = extract_year_ranges("92-95 Civic EG / 96-00 Civic EK")
         assert ranges == [(1992, 1995), (1996, 2000)]
 
 

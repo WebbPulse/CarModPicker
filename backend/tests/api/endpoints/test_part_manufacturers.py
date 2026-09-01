@@ -444,9 +444,7 @@ class TestPartManufacturers:
 
     # --- name dedup + counts ---------------------------------------------
 
-    def test_create_pm_dedups_into_existing(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_create_pm_dedups_into_existing(self, client: TestClient, db_session: Session) -> None:
         """A user typing an existing brand name auto-links to that row (no dup).
 
         Manufacturers live in a single global namespace, deduped
@@ -466,9 +464,7 @@ class TestPartManufacturers:
         result = create_part_manufacturer_via_api(client, token, existing_name.lower())
         assert result["id"] == str(existing.id)
 
-    def test_create_pm_dedups_into_own_prior_create(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_create_pm_dedups_into_own_prior_create(self, client: TestClient, db_session: Session) -> None:
         """A user POSTing the same name twice gets the same row back."""
         _, token = create_and_login_user(client, "dedup_self")
         name = get_unique_name("FooCo")
@@ -476,9 +472,7 @@ class TestPartManufacturers:
         second = create_part_manufacturer_via_api(client, token, name)
         assert first["id"] == second["id"]
 
-    def test_two_users_same_name_dedup_to_one_row(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_two_users_same_name_dedup_to_one_row(self, client: TestClient, db_session: Session) -> None:
         """Manufacturers are globally unique by case-insensitive name: two
         users POSTing the same name resolve to a single shared row."""
         name = get_unique_name("BarCo")
@@ -501,9 +495,7 @@ class TestPartManufacturers:
         data = response.json()
         assert data["id"] == created["id"]
 
-    def test_get_pm_parts_returns_only_owner_parts(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_get_pm_parts_returns_only_owner_parts(self, client: TestClient, db_session: Session) -> None:
         """GET /{id}/parts returns only the creator's parts."""
         creator_id, creator_token = create_and_login_user(client, "pm_parts_creator", db_session)
         pm = create_part_manufacturer_via_api(client, creator_token, get_unique_name("PmParts"))
@@ -526,9 +518,7 @@ class TestPartManufacturers:
         parts = response.json()
         assert all(p["user_id"] == str(creator_id) for p in parts)
 
-    def test_creator_cannot_update_own_manufacturer(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_creator_cannot_update_own_manufacturer(self, client: TestClient, db_session: Session) -> None:
         """Edits are admin-only: a non-admin creator can't update their own row."""
         _, token = create_and_login_user(client, "creator_cannot_update")
         created = create_part_manufacturer_via_api(client, token, get_unique_name("MyEditable"))

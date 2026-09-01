@@ -695,8 +695,8 @@ class TestCarAliasesNoDrift:
     """
 
     def test_every_alias_resolves_against_car_generations(self) -> None:
-        from app.core.car_inference import CAR_ALIASES
         from app.core.car_generations_data import CAR_GENERATIONS
+        from app.core.car_inference import CAR_ALIASES
 
         drift: list[tuple] = []
         for entry in CAR_ALIASES:
@@ -711,11 +711,12 @@ class TestCarAliasesNoDrift:
                 continue
             if not any(g["generation_name"] == gen_name for g in model_entry["generations"]):
                 drift.append(entry)
-        assert not drift, (
-            f"{len(drift)} CAR_ALIASES entries reference unknown "
-            f"(make, model, gen_name) triples in seed:\n"
-            + "\n".join(f"  {entry!r}" for entry in drift[:20])
-            + ("\n  ..." if len(drift) > 20 else "")
+        assert (
+            not drift
+        ), f"{len(drift)} CAR_ALIASES entries reference unknown " f"(make, model, gen_name) triples in seed:\n" + "\n".join(
+            f"  {entry!r}" for entry in drift[:20]
+        ) + (
+            "\n  ..." if len(drift) > 20 else ""
         )
 
     def test_no_exact_duplicate_alias_entries(self) -> None:
@@ -729,8 +730,7 @@ class TestCarAliasesNoDrift:
             f"{len(dupes)} CAR_ALIASES entries appear more than once. "
             "Pure duplicates are functionally inert (the substring matcher "
             "deduplicates output anyway) but waste iteration time and "
-            "obscure intent. Drop the later occurrence:\n"
-            + "\n".join(f"  x{n}: {e!r}" for e, n in dupes[:10])
+            "obscure intent. Drop the later occurrence:\n" + "\n".join(f"  x{n}: {e!r}" for e, n in dupes[:10])
         )
 
 
@@ -743,9 +743,7 @@ class TestUniversalPipelineYearNarrowing:
     def test_year_range_narrows_civic_to_one_gen(self) -> None:
         # Title carries one range (2012-2015). Universal pipeline matches every
         # Civic gen via "Honda Civic"; narrow to the gen overlapping 2012-2015.
-        result = infer_car_generations(
-            "2012-2015 Honda Civic Si RDX Injector Plug N Play Clips", None
-        )
+        result = infer_car_generations("2012-2015 Honda Civic Si RDX Injector Plug N Play Clips", None)
         assert ("Honda", "Civic", "9th Gen") in result
         assert ("Honda", "Civic", "8th Gen") not in result
         assert ("Honda", "Civic", "10th Gen") not in result
@@ -822,9 +820,7 @@ class TestUniversalPipelineYearNarrowing:
     def test_no_match_with_year_range_still_empty(self) -> None:
         # When no make/model matches at all, year-range narrowing has nothing
         # to narrow. Result stays empty.
-        result = infer_car_generations(
-            "Random Universal Hardware 2015-2020 Mounting Bracket", None
-        )
+        result = infer_car_generations("Random Universal Hardware 2015-2020 Mounting Bracket", None)
         assert result == []
 
 
@@ -860,9 +856,7 @@ class TestMergeYearRanges:
     def test_single_year_ranges_collapse(self) -> None:
         from app.core.car_inference import _merge_year_ranges
 
-        assert _merge_year_ranges([(2012, 2012), (2013, 2013), (2014, 2014)]) == [
-            (2012, 2014)
-        ]
+        assert _merge_year_ranges([(2012, 2012), (2013, 2013), (2014, 2014)]) == [(2012, 2014)]
 
     def test_empty_input(self) -> None:
         from app.core.car_inference import _merge_year_ranges

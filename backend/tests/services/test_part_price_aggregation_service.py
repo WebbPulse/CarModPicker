@@ -159,8 +159,6 @@ def test_aggregate_single_part_window_filters_old_observations(db_session: Sessi
     assert result.summary.max_cents == 2500
 
 
-
-
 def test_aggregate_single_part_empty_history(db_session: Session, test_user: User) -> None:
     part = _make_part(db_session, test_user, name="Empty Part")
     # No listings, no history.

@@ -32,7 +32,6 @@ from scripts.m004_scoring import (
     score_manufacturer,
 )
 
-
 # ---------------------------------------------------------------------------
 # score_car — multiset triple matching
 # ---------------------------------------------------------------------------
@@ -218,9 +217,7 @@ class TestAggregateManufacturer:
         assert not math.isnan(env["f1"])
 
     def test_aggregate_baseline_round_trip(self) -> None:
-        env = aggregate_manufacturer(
-            [score_manufacturer("Cusco", "Cusco")]
-        )
+        env = aggregate_manufacturer([score_manufacturer("Cusco", "Cusco")])
         validate_baseline(env)
 
 
@@ -274,7 +271,6 @@ class TestAggregateBaselineRoundTrip:
         per_part = [score_category("suspension", "suspension")]
         env = aggregate_category(per_part)
         validate_baseline(env)
-
 
     def test_aggregator_emits_current_harness_version(self) -> None:
         env = aggregate_car([score_car([], [])])
