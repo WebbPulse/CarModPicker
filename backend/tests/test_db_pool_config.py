@@ -38,8 +38,12 @@ def test_pool_size_envelope_preserved_in_prod(monkeypatch: pytest.MonkeyPatch) -
     config_mod.get_settings.cache_clear()
     session_mod = importlib.reload(importlib.import_module("app.db.session"))
     try:
-        assert session_mod.DB_POOL_SIZE == 25, f"DB_POOL_SIZE must stay 25 per D-18/D-22; got {session_mod.DB_POOL_SIZE}"
-        assert session_mod.DB_MAX_OVERFLOW == 25, f"DB_MAX_OVERFLOW must stay 25 per D-18; got {session_mod.DB_MAX_OVERFLOW}"
+        assert (
+            session_mod.DB_POOL_SIZE == 25
+        ), f"DB_POOL_SIZE must stay 25 per D-18/D-22; got {session_mod.DB_POOL_SIZE}"
+        assert (
+            session_mod.DB_MAX_OVERFLOW == 25
+        ), f"DB_MAX_OVERFLOW must stay 25 per D-18; got {session_mod.DB_MAX_OVERFLOW}"
         assert (
             session_mod.API_CONNECTION_RESERVE == 20
         ), f"API_CONNECTION_RESERVE must stay 20 per D-22; got {session_mod.API_CONNECTION_RESERVE}"

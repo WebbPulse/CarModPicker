@@ -2948,24 +2948,16 @@ _YEAR_HI_OFFSET: int = 1  # current_year + 1 to allow MY-ahead-of-CY
 # Allow en-dash, em-dash, hyphen-minus, and "to" as range separators.
 _RANGE_SEP = r"\s*(?:[-–—]|to)\s*"
 # YYYY-YYYY (with optional .5 on either side)
-_YYYY_YYYY_RE = re.compile(
-    rf"\b((?:19|20)\d{{2}})(?:\.5)?{_RANGE_SEP}((?:19|20)\d{{2}})(?:\.5)?\b"
-)
+_YYYY_YYYY_RE = re.compile(rf"\b((?:19|20)\d{{2}})(?:\.5)?{_RANGE_SEP}((?:19|20)\d{{2}})(?:\.5)?\b")
 # YYYY-YY (4-digit start, 2-digit tail)
-_YYYY_YY_RE = re.compile(
-    rf"\b((?:19|20)\d{{2}})(?:\.5)?{_RANGE_SEP}(\d{{2}})(?!\d)"
-)
+_YYYY_YY_RE = re.compile(rf"\b((?:19|20)\d{{2}})(?:\.5)?{_RANGE_SEP}(\d{{2}})(?!\d)")
 # YY-YY (both 2-digit). Constrained: standalone token form to avoid matching
 # arbitrary numbers. Requires non-digit-or-dot lookbehind to prevent matching
 # inside larger digit sequences or decimal numbers.
-_YY_YY_RE = re.compile(
-    rf"(?<![\d.])(\d{{2}}){_RANGE_SEP}(\d{{2}})(?!\d)"
-)
+_YY_YY_RE = re.compile(rf"(?<![\d.])(\d{{2}}){_RANGE_SEP}(\d{{2}})(?!\d)")
 # Open-ended: YYYY+. Lookbehind allows a "MY" prefix without a word boundary
 # (so "MY2015+" matches as well as " 2015+").
-_YYYY_PLUS_RE = re.compile(
-    r"(?:(?<=\s)|(?<=^)|(?<=\()|(?<=MY))((?:19|20)\d{2})(?:\.5)?\s*\+"
-)
+_YYYY_PLUS_RE = re.compile(r"(?:(?<=\s)|(?<=^)|(?<=\()|(?<=MY))((?:19|20)\d{2})(?:\.5)?\s*\+")
 # Single year. Conservative: the year must be standalone (not part of a longer
 # digit sequence and not part of a word like "2015th"). Includes optional MY
 # prefix with an optional space ("MY2010", "MY 2010"). Same-shape lookbehind
@@ -3004,6 +2996,7 @@ def _infer_yy_yy_century(yy1: int, yy2: int) -> Optional[tuple[int, int]]:
     """A 2-digit-pair like '92-95' or '08-14' needs century inference.
     Heuristic: 60-99 -> 19xx, 00-59 -> 20xx (covers MY 1960 forward; 60+ years
     of cars). Both years must satisfy plausibility individually."""
+
     def _y(yy: int) -> int:
         return 1900 + yy if 60 <= yy <= 99 else 2000 + yy
 
@@ -3176,11 +3169,7 @@ class FitmentCandidate:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, FitmentCandidate):
             return NotImplemented
-        return (
-            self.make == other.make
-            and self.model == other.model
-            and self.year_range == other.year_range
-        )
+        return self.make == other.make and self.model == other.model and self.year_range == other.year_range
 
     def __hash__(self) -> int:
         return hash((self.make, self.model, self.year_range))
@@ -3255,7 +3244,7 @@ def extract_fitment_candidates(
             # Pair with closest year-range within distance budget.
             paired_range: Optional[tuple[int, int]] = None
             best_dist = _FITMENT_PAIR_DISTANCE + 1
-            for (rng, ys, ye) in year_spans:
+            for rng, ys, ye in year_spans:
                 if ye <= start:
                     dist = start - ye
                 elif ys >= end:
@@ -3442,9 +3431,7 @@ def _load_engine_platforms() -> dict:
     import json as _json
     from importlib.resources import files as _files
 
-    raw = _json.loads(
-        _files("app.core").joinpath("engine_platforms_data.json").read_text(encoding="utf-8")
-    )
+    raw = _json.loads(_files("app.core").joinpath("engine_platforms_data.json").read_text(encoding="utf-8"))
     for engine_name, payload in raw.items():
         for fitment in payload.get("fitments", []):
             make = fitment["make"]
@@ -3452,9 +3439,7 @@ def _load_engine_platforms() -> dict:
             gen_name = fitment["gen_name"]
             models = CAR_GENERATIONS.get(make)
             if not models:
-                raise RuntimeError(
-                    f"engine_platforms[{engine_name!r}] references unknown make {make!r}"
-                )
+                raise RuntimeError(f"engine_platforms[{engine_name!r}] references unknown make {make!r}")
             model_entry = next((m for m in models if m["model"] == model), None)
             if model_entry is None:
                 raise RuntimeError(

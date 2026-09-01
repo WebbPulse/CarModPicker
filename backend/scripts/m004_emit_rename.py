@@ -366,10 +366,7 @@ def _resolve_seed_target(seed_path: Path, old_name: str) -> Path:
             continue
         if _find_generation_entry(payload, old_name) is not None:
             return entry
-    raise ValueError(
-        f"canonical_id_not_in_seed: no generation_name={old_name!r} found "
-        f"under {seed_path}"
-    )
+    raise ValueError(f"canonical_id_not_in_seed: no generation_name={old_name!r} found " f"under {seed_path}")
 
 
 def patch_seed(
@@ -551,10 +548,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--seed-path",
         type=Path,
         default=DEFAULT_SEED_PATH,
-        help=(
-            f"Path to per-make seed directory (default: {DEFAULT_SEED_PATH}) "
-            f"or a single legacy JSON file."
-        ),
+        help=(f"Path to per-make seed directory (default: {DEFAULT_SEED_PATH}) " f"or a single legacy JSON file."),
     )
     parser.add_argument(
         "--ambiguity-test-path",
