@@ -61,28 +61,28 @@ resource "aws_route53_record" "www_google_site_verification" {
 }
 
 # SES DKIM verification records
-resource "aws_route53_record" "ses_dkim_1" {
+resource "aws_route53_record" "ses_dkim" {
+  count   = 3
   zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "whak5n4x5w7sfqfrp5rfpcuzseee6i6r._domainkey.carmodpicker.com"
+  name    = "${aws_sesv2_email_identity.domain.dkim_signing_attributes[0].tokens[count.index]}._domainkey.carmodpicker.com"
   type    = "CNAME"
   ttl     = 60
-  records = ["whak5n4x5w7sfqfrp5rfpcuzseee6i6r.dkim.amazonses.com"]
+  records = ["${aws_sesv2_email_identity.domain.dkim_signing_attributes[0].tokens[count.index]}.dkim.amazonses.com"]
 }
 
-resource "aws_route53_record" "ses_dkim_2" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "pgc356f5j4c6v6efvxocs73gtmklyv6g._domainkey.carmodpicker.com"
-  type    = "CNAME"
-  ttl     = 60
-  records = ["pgc356f5j4c6v6efvxocs73gtmklyv6g.dkim.amazonses.com"]
+moved {
+  from = aws_route53_record.ses_dkim_1
+  to   = aws_route53_record.ses_dkim[0]
 }
 
-resource "aws_route53_record" "ses_dkim_3" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "4manrayokzig5dbsj5j2yncnrveannx7._domainkey.carmodpicker.com"
-  type    = "CNAME"
-  ttl     = 60
-  records = ["4manrayokzig5dbsj5j2yncnrveannx7.dkim.amazonses.com"]
+moved {
+  from = aws_route53_record.ses_dkim_2
+  to   = aws_route53_record.ses_dkim[1]
+}
+
+moved {
+  from = aws_route53_record.ses_dkim_3
+  to   = aws_route53_record.ses_dkim[2]
 }
 
 # Custom MAIL FROM domain records (SPF alignment for DMARC)
