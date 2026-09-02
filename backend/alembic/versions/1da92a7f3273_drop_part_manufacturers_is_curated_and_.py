@@ -35,8 +35,11 @@ def upgrade() -> None:
     op.drop_index(op.f('uq_pm_curated_name'), table_name='part_manufacturers', postgresql_where='(is_curated IS TRUE)')
     op.drop_index(op.f('uq_pm_ugc_per_user'), table_name='part_manufacturers', postgresql_where='(is_curated IS FALSE)')
     op.create_index('uq_pm_name', 'part_manufacturers', [sa.literal_column('lower(name)')], unique=True)
+    # SAFE: FK exists only to support created_by_user_id, dropped immediately below.
     op.drop_constraint(op.f('fk_part_manufacturers_created_by_user_id_users'), 'part_manufacturers', type_='foreignkey')
+    # SAFE: added 2026-05-02 by 165ed4efb3bf; its only consumer, UGC manufacturer scoping, was deleted in da7e10a and no reader remains.
     op.drop_column('part_manufacturers', 'created_by_user_id')
+    # SAFE: added 2026-05-02 by 165ed4efb3bf; the curated/UGC visibility split it drove was deleted in da7e10a and no reader remains.
     op.drop_column('part_manufacturers', 'is_curated')
 
 

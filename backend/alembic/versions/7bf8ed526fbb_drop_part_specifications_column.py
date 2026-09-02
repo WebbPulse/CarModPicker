@@ -21,6 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    # SAFE: the spec-extraction system that wrote this column (crawlers/specs, backfill CLI, extraction_health endpoint) and every Part schema field reading it were removed in 5d6f25c.
     op.drop_column('parts', 'specifications')
 
 
