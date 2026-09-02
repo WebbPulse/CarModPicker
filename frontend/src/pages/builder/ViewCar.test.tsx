@@ -151,5 +151,4 @@ describe('ViewCar page', () => {
       screen.getByRole('heading', { name: /Car Details/i })
     ).toBeInTheDocument();
   });
-
 });

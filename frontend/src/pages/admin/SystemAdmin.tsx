@@ -68,10 +68,8 @@ function SystemAdmin() {
     deleted_count: number;
   } | null>(null);
 
-  const [
-    isDeleteCrawlerPartsConfirmOpen,
-    setIsDeleteCrawlerPartsConfirmOpen,
-  ] = useState(false);
+  const [isDeleteCrawlerPartsConfirmOpen, setIsDeleteCrawlerPartsConfirmOpen] =
+    useState(false);
   const [isDeletingCrawlerParts, setIsDeletingCrawlerParts] = useState(false);
   const [deleteCrawlerPartsError, setDeleteCrawlerPartsError] = useState<
     string | null
@@ -723,11 +721,11 @@ function SystemAdmin() {
                 description={
                   <>
                     Permanently remove only parts sourced by crawlers / the
-                    service account (any part whose source is a crawler adapter).
-                    User-created parts and parts added via the Browser Companion
-                    extension are kept. Also removes those parts' listings,
-                    votes, reports, build list part associations, and price
-                    alerts. This action cannot be undone.
+                    service account (any part whose source is a crawler
+                    adapter). User-created parts and parts added via the Browser
+                    Companion extension are kept. Also removes those parts'
+                    listings, votes, reports, build list part associations, and
+                    price alerts. This action cannot be undone.
                   </>
                 }
               >
@@ -753,8 +751,8 @@ function SystemAdmin() {
                     <p className="font-semibold">
                       Deleted{' '}
                       {deleteCrawlerPartsResult.deleted_count.toLocaleString()}{' '}
-                      crawler-sourced part(s). User-created and Browser Companion
-                      parts were kept.
+                      crawler-sourced part(s). User-created and Browser
+                      Companion parts were kept.
                     </p>
                   </div>
                 )}
@@ -913,8 +911,8 @@ function SystemAdmin() {
               "all crawler-created parts"
             </span>
             ? Only parts created by the legacy crawler service account will be
-            removed; user-contributed and Chrome-extension parts are
-            unaffected. This action cannot be undone.
+            removed; user-contributed and Chrome-extension parts are unaffected.
+            This action cannot be undone.
           </>
         }
         confirmLabel="Confirm Delete"
