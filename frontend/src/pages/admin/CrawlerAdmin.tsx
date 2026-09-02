@@ -439,9 +439,7 @@ function ArchiveRescrapeProgress({
     Number(summary?.['ingest_failed'] ?? 0);
   const elapsedSec = Math.max(
     0,
-    Math.floor(
-      ((endedAt ?? new Date()).getTime() - startedAt.getTime()) / 1000
-    )
+    Math.floor(((endedAt ?? new Date()).getTime() - startedAt.getTime()) / 1000)
   );
   const rateMinute =
     elapsedSec > 0 ? Math.round((processed / elapsedSec) * 60) : 0;

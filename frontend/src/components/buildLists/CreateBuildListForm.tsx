@@ -266,7 +266,8 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
               <Select
                 value={selectedGeneration ? String(selectedGeneration.id) : ''}
                 onValueChange={(v) => {
-                  const gen = generations.find((g) => String(g.id) === v) ?? null;
+                  const gen =
+                    generations.find((g) => String(g.id) === v) ?? null;
                   setSelectedGeneration(gen);
                 }}
                 disabled={!selectedModel}
@@ -274,7 +275,9 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
                 <SelectTrigger>
                   <SelectValue
                     placeholder={
-                      !selectedModel ? 'Select model first' : 'Select generation'
+                      !selectedModel
+                        ? 'Select model first'
+                        : 'Select generation'
                     }
                   />
                 </SelectTrigger>

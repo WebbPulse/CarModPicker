@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import type { ComponentType, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 
 import { ALL_ROUTES, type RouteGroup } from './test/route-coverage-list';
 
@@ -164,8 +165,8 @@ function authForGroup(group: RouteGroup): {
 }
 
 describe('App route coverage (FE-03 drift guard, D-10, D-24)', () => {
-  let errorSpy: ReturnType<typeof vi.spyOn>;
-  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: MockInstance<typeof console.error>;
+  let warnSpy: MockInstance<typeof console.warn>;
 
   beforeEach(() => {
     // React logs forced throws via console.error; silence them so test output

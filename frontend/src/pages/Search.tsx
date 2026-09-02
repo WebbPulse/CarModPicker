@@ -9,10 +9,7 @@ import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import Spinner from '../components/ui/spinner';
 import UserCard from '../components/users/UserCard';
-import {
-  SEARCH_INITIAL_LIMITS,
-  SEARCH_RESULTS_LIMIT,
-} from '../constants';
+import { SEARCH_INITIAL_LIMITS, SEARCH_RESULTS_LIMIT } from '../constants';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { searchApi } from '../services/Api';
@@ -143,7 +140,14 @@ function Search() {
         void performSearch({ q: currentQuery, skip: currentSkip, limit });
       }
     },
-    [pagination, currentQuery, performSearch, displayedCounts, buildLists, users]
+    [
+      pagination,
+      currentQuery,
+      performSearch,
+      displayedCounts,
+      buildLists,
+      users,
+    ]
   );
 
   // Update accumulated results when new search results arrive
@@ -374,20 +378,18 @@ function Search() {
           })}
 
           {/* No Results Message */}
-          {buildLists.length === 0 &&
-            users.length === 0 &&
-            currentQuery && (
-              <Card>
-                <div className="text-center py-12">
-                  <p className="text-xl text-muted-foreground mb-2">
-                    No results found for "{currentQuery}"
-                  </p>
-                  <p className="text-muted-foreground">
-                    Try different search terms or check your spelling.
-                  </p>
-                </div>
-              </Card>
-            )}
+          {buildLists.length === 0 && users.length === 0 && currentQuery && (
+            <Card>
+              <div className="text-center py-12">
+                <p className="text-xl text-muted-foreground mb-2">
+                  No results found for "{currentQuery}"
+                </p>
+                <p className="text-muted-foreground">
+                  Try different search terms or check your spelling.
+                </p>
+              </div>
+            </Card>
+          )}
         </>
       )}
 

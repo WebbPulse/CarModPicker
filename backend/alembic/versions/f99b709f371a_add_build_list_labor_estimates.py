@@ -77,4 +77,5 @@ def downgrade() -> None:
         op.f('ix_build_list_labor_estimates_build_list_id'),
         table_name='build_list_labor_estimates',
     )
+    # SAFE: downgrade removes build_list_labor_estimates, created by this migration's own upgrade().
     op.drop_table('build_list_labor_estimates')

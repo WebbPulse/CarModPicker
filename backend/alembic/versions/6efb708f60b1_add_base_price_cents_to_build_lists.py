@@ -32,4 +32,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
+    # SAFE: downgrade removes build_lists.base_price_cents, added by this migration's own upgrade().
     op.drop_column('build_lists', 'base_price_cents')

@@ -188,9 +188,9 @@ function PrivacyPolicy() {
             <ul className="list-disc list-inside space-y-2 ml-2">
               <li>
                 Data captured by the extension (the URL and sanitized HTML of
-                the page you explicitly capture) is used <strong>only</strong> to
-                parse product information for you and to let you add that part
-                to your CarModPicker account.
+                the page you explicitly capture) is used <strong>only</strong>{' '}
+                to parse product information for you and to let you add that
+                part to your CarModPicker account.
               </li>
               <li>
                 We do not sell or transfer this data to third parties for

@@ -60,6 +60,10 @@ function seedAuthenticated(): void {
   });
 }
 
+const RECENTLY_OBSERVED_AT = new Date(
+  Date.now() - 24 * 60 * 60 * 1000
+).toISOString();
+
 function makeRetailer(
   overrides: Partial<RetailerPriceBreakdown> & { retailer_id: string }
 ): RetailerPriceBreakdown {
@@ -69,7 +73,7 @@ function makeRetailer(
     min_cents: 1000,
     max_cents: 2000,
     last_cents: 1500,
-    last_observed_at: '2026-04-01T00:00:00Z',
+    last_observed_at: RECENTLY_OBSERVED_AT,
     observation_count: 3,
   };
   return { ...base, ...overrides };
@@ -202,7 +206,7 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
         min_cents: 900,
         max_cents: 2100,
         last_cents: 1500,
-        last_observed_at: '2026-04-01T00:00:00Z',
+        last_observed_at: RECENTLY_OBSERVED_AT,
         trend: 'down',
         observation_count: 6,
       },
@@ -246,7 +250,7 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
         min_cents: 900,
         max_cents: 2100,
         last_cents: 1500,
-        last_observed_at: '2026-04-01T00:00:00Z',
+        last_observed_at: RECENTLY_OBSERVED_AT,
         trend: 'down',
         observation_count: 6,
       },
@@ -277,7 +281,7 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
       makeRetailer({
         retailer_id: 'r1',
         retailer_name: 'Fresh Shop',
-        last_observed_at: '2026-04-20T00:00:00Z',
+        last_observed_at: RECENTLY_OBSERVED_AT,
       }),
       makeRetailer({
         retailer_id: 'r2',
@@ -290,7 +294,7 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
         min_cents: 1000,
         max_cents: 2000,
         last_cents: 1500,
-        last_observed_at: '2026-04-20T00:00:00Z',
+        last_observed_at: RECENTLY_OBSERVED_AT,
         trend: 'flat',
         observation_count: 5,
       },
@@ -320,7 +324,7 @@ describe('ViewPart Price by retailer block (collapsed)', () => {
         min_cents: 1500,
         max_cents: 1500,
         last_cents: 1500,
-        last_observed_at: '2026-04-20T00:00:00Z',
+        last_observed_at: RECENTLY_OBSERVED_AT,
         trend: 'flat',
         observation_count: 3,
       },

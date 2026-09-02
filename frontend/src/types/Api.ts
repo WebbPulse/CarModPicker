@@ -376,7 +376,6 @@ export interface PriceHistoryBatchResponse {
   found_count: number;
 }
 
-
 export interface PaginationInfo {
   current_page: number;
   total_pages: number;
