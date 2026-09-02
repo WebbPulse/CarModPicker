@@ -13,10 +13,10 @@ from __future__ import annotations
 import re
 
 import pytest
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.route_enumeration import schema_routes
 
 # D-31: Intentionally public (no auth dependency), post-D-10 URL restructure.
 PUBLIC_ROUTES: set[tuple[str, str]] = {
@@ -38,11 +38,9 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
 
 def _protected_auth_routes() -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
-    for r in app.routes:
-        if isinstance(r, APIRoute) and r.path.startswith("/api/auth"):
-            for m in sorted(r.methods - {"HEAD", "OPTIONS"}):
-                if (m, r.path) not in PUBLIC_ROUTES:
-                    out.append((m, r.path))
+    for method, path in schema_routes():
+        if path.startswith("/api/auth") and (method, path) not in PUBLIC_ROUTES:
+            out.append((method, path))
     return out
 
 
