@@ -29,7 +29,7 @@ import importlib.util
 import sys
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import sqlalchemy as sa
@@ -101,7 +101,7 @@ def round_trip_seed(postgres_engine: "Engine"):
             .returning(CarGeneration.__table__.c.id)
         ).scalar_one()
 
-    yield {"gen_id": int(gen_id), "old_name": old_name}
+    yield {"gen_id": gen_id, "old_name": old_name}
 
     with postgres_engine.begin() as conn:
         conn.execute(sa.delete(CarGeneration.__table__).where(CarGeneration.__table__.c.id == gen_id))
@@ -110,11 +110,12 @@ def round_trip_seed(postgres_engine: "Engine"):
 
 
 def test_emitted_rename_migration_round_trip_preserves_row_id(
-    postgres_engine: "Engine", round_trip_seed: dict[str, object]
+    postgres_engine: "Engine", round_trip_seed: dict[str, Any]
 ) -> None:
     from app.api.models.car_generation import CarGeneration
 
-    gen_id = int(round_trip_seed["gen_id"])
+    gen_id = round_trip_seed["gen_id"]
+    assert isinstance(gen_id, uuid.UUID)
     old_name = str(round_trip_seed["old_name"])
     new_name = "NEW-A80 (JZA80)"
 
@@ -155,7 +156,7 @@ def test_emitted_rename_migration_round_trip_preserves_row_id(
                     CarGeneration.__table__.c.id == gen_id
                 )
             ).one()
-            assert int(row.id) == gen_id
+            assert row.id == gen_id
             assert row.generation_name == new_name
 
             with Operations.context(ctx):
@@ -166,5 +167,5 @@ def test_emitted_rename_migration_round_trip_preserves_row_id(
                     CarGeneration.__table__.c.id == gen_id
                 )
             ).one()
-            assert int(row.id) == gen_id
+            assert row.id == gen_id
             assert row.generation_name == old_name

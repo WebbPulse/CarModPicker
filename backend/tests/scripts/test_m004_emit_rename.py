@@ -22,6 +22,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,10 @@ if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
 from scripts import m004_emit_rename as emit  # noqa: E402
+
+A80_ID = uuid.UUID("0195c9f3-1d2e-7a4b-8c5d-6e7f80912a3b")
+E46_ID = uuid.UUID("0195c9f3-2a3b-7c4d-8e5f-90a1b2c3d4e5")
+ABSENT_ID = uuid.UUID("0195c9f3-3b4c-7d5e-8f60-a1b2c3d4e5f6")
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -148,7 +153,7 @@ def csv_with_rename(tmp_path: Path) -> Path:
         w.writeheader()
         w.writerow(
             {
-                "canonical_id": "42",
+                "canonical_id": str(A80_ID),
                 "canonical_form": "A80",
                 "challenger_form": "A80 (JZA80)",
                 "corpus_count_canonical": "0",
@@ -160,7 +165,7 @@ def csv_with_rename(tmp_path: Path) -> Path:
         )
         w.writerow(
             {
-                "canonical_id": "99",
+                "canonical_id": str(E46_ID),
                 "canonical_form": "E46",
                 "challenger_form": "E46 M3",
                 "corpus_count_canonical": "5",
@@ -193,17 +198,35 @@ def test_short_filename_slug_collapses_punctuation() -> None:
 
 
 def test_deterministic_revision_id_idempotent_for_same_triple() -> None:
-    a = emit.deterministic_revision_id(canonical_id=42, new_generation_name="A80 (JZA80)", decided_at="2026-04-27")
-    b = emit.deterministic_revision_id(canonical_id=42, new_generation_name="A80 (JZA80)", decided_at="2026-04-27")
+    a = emit.deterministic_revision_id(canonical_id=A80_ID, new_generation_name="A80 (JZA80)", decided_at="2026-04-27")
+    b = emit.deterministic_revision_id(canonical_id=A80_ID, new_generation_name="A80 (JZA80)", decided_at="2026-04-27")
     assert a == b
     assert len(a) == 12
 
 
 def test_deterministic_revision_id_diverges_on_input_change() -> None:
-    base = emit.deterministic_revision_id(canonical_id=42, new_generation_name="A80 (JZA80)", decided_at="2026-04-27")
-    by_name = emit.deterministic_revision_id(canonical_id=42, new_generation_name="A80 JZA80", decided_at="2026-04-27")
-    by_id = emit.deterministic_revision_id(canonical_id=43, new_generation_name="A80 (JZA80)", decided_at="2026-04-27")
+    base = emit.deterministic_revision_id(
+        canonical_id=A80_ID, new_generation_name="A80 (JZA80)", decided_at="2026-04-27"
+    )
+    by_name = emit.deterministic_revision_id(
+        canonical_id=A80_ID, new_generation_name="A80 JZA80", decided_at="2026-04-27"
+    )
+    by_id = emit.deterministic_revision_id(
+        canonical_id=E46_ID, new_generation_name="A80 (JZA80)", decided_at="2026-04-27"
+    )
     assert base != by_name != by_id != base
+
+
+def test_deterministic_revision_id_ignores_uuid_spelling() -> None:
+    canonical = emit.deterministic_revision_id(
+        canonical_id=A80_ID, new_generation_name="A80 (JZA80)", decided_at="2026-04-27"
+    )
+    braced = emit.deterministic_revision_id(
+        canonical_id=uuid.UUID(f"{{{str(A80_ID).upper()}}}"),
+        new_generation_name="A80 (JZA80)",
+        decided_at="2026-04-27",
+    )
+    assert canonical == braced
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +236,7 @@ def test_deterministic_revision_id_diverges_on_input_change() -> None:
 
 def test_load_decision_from_csv_picks_named_row(csv_with_rename: Path) -> None:
     d = emit.load_decision_from_csv(csv_with_rename, 1)
-    assert d.canonical_id == 42
+    assert d.canonical_id == A80_ID
     assert d.old_generation_name == "A80"
     assert d.new_generation_name == "A80 (JZA80)"
     assert d.corpus_count == 12
@@ -235,7 +258,7 @@ def test_load_decision_from_json_accepts_compact_shape() -> None:
     d = emit.load_decision_from_json(
         json.dumps(
             {
-                "canonical_id": 1,
+                "canonical_id": str(E46_ID),
                 "old_generation_name": "A",
                 "new_generation_name": "B",
                 "corpus_count": 5,
@@ -244,7 +267,7 @@ def test_load_decision_from_json_accepts_compact_shape() -> None:
             }
         )
     )
-    assert d.canonical_id == 1
+    assert d.canonical_id == E46_ID
     assert d.old_generation_name == "A"
     assert d.new_generation_name == "B"
 
@@ -254,6 +277,18 @@ def test_load_decision_from_json_invalid_payload() -> None:
         emit.load_decision_from_json("not-json")
     with pytest.raises(ValueError):
         emit.load_decision_from_json('"a-string"')
+
+
+def test_load_decision_from_json_rejects_non_uuid_canonical_id() -> None:
+    payload = json.dumps(
+        {
+            "canonical_id": 42,
+            "old_generation_name": "A",
+            "new_generation_name": "B",
+        }
+    )
+    with pytest.raises(ValueError, match="canonical_id_not_a_uuid"):
+        emit.load_decision_from_json(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +321,7 @@ def test_compute_seed_patch_resolves_unique_match(
     fake_seed: dict[str, Any],
 ) -> None:
     decision = emit.Decision(
-        canonical_id=42,
+        canonical_id=A80_ID,
         old_generation_name="A80",
         new_generation_name="A80 (JZA80)",
         corpus_count=12,
@@ -302,7 +337,7 @@ def test_compute_seed_patch_resolves_unique_match(
 
 def test_compute_seed_patch_rejects_noop(fake_seed: dict[str, Any]) -> None:
     decision = emit.Decision(
-        canonical_id=42,
+        canonical_id=A80_ID,
         old_generation_name="A80",
         new_generation_name="A80",
         corpus_count=0,
@@ -317,7 +352,7 @@ def test_compute_seed_patch_rejects_unknown_old_name(
     fake_seed: dict[str, Any],
 ) -> None:
     decision = emit.Decision(
-        canonical_id=42,
+        canonical_id=A80_ID,
         old_generation_name="DOES-NOT-EXIST",
         new_generation_name="X",
         corpus_count=0,
@@ -341,7 +376,7 @@ def test_compute_seed_patch_detects_slug_collision(
         }
     )
     decision = emit.Decision(
-        canonical_id=42,
+        canonical_id=A80_ID,
         old_generation_name="A80",
         new_generation_name="A80 (JZA80)",
         corpus_count=12,
@@ -354,7 +389,7 @@ def test_compute_seed_patch_detects_slug_collision(
 
 def test_patch_seed_dry_run_does_not_mutate_file(seed_file: Path) -> None:
     decision = emit.Decision(
-        canonical_id=42,
+        canonical_id=A80_ID,
         old_generation_name="A80",
         new_generation_name="A80 (JZA80)",
         corpus_count=12,
@@ -369,7 +404,7 @@ def test_patch_seed_dry_run_does_not_mutate_file(seed_file: Path) -> None:
 
 def test_patch_seed_apply_writes_new_name_and_pins_old_slug(seed_file: Path) -> None:
     decision = emit.Decision(
-        canonical_id=42,
+        canonical_id=A80_ID,
         old_generation_name="A80",
         new_generation_name="A80 (JZA80)",
         corpus_count=12,
@@ -394,7 +429,7 @@ def test_patch_seed_apply_idempotent_within_same_make(seed_file: Path) -> None:
     acceptable, as long as the file isn't corrupted.
     """
     decision = emit.Decision(
-        canonical_id=42,
+        canonical_id=A80_ID,
         old_generation_name="A80",
         new_generation_name="A80 (JZA80)",
         corpus_count=12,
@@ -412,7 +447,7 @@ def test_patch_seed_apply_idempotent_within_same_make(seed_file: Path) -> None:
 def test_patch_seed_flock_mutual_exclusion(seed_file: Path) -> None:
     """A second writer must block until the first releases the flock."""
     decision_a = emit.Decision(
-        canonical_id=1,
+        canonical_id=A80_ID,
         old_generation_name="A80",
         new_generation_name="A80 (JZA80)",
         corpus_count=1,
@@ -528,7 +563,7 @@ def test_cli_dry_run_emits_plan_and_writes_nothing(
 ) -> None:
     payload = json.dumps(
         {
-            "canonical_id": 42,
+            "canonical_id": str(A80_ID),
             "old_generation_name": "A80",
             "new_generation_name": "A80 (JZA80)",
             "corpus_count": 12,
@@ -562,7 +597,7 @@ def test_cli_apply_writes_migration_and_patches_seed(
 ) -> None:
     payload = json.dumps(
         {
-            "canonical_id": 42,
+            "canonical_id": str(A80_ID),
             "old_generation_name": "A80",
             "new_generation_name": "A80 (JZA80)",
             "corpus_count": 12,
@@ -588,6 +623,9 @@ def test_cli_apply_writes_migration_and_patches_seed(
     assert "sa.text(" in body
     assert "UPDATE car_generations SET generation_name = :new_name WHERE id = :id" in body
     assert "UPDATE car_generations SET generation_name = :old_name WHERE id = :id" in body
+    assert f'CANONICAL_ID = uuid.UUID("{A80_ID}")' in body
+    assert 'sa.bindparam("id", value=CANONICAL_ID, type_=sa.Uuid(as_uuid=True))' in body
+    compile(body, str(matches[0]), "exec")
     # Audit-trail tuple in docstring.
     assert "corpus_count     = 12" in body
     assert "retailer_count   = 3" in body
@@ -615,7 +653,7 @@ def test_cli_blocks_on_ambiguity_collision(
     )
     payload = json.dumps(
         {
-            "canonical_id": 42,
+            "canonical_id": str(A80_ID),
             "old_generation_name": "A80",
             "new_generation_name": "A80 (JZA80)",
         }
@@ -655,7 +693,7 @@ def test_cli_rejects_noop_rename(
 ) -> None:
     payload = json.dumps(
         {
-            "canonical_id": 42,
+            "canonical_id": str(A80_ID),
             "old_generation_name": "A80",
             "new_generation_name": "A80",
         }
@@ -678,7 +716,7 @@ def test_cli_rejects_canonical_id_not_in_seed(
 ) -> None:
     payload = json.dumps(
         {
-            "canonical_id": 999,
+            "canonical_id": str(ABSENT_ID),
             "old_generation_name": "ZZZ-NOT-PRESENT",
             "new_generation_name": "Anything",
         }
@@ -702,7 +740,7 @@ def test_cli_subprocess_smoke_invocation(
     """Mirrors the slice-plan invocation form: ``python -m scripts.m004_emit_rename``."""
     payload = json.dumps(
         {
-            "canonical_id": 42,
+            "canonical_id": str(A80_ID),
             "old_generation_name": "A80",
             "new_generation_name": "A80 (JZA80)",
             "corpus_count": 12,
