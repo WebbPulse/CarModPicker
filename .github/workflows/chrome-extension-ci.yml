@@ -2,7 +2,7 @@ name: Chrome Extension CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, staging]
     paths:
       - "chrome-extension/**"
       - ".github/workflows/chrome-extension-ci.yml"
