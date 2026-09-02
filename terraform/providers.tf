@@ -6,6 +6,10 @@ provider "aws" {
   default_tags {
     tags = local.common_tags
   }
+
+  ignore_tags {
+    keys = ["awsApplication"]
+  }
 }
 
 # ACM certificates for CloudFront must be provisioned in us-east-1 regardless
@@ -16,5 +20,9 @@ provider "aws" {
 
   default_tags {
     tags = local.common_tags
+  }
+
+  ignore_tags {
+    keys = ["awsApplication"]
   }
 }
