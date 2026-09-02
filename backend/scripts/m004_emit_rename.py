@@ -51,7 +51,7 @@ Usage
 
     # Apply: write migration file + patch JSON seed atomically.
     python -m scripts.m004_emit_rename \\
-        --decision-json '{"canonical_id": 42, "old_generation_name": "1st Gen", "new_generation_name": "F20", ...}' \\
+        --decision-json '{"canonical_id": "0195c9f3-1d2e-7a4b-8c5d-6e7f80912a3b", "old_generation_name": "1st Gen", "new_generation_name": "F20", ...}' \\
         --apply
 
 Exit codes
@@ -84,6 +84,7 @@ import os
 import re
 import sys
 import tempfile
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -120,7 +121,7 @@ DOWN_REVISION_RE = re.compile(
 class Decision:
     """One rename decision row from T01's CSV (or --decision-json payload)."""
 
-    canonical_id: int
+    canonical_id: uuid.UUID
     old_generation_name: str
     new_generation_name: str
     corpus_count: int
@@ -139,8 +140,12 @@ class Decision:
             raise ValueError(
                 "decision row missing old_generation_name/canonical_form or " "new_generation_name/challenger_form"
             )
+        try:
+            canonical_id = uuid.UUID(str(raw["canonical_id"]))
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ValueError(f"canonical_id_not_a_uuid: {raw.get('canonical_id')!r}") from exc
         return cls(
-            canonical_id=int(raw["canonical_id"]),
+            canonical_id=canonical_id,
             old_generation_name=str(old_name),
             new_generation_name=str(new_name),
             corpus_count=int(corpus_count or 0),
@@ -167,13 +172,15 @@ def short_filename_slug(value: str) -> str:
     return out or "x"
 
 
-def deterministic_revision_id(*, canonical_id: int, new_generation_name: str, decided_at: str) -> str:
+def deterministic_revision_id(*, canonical_id: uuid.UUID, new_generation_name: str, decided_at: str) -> str:
     """12-hex-digit revision id derived from the rename triple.
 
     Re-running emission for the same triple at the same ``decided_at`` produces
     the same revision id, which keeps ``--dry-run`` and ``--apply`` aligned.
+    ``canonical_id`` is hashed in its canonical lowercase hyphenated form so
+    input spelling (braces, uppercase, urn prefix) cannot fork the id.
     """
-    payload = f"{canonical_id}|{new_generation_name}|{decided_at}".encode("utf-8")
+    payload = f"{str(canonical_id)}|{new_generation_name}|{decided_at}".encode("utf-8")
     return hashlib.sha1(payload).hexdigest()[:12]  # nosec B324 — non-crypto identifier
 
 
@@ -239,9 +246,11 @@ Create Date: {decided_at}
 
 """
 
+import uuid
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "{new_revision}"
@@ -249,12 +258,17 @@ down_revision: Union[str, None] = "{down_revision}"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+CANONICAL_ID = uuid.UUID("{decision.canonical_id}")
+
 
 def upgrade() -> None:
     op.execute(
         sa.text(
             "UPDATE car_generations SET generation_name = :new_name WHERE id = :id"
-        ).bindparams(new_name={decision.new_generation_name!r}, id={decision.canonical_id})
+        ).bindparams(
+            sa.bindparam("id", value=CANONICAL_ID, type_=sa.Uuid(as_uuid=True)),
+            new_name={decision.new_generation_name!r},
+        )
     )
 
 
@@ -262,7 +276,10 @@ def downgrade() -> None:
     op.execute(
         sa.text(
             "UPDATE car_generations SET generation_name = :old_name WHERE id = :id"
-        ).bindparams(old_name={decision.old_generation_name!r}, id={decision.canonical_id})
+        ).bindparams(
+            sa.bindparam("id", value=CANONICAL_ID, type_=sa.Uuid(as_uuid=True)),
+            old_name={decision.old_generation_name!r},
+        )
     )
 '''
 
@@ -646,7 +663,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         "audit_source": audit_source,
         "decided_at": decided_at,
         "seed_diff": seed_diff,
-        "decision": dataclasses.asdict(decision),
+        "decision": {**dataclasses.asdict(decision), "canonical_id": str(decision.canonical_id)},
     }
     print(json.dumps({"event": "rename_plan", **plan}))
 
@@ -713,7 +730,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         return 1
 
     logger.info(
-        "migration_emitted: %s (canonical_id=%d, old=%r, new=%r)",
+        "migration_emitted: %s (canonical_id=%s, old=%r, new=%r)",
         migration_path,
         decision.canonical_id,
         decision.old_generation_name,
