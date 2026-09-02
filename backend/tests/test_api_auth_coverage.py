@@ -158,7 +158,7 @@ def test_api_route_requires_auth(method: str, path: str, client: TestClient) -> 
     assert resp.status_code == 401, f"{method} {path} -> {resp.status_code} (expected 401)"
 
 
-def test_public_routes_do_not_return_401() -> None:
+def test_public_routes_do_not_return_401(client: TestClient) -> None:
     """Public allow-list sanity check: no public route should leak an auth dep.
 
     If this fails for a route, either:
@@ -166,7 +166,6 @@ def test_public_routes_do_not_return_401() -> None:
       (b) the route is no longer intended to be public — remove it from
           PUBLIC_ROUTES and let the protected sweep cover it.
     """
-    client = TestClient(app)
     for method, path in sorted(PUBLIC_ROUTES):
         # Skip any allow-listed route that no longer exists in the app —
         # the count drift guard below catches that case with a clearer message.
