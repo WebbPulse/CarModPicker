@@ -139,10 +139,13 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_part_manufacturers_created_by_user_id'), table_name='part_manufacturers')
     op.drop_index(op.f('ix_part_manufacturers_name'), table_name='part_manufacturers')
     op.create_index(op.f('ix_part_manufacturers_name'), 'part_manufacturers', ['name'], unique=True)
+    # SAFE: downgrade removes fk_part_manufacturers_created_by_user_id_users, created by this migration's own upgrade().
     op.drop_constraint(
         op.f('fk_part_manufacturers_created_by_user_id_users'),
         'part_manufacturers',
         type_='foreignkey',
     )
+    # SAFE: downgrade removes part_manufacturers.created_by_user_id, added by this migration's own upgrade().
     op.drop_column('part_manufacturers', 'created_by_user_id')
+    # SAFE: downgrade removes part_manufacturers.is_curated, added by this migration's own upgrade().
     op.drop_column('part_manufacturers', 'is_curated')

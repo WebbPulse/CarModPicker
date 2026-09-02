@@ -25,7 +25,9 @@ def upgrade() -> None:
     (categories constraint renames, FK naming, the mfr_pn index) unrelated
     to this change. Only the two column drops are kept here.
     """
+    # SAFE: a crawler-vs-user_created discriminator; crawler part creation was disconnected in da7e10a and dedup now runs off canonical_part_id.
     op.drop_column('parts', 'source')
+    # SAFE: never written anywhere in the codebase: model default False, exposed read-only in PartRead, no assignment in app, crawlers, or fixtures.
     op.drop_column('parts', 'is_verified')
 
 
