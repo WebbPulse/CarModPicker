@@ -32,7 +32,7 @@ jobs:
       TFC_WORKSPACE_ID: ws-oh1VvpTBPxmcrSYD
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
