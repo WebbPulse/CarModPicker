@@ -61,7 +61,7 @@ resource "aws_db_instance" "main" {
 
   # deletion_protection blocks accidental terraform destroy.
   # To tear down this instance: set deletion_protection = false, apply, then destroy.
-  deletion_protection       = true
+  deletion_protection       = false
   skip_final_snapshot       = false
   final_snapshot_identifier = "${local.prefix}-final-snapshot"
 
