@@ -157,7 +157,7 @@ resource "aws_apprunner_service" "backend" {
         port = "8000"
 
         # Non-sensitive runtime configuration
-        runtime_environment_variables = {
+        runtime_environment_variables = { for key, value in {
           DEBUG              = "false"
           APP_ENVIRONMENT    = "production"
           PORT               = "8000"
@@ -176,7 +176,7 @@ resource "aws_apprunner_service" "backend" {
           SENTRY_RELEASE      = var.sentry_release
           SENTRY_SERVICE_NAME = "apprunner-backend"
           AWS_EMF_ENVIRONMENT = "Local"
-        }
+        } : key => value if value != "" }
 
         # Sensitive values pulled from Secrets Manager at startup
         runtime_environment_secrets = {
