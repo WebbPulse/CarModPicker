@@ -27,10 +27,9 @@ from __future__ import annotations
 import re
 
 import pytest
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.main import app
+from tests.route_enumeration import schema_routes
 
 # Routes that are intentionally public (no auth dependency).
 # Categorized for review. Adding here requires a deliberate decision —
@@ -126,15 +125,12 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
 def _api_routes() -> list[tuple[str, str]]:
     """All /api/ routes excluding /api/admin and /api/auth (covered elsewhere)."""
     out: list[tuple[str, str]] = []
-    for r in app.routes:
-        if not isinstance(r, APIRoute):
+    for method, path in schema_routes():
+        if not path.startswith("/api/"):
             continue
-        if not r.path.startswith("/api/"):
+        if path.startswith("/api/admin") or path.startswith("/api/auth"):
             continue
-        if r.path.startswith("/api/admin") or r.path.startswith("/api/auth"):
-            continue
-        for m in sorted(r.methods - {"HEAD", "OPTIONS"}):
-            out.append((m, r.path))
+        out.append((method, path))
     return out
 
 

@@ -1,7 +1,7 @@
 """ADMIN-02 regression: every route under /api/admin requires admin auth.
 
-D-27—D-30: parametrized over (method, path) extracted from app.routes at
-collection time. Per-route assertions:
+D-27—D-30: parametrized over (method, path) extracted from the OpenAPI schema
+at collection time. Per-route assertions:
   (a) no auth header -> 401 (or 401|403 for dual-auth cron-key routes)
   (b) regular-user token -> 403
 
@@ -15,11 +15,10 @@ from __future__ import annotations
 import re
 
 import pytest
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.main import app
 from tests.conftest import create_and_login_user, login_user
+from tests.route_enumeration import schema_routes
 
 # D-28 + Risk 7: routes using Optional[DBUser] admin dep + X-Admin-Cron-Key.
 # These may return 403 (not 401) when no auth header + no cron key present
@@ -33,10 +32,9 @@ DUAL_AUTH_ROUTES = {
 
 def _admin_routes() -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
-    for r in app.routes:
-        if isinstance(r, APIRoute) and r.path.startswith("/api/admin"):
-            for m in sorted(r.methods - {"HEAD", "OPTIONS"}):
-                out.append((m, r.path))
+    for method, path in schema_routes():
+        if path.startswith("/api/admin"):
+            out.append((method, path))
     return out
 
 
