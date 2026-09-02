@@ -527,10 +527,7 @@ const BuildListsCatalog: React.FC = () => {
                   onChange={(e) =>
                     setSortBy(
                       e.target.value as
-                        | 'votes'
-                        | 'votes_asc'
-                        | 'price_asc'
-                        | 'price_desc'
+                        'votes' | 'votes_asc' | 'price_asc' | 'price_desc'
                     )
                   }
                   className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground text-sm focus:ring-2 focus:ring-info focus:border-info/50 transition-colors"

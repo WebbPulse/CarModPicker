@@ -683,7 +683,7 @@ function UserManagement() {
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    subscription_tier: e.target.value as 'free' | 'premium',
+                    subscription_tier: e.target.value,
                   })
                 }
                 className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
@@ -700,10 +700,7 @@ function UserManagement() {
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    subscription_status: e.target.value as
-                      | 'active'
-                      | 'cancelled'
-                      | 'expired',
+                    subscription_status: e.target.value,
                   })
                 }
                 className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"

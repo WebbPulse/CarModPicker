@@ -3,8 +3,7 @@ import { Loader2 } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
 
-export interface LoadingOverlayProps
-  extends React.HTMLAttributes<HTMLDivElement> {
+export interface LoadingOverlayProps extends React.HTMLAttributes<HTMLDivElement> {
   visible: boolean;
   label?: string;
   ref?: React.Ref<HTMLDivElement>;

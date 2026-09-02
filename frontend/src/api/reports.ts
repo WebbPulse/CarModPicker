@@ -58,11 +58,7 @@ export const partReportsApi = {
   ) =>
     reportsApi.reportEntity('part', partId, {
       reason: data.reason as
-        | 'inappropriate_content'
-        | 'spam'
-        | 'inaccurate'
-        | 'duplicate'
-        | 'other',
+        'inappropriate_content' | 'spam' | 'inaccurate' | 'duplicate' | 'other',
       description: data.description ?? null,
     }),
   getReports: (params?: { status?: string; skip?: number; limit?: number }) =>

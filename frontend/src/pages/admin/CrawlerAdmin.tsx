@@ -681,8 +681,7 @@ function jobInlineSummary(job: BackgroundJob): string | null {
   if (!s) return null;
   if (job.job_type === 'crawler_run') {
     const totals = s['summary'] as
-      | { total_ingested?: number; total_errors?: number }
-      | undefined;
+      { total_ingested?: number; total_errors?: number } | undefined;
     if (!totals) return null;
     const parts = [`${totals.total_ingested ?? 0} ingested`];
     if ((totals.total_errors ?? 0) > 0)

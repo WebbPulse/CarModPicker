@@ -49,7 +49,7 @@ function EditPartForm({ part, onPartUpdated, onCancel }: EditPartFormProps) {
     part_number: '',
     part_manufacturer_id: null as string | null,
     description: '',
-    category_id: '' as string,
+    category_id: '',
     car_ids: [] as string[],
     is_universal: false,
   });

@@ -24,16 +24,14 @@ const getApiBaseUrl = () => {
       'local';
     if (backend === 'staging') {
       const stagingUrl = import.meta.env['VITE_STAGING_API_URL'] as
-        | string
-        | undefined;
+        string | undefined;
       if (stagingUrl && typeof stagingUrl === 'string' && stagingUrl.trim()) {
         return normalizeApiUrl(stagingUrl.trim());
       }
     }
     if (backend === 'production') {
       const prodUrl = import.meta.env['VITE_PROD_API_URL'] as
-        | string
-        | undefined;
+        string | undefined;
       if (prodUrl && typeof prodUrl === 'string' && prodUrl.trim()) {
         return normalizeApiUrl(prodUrl.trim());
       }
@@ -44,8 +42,7 @@ const getApiBaseUrl = () => {
 
   // In production, check for environment variable first
   const apiUrl: string | undefined = import.meta.env['VITE_API_URL'] as
-    | string
-    | undefined;
+    string | undefined;
   if (apiUrl && typeof apiUrl === 'string') {
     return normalizeApiUrl(apiUrl);
   }
@@ -118,8 +115,7 @@ apiClient.interceptors.response.use(
   (response) => {
     // Check for new access token in response header (e.g., after username change)
     const newToken = response.headers['x-new-access-token'] as
-      | string
-      | undefined;
+      string | undefined;
     if (newToken && typeof newToken === 'string') {
       setStoredToken(newToken);
     }

@@ -28,7 +28,8 @@ const statusLabels: Record<NonNullable<StatusBadgeProps['variant']>, string> = {
 };
 
 export interface StatusBadgeProps
-  extends Omit<React.HTMLAttributes<HTMLSpanElement>, 'children'>,
+  extends
+    Omit<React.HTMLAttributes<HTMLSpanElement>, 'children'>,
     VariantProps<typeof statusBadgeVariants> {
   variant: 'pending' | 'in_progress' | 'resolved' | 'dismissed';
   children?: React.ReactNode;
@@ -81,7 +82,8 @@ const priorityLabels: Record<
 };
 
 export interface PriorityBadgeProps
-  extends Omit<React.HTMLAttributes<HTMLSpanElement>, 'children'>,
+  extends
+    Omit<React.HTMLAttributes<HTMLSpanElement>, 'children'>,
     VariantProps<typeof priorityBadgeVariants> {
   priority: 'low' | 'medium' | 'high' | 'critical';
   children?: React.ReactNode;

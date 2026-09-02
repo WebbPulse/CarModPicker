@@ -58,6 +58,7 @@ export default tseslint.config(
       // Disable React 19 warnings for now since we're not using React 19
       'react-x/no-use-context': 'off',
       'react-x/no-context-provider': 'off',
+      'react-x/unsupported-syntax': 'off',
       // Phase 6 FE-01: strict typing rules flipped to error (Plan 06-01).
       // Per D-05, the test-file override block was removed so src/test/** also
       // runs strict rules. Plan 06-02 owns the violation fix sweep — between

@@ -17,7 +17,7 @@ function makeCar(partial: Partial<CarGenerationRead>): CarGenerationRead {
     display_label: '',
     car_model_display_label: '',
     ...partial,
-  } as CarGenerationRead;
+  };
 }
 
 describe('carFullDisplayName', () => {
