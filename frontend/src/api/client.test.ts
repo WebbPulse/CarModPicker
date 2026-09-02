@@ -51,9 +51,8 @@ describe('client.ts — token helpers (real module)', () => {
   });
 
   it('removeStoredToken clears the stored access_token', async () => {
-    const { setStoredToken, getStoredToken, removeStoredToken } = await import(
-      './client'
-    );
+    const { setStoredToken, getStoredToken, removeStoredToken } =
+      await import('./client');
     setStoredToken('to-be-removed');
     removeStoredToken();
     expect(getStoredToken()).toBeNull();
@@ -86,12 +85,9 @@ describe('client.ts — paramsSerializer (real module)', () => {
   it('passes URLSearchParams through via .toString()', async () => {
     const { apiClient } = await import('./client');
     const serializer = apiClient.defaults.paramsSerializer as
-      | ((p: unknown) => string)
-      | { serialize: (p: unknown) => string };
+      ((p: unknown) => string) | { serialize: (p: unknown) => string };
     const serialize =
-      typeof serializer === 'function'
-        ? serializer
-        : (serializer as { serialize: (p: unknown) => string }).serialize;
+      typeof serializer === 'function' ? serializer : serializer.serialize;
 
     const usp = new URLSearchParams({ a: '1', b: '2' });
     expect(serialize(usp)).toBe('a=1&b=2');
@@ -103,10 +99,7 @@ describe('client.ts — paramsSerializer (real module)', () => {
       | ((p: Record<string, unknown>) => string)
       | { serialize: (p: Record<string, unknown>) => string };
     const serialize =
-      typeof serializer === 'function'
-        ? serializer
-        : (serializer as { serialize: (p: Record<string, unknown>) => string })
-            .serialize;
+      typeof serializer === 'function' ? serializer : serializer.serialize;
 
     const result = serialize({
       a: 1,
@@ -124,10 +117,7 @@ describe('client.ts — paramsSerializer (real module)', () => {
       | ((p: Record<string, unknown>) => string)
       | { serialize: (p: Record<string, unknown>) => string };
     const serialize =
-      typeof serializer === 'function'
-        ? serializer
-        : (serializer as { serialize: (p: Record<string, unknown>) => string })
-            .serialize;
+      typeof serializer === 'function' ? serializer : serializer.serialize;
 
     expect(serialize({ q: 'honda civic' })).toBe('q=honda%20civic');
   });

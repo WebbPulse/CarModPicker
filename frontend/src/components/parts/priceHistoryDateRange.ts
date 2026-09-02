@@ -3,10 +3,7 @@
  *  ViewPart can derive the same calendar cutoff for sparklines (and any
  *  future consumer) without dragging in the whole SVG component. */
 export type DateRangeOption =
-  | 'this_year'
-  | 'this_month'
-  | 'this_week'
-  | 'all_time';
+  'this_year' | 'this_month' | 'this_week' | 'all_time';
 
 /** Lower bound (in epoch ms) for filtering observations to the selected
  *  range. Returns null for `all_time` (no lower bound). */

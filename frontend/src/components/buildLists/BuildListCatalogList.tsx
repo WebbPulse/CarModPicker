@@ -51,7 +51,7 @@ function isPaginatedResponse<T>(
     typeof response === 'object' &&
     response !== null &&
     'data' in response &&
-    Array.isArray((response as { data: unknown }).data) &&
+    Array.isArray(response.data) &&
     'pagination' in response
   );
 }

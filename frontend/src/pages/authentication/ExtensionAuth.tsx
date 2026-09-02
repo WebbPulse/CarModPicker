@@ -36,8 +36,7 @@ const getChromeRuntime = (): ExtensionRuntime | null => {
  */
 const getAllowedExtensionIds = (): ReadonlyArray<string> => {
   const raw = import.meta.env['VITE_ALLOWED_EXTENSION_IDS'] as
-    | string
-    | undefined;
+    string | undefined;
   if (!raw) return [];
   return raw
     .split(',')
@@ -120,8 +119,7 @@ function ExtensionAuth() {
           return;
         }
         const resp = response as
-          | { success?: boolean; error?: string }
-          | undefined;
+          { success?: boolean; error?: string } | undefined;
         if (resp?.success) {
           setHandoff({ kind: 'success' });
           window.setTimeout(() => {
