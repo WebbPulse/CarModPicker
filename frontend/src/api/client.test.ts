@@ -51,9 +51,8 @@ describe('client.ts — token helpers (real module)', () => {
   });
 
   it('removeStoredToken clears the stored access_token', async () => {
-    const { setStoredToken, getStoredToken, removeStoredToken } = await import(
-      './client'
-    );
+    const { setStoredToken, getStoredToken, removeStoredToken } =
+      await import('./client');
     setStoredToken('to-be-removed');
     removeStoredToken();
     expect(getStoredToken()).toBeNull();
@@ -86,8 +85,7 @@ describe('client.ts — paramsSerializer (real module)', () => {
   it('passes URLSearchParams through via .toString()', async () => {
     const { apiClient } = await import('./client');
     const serializer = apiClient.defaults.paramsSerializer as
-      | ((p: unknown) => string)
-      | { serialize: (p: unknown) => string };
+      ((p: unknown) => string) | { serialize: (p: unknown) => string };
     const serialize =
       typeof serializer === 'function'
         ? serializer

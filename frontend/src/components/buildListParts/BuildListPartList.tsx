@@ -55,12 +55,7 @@ const DEFAULT_CARS_BY_ID: Record<string, CarGenerationRead> = {};
 const DEFAULT_PHASES: BuildListPhaseRead[] = [];
 
 type SortKey =
-  | 'part'
-  | 'part_manufacturer'
-  | 'part_number'
-  | 'fit'
-  | 'qty'
-  | 'price';
+  'part' | 'part_manufacturer' | 'part_number' | 'fit' | 'qty' | 'price';
 type SortDir = 'asc' | 'desc';
 interface SortState {
   key: SortKey;

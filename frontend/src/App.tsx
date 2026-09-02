@@ -183,8 +183,7 @@ function App() {
                 side="left"
                 slotId={
                   import.meta.env['VITE_ADSENSE_SLOT_LEFT'] as
-                    | string
-                    | undefined
+                    string | undefined
                 }
               />
             ) : (
@@ -371,8 +370,7 @@ function App() {
                 side="right"
                 slotId={
                   import.meta.env['VITE_ADSENSE_SLOT_RIGHT'] as
-                    | string
-                    | undefined
+                    string | undefined
                 }
               />
             ) : (

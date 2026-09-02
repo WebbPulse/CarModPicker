@@ -500,11 +500,7 @@ export interface FlaggedEntitySummary {
 // Unified reporting system interfaces
 export interface ReportCreate {
   reason:
-    | 'inappropriate_content'
-    | 'spam'
-    | 'inaccurate'
-    | 'duplicate'
-    | 'other';
+    'inappropriate_content' | 'spam' | 'inaccurate' | 'duplicate' | 'other';
   description?: string | null;
 }
 

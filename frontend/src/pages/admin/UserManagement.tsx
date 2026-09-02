@@ -701,9 +701,7 @@ function UserManagement() {
                   setFormData({
                     ...formData,
                     subscription_status: e.target.value as
-                      | 'active'
-                      | 'cancelled'
-                      | 'expired',
+                      'active' | 'cancelled' | 'expired',
                   })
                 }
                 className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"

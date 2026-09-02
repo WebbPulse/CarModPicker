@@ -5,7 +5,8 @@ import { cn } from '../../lib/utils';
 import { inputVariants } from './input-variants';
 
 export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement>,
+  extends
+    React.InputHTMLAttributes<HTMLInputElement>,
     VariantProps<typeof inputVariants> {
   ref?: React.Ref<HTMLInputElement>;
 }
