@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { LARGE_FETCH_LIMIT } from '../../constants';
 import useApiRequest from '../../hooks/UseApiRequest';
-import apiClient, { buildListsApi, carGenerationsApi } from '../../services/Api';
+import apiClient, {
+  buildListsApi,
+  carGenerationsApi,
+} from '../../services/Api';
 import {
   carFullDisplayName,
   carGenerationDisplayName,

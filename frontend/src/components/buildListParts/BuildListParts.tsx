@@ -22,12 +22,7 @@ import SectionHeader from '../layout/SectionHeader';
 import { ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { ConfirmDialog } from '../ui/confirm-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import BuildListPartList from './BuildListPartList';
@@ -521,10 +516,7 @@ const BuildListParts: React.FC<BuildListPartsProps> = ({
       )}
 
       {canManageParts && (
-        <Dialog
-          open={isManagePhasesOpen}
-          onOpenChange={setIsManagePhasesOpen}
-        >
+        <Dialog open={isManagePhasesOpen} onOpenChange={setIsManagePhasesOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Phases</DialogTitle>

@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import useApiRequest from '../../hooks/UseApiRequest';
-import {
-  buildListLaborEstimatesApi,
-  buildListsApi,
-} from '../../services/Api';
+import { buildListLaborEstimatesApi, buildListsApi } from '../../services/Api';
 import type {
   BuildListLaborEstimateRead,
   BuildListPhaseRead,
@@ -11,12 +8,7 @@ import type {
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { ConfirmDialog } from '../ui/confirm-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import {
   Select,
@@ -200,9 +192,7 @@ const LaborEstimatesSection: React.FC<Props> = ({
   if (error) {
     return (
       <Card className="p-3">
-        <p className="text-sm text-warning">
-          Failed to load labor estimates.
-        </p>
+        <p className="text-sm text-warning">Failed to load labor estimates.</p>
       </Card>
     );
   }
@@ -415,9 +405,7 @@ const LaborEstimatesSection: React.FC<Props> = ({
                   placeholder="Notes, scope, vendor..."
                 />
               </div>
-              {formError && (
-                <p className="text-sm text-red-400">{formError}</p>
-              )}
+              {formError && <p className="text-sm text-red-400">{formError}</p>}
               <div className="flex justify-end gap-2">
                 <Button
                   type="button"

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 
 import { RouteGroupBoundary } from './RouteGroupBoundary';
 
@@ -27,7 +28,7 @@ function Safe(): ReactNode {
 }
 
 describe('RouteGroupBoundary', () => {
-  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: MockInstance<typeof console.error>;
 
   beforeEach(() => {
     // React logs the thrown error to console.error via its error-boundary

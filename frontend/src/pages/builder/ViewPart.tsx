@@ -541,9 +541,7 @@ function ViewPart() {
           )}
           {part_manufacturer && (
             <CardInfoItem label="Part Manufacturer:">
-              <span className="text-gray-300">
-                {part_manufacturer.name}
-              </span>
+              <span className="text-gray-300">{part_manufacturer.name}</span>
             </CardInfoItem>
           )}
           {part.part_number && (
@@ -798,87 +796,87 @@ function ViewPart() {
                     <div className="min-w-0">
                       <SectionHeader title="Price by retailer" />
                       <ul className="space-y-3">
-                    {rows.map((row) => {
-                      const observedAt = row.lastObservedAt
-                        ? new Date(row.lastObservedAt)
-                        : null;
-                      const isStale =
-                        observedAt !== null &&
-                        (Date.now() - observedAt.getTime()) /
-                          (1000 * 60 * 60 * 24) >
-                          STALE_LISTING_THRESHOLD_DAYS;
-                      const inWindowHistory = row.fromHistory
-                        ? (priceSummary?.history ?? []).filter(
-                            (h) =>
-                              h.retailer_id === row.retailerId &&
-                              (sparkCutoffMs === null ||
-                                new Date(h.observed_at).getTime() >=
-                                  sparkCutoffMs)
-                          )
-                        : [];
-                      // Mirror the main chart's carry-over: prepend the
-                      // retailer's pre-window anchor so the sparkline trends
-                      // from the last known price into the in-window data
-                      // instead of stranding a single point.
-                      const retailerAnchor = row.fromHistory
-                        ? (priceSummary?.pre_window_anchors ?? []).find(
-                            (a) => a.retailer_id === row.retailerId
-                          )
-                        : undefined;
-                      const sparkHistory = retailerAnchor
-                        ? [retailerAnchor, ...inWindowHistory]
-                        : inWindowHistory;
-                      return (
-                        <li
-                          key={row.retailerId}
-                          data-testid="retailer-row"
-                          className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-800/60 rounded-lg border border-gray-700/50"
-                        >
-                          <div className="flex-1 min-w-0 flex items-center gap-3 flex-wrap">
-                            <span className="font-medium text-white">
-                              {row.retailerName}
-                            </span>
-                            <Sparkline
-                              history={sparkHistory}
-                              width={80}
-                              height={24}
-                            />
-                            <span className="text-gray-400 text-sm">
-                              {row.observationCount != null
-                                ? `(${row.observationCount} obs${
-                                    observedAt
-                                      ? `, last ${observedAt.toLocaleDateString()}`
-                                      : ''
-                                  })`
-                                : observedAt
-                                  ? `(updated ${observedAt.toLocaleDateString()})`
-                                  : ''}
-                            </span>
-                            {isStale && observedAt && (
-                              <span className="text-xs text-warning">
-                                (as of {observedAt.toLocaleDateString()})
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-success font-semibold">
-                              {formatCents(row.lastCents)}
-                            </span>
-                            {row.productUrl && (
-                              <a
-                                href={row.productUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:text-primary/90 text-sm underline inline-flex items-center gap-1"
-                              >
-                                View at retailer{' '}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
+                        {rows.map((row) => {
+                          const observedAt = row.lastObservedAt
+                            ? new Date(row.lastObservedAt)
+                            : null;
+                          const isStale =
+                            observedAt !== null &&
+                            (Date.now() - observedAt.getTime()) /
+                              (1000 * 60 * 60 * 24) >
+                              STALE_LISTING_THRESHOLD_DAYS;
+                          const inWindowHistory = row.fromHistory
+                            ? (priceSummary?.history ?? []).filter(
+                                (h) =>
+                                  h.retailer_id === row.retailerId &&
+                                  (sparkCutoffMs === null ||
+                                    new Date(h.observed_at).getTime() >=
+                                      sparkCutoffMs)
+                              )
+                            : [];
+                          // Mirror the main chart's carry-over: prepend the
+                          // retailer's pre-window anchor so the sparkline trends
+                          // from the last known price into the in-window data
+                          // instead of stranding a single point.
+                          const retailerAnchor = row.fromHistory
+                            ? (priceSummary?.pre_window_anchors ?? []).find(
+                                (a) => a.retailer_id === row.retailerId
+                              )
+                            : undefined;
+                          const sparkHistory = retailerAnchor
+                            ? [retailerAnchor, ...inWindowHistory]
+                            : inWindowHistory;
+                          return (
+                            <li
+                              key={row.retailerId}
+                              data-testid="retailer-row"
+                              className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-800/60 rounded-lg border border-gray-700/50"
+                            >
+                              <div className="flex-1 min-w-0 flex items-center gap-3 flex-wrap">
+                                <span className="font-medium text-white">
+                                  {row.retailerName}
+                                </span>
+                                <Sparkline
+                                  history={sparkHistory}
+                                  width={80}
+                                  height={24}
+                                />
+                                <span className="text-gray-400 text-sm">
+                                  {row.observationCount != null
+                                    ? `(${row.observationCount} obs${
+                                        observedAt
+                                          ? `, last ${observedAt.toLocaleDateString()}`
+                                          : ''
+                                      })`
+                                    : observedAt
+                                      ? `(updated ${observedAt.toLocaleDateString()})`
+                                      : ''}
+                                </span>
+                                {isStale && observedAt && (
+                                  <span className="text-xs text-warning">
+                                    (as of {observedAt.toLocaleDateString()})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-success font-semibold">
+                                  {formatCents(row.lastCents)}
+                                </span>
+                                {row.productUrl && (
+                                  <a
+                                    href={row.productUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary/90 text-sm underline inline-flex items-center gap-1"
+                                  >
+                                    View at retailer{' '}
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   </div>

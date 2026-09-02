@@ -253,7 +253,8 @@ export default function PriceHistoryLineChart({
 
     const prices = aggregated.map((d) => d.price_cents);
     if (lastKnownBeforeWindow) {
-      for (const v of lastKnownBeforeWindow.values()) prices.push(v.price_cents);
+      for (const v of lastKnownBeforeWindow.values())
+        prices.push(v.price_cents);
     }
     const priceMin = prices.length > 0 ? Math.min(...prices) : 0;
     const priceMax = prices.length > 0 ? Math.max(...prices) : 10000;
@@ -324,10 +325,7 @@ export default function PriceHistoryLineChart({
         // Pin to the y-axis (xMin) when the original observation is off-chart,
         // otherwise show at its natural day position. The point's `observedAt`
         // still carries the real date, which the date label and tooltip use.
-        const carryOverX = Math.max(
-          xMin,
-          dayStartMs(carryOver.observed_at)
-        );
+        const carryOverX = Math.max(xMin, dayStartMs(carryOver.observed_at));
         const firstInWindowX = points[0]?.x;
         // Skip when the carry-over would land exactly on the first in-window
         // point — same x AND same price means the dashed segment is zero-
@@ -369,8 +367,7 @@ export default function PriceHistoryLineChart({
         realPoints.length > 1
           ? realPoints
               .map(
-                (p, i) =>
-                  `${i === 0 ? 'M' : 'L'} ${xScale(p.x)} ${yScale(p.y)}`
+                (p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.x)} ${yScale(p.y)}`
               )
               .join(' ')
           : '';
