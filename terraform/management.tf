@@ -39,10 +39,15 @@ resource "aws_ce_anomaly_monitor" "carmodpicker" {
   monitor_type = "CUSTOM"
 
   monitor_specification = jsonencode({
+    And            = null
+    CostCategories = null
+    Dimensions     = null
+    Not            = null
+    Or             = null
     Tags = {
-      Key          = "Project"
-      Values       = ["carmodpicker"]
+      Key          = "user:Project"
       MatchOptions = ["EQUALS"]
+      Values       = ["carmodpicker"]
     }
   })
 }
