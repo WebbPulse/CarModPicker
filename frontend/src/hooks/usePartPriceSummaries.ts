@@ -17,9 +17,7 @@ function errorMessage(err: unknown): string {
   return 'Failed to load price history summaries';
 }
 
-const EMPTY_SUMMARIES: Record<string, PriceHistorySummary> = Object.freeze(
-  {}
-) as Record<string, PriceHistorySummary>;
+const EMPTY_SUMMARIES: Record<string, PriceHistorySummary> = Object.freeze({});
 
 export function usePartPriceSummaries(
   partIds: string[],

@@ -57,7 +57,7 @@ function SingleAd({
     >
       {canServeAds && slotId ? (
         <ins
-          ref={insRef as React.RefObject<HTMLModElement>}
+          ref={insRef}
           className="adsbygoogle"
           style={{ display: 'block', height: AD_HEIGHT, width: AD_WIDTH }}
           data-ad-client={clientId}
