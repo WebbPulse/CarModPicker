@@ -209,19 +209,10 @@ class Settings(BaseSettings):
         default="",
         description="S3 bucket name for user image uploads. Also accepts S3_BUCKET_NAME.",
     )
-    CRAWL_BUCKET: str = Field(
-        default="",
-        description="S3 bucket name for crawler HTML snapshots. Separate from user images.",
-    )
-    # Chrome extension POST /crawled-pages/{scrape,html}: max UTF-8 byte length of the `html` field (reject with 413).
+    # Chrome extension POST /crawled-pages/scrape: max UTF-8 byte length of the `html` field (reject with 413).
     CRAWLED_PAGE_MAX_HTML_BYTES: int = Field(
         default=8 * 1024 * 1024,
         description="Maximum UTF-8 size in bytes for extension-submitted page HTML.",
-    )
-    # When Content-Length is set, reject POST bodies larger than max HTML + this slack (JSON wrapper, url field).
-    CRAWLED_PAGE_UPLOAD_CONTENT_LENGTH_SLACK_BYTES: int = Field(
-        default=64 * 1024,
-        description="Extra bytes allowed on Content-Length vs CRAWLED_PAGE_MAX_HTML_BYTES for JSON framing.",
     )
     S3_BUCKET_NAME: str = Field(
         default="",

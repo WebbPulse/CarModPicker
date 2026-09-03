@@ -64,5 +64,5 @@ def test_admin_route_forbids_regular_user(method: str, path: str, client: TestCl
 
 
 def test_admin_route_count_at_or_above_expected() -> None:
-    # Drift guard. Updated 2026-05-09 after OSS-prep removed crawler admin routes.
-    assert len(ADMIN_ROUTES) >= 10, f"Expected >=10 admin routes, got {len(ADMIN_ROUTES)}"
+    # Drift guard. Updated 2026-09-02 after the crawler job, migration, and crawl-bucket admin routes were removed.
+    assert len(ADMIN_ROUTES) >= 6, f"Expected >=6 admin routes, got {len(ADMIN_ROUTES)}"

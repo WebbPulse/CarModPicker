@@ -29,7 +29,6 @@ from .api.endpoints import (
     votes,
 )
 from .api.endpoints.admin import db_ops as admin_db_ops
-from .api.endpoints.admin import jobs as admin_jobs
 from .api.endpoints.admin import stats as admin_stats
 from .api.endpoints.auth import core as auth_core
 from .api.endpoints.auth import oauth as auth_oauth
@@ -41,12 +40,10 @@ from .api.services import sitemap_service
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
 from .core.init_cars import init_car_generations
-from .core.log_context import RequestContextFilter, bg_log_context
+from .core.log_context import RequestContextFilter
 from .core.logging import LOG_FORMAT, make_formatter
 from .core.sentry import init_sentry
-from .core.worker_identity import WORKER_INSTANCE_ID
 from .db.session import SessionLocal, check_db_ready, get_db
-from .services import job_service
 
 # Configure logging for the entire application (single format, colorized levels)
 logging.basicConfig(
@@ -84,25 +81,6 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
             init_car_generations(db)
         except Exception:
             logger.exception("Failed to initialize car generations on startup")
-        # A-01: wrap in bg_log_context so any log/exception emitted by
-        # job_service.sweep_orphan_jobs is tagged with
-        # request_id="bg:orphan-jobs-sweep:-" for CloudWatch grep.
-        with bg_log_context("orphan-jobs-sweep"):
-            try:
-                # Any background_jobs row still in "running" but owned by a previous
-                # worker_instance_id (or lacking one) can only exist because the prior
-                # process was killed mid-job — uvicorn --reload, SIGKILL, crash,
-                # redeploy. Mark those failed so the admin UI doesn't show phantom
-                # running jobs forever. ECS-backed jobs are skipped.
-                orphans = job_service.sweep_orphan_jobs(db, current_worker_instance_id=WORKER_INSTANCE_ID)
-                if orphans:
-                    logger.warning(
-                        "Marked %d stale background job(s) as failed on startup (ids=%s)",
-                        len(orphans),
-                        [str(o.id) for o in orphans],
-                    )
-            except Exception:
-                logger.exception("Orphan background-job sweep failed on startup")
     finally:
         db.close()
     yield
@@ -281,12 +259,12 @@ endpoint_registry.register_endpoint(
     description="Image upload and management operations using S3",
 )
 
-# Crawled pages HTML archival
+# Chrome extension page parsing
 endpoint_registry.register_endpoint(
     crawled_pages.router,
     prefix="/crawled-pages",
     tags=["crawled-pages"],
-    description="HTML archival for chrome-extension scraped pages",
+    description="Server-side parsing of chrome-extension submitted pages",
 )
 
 # Build logs endpoint
@@ -302,19 +280,13 @@ endpoint_registry.register_endpoint(
     admin_stats.router,
     prefix="/admin/stats",
     tags=["admin"],
-    description="Admin statistics (table counts, crawl bucket listing)",
-)
-endpoint_registry.register_endpoint(
-    admin_jobs.router,
-    prefix="/admin/jobs",
-    tags=["admin"],
-    description="Admin background jobs (list, detail, cancel)",
+    description="Admin statistics (table counts)",
 )
 endpoint_registry.register_endpoint(
     admin_db_ops.router,
     prefix="/admin/db-ops",
     tags=["admin"],
-    description="Admin database operations (migrations, init data, bulk delete)",
+    description="Admin database operations (init data, bulk delete)",
 )
 # Global app settings (public read, admin write)
 endpoint_registry.register_endpoint(
