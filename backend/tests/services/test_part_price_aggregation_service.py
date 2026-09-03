@@ -26,12 +26,12 @@ from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User
 from app.api.services.part_price_aggregation_service import (
     aggregate_batch,
     aggregate_single_part,
     parse_window,
 )
+from app.db.dynamo.users import User
 from tests.conftest import get_default_category_id
 
 # --- helpers -----------------------------------------------------------------

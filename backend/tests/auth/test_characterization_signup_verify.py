@@ -22,8 +22,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import create_access_token, get_password_hash
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 
 
 def _uniq(base: str) -> str:
@@ -40,16 +41,15 @@ def test_signup_and_verify_email(client: TestClient, db_session: Session) -> Non
     # --- Step 1: Create unverified user directly in DB ---
     # (In production the POST /api/users/ creates unverified users; in TESTING mode
     # it auto-verifies.  We create directly to characterize the unverified→verified transition.)
-    db_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        email_verified=False,
-        disabled=False,
+    db_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            email_verified=False,
+            disabled=False,
+        )
     )
-    db_session.add(db_user)
-    db_session.commit()
-    db_session.refresh(db_user)
 
     # DB: user exists; email_verified is False
     assert db_user is not None
@@ -72,5 +72,5 @@ def test_signup_and_verify_email(client: TestClient, db_session: Session) -> Non
     assert "status=success" in confirm.headers["location"]
 
     # DB: email_verified flipped to True
-    db_session.refresh(db_user)
+    db_user = UserRepository().get_or_raise(db_user.id)
     assert db_user.email_verified is True

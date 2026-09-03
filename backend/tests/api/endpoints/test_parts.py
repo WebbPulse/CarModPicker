@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.api.models.category import Category
 from app.api.models.part_manufacturer import PartManufacturer
-from app.api.models.user import User
 from app.core.config import settings
+from app.db.dynamo.users import User, UserRepository
 from tests.conftest import INVALID_UUID_STR
 
 
@@ -555,20 +555,19 @@ class TestParts:
         """Test counting global parts for a user with no parts."""
         # Create a new user with no parts
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        new_user = DBUser(
-            username=f"new_user_{os.getpid()}_{id(db_session)}",
-            email=f"new_user_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        new_user = UserRepository().create_user(
+            DBUser(
+                username=f"new_user_{os.getpid()}_{id(db_session)}",
+                email=f"new_user_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(new_user)
-        db_session.commit()
-        db_session.refresh(new_user)
 
         # Count global parts for this user (should be 0)
         response = client.get(f"{settings.API_STR}/parts/user/{new_user.id}/count")

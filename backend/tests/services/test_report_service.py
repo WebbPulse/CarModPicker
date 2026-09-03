@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from app.api.models.build_list import BuildList
 from app.api.models.part import Part
 from app.api.models.report import Report
-from app.api.models.user import User
 from app.api.schemas.report import EntityType, ReportCreate, ReportReason
 from app.api.services.report_service import ReportService
+from app.db.dynamo.users import User, UserRepository
 
 
 def get_unique_name(base_name: str) -> str:
@@ -28,15 +28,15 @@ class TestReportService:
         # Create another user and their build list
         from app.api.dependencies.auth import get_password_hash
 
-        other_user = User(
-            username=get_unique_name("other_user"),
-            email=f"{get_unique_name('other_user')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        other_user = UserRepository().create_user(
+            User(
+                username=get_unique_name("other_user"),
+                email=f"{get_unique_name('other_user')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name=get_unique_name("test_build_list"),
@@ -66,15 +66,15 @@ class TestReportService:
         from app.api.dependencies.auth import get_password_hash
         from app.api.models.category import Category
 
-        other_user = User(
-            username=get_unique_name("other_user2"),
-            email=f"{get_unique_name('other_user2')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        other_user = UserRepository().create_user(
+            User(
+                username=get_unique_name("other_user2"),
+                email=f"{get_unique_name('other_user2')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         # Get or create a category
         category = db_session.query(Category).first()
@@ -154,15 +154,15 @@ class TestReportService:
         # Create another user and their build list
         from app.api.dependencies.auth import get_password_hash
 
-        other_user = User(
-            username=get_unique_name("other_user3"),
-            email=f"{get_unique_name('other_user3')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        other_user = UserRepository().create_user(
+            User(
+                username=get_unique_name("other_user3"),
+                email=f"{get_unique_name('other_user3')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name=get_unique_name("test_build_list2"),
@@ -193,15 +193,15 @@ class TestReportService:
         # Create reports
         from app.api.dependencies.auth import get_password_hash
 
-        other_user = User(
-            username=get_unique_name("other_user4"),
-            email=f"{get_unique_name('other_user4')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        other_user = UserRepository().create_user(
+            User(
+                username=get_unique_name("other_user4"),
+                email=f"{get_unique_name('other_user4')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name=get_unique_name("test_build_list3"),
@@ -239,15 +239,15 @@ class TestReportService:
         from app.api.dependencies.auth import get_password_hash
         from app.api.models.category import Category
 
-        other_user = User(
-            username=get_unique_name("other_user5"),
-            email=f"{get_unique_name('other_user5')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        other_user = UserRepository().create_user(
+            User(
+                username=get_unique_name("other_user5"),
+                email=f"{get_unique_name('other_user5')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name=get_unique_name("test_build_list4"),
@@ -316,15 +316,15 @@ class TestReportService:
         # Create report
         from app.api.dependencies.auth import get_password_hash
 
-        other_user = User(
-            username=get_unique_name("other_user6"),
-            email=f"{get_unique_name('other_user6')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        other_user = UserRepository().create_user(
+            User(
+                username=get_unique_name("other_user6"),
+                email=f"{get_unique_name('other_user6')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name=get_unique_name("test_build_list5"),
@@ -361,15 +361,15 @@ class TestReportService:
         # Create report
         from app.api.dependencies.auth import get_password_hash
 
-        other_user = User(
-            username=get_unique_name("other_user7"),
-            email=f"{get_unique_name('other_user7')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        other_user = UserRepository().create_user(
+            User(
+                username=get_unique_name("other_user7"),
+                email=f"{get_unique_name('other_user7')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name=get_unique_name("test_build_list6"),
@@ -398,15 +398,15 @@ class TestReportService:
         # Create report
         from app.api.dependencies.auth import get_password_hash
 
-        other_user = User(
-            username=get_unique_name("other_user8"),
-            email=f"{get_unique_name('other_user8')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        other_user = UserRepository().create_user(
+            User(
+                username=get_unique_name("other_user8"),
+                email=f"{get_unique_name('other_user8')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name=get_unique_name("test_build_list7"),

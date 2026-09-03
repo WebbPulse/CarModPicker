@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_log import BuildLog as DBBuildLog
-from app.api.models.user import User
 from app.api.schemas.build_list import BuildListCreate
 from app.api.services.build_list_service import BuildListService
+from app.db.dynamo.users import User
 from tests.conftest import create_car_orm_in_db
 
 logger = logging.getLogger(__name__)

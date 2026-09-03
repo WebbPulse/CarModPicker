@@ -83,7 +83,6 @@ class TestEnsureCanonicalRow:
 
 class TestMergeCluster:
     def _seed_part(self, conn: sa.Connection, manufacturer_id: str) -> str:
-        # Need category + creator user (NOT NULL).
         cat_id = str(uuid.uuid4())
         cat_name = f"cat-{cat_id[:8]}"
         conn.execute(
@@ -95,30 +94,6 @@ class TestMergeCluster:
             {"i": cat_id, "n": cat_name, "a": True, "so": 0},
         )
         user_id = str(uuid.uuid4())
-        conn.execute(
-            sa.text(
-                "INSERT INTO users (id, username, email, hashed_password, "
-                "email_verified, disabled, is_admin, is_superuser, "
-                "is_service_account, subscription_tier, subscription_status, "
-                "totp_enabled, created_at, updated_at) "
-                "VALUES (:i, :u, :e, :p, :ev, :d, :ad, :su, :sa, :st, :ss, "
-                ":te, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-            ),
-            {
-                "i": user_id,
-                "u": f"u-{user_id[:8]}",
-                "e": f"u{user_id[:8]}@example.com",
-                "p": "x",
-                "ev": True,
-                "d": False,
-                "ad": False,
-                "su": False,
-                "sa": False,
-                "st": "free",
-                "ss": "active",
-                "te": False,
-            },
-        )
         part_id = str(uuid.uuid4())
         conn.execute(
             sa.text(

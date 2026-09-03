@@ -8,8 +8,9 @@ from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
@@ -44,18 +45,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -159,16 +159,15 @@ class TestImages:
 
         # Create another user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
 
         # User 2 tries to upload image for test_user's build list (should fail)
         user2_token = get_auth_token(client, username2)
@@ -235,16 +234,15 @@ class TestImages:
         """Test that authenticated users can only access their own images."""
         # Create another user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
 
         # Generate file key for user2
         import hashlib
@@ -297,16 +295,15 @@ class TestImages:
         """Test that users can only delete their own images."""
         # Create another user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
 
         # Generate file key for user2
         import hashlib
@@ -328,16 +325,15 @@ class TestImages:
 
         # Create a regular user whose image the admin will delete
         username = get_unique_name("victim")
-        victim = DBUser(
-            username=username,
-            email=f"{username}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        victim = UserRepository().create_user(
+            DBUser(
+                username=username,
+                email=f"{username}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(victim)
-        db_session.commit()
-        db_session.refresh(victim)
 
         victim_hash = hashlib.sha256(str(victim.id).encode()).hexdigest()[:16]
         file_key = f"user/{victim_hash}/test-image.jpg"
@@ -600,16 +596,15 @@ class TestImages:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
 
         # Create file key for user2
         user2_hash = hashlib.sha256(str(user2.id).encode()).hexdigest()[:16]

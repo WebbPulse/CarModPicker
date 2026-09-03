@@ -22,9 +22,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser
-from app.api.models.webauthn_credential import WebAuthnCredential
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository, WebAuthnCredential, WebAuthnCredentialRepository
 
 
 def _unique(base: str) -> str:
@@ -40,10 +40,7 @@ def _create_user(db: Session, username: str, password: str = "testpassword") -> 
         email_verified=True,
         disabled=False,
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+    return UserRepository().create_user(user)
 
 
 def _login(client: TestClient, username: str, password: str = "testpassword") -> str:
@@ -141,7 +138,7 @@ def test_register_verify_persists_credential(client: TestClient, db_session: Ses
     assert body["aaguid"] == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     assert body["transports"] == ["usb", "nfc"]
 
-    stored = db_session.query(WebAuthnCredential).filter(WebAuthnCredential.user_id == user.id).one()
+    (stored,) = WebAuthnCredentialRepository().list_by_user(user.id)
     assert stored.credential_id == fake_cred_id
     assert stored.public_key == fake_pubkey
     assert stored.sign_count == 0
@@ -187,17 +184,17 @@ def test_login_verify_issues_token(client: TestClient, db_session: Session) -> N
     user = _create_user(db_session, username)
 
     fake_cred_id = b"login-credential-id-1234567890ab"
-    cred = WebAuthnCredential(
-        user_id=user.id,
-        credential_id=fake_cred_id,
-        public_key=b"pub",
-        sign_count=5,
-        transports=["internal"],
-        aaguid=None,
-        nickname="Built-in",
+    cred = WebAuthnCredentialRepository().create_credential(
+        WebAuthnCredential(
+            user_id=user.id,
+            credential_id=fake_cred_id,
+            public_key=b"pub",
+            sign_count=5,
+            transports=["internal"],
+            aaguid=None,
+            nickname="Built-in",
+        )
     )
-    db_session.add(cred)
-    db_session.commit()
 
     opts_resp = client.post(
         f"{settings.API_STR}/auth/webauthn/login/options",
@@ -234,7 +231,7 @@ def test_login_verify_issues_token(client: TestClient, db_session: Session) -> N
     assert "access_token" in body
     assert body["user"]["username"] == username
 
-    db_session.refresh(cred)
+    cred = WebAuthnCredentialRepository().get_or_raise(cred.id)
     assert cred.sign_count == 6
     assert cred.last_used_at is not None
 
@@ -247,17 +244,17 @@ def test_login_verify_replay_rejected(client: TestClient, db_session: Session) -
     user = _create_user(db_session, username)
 
     fake_cred_id = b"replay-credential-id-0000000000ab"
-    cred = WebAuthnCredential(
-        user_id=user.id,
-        credential_id=fake_cred_id,
-        public_key=b"pub",
-        sign_count=100,
-        transports=None,
-        aaguid=None,
-        nickname="Key",
+    cred = WebAuthnCredentialRepository().create_credential(
+        WebAuthnCredential(
+            user_id=user.id,
+            credential_id=fake_cred_id,
+            public_key=b"pub",
+            sign_count=100,
+            transports=None,
+            aaguid=None,
+            nickname="Key",
+        )
     )
-    db_session.add(cred)
-    db_session.commit()
 
     opts_resp = client.post(
         f"{settings.API_STR}/auth/webauthn/login/options",
@@ -306,16 +303,15 @@ def test_list_rename_delete_flow(client: TestClient, db_session: Session) -> Non
     user = _create_user(db_session, username)
     token = _login(client, username)
 
-    cred = WebAuthnCredential(
-        user_id=user.id,
-        credential_id=b"crud-cred-id-x",
-        public_key=b"pub",
-        sign_count=0,
-        nickname="old name",
+    cred = WebAuthnCredentialRepository().create_credential(
+        WebAuthnCredential(
+            user_id=user.id,
+            credential_id=b"crud-cred-id-x",
+            public_key=b"pub",
+            sign_count=0,
+            nickname="old name",
+        )
     )
-    db_session.add(cred)
-    db_session.commit()
-    db_session.refresh(cred)
 
     # list
     resp = client.get(
@@ -354,16 +350,15 @@ def test_cannot_rename_other_users_credential(client: TestClient, db_session: Se
     owner = _create_user(db_session, _unique("passkey_owner"))
     other = _create_user(db_session, _unique("passkey_other"))
 
-    cred = WebAuthnCredential(
-        user_id=owner.id,
-        credential_id=b"isolation-cred-id",
-        public_key=b"pub",
-        sign_count=0,
-        nickname="owner's key",
+    cred = WebAuthnCredentialRepository().create_credential(
+        WebAuthnCredential(
+            user_id=owner.id,
+            credential_id=b"isolation-cred-id",
+            public_key=b"pub",
+            sign_count=0,
+            nickname="owner's key",
+        )
     )
-    db_session.add(cred)
-    db_session.commit()
-    db_session.refresh(cred)
 
     other_token = _login(client, other.username)
     resp = client.patch(
@@ -397,21 +392,20 @@ def test_login_verify_rejects_unverified_user(client: TestClient, db_session: Se
     would succeed. Matches the email_verified gate in get_current_user."""
     username = _unique("passkey_unverified")
     user = _create_user(db_session, username)
-    user.email_verified = False
-    db_session.commit()
+    user = UserRepository().update(user.id, email_verified=False)
 
     fake_cred_id = b"unverified-cred-id-123456789012"
-    cred = WebAuthnCredential(
-        user_id=user.id,
-        credential_id=fake_cred_id,
-        public_key=b"pub",
-        sign_count=0,
-        transports=None,
-        aaguid=None,
-        nickname="Key",
+    cred = WebAuthnCredentialRepository().create_credential(
+        WebAuthnCredential(
+            user_id=user.id,
+            credential_id=fake_cred_id,
+            public_key=b"pub",
+            sign_count=0,
+            transports=None,
+            aaguid=None,
+            nickname="Key",
+        )
     )
-    db_session.add(cred)
-    db_session.commit()
 
     opts_resp = client.post(
         f"{settings.API_STR}/auth/webauthn/login/options",
@@ -444,6 +438,6 @@ def test_login_verify_rejects_unverified_user(client: TestClient, db_session: Se
     assert resp.status_code == 401, resp.text
     assert "email not verified" in resp.json()["message"].lower()
 
-    db_session.refresh(cred)
+    cred = WebAuthnCredentialRepository().get_or_raise(cred.id)
     # sign_count must not advance when the login is rejected.
     assert cred.sign_count == 0

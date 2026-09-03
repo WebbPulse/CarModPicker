@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR
 
 
@@ -17,18 +18,17 @@ def create_and_login_admin_user(client: TestClient, db_session: Session, usernam
     email = f"admin_ep_test_{username_suffix}@example.com"
     password = "testpassword"
 
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
@@ -49,10 +49,9 @@ def create_and_login_user(client: TestClient, db_session: Session, username_suff
         response.raise_for_status()
 
     if db_session:
-        user = db_session.query(DBUser).filter(DBUser.username == username).first()
+        user = UserRepository().get_by_username(username)
         if user:
-            user.email_verified = True
-            db_session.commit()
+            UserRepository().update(user.id, email_verified=True)
 
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)

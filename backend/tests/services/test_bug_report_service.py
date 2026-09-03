@@ -6,9 +6,9 @@ import os
 from sqlalchemy.orm import Session
 
 from app.api.models.bug_report import BugReport
-from app.api.models.user import User
 from app.api.schemas.bug_report import BugReportCreate, BugReportPriority, BugReportStatus, BugReportUpdate
 from app.api.services.bug_report_service import BugReportService
+from app.db.dynamo.users import User
 
 
 def get_unique_name(base_name: str) -> str:

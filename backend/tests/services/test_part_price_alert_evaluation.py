@@ -29,9 +29,9 @@ from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User
 from app.api.services.part_listing_service import create_or_update_listing_and_price
 from app.api.services.part_price_alert_service import evaluate_alerts_for_listing
+from app.db.dynamo.users import User, UserRepository
 from tests.conftest import get_default_category_id
 
 # --- helpers ----------------------------------------------------------------
@@ -46,10 +46,7 @@ def _make_user(db: Session, suffix: str) -> User:
         email_verified=True,
         disabled=False,
     )
-    db.add(u)
-    db.flush()
-    db.refresh(u)
-    return u
+    return UserRepository().create_user(u)
 
 
 def _make_part(db: Session, owner: User, *, name: str = "Brake Disc") -> DBPart:

@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.category import Category as DBCategory
-from app.api.models.user import User
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
@@ -43,18 +44,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -551,9 +551,7 @@ class TestBuildLists:
     ) -> None:
         """Test creating a build list with a disabled user account."""
         # Disable the user and commit to database
-        test_user.disabled = True
-        db_session.commit()
-        db_session.refresh(test_user)
+        test_user = UserRepository().update(test_user.id, disabled=True)
 
         # Try to login as disabled user - this should fail
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -568,9 +566,7 @@ class TestBuildLists:
     ) -> None:
         """Test creating a build list with an unverified email user account."""
         # Set email as unverified and commit to database
-        test_user.email_verified = False
-        db_session.commit()
-        db_session.refresh(test_user)
+        test_user = UserRepository().update(test_user.id, email_verified=False)
 
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -781,18 +777,17 @@ class TestBuildLists:
     def test_copy_build_list_ownership(self, client: TestClient, test_user: User, db_session: Session) -> None:
         """Test that copied build list is owned by the current user."""
         # Create a second user to own the original build list
-        original_owner = DBUser(
-            username=get_unique_name("original_owner"),
-            email=f"{get_unique_name('original_owner')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        original_owner = UserRepository().create_user(
+            DBUser(
+                username=get_unique_name("original_owner"),
+                email=f"{get_unique_name('original_owner')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(original_owner)
-        db_session.commit()
-        db_session.refresh(original_owner)
 
         # Login as original owner and create a build list
         original_token = get_auth_token(client, original_owner.username)
@@ -904,18 +899,17 @@ class TestBuildLists:
         build_list = response.json()
 
         # Create a second user to vote
-        voter = DBUser(
-            username=get_unique_name("voter"),
-            email=f"{get_unique_name('voter')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        voter = UserRepository().create_user(
+            DBUser(
+                username=get_unique_name("voter"),
+                email=f"{get_unique_name('voter')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(voter)
-        db_session.commit()
-        db_session.refresh(voter)
 
         # Login as voter and upvote the build list
         voter_token = get_auth_token(client, voter.username)
@@ -1144,18 +1138,17 @@ class TestBuildLists:
         owned_build_list = response.json()
 
         # Create a second user with their own build list
-        other_user = DBUser(
-            username=get_unique_name("other_owner"),
-            email=f"{get_unique_name('other_owner')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        other_user = UserRepository().create_user(
+            DBUser(
+                username=get_unique_name("other_owner"),
+                email=f"{get_unique_name('other_owner')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
-        db_session.refresh(other_user)
         other_token = get_auth_token(client, other_user.username)
         other_headers = get_auth_headers(other_token)
         other_build_list_data = {
@@ -1201,18 +1194,17 @@ class TestBuildLists:
 
         # Create multiple users to vote
         for i in range(3):
-            voter = DBUser(
-                username=get_unique_name(f"voter_{i}"),
-                email=f"{get_unique_name(f'voter_{i}')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
-                email_verified=True,
-                disabled=False,
-                is_admin=False,
-                is_superuser=False,
+            voter = UserRepository().create_user(
+                DBUser(
+                    username=get_unique_name(f"voter_{i}"),
+                    email=f"{get_unique_name(f'voter_{i}')}@example.com",
+                    hashed_password=get_password_hash("testpassword"),
+                    email_verified=True,
+                    disabled=False,
+                    is_admin=False,
+                    is_superuser=False,
+                )
             )
-            db_session.add(voter)
-            db_session.commit()
-            db_session.refresh(voter)
 
             # Login as voter and upvote
             voter_token = get_auth_token(client, voter.username)
@@ -1227,18 +1219,17 @@ class TestBuildLists:
             assert response.status_code == 200
 
         # Create one downvote
-        downvoter = DBUser(
-            username=get_unique_name("downvoter"),
-            email=f"{get_unique_name('downvoter')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        downvoter = UserRepository().create_user(
+            DBUser(
+                username=get_unique_name("downvoter"),
+                email=f"{get_unique_name('downvoter')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(downvoter)
-        db_session.commit()
-        db_session.refresh(downvoter)
 
         downvoter_token = get_auth_token(client, downvoter.username)
         downvoter_headers = get_auth_headers(downvoter_token)

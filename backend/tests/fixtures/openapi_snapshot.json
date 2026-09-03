@@ -2083,6 +2083,77 @@
         "title": "CreatePartAndAddToBuildListRequest",
         "type": "object"
       },
+      "CursorPage_Union_UserRead__PublicUserRead__": {
+        "properties": {
+          "has_next": {
+            "default": false,
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/UserRead"
+                },
+                {
+                  "$ref": "#/components/schemas/PublicUserRead"
+                }
+              ]
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CursorPage[Union[UserRead, PublicUserRead]]",
+        "type": "object"
+      },
+      "CursorPage_UserRead_": {
+        "properties": {
+          "has_next": {
+            "default": false,
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CursorPage[UserRead]",
+        "type": "object"
+      },
       "DeleteAllCarsResponse": {
         "description": "Response for delete-all cars (admin only).",
         "properties": {
@@ -14234,6 +14305,24 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "Opaque cursor for the next page of user results",
+            "in": "query",
+            "name": "users_cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor for the next page of user results",
+              "title": "Users Cursor"
+            }
           }
         ],
         "responses": {
@@ -14271,36 +14360,8 @@
     },
     "/api/users/": {
       "get": {
-        "description": "List all users with pagination and search.\n\nReturns full UserRead (with email_verified and totp_enabled) for each user if:\n- The current user is an admin\n- The current user is a superuser\n\nOtherwise returns PublicUserRead (without sensitive fields) for each user.",
         "operationId": "list_users_api_users__get",
         "parameters": [
-          {
-            "description": "Number of users to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of users to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of users to return",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Maximum number of users to return",
-              "maximum": 1000,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
           {
             "description": "Search in usernames and emails",
             "in": "query",
@@ -14318,6 +14379,38 @@
               "description": "Search in usernames and emails",
               "title": "Search"
             }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum number of items to return",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -14325,18 +14418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "#/components/schemas/UserRead"
-                      },
-                      {
-                        "$ref": "#/components/schemas/PublicUserRead"
-                      }
-                    ]
-                  },
-                  "title": "Response List Users Api Users  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_Union_UserRead__PublicUserRead__"
                 }
               }
             },
@@ -14364,7 +14446,6 @@
         ]
       },
       "post": {
-        "description": "Creates a new user in the database.",
         "operationId": "create_user_api_users__post",
         "requestBody": {
           "content": {
@@ -14408,36 +14489,8 @@
     },
     "/api/users/admin/users": {
       "get": {
-        "description": "Get all users (admin only) with pagination and search.",
         "operationId": "get_all_users_api_users_admin_users_get",
         "parameters": [
-          {
-            "description": "Number of users to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of users to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of users to return",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Maximum number of users to return",
-              "maximum": 1000,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
           {
             "description": "Search in usernames and emails",
             "in": "query",
@@ -14455,6 +14508,38 @@
               "description": "Search in usernames and emails",
               "title": "Search"
             }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum number of items to return",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -14462,9 +14547,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get All Users Api Users Admin Users Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CursorPage_UserRead_"
                 }
               }
             },
@@ -14500,7 +14583,6 @@
     },
     "/api/users/admin/users/{user_id}": {
       "delete": {
-        "description": "Delete a user with admin privileges (admin only).",
         "operationId": "admin_delete_user_api_users_admin_users__user_id__delete",
         "parameters": [
           {
@@ -14556,7 +14638,6 @@
         ]
       },
       "put": {
-        "description": "Update a user with admin privileges (admin only).",
         "operationId": "admin_update_user_api_users_admin_users__user_id__put",
         "parameters": [
           {
@@ -14623,8 +14704,7 @@
     },
     "/api/users/count": {
       "get": {
-        "description": "Get total count of entities.",
-        "operationId": "count_entities_api_users_count_get",
+        "operationId": "count_users_api_users_count_get",
         "responses": {
           "200": {
             "content": {
@@ -14633,7 +14713,7 @@
                   "additionalProperties": {
                     "type": "integer"
                   },
-                  "title": "Response Count Entities Api Users Count Get",
+                  "title": "Response Count Users Api Users Count Get",
                   "type": "object"
                 }
               }
@@ -14641,7 +14721,7 @@
             "description": "Count of users"
           }
         },
-        "summary": "Count Entities",
+        "summary": "Count Users",
         "tags": [
           "users"
         ]
@@ -14676,7 +14756,6 @@
     },
     "/api/users/me/profile-picture": {
       "delete": {
-        "description": "Delete the current user's profile picture.\n\nThis endpoint removes the profile picture from storage and clears\nthe user's image_urls field.\n\nArgs:\n    current_user: Authenticated user (from JWT token)\n    db: Database session\n    logger: Logger instance\n\nReturns:\n    UserRead: Updated user object with profile picture removed\n\nRaises:\n    HTTPException: If deletion fails",
         "operationId": "delete_profile_picture_api_users_me_profile_picture_delete",
         "responses": {
           "200": {
@@ -14701,7 +14780,6 @@
         ]
       },
       "post": {
-        "description": "Upload a profile picture for the current user.\n\nThis endpoint uploads the image to storage and automatically updates\nthe user's image_urls field. If the user already has a profile picture,\nthe old one will be deleted from storage.\n\nArgs:\n    file: Image file to upload\n    current_user: Authenticated user (from JWT token)\n    db: Database session\n    logger: Logger instance\n\nReturns:\n    UserRead: Updated user object with new profile picture URL\n\nRaises:\n    HTTPException: If upload fails or validation fails",
         "operationId": "upload_profile_picture_api_users_me_profile_picture_post",
         "requestBody": {
           "content": {
@@ -14748,7 +14826,6 @@
     },
     "/api/users/{user_id}": {
       "delete": {
-        "description": "Delete a user account. Users can only delete their own account.",
         "operationId": "delete_user_api_users__user_id__delete",
         "parameters": [
           {
@@ -14804,7 +14881,6 @@
         ]
       },
       "get": {
-        "description": "Get a user by ID.\n\nReturns full UserRead (with email_verified and totp_enabled) if:\n- The current user is viewing their own profile\n- The current user is an admin\n- The current user is a superuser\n\nOtherwise returns PublicUserRead (without sensitive fields).",
         "operationId": "get_user_api_users__user_id__get",
         "parameters": [
           {

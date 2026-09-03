@@ -3,7 +3,6 @@
 from fastapi import HTTPException
 
 from app.api.models.build_list import BuildList
-from app.api.models.user import User
 from app.api.utils.common_operations import (
     delete_entity,
     validate_pagination_params,
@@ -11,6 +10,7 @@ from app.api.utils.common_operations import (
     verify_entity_exists,
     verify_entity_ownership,
 )
+from app.db.dynamo.users import User, UserRepository
 
 
 class TestCommonOperations:
@@ -57,15 +57,15 @@ class TestCommonOperations:
         """Test verifying ownership when user doesn't own the entity."""
         from app.api.dependencies.auth import get_password_hash
 
-        other_user = User(
-            username="other_user",
-            email="other@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
+        other_user = UserRepository().create_user(
+            User(
+                username="other_user",
+                email="other@example.com",
+                hashed_password=get_password_hash("password"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name="Test Build List",

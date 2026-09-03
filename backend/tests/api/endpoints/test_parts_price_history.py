@@ -18,7 +18,7 @@ from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User
+from app.db.dynamo.users import User
 from tests.conftest import INVALID_UUID_STR, get_default_category_id
 
 PRICE_HISTORY_PATH = "/api/parts/{part_id}/price-history"

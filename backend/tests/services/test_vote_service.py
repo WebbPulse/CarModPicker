@@ -7,10 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
 from app.api.models.part import Part
-from app.api.models.user import User
 from app.api.models.vote import Vote
 from app.api.schemas.vote import EntityType, VoteCreate, VoteType
 from app.api.services.vote_service import VoteService
+from app.db.dynamo.users import User, UserRepository
 
 
 def get_unique_name(base_name: str) -> str:
@@ -206,8 +206,8 @@ class TestVoteService:
             email_verified=True,
             disabled=False,
         )
-        db_session.add_all([user2, user3])
-        db_session.commit()
+        user2 = UserRepository().create_user(user2)
+        user3 = UserRepository().create_user(user3)
 
         service = VoteService()
         logger = logging.getLogger(__name__)
@@ -275,15 +275,15 @@ class TestVoteService:
         # Create multiple build lists with votes
         from app.api.dependencies.auth import get_password_hash
 
-        user2 = User(
-            username=get_unique_name("user4"),
-            email=f"{get_unique_name('user4')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            User(
+                username=get_unique_name("user4"),
+                email=f"{get_unique_name('user4')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
 
         # Create build list with many downvotes (should be flagged)
         build_list = BuildList(
@@ -311,9 +311,7 @@ class TestVoteService:
                 email_verified=True,
                 disabled=False,
             )
-            users.append(user)
-        db_session.add_all(users)
-        db_session.commit()
+            users.append(UserRepository().create_user(user))
 
         # Add downvotes
         for i in range(5):

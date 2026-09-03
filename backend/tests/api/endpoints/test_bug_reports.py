@@ -6,8 +6,8 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.models.user import User
 from app.core.config import settings
+from app.db.dynamo.users import User, UserRepository
 
 
 def get_unique_name(base_name: str) -> str:
@@ -22,25 +22,24 @@ def create_and_login_admin_user(
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     from app.api.dependencies.auth import get_password_hash
-    from app.api.models.user import User as DBUser
+    from app.db.dynamo.users import User as DBUser
 
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}

@@ -10,6 +10,7 @@ from app.api.utils.pagination_utils import (
     get_total_count,
     paginate_query,
 )
+from app.db.dynamo.users import UserRepository
 
 
 class TestPaginationUtils:
@@ -19,17 +20,17 @@ class TestPaginationUtils:
         """Test paginating a query."""
         # Create some build lists
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User
+        from app.db.dynamo.users import User
 
-        user = User(
-            username="test_user_pagination",
-            email="test_pagination@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
+        user = UserRepository().create_user(
+            User(
+                username="test_user_pagination",
+                email="test_pagination@example.com",
+                hashed_password=get_password_hash("password"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user)
-        db_session.commit()
 
         for i in range(5):
             build_list = BuildList(
@@ -48,17 +49,17 @@ class TestPaginationUtils:
     def test_get_total_count(self, db_session) -> None:
         """Test getting total count of a query."""
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User
+        from app.db.dynamo.users import User
 
-        user = User(
-            username="test_user_count",
-            email="test_count@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
+        user = UserRepository().create_user(
+            User(
+                username="test_user_count",
+                email="test_count@example.com",
+                hashed_password=get_password_hash("password"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user)
-        db_session.commit()
 
         for i in range(3):
             build_list = BuildList(
@@ -90,17 +91,17 @@ class TestPaginationUtils:
     def test_apply_search_filter(self, db_session) -> None:
         """Test applying search filter to a query."""
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User
+        from app.db.dynamo.users import User
 
-        user = User(
-            username="test_user_search",
-            email="test_search@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
+        user = UserRepository().create_user(
+            User(
+                username="test_user_search",
+                email="test_search@example.com",
+                hashed_password=get_password_hash("password"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user)
-        db_session.commit()
 
         build_list1 = BuildList(
             name="Test Build List",
@@ -125,17 +126,17 @@ class TestPaginationUtils:
     def test_apply_sorting(self, db_session) -> None:
         """Test applying sorting to a query."""
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User
+        from app.db.dynamo.users import User
 
-        user = User(
-            username="test_user_sort",
-            email="test_sort@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
+        user = UserRepository().create_user(
+            User(
+                username="test_user_sort",
+                email="test_sort@example.com",
+                hashed_password=get_password_hash("password"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user)
-        db_session.commit()
 
         build_list1 = BuildList(
             name="A Build List",
