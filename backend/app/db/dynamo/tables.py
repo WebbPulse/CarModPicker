@@ -292,3 +292,28 @@ def table_by_suffix(suffix: str) -> TableSpec:
         if spec.suffix == suffix:
             return spec
     raise KeyError(f"no table spec with suffix {suffix!r}")
+
+
+def export_table_definitions() -> dict[str, dict[str, Any]]:
+    return {spec.suffix: _table_definition(spec) for spec in TABLES}
+
+
+def _table_definition(spec: TableSpec) -> dict[str, Any]:
+    return {
+        "hash_key": spec.partition_key.name,
+        "range_key": spec.sort_key.name if spec.sort_key is not None else None,
+        "attributes": [
+            {"name": definition["AttributeName"], "type": definition["AttributeType"]}
+            for definition in spec.attribute_definitions()
+        ],
+        "global_secondary_indexes": [
+            {
+                "name": index.name,
+                "hash_key": index.hash_key.name,
+                "range_key": index.range_key.name if index.range_key is not None else None,
+                "projection_type": index.projection,
+            }
+            for index in spec.indexes
+        ],
+        "ttl_attribute": spec.ttl_attribute,
+    }

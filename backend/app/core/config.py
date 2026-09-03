@@ -319,3 +319,7 @@ def get_settings() -> Settings:
 
 # Create settings instance for normal usage
 settings = get_settings()
+
+from app.core.secrets import apply_app_secrets  # noqa: E402
+
+apply_app_secrets(settings)
