@@ -115,6 +115,9 @@ async def read_users_me_route(
     },
 )
 async def count_users() -> Dict[str, int]:
+    """
+    Get total count of users.
+    """
     try:
         count = user_service.count_all(logger=logger)
         return {"count": count}
@@ -129,6 +132,25 @@ async def upload_profile_picture(
     current_user: DBUser = Depends(get_current_user),
     repos: Repositories = Depends(get_repositories),
 ) -> UserRead:
+    """
+    Upload a profile picture for the current user.
+
+    This endpoint uploads the image to storage and automatically updates
+    the user's image_urls field. If the user already has a profile picture,
+    the old one will be deleted from storage.
+
+    Args:
+        file: Image file to upload
+        current_user: Authenticated user (from JWT token)
+        db: Database session
+        logger: Logger instance
+
+    Returns:
+        UserRead: Updated user object with new profile picture URL
+
+    Raises:
+        HTTPException: If upload fails or validation fails
+    """
     try:
         file_key = storage_service.upload_image(
             file=file,
@@ -166,6 +188,23 @@ async def delete_profile_picture(
     current_user: DBUser = Depends(get_current_user),
     repos: Repositories = Depends(get_repositories),
 ) -> UserRead:
+    """
+    Delete the current user's profile picture.
+
+    This endpoint removes the profile picture from storage and clears
+    the user's image_urls field.
+
+    Args:
+        current_user: Authenticated user (from JWT token)
+        db: Database session
+        logger: Logger instance
+
+    Returns:
+        UserRead: Updated user object with profile picture removed
+
+    Raises:
+        HTTPException: If deletion fails
+    """
     old_file_key = (current_user.image_urls or [None])[0]
     if not old_file_key:
         raise HTTPException(
@@ -202,6 +241,16 @@ async def get_user(
     repos: Repositories = Depends(get_repositories),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
 ) -> Union[UserRead, PublicUserRead]:
+    """
+    Get a user by ID.
+
+    Returns full UserRead (with email_verified and totp_enabled) if:
+    - The current user is viewing their own profile
+    - The current user is an admin
+    - The current user is a superuser
+
+    Otherwise returns PublicUserRead (without sensitive fields).
+    """
     db_user = repos.users.get(user_id)
     if not db_user:
         ResponsePatterns.raise_not_found("User", user_id)
@@ -229,6 +278,15 @@ async def list_users(
     repos: Repositories = Depends(get_repositories),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
 ) -> CursorPage[Union[UserRead, PublicUserRead]]:
+    """
+    List all users with pagination and search.
+
+    Returns full UserRead (with email_verified and totp_enabled) for each user if:
+    - The current user is an admin
+    - The current user is a superuser
+
+    Otherwise returns PublicUserRead (without sensitive fields) for each user.
+    """
     users = user_service.get_all_users(search=search, logger=logger)
 
     can_see_sensitive_fields = current_user is not None and (current_user.is_admin or current_user.is_superuser)
@@ -252,6 +310,9 @@ async def create_user(
     user: UserCreate,
     repos: Repositories = Depends(get_repositories),
 ) -> UserRead:
+    """
+    Creates a new user in the database.
+    """
     if repos.users.get_by_username(user.username):
         ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
 
@@ -388,6 +449,9 @@ async def delete_user(
     repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
+    """
+    Delete a user account. Users can only delete their own account.
+    """
     if user_id != current_user.id:
         logger.warning(f"User {current_user.id} attempted to delete user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to delete this user")
@@ -414,6 +478,9 @@ async def get_all_users(
     repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> CursorPage[UserRead]:
+    """
+    Get all users (admin only) with pagination and search.
+    """
     users = user_service.get_all_users(search=search, logger=logger)
     reads = {read.id: read for read in user_reads(users, repos)}
     page = paginate_in_memory(
@@ -443,6 +510,9 @@ async def admin_update_user(
     repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> UserRead:
+    """
+    Update a user with admin privileges (admin only).
+    """
     db_user = repos.users.get(user_id)
     if db_user is None:
         ResponsePatterns.raise_not_found("User", user_id)
@@ -478,6 +548,9 @@ async def admin_delete_user(
     repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> UserRead:
+    """
+    Delete a user with admin privileges (admin only).
+    """
     if user_id == current_user.id:
         ResponsePatterns.raise_bad_request("Cannot delete your own account")
 
