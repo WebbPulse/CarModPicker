@@ -83,7 +83,13 @@ class Settings(BaseSettings):
     def webauthn_origins_list(self) -> list[str]:
         if self.FRONTEND_URL:
             parsed = urlparse(self.frontend_base_url)
-            return [f"{parsed.scheme}://{parsed.netloc}"]
+            origin = f"{parsed.scheme}://{parsed.netloc}"
+            labels = (parsed.hostname or "").split(".")
+            if len(labels) == 2:
+                return [origin, f"{parsed.scheme}://www.{parsed.netloc}"]
+            if len(labels) == 3 and labels[0] == "www":
+                return [origin, f"{parsed.scheme}://{parsed.netloc[4:]}"]
+            return [origin]
         if not self.is_production:
             return ["http://localhost:4000", "http://localhost:8000"]
         if self.APP_ENVIRONMENT.lower() == "staging":
