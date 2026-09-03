@@ -1,7 +1,5 @@
 from .app_settings import AppSettings
-from .associations.crawler_schedule_adapter import CrawlerScheduleAdapter
 from .associations.part_car import part_cars
-from .background_job import BackgroundJob
 from .bug_report import BugReport
 from .build_list import BuildList
 from .build_list_labor_estimate import BuildListLaborEstimate
@@ -12,8 +10,6 @@ from .car_generation import CarGeneration
 from .car_make import CarMake
 from .car_model import CarModel
 from .category import Category
-from .crawler_adapter_config import CrawlerAdapterConfig
-from .crawler_schedule import CrawlerSchedule
 from .image_source_mapping import ImageSourceMapping
 from .oauth_account import OAuthAccount
 from .part import Part
@@ -29,7 +25,6 @@ from .webauthn_credential import WebAuthnCredential
 
 __all__ = [
     "AppSettings",
-    "BackgroundJob",
     "User",
     "CarGeneration",
     "CarModel",
@@ -39,9 +34,6 @@ __all__ = [
     "ImageSourceMapping",
     "OAuthAccount",
     "Category",
-    "CrawlerAdapterConfig",
-    "CrawlerSchedule",
-    "CrawlerScheduleAdapter",
     "PartManufacturer",
     "BuildListLaborEstimate",
     "BuildListPart",

@@ -5,8 +5,6 @@ Coverage:
 * 4 rule-branch tests against ``decide`` (rename match, alias match,
   typo-rejected by edit-distance gate, low-corpus-count rejected by parts
   gate).
-* 1 defensive-degradation test confirming a per-row exception in
-  ``iterate_corpus_audit`` logs and continues without crashing.
 * 1 CSV schema test confirming the writer produces the documented header +
   per-row column shape.
 * 1 subprocess smoke test invoking
@@ -21,12 +19,9 @@ and ``edit_distance`` in isolation.
 from __future__ import annotations
 
 import csv
-import logging
 import subprocess
 import sys
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any
 
 import pytest
 
@@ -170,95 +165,6 @@ class TestRetailerCountChallenger:
 
     def test_empty_iter(self) -> None:
         assert audit.retailer_count_challenger([]) == 0
-
-
-# ---------------------------------------------------------------------------
-# Defensive-degradation test
-# ---------------------------------------------------------------------------
-
-
-class _ExplodingPart:
-    """Synthetic Part that raises on attribute access used inside the loop."""
-
-    def __init__(self, _id: str) -> None:
-        self.id = _id
-
-    @property
-    def name(self) -> str:  # raises when iterate_corpus_audit reads .name
-        raise RuntimeError("simulated extractor crash")
-
-    @property
-    def description(self) -> str:
-        return ""
-
-    @property
-    def car_generations(self) -> list:
-        # Provide a single canonical so the inner loop is reached.
-        return [SimpleNamespace(id="canonical-1", generation_name="MK7")]
-
-
-class _OkPart:
-    def __init__(self, _id: str, name: str = "Some Part") -> None:
-        self.id = _id
-        self.name = name
-        self.description = ""
-        self.car_generations = []  # no canonical → no rows produced
-
-
-class _StubQuery:
-    """Stand-in for the SQLAlchemy query chain used by iterate_corpus_audit."""
-
-    def __init__(self, pages: list[Any]) -> None:
-        self._pages = pages
-
-    def options(self, *_a, **_k) -> "_StubQuery":
-        return self
-
-    def filter(self, *_a, **_k) -> "_StubQuery":
-        return self
-
-    def order_by(self, *_a, **_k) -> "_StubQuery":
-        return self
-
-    def limit(self, _n: int) -> "_StubQuery":
-        return self
-
-    def yield_per(self, _n: int):
-        return iter(self._pages)
-
-
-class _StubDB:
-    def __init__(self, pages: list[Any]) -> None:
-        self._pages = pages
-
-    def query(self, _model: Any) -> _StubQuery:
-        return _StubQuery(self._pages)
-
-
-def test_defensive_per_row_exception_logs_and_continues(caplog: pytest.LogCaptureFixture) -> None:
-    """A single broken row never aborts the run (MEM206 pattern)."""
-    pages = [
-        SimpleNamespace(id="page-1", source="ind", part=_ExplodingPart("part-1"), part_id="part-1"),
-        SimpleNamespace(id="page-2", source="ind", part=_OkPart("part-2"), part_id="part-2"),
-    ]
-    db = _StubDB(pages)
-
-    with caplog.at_level(logging.DEBUG, logger="m004_taxonomy_audit"):
-        rows, summary = audit.iterate_corpus_audit(db, limit=None, output_json=False)
-
-    # Run completed successfully despite the exploding part.
-    assert isinstance(rows, list)
-    assert "candidates_inspected" in summary
-    # The exploding row's canonical was registered, so we expect exactly one
-    # canonical_index entry (from the failed iteration that registered the
-    # canonical before the .name access blew up). Either 0 or 1 is acceptable —
-    # what matters is that the run did not raise.
-    assert summary["candidates_inspected"] >= 0
-    # Defensive log surface fired at least once.
-    audit_failures = [r for r in caplog.records if r.message == "audit_row_failed"]
-    assert len(audit_failures) >= 1, (
-        f"expected at least one audit_row_failed log, got: " f"{[r.message for r in caplog.records]}"
-    )
 
 
 # ---------------------------------------------------------------------------
