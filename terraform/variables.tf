@@ -15,11 +15,56 @@ variable "environment" {
   }
 }
 
+variable "legacy_stack_enabled" {
+  description = "Provision the RDS + App Runner stack. null = enabled in production, never in staging."
+  type        = bool
+  default     = null
+  nullable    = true
+}
+
+variable "api_target" {
+  description = "Which backend api.<domain_name> points at: 'legacy' (App Runner) or 'lambda' (HTTP API)."
+  type        = string
+  default     = "legacy"
+
+  validation {
+    condition     = contains(["legacy", "lambda"], var.api_target)
+    error_message = "api_target must be 'legacy' or 'lambda'."
+  }
+}
+
+variable "custom_domain_enabled" {
+  description = "Provision Route53, ACM and custom hostnames. null = production or staging_profile 'full'."
+  type        = bool
+  default     = null
+  nullable    = true
+}
+
+variable "domain_name" {
+  description = "Apex domain served by this environment"
+  type        = string
+  default     = "carmodpicker.com"
+}
+
+variable "api_throttle_burst_limit" {
+  description = "HTTP API $default stage throttling burst limit"
+  type        = number
+  default     = 50
+}
+
+variable "api_throttle_rate_limit" {
+  description = "HTTP API $default stage steady-state requests per second"
+  type        = number
+  default     = 25
+}
+
 # Database
 variable "db_password" {
-  description = "Master password for the RDS PostgreSQL instance"
+  description = "Master password for the RDS PostgreSQL instance. Required only when the legacy stack is enabled."
   type        = string
   sensitive   = true
+  default     = null
+  nullable    = true
 }
 
 variable "db_instance_class" {

@@ -1,12 +1,21 @@
 resource "aws_route53_zone" "carmodpicker" {
-  name = "carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  name = var.domain_name
+}
+
+moved {
+  from = aws_route53_zone.carmodpicker
+  to   = aws_route53_zone.carmodpicker[0]
 }
 
 # Apex → CloudFront (redirect to www is done by the CloudFront viewer-request
 # function so we don't need a separate S3 website bucket to handle it).
 resource "aws_route53_record" "apex_a" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = var.domain_name
   type    = "A"
 
   alias {
@@ -14,12 +23,19 @@ resource "aws_route53_record" "apex_a" {
     zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
     evaluate_target_health = false
   }
+}
+
+moved {
+  from = aws_route53_record.apex_a
+  to   = aws_route53_record.apex_a[0]
 }
 
 # www → CloudFront distribution
 resource "aws_route53_record" "www" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "www.carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = "www.${var.domain_name}"
   type    = "A"
 
   alias {
@@ -29,20 +45,49 @@ resource "aws_route53_record" "www" {
   }
 }
 
+moved {
+  from = aws_route53_record.www
+  to   = aws_route53_record.www[0]
+}
+
 # api → App Runner service URL
 resource "aws_route53_record" "api" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "api.carmodpicker.com"
+  count = local.custom_domain && local.legacy_stack && var.api_target == "legacy" ? 1 : 0
+
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = "api.${var.domain_name}"
   type    = "CNAME"
   ttl     = 60
-  records = [aws_apprunner_service.backend.service_url]
+  records = [aws_apprunner_service.backend[0].service_url]
+}
+
+moved {
+  from = aws_route53_record.api
+  to   = aws_route53_record.api[0]
+}
+
+# api → HTTP API custom domain
+resource "aws_route53_record" "api_lambda" {
+  count = local.custom_domain && var.api_target == "lambda" ? 1 : 0
+
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = "api.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_apigatewayv2_domain_name.api[0].domain_name_configuration[0].target_domain_name
+    zone_id                = aws_apigatewayv2_domain_name.api[0].domain_name_configuration[0].hosted_zone_id
+    evaluate_target_health = false
+  }
 }
 
 # Apex TXT records. Route53 stores all TXT records at the same name in a
 # single RRSet, so SPF and domain-verification strings share one resource.
 resource "aws_route53_record" "spf" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = var.domain_name
   type    = "TXT"
   ttl     = 300
   records = [
@@ -51,23 +96,35 @@ resource "aws_route53_record" "spf" {
   ]
 }
 
+moved {
+  from = aws_route53_record.spf
+  to   = aws_route53_record.spf[0]
+}
+
 # Google Search Console domain ownership verification for www.carmodpicker.com
 resource "aws_route53_record" "www_google_site_verification" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "www.carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = "www.${var.domain_name}"
   type    = "TXT"
   ttl     = 300
   records = ["google-site-verification=kJMc_JNCEf4utqVGE2_00H14I1TUKJKUakLPbvq13_8"]
 }
 
+moved {
+  from = aws_route53_record.www_google_site_verification
+  to   = aws_route53_record.www_google_site_verification[0]
+}
+
 # SES DKIM verification records
 resource "aws_route53_record" "ses_dkim" {
-  count   = 3
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "${aws_sesv2_email_identity.domain.dkim_signing_attributes[0].tokens[count.index]}._domainkey.carmodpicker.com"
+  count   = local.custom_domain ? 3 : 0
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = "${aws_sesv2_email_identity.domain[0].dkim_signing_attributes[0].tokens[count.index]}._domainkey.${var.domain_name}"
   type    = "CNAME"
   ttl     = 60
-  records = ["${aws_sesv2_email_identity.domain.dkim_signing_attributes[0].tokens[count.index]}.dkim.amazonses.com"]
+  records = ["${aws_sesv2_email_identity.domain[0].dkim_signing_attributes[0].tokens[count.index]}.dkim.amazonses.com"]
 }
 
 moved {
@@ -87,28 +144,49 @@ moved {
 
 # Custom MAIL FROM domain records (SPF alignment for DMARC)
 resource "aws_route53_record" "ses_mail_from_mx" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "bounce.carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = "bounce.${var.domain_name}"
   type    = "MX"
   ttl     = 300
-  records = ["10 feedback-smtp.us-west-2.amazonses.com"]
+  records = ["10 feedback-smtp.${var.aws_region}.amazonses.com"]
+}
+
+moved {
+  from = aws_route53_record.ses_mail_from_mx
+  to   = aws_route53_record.ses_mail_from_mx[0]
 }
 
 resource "aws_route53_record" "ses_mail_from_spf" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "bounce.carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = "bounce.${var.domain_name}"
   type    = "TXT"
   ttl     = 300
   records = ["v=spf1 include:amazonses.com ~all"]
 }
 
+moved {
+  from = aws_route53_record.ses_mail_from_spf
+  to   = aws_route53_record.ses_mail_from_spf[0]
+}
+
 # DMARC policy record
 resource "aws_route53_record" "dmarc" {
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = "_dmarc.carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = "_dmarc.${var.domain_name}"
   type    = "TXT"
   ttl     = 60
   records = ["v=DMARC1; p=none;"]
+}
+
+moved {
+  from = aws_route53_record.dmarc
+  to   = aws_route53_record.dmarc[0]
 }
 
 # App Runner custom domain validation records (Stage 2 — now active)
@@ -116,11 +194,11 @@ resource "aws_route53_record" "dmarc" {
 # count=2 because App Runner always emits exactly 2 validation records; using
 # for_each here is blocked by Terraform since the keys are unknown until apply.
 resource "aws_route53_record" "apprunner_validation" {
-  count = 2
+  count = local.custom_domain && local.legacy_stack ? 2 : 0
 
-  zone_id = aws_route53_zone.carmodpicker.zone_id
-  name    = tolist(aws_apprunner_custom_domain_association.api.certificate_validation_records)[count.index].name
-  type    = tolist(aws_apprunner_custom_domain_association.api.certificate_validation_records)[count.index].type
+  zone_id = aws_route53_zone.carmodpicker[0].zone_id
+  name    = tolist(aws_apprunner_custom_domain_association.api[0].certificate_validation_records)[count.index].name
+  type    = tolist(aws_apprunner_custom_domain_association.api[0].certificate_validation_records)[count.index].type
   ttl     = 60
-  records = [tolist(aws_apprunner_custom_domain_association.api.certificate_validation_records)[count.index].value]
+  records = [tolist(aws_apprunner_custom_domain_association.api[0].certificate_validation_records)[count.index].value]
 }

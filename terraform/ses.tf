@@ -37,7 +37,9 @@ resource "aws_sesv2_configuration_set" "transactional" {
 # Import: terraform import aws_sesv2_email_identity.domain carmodpicker.com
 # ---------------------------------------------------------------------------
 resource "aws_sesv2_email_identity" "domain" {
-  email_identity         = "carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  email_identity         = var.domain_name
   configuration_set_name = aws_sesv2_configuration_set.transactional.configuration_set_name
 
   dkim_signing_attributes {
@@ -47,6 +49,20 @@ resource "aws_sesv2_email_identity" "domain" {
   tags = { Name = "${local.prefix}-ses-domain" }
 }
 
+moved {
+  from = aws_sesv2_email_identity.domain
+  to   = aws_sesv2_email_identity.domain[0]
+}
+
+resource "aws_sesv2_email_identity" "sender" {
+  count = local.custom_domain ? 0 : 1
+
+  email_identity         = var.email_from
+  configuration_set_name = aws_sesv2_configuration_set.transactional.configuration_set_name
+
+  tags = { Name = "${local.prefix}-ses-sender" }
+}
+
 # ---------------------------------------------------------------------------
 # Custom MAIL FROM domain
 # Sets the envelope sender to bounce.carmodpicker.com so SPF aligns with
@@ -54,17 +70,31 @@ resource "aws_sesv2_email_identity" "domain" {
 # The matching MX + SPF records are in route53.tf.
 # ---------------------------------------------------------------------------
 resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
-  email_identity         = aws_sesv2_email_identity.domain.email_identity
-  mail_from_domain       = "bounce.carmodpicker.com"
+  count = local.custom_domain ? 1 : 0
+
+  email_identity         = aws_sesv2_email_identity.domain[0].email_identity
+  mail_from_domain       = "bounce.${var.domain_name}"
   behavior_on_mx_failure = "USE_DEFAULT_VALUE"
+}
+
+moved {
+  from = aws_sesv2_email_identity_mail_from_attributes.domain
+  to   = aws_sesv2_email_identity_mail_from_attributes.domain[0]
 }
 
 # ---------------------------------------------------------------------------
 # Feedback forwarding — disabled; SNS event destination handles this instead.
 # ---------------------------------------------------------------------------
 resource "aws_sesv2_email_identity_feedback_attributes" "domain" {
-  email_identity           = aws_sesv2_email_identity.domain.email_identity
+  count = local.custom_domain ? 1 : 0
+
+  email_identity           = aws_sesv2_email_identity.domain[0].email_identity
   email_forwarding_enabled = false
+}
+
+moved {
+  from = aws_sesv2_email_identity_feedback_attributes.domain
+  to   = aws_sesv2_email_identity_feedback_attributes.domain[0]
 }
 
 # ---------------------------------------------------------------------------
