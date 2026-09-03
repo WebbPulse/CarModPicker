@@ -20,7 +20,6 @@ from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.car_generation import CarGeneration as DBCar
 from app.api.models.part_listing import PartListing as DBPartListing
-from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.build_list import (
     MAX_IMAGES_PER_BUILDLIST,
@@ -52,6 +51,7 @@ from app.api.utils.endpoint_decorators import (
     standard_responses,
 )
 from app.api.utils.pagination_utils import create_paginated_response
+from app.db.dynamo.users import User as DBUser
 
 # Create router
 router = APIRouter()

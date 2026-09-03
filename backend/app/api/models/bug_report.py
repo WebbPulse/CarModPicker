@@ -1,15 +1,12 @@
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
-from sqlalchemy import ForeignKey, Index, Uuid
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Index, Uuid
+from sqlalchemy.orm import Mapped, mapped_column
 from uuid6 import uuid7
 
 from app.db.base_class import Base
-
-if TYPE_CHECKING:
-    from .user import User
 
 
 class BugReport(Base):
@@ -20,9 +17,7 @@ class BugReport(Base):
     __tablename__ = "bug_reports"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
-    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )  # Allow anonymous reports
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid(as_uuid=True), nullable=True)
 
     # Bug report fields
     title: Mapped[str] = mapped_column(nullable=False)
@@ -40,17 +35,11 @@ class BugReport(Base):
     )  # 'pending', 'in_progress', 'resolved', 'dismissed'
     priority: Mapped[str] = mapped_column(default="medium", nullable=False)  # 'low', 'medium', 'high', 'critical'
     admin_notes: Mapped[Optional[str]] = mapped_column(nullable=True)
-    assigned_to: Mapped[Optional[uuid.UUID]] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
-    )
+    assigned_to: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid(as_uuid=True), nullable=True, index=True)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-
-    # Relationships
-    reporter: Mapped[Optional["User"]] = relationship("User", foreign_keys=[user_id])
-    assignee: Mapped[Optional["User"]] = relationship("User", foreign_keys=[assigned_to])
 
     __table_args__ = (
         Index("ix_bug_reports_status", "status"),

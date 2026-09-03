@@ -104,10 +104,18 @@ class UserRepository(DynamoRepository[User]):
 
     def search(self, term: str) -> list[User]:
         needle = term.lower()
-        return self.scan_all(filter_expression=Attr("username_lower").contains(needle) | Attr("email_lower").contains(needle))
+        return self.scan_all(
+            filter_expression=Attr("username_lower").contains(needle) | Attr("email_lower").contains(needle)
+        )
 
     def count(self) -> int:
         return len(self.scan_all())
+
+    def list_active_superusers(self) -> list[User]:
+        return self.scan_all(filter_expression=Attr("is_superuser").eq(True) & Attr("disabled").eq(False))
+
+    def list_service_accounts(self) -> list[User]:
+        return self.scan_all(filter_expression=Attr("is_service_account").eq(True))
 
     def create_actions(self, user: User) -> tuple[list[dict[str, Any]], list[str | None]]:
         owner = str(user.id)
@@ -159,6 +167,9 @@ class OAuthAccountRepository(DynamoRepository[OAuthAccount]):
     def __init__(self) -> None:
         super().__init__(OAuthAccount, OAUTH_ACCOUNTS)
 
+    def count(self) -> int:
+        return len(self.scan_all())
+
     def get_by_provider_account(self, provider: str, provider_account_id: str) -> OAuthAccount | None:
         page = self.query("provider_account_key-index", composite_key(provider, provider_account_id), limit=1)
         return page.items[0] if page.items else None
@@ -194,7 +205,9 @@ class OAuthAccountRepository(DynamoRepository[OAuthAccount]):
         transact_write(
             [
                 self.delete_action(account.id),
-                self.release_unique_action(PROVIDER_ACCOUNT, composite_key(account.provider, account.provider_account_id)),
+                self.release_unique_action(
+                    PROVIDER_ACCOUNT, composite_key(account.provider, account.provider_account_id)
+                ),
                 self.release_unique_action(USER_PROVIDER, composite_key(account.user_id, account.provider)),
             ]
         )
@@ -207,6 +220,9 @@ class OAuthAccountRepository(DynamoRepository[OAuthAccount]):
 class WebAuthnCredentialRepository(DynamoRepository[WebAuthnCredential]):
     def __init__(self) -> None:
         super().__init__(WebAuthnCredential, WEBAUTHN_CREDENTIALS)
+
+    def count(self) -> int:
+        return len(self.scan_all())
 
     def get_by_credential_id(self, credential_id: bytes) -> WebAuthnCredential | None:
         page = self.query("credential_id-index", credential_id, limit=1)

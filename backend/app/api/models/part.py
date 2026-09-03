@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from .part_listing import PartListing
     from .part_manufacturer import PartManufacturer
     from .report import Report
-    from .user import User
     from .vote import Vote
 
 
@@ -32,7 +31,7 @@ class Part(Base):
     category_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("categories.id"), nullable=False, index=True
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     is_universal: Mapped[bool] = mapped_column(default=False, nullable=False)
     """When True, part fits all cars; no need to list every car_id in part_cars."""
     part_manufacturer_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -62,7 +61,6 @@ class Part(Base):
 
     # Relationships
     category: Mapped["Category"] = relationship("Category", back_populates="parts")
-    creator: Mapped["User"] = relationship("User", back_populates="parts")
     car_generations: Mapped[List["CarGeneration"]] = relationship(
         "CarGeneration",
         secondary=part_cars,

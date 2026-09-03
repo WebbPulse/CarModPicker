@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.part import Part as DBPart
 from app.api.models.report import Report as DBReport
-from app.api.models.user import User as DBUser
 from app.api.schemas.report import (
     EntityType,
     ReportCreate,
@@ -22,6 +21,7 @@ from app.api.schemas.report import (
     ReportWithDetails,
 )
 from app.api.utils.common_operations import verify_entity_exists
+from app.db.dynamo.users import UserRepository
 
 
 class ReportService:
@@ -33,8 +33,7 @@ class ReportService:
     """
 
     def __init__(self) -> None:
-        """Initialize the unified report service."""
-        pass
+        self.users = UserRepository()
 
     def create_report(
         self,
@@ -159,11 +158,7 @@ class ReportService:
         Returns:
             Tuple of (list of reports with details, total count)
         """
-        base_stmt = select(
-            DBReport,
-            DBUser.username.label("reporter_username"),
-            DBUser.id.label("reporter_id"),
-        ).join(DBUser, DBReport.user_id == DBUser.id)
+        base_stmt = select(DBReport)
 
         if entity_type:
             base_stmt = base_stmt.where(DBReport.entity_type == entity_type.value)
@@ -174,18 +169,19 @@ class ReportService:
         # Get total count before pagination
         total_count = db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
 
-        # Get entity details based on type
-        entity_details: List[ReportWithDetails] = []
-        for report, reporter_username, _ in db.execute(
-            base_stmt.order_by(desc(DBReport.created_at)).offset(skip).limit(limit)
-        ).all():
-            entity = self._get_entity_details(db, report.entity_type, report.entity_id)
+        reports = db.scalars(base_stmt.order_by(desc(DBReport.created_at)).offset(skip).limit(limit)).all()
+        user_ids = [report.user_id for report in reports] + [
+            report.reviewed_by for report in reports if report.reviewed_by
+        ]
+        users_by_id = self.users.get_many(user_ids)
 
-            # Get reviewer username if reviewed
-            reviewer_username = None
-            if report.reviewed_by:
-                reviewer = db.scalars(select(DBUser).where(DBUser.id == report.reviewed_by)).first()
-                reviewer_username = reviewer.username if reviewer else None
+        entity_details: List[ReportWithDetails] = []
+        for report in reports:
+            entity = self._get_entity_details(db, report.entity_type, report.entity_id)
+            reporter = users_by_id.get(report.user_id)
+            reporter_username = reporter.username if reporter else ""
+            reviewer = users_by_id.get(report.reviewed_by) if report.reviewed_by else None
+            reviewer_username = reviewer.username if reviewer else None
 
             entity_details.append(
                 ReportWithDetails(
@@ -337,21 +333,10 @@ class ReportService:
         Returns:
             Report with details if found and authorized, None otherwise
         """
-        # Query the report with user details
-        result = db.execute(
-            select(
-                DBReport,
-                DBUser.username.label("reporter_username"),
-                DBUser.id.label("reporter_id"),
-            )
-            .join(DBUser, DBReport.user_id == DBUser.id)
-            .where(DBReport.id == report_id)
-        ).first()
+        report = db.scalars(select(DBReport).where(DBReport.id == report_id)).first()
 
-        if not result:
+        if not report:
             return None
-
-        report, reporter_username, _ = result
 
         # Authorization check: user can only see their own reports unless they're admin
         if not is_admin and report.user_id != current_user_id:
@@ -360,11 +345,10 @@ class ReportService:
         # Get entity details
         entity = self._get_entity_details(db, report.entity_type, report.entity_id)
 
-        # Get reviewer username if reviewed
-        reviewer_username = None
-        if report.reviewed_by:
-            reviewer = db.scalars(select(DBUser).where(DBUser.id == report.reviewed_by)).first()
-            reviewer_username = reviewer.username if reviewer else None
+        reporter = self.users.get(report.user_id)
+        reporter_username = reporter.username if reporter else ""
+        reviewer = self.users.get(report.reviewed_by) if report.reviewed_by else None
+        reviewer_username = reviewer.username if reviewer else None
 
         return ReportWithDetails(
             id=report.id,

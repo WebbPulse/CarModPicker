@@ -11,8 +11,6 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt import InvalidTokenError
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     ALGORITHM,
@@ -22,16 +20,17 @@ from app.api.dependencies.auth import (
     get_password_hash,
     verify_password,
 )
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.auth import (
     NewPassword,
     TOTPLoginRequest,
 )
 from app.api.schemas.user import UserRead
+from app.api.services.user_service import user_read
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
 from app.core.email import send_reset_password_email, send_verify_email
-from app.db.session import get_db
+from app.db.dynamo.users import User as DBUser
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -40,7 +39,7 @@ router = APIRouter()
 @router.post("/token")
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str | UserRead | bool]:
     """
     Authenticate user and return access token and user details.
@@ -48,7 +47,7 @@ async def login_for_access_token(
     If 2FA is enabled, returns requires_2fa: true and user must call /token/2fa to complete login.
     Returns Bearer token in response body for standard OAuth2 flow.
     """
-    user = db.scalars(select(DBUser).where(DBUser.username == form_data.username)).first()
+    user = repos.users.get_by_username(form_data.username)
     if not user or not verify_password(form_data.password, user.hashed_password):
         logger.warning(f"Failed login attempt for username: {form_data.username}")
         ResponsePatterns.raise_unauthorized("Incorrect username or password", headers={"WWW-Authenticate": "Bearer"})
@@ -75,20 +74,20 @@ async def login_for_access_token(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": UserRead.model_validate(user),
+        "user": user_read(user, repos),
     }
 
 
 @router.post("/token/2fa")
 async def login_with_2fa(
     request: TOTPLoginRequest,
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str | UserRead]:
     """
     Complete login with 2FA OTP code.
     User must have called /token first to verify username/password.
     """
-    user = db.scalars(select(DBUser).where(DBUser.username == request.username)).first()
+    user = repos.users.get_by_username(request.username)
     if not user:
         logger.warning(f"2FA login attempt for non-existent user: {request.username}")
         ResponsePatterns.raise_unauthorized("Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
@@ -128,17 +127,17 @@ async def login_with_2fa(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": UserRead.model_validate(user),
+        "user": user_read(user, repos),
     }
 
 
 @router.post("/verify-email")
 async def verify_email(
     email: str = Body(..., embed=True),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str]:
     """Send verification email to user."""
-    user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
+    user = repos.users.get_by_email(email)
     if not user:
         logger.warning(f"Email verification requested for non-existent email: {email}")
         ResponsePatterns.raise_not_found("User")
@@ -165,7 +164,7 @@ async def verify_email(
 @router.get("/verify-email/confirm")
 async def verify_email_confirm(
     token: str = Query(...),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> RedirectResponse:
     """Confirm email verification with token."""
     if settings.DEBUG:
@@ -185,7 +184,7 @@ async def verify_email_confirm(
                 status_code=302,
             )
 
-        user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
+        user = repos.users.get_by_email(email)
         if not user:
             logger.warning(f"Email verification attempted for non-existent user: {email}")
             return RedirectResponse(
@@ -200,8 +199,7 @@ async def verify_email_confirm(
                 status_code=302,
             )
 
-        user.email_verified = True
-        db.commit()
+        repos.users.update(user.id, email_verified=True)
         logger.info(f"Email verified successfully for user: {email}")
         return RedirectResponse(
             url=f"{frontend_base_url}?status=success&message=Email+verified+successfully",
@@ -225,10 +223,10 @@ async def verify_email_confirm(
 @router.post("/reset-password")
 async def reset_password(
     email: str = Body(..., embed=True),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str]:
     """Send password reset email to user."""
-    user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
+    user = repos.users.get_by_email(email)
     if not user:
         logger.warning(f"Password reset requested for non-existent email: {email}")
         # Don't reveal if email exists or not for security
@@ -254,7 +252,7 @@ async def reset_password(
 async def reset_password_confirm(
     token: str = Body(..., embed=True),
     new_password: NewPassword = Body(...),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str]:
     """Confirm password reset with token and new password."""
     try:
@@ -266,15 +264,14 @@ async def reset_password_confirm(
             logger.warning("Invalid password reset token")
             ResponsePatterns.raise_bad_request("Invalid or expired reset token")
 
-        user = db.scalars(select(DBUser).where(DBUser.email == email)).first()
+        user = repos.users.get_by_email(email)
         if not user:
             logger.warning(f"Password reset attempted for non-existent user: {email}")
             ResponsePatterns.raise_not_found("User")
 
         # Hash the new password
         hashed_password = get_password_hash(new_password.password)
-        user.hashed_password = hashed_password
-        db.commit()
+        repos.users.update(user.id, hashed_password=hashed_password)
 
         logger.info(f"Password reset successfully for user: {email}")
         return {"message": "Password reset successfully"}

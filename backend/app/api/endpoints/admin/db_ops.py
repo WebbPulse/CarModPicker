@@ -19,11 +19,11 @@ from app.api.models.car_make import CarMake as DBMake
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.utils.endpoint_decorators import standard_responses
 from app.core.init_cars import init_car_generations
 from app.core.init_categories import init_part_categories
+from app.db.dynamo.users import User as DBUser
 from app.db.session import SessionLocal, get_db
 
 logger = logging.getLogger(__name__)

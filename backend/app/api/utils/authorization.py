@@ -8,7 +8,7 @@ from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.user import User as DBUser
+from app.db.dynamo.users import User as DBUser
 
 
 def can_delete_part(user: DBUser, part: DBPart) -> bool:

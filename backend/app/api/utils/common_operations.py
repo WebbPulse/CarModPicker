@@ -12,8 +12,8 @@ from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.api.models.user import User as DBUser
 from app.api.protocols import HasId
+from app.db.dynamo.users import User as DBUser
 
 # Generic type for different models - bound to HasId protocol to ensure id attribute exists
 ModelType = TypeVar("ModelType", bound=HasId)

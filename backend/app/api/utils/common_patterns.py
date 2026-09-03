@@ -28,9 +28,9 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.api.models.user import User as DBUser
 from app.api.protocols import HasId, UserOwnedModel
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.users import User as DBUser
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)

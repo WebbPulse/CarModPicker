@@ -8,10 +8,12 @@ from fastapi import Query
 
 from app.api.schemas.pagination import CursorPage
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.models import DynamoModel
 from app.db.dynamo.repository import Page
 
 T = TypeVar("T")
 U = TypeVar("U")
+TModel = TypeVar("TModel", bound=DynamoModel)
 
 MAX_PAGE_SIZE = 1000
 DEFAULT_PAGE_SIZE = 100
@@ -48,7 +50,7 @@ def decode_position(cursor: str | None) -> dict[str, Any] | None:
     return decoded
 
 
-def page_from_repository(page: Page[T], transform: Callable[[T], U]) -> CursorPage[U]:
+def page_from_repository(page: Page[TModel], transform: Callable[[TModel], U]) -> CursorPage[U]:
     return CursorPage(
         items=[transform(item) for item in page.items],
         next_cursor=page.next_cursor,

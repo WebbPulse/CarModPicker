@@ -8,13 +8,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.build_log import BuildLogPost as DBBuildLogPost
-from app.api.models.user import User as DBUser
 from app.api.schemas.build_log import (
     BuildLogPostCreate,
     BuildLogPostRead,
@@ -32,9 +31,19 @@ from app.api.utils.common_patterns import (
 from app.api.utils.endpoint_decorators import crud_responses
 from app.api.utils.image_utils import get_presigned_url_from_file_key
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.users import User as DBUser
 
 # Create router
 router = APIRouter()
+
+
+def _post_with_author(post: DBBuildLogPost, author: Optional[DBUser]) -> BuildLogPostRead:
+    post_data = BuildLogPostRead.model_validate(post)
+    post_data.author_username = author.username if author else None
+    post_data.author_image_url = (
+        get_presigned_url_from_file_key((author.image_urls or [None])[0]) if author and author.image_urls else None
+    )
+    return post_data
 
 
 @router.get(
@@ -73,6 +82,7 @@ async def get_build_log_by_build_list(
     skip: int = Query(0, ge=0, description="Number of posts to skip"),
     limit: int = Query(10, ge=1, le=100, description="Maximum number of posts to return"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    repos: Repositories = Depends(get_repositories),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> BuildLogReadPaginated:
     """
@@ -108,29 +118,18 @@ async def get_build_log_by_build_list(
         or 0
     )
 
-    # DATA-01: Load paginated posts + eager-load authors via selectinload.
-    # selectinload emits exactly 1 additional IN-clause SELECT for authors
-    # regardless of post count — fixes the old 1+N query pattern.
     posts = db.scalars(
         select(DBBuildLogPost)
         .where(DBBuildLogPost.build_log_id == build_log.id)
         .order_by(DBBuildLogPost.created_at)
-        .options(selectinload(DBBuildLogPost.author))
         .offset(skip)
         .limit(limit)
     ).all()
 
-    # Create response with author usernames and profile pictures
-    posts_with_authors: List[BuildLogPostRead] = []
-    for post in posts:
-        author = post.author  # eager-loaded via selectinload; zero additional queries
-        post_data = BuildLogPostRead.model_validate(post)
-        post_data.author_username = author.username if author else None
-        # Convert file key to presigned URL for profile picture
-        post_data.author_image_url = (
-            get_presigned_url_from_file_key((author.image_urls or [None])[0]) if author and author.image_urls else None
-        )
-        posts_with_authors.append(post_data)
+    authors = repos.users.get_many([post.user_id for post in posts if post.user_id is not None])
+    posts_with_authors: List[BuildLogPostRead] = [
+        _post_with_author(post, authors.get(post.user_id) if post.user_id is not None else None) for post in posts
+    ]
 
     # Create paginated response
     paginated_response = create_paginated_response(
@@ -215,14 +214,7 @@ async def create_build_log_post(
     db.commit()
     db.refresh(post)
 
-    # Load author information
-    author = db.scalars(select(DBUser).where(DBUser.id == post.user_id)).first()
-    post_response = BuildLogPostRead.model_validate(post)
-    post_response.author_username = author.username if author else None
-    # Convert file key to presigned URL for profile picture
-    post_response.author_image_url = (
-        get_presigned_url_from_file_key((author.image_urls or [None])[0]) if author and author.image_urls else None
-    )
+    post_response = _post_with_author(post, current_user)
 
     logger.info(f"User {current_user.id} created post {post.id} in build log {build_log.id}")
 
@@ -238,6 +230,7 @@ async def update_build_log_post(
     post_id: UUID,
     post_data: BuildLogPostUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildLogPostRead:
     """
@@ -283,14 +276,8 @@ async def update_build_log_post(
     db.commit()
     db.refresh(post)
 
-    # Load author information
-    author = db.scalars(select(DBUser).where(DBUser.id == post.user_id)).first()
-    post_response = BuildLogPostRead.model_validate(post)
-    post_response.author_username = author.username if author else None
-    # Convert file key to presigned URL for profile picture
-    post_response.author_image_url = (
-        get_presigned_url_from_file_key((author.image_urls or [None])[0]) if author and author.image_urls else None
-    )
+    author = repos.users.get(post.user_id) if post.user_id is not None else None
+    post_response = _post_with_author(post, author)
 
     logger.info(f"User {current_user.id} updated post {post.id}")
 

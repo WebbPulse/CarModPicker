@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User as DBUser
 from app.api.schemas.retailer import RetailerCreate, RetailerRead, RetailerUpdate
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.part_listing_service import get_or_create_retailer
@@ -29,6 +28,7 @@ from app.api.utils.common_patterns import (
 )
 from app.api.utils.endpoint_decorators import crud_responses
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.users import User as DBUser
 
 
 class RetailerService(BaseCRUDService[DBRetailer, RetailerCreate, RetailerRead, RetailerUpdate]):

@@ -6,14 +6,11 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from app.api.models.user import User as DBUser
-from app.api.schemas.token import TokenData
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.core.config import settings
 from app.core.log_context import user_id_var
-from app.db.session import get_db
+from app.db.dynamo.users import User as DBUser
 
 ALGORITHM = settings.JWT_ALGORITHM
 
@@ -80,7 +77,7 @@ def create_access_token(data: dict[str, Any], expires_delta: Optional[timedelta]
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),  # Bearer token from Authorization header (FastAPI standard)
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> DBUser:
     """
     Decodes JWT Bearer token from Authorization header, validates credentials, and returns the user.
@@ -97,11 +94,10 @@ async def get_current_user(
         username: Optional[str] = payload.get("sub")
         if username is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
     except InvalidTokenError:
         raise credentials_exception
 
-    user = db.scalars(select(DBUser).where(DBUser.username == token_data.username)).first()
+    user = repos.users.get_by_username(username)
     if user is None:
         raise credentials_exception
     if user.disabled:
@@ -114,7 +110,7 @@ async def get_current_user(
 
 async def get_optional_current_user(
     token: Optional[str] = Depends(oauth2_scheme_optional),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> Optional[DBUser]:
     """
     Decodes JWT Bearer token and returns the user, or None if not authenticated.
@@ -129,11 +125,10 @@ async def get_optional_current_user(
         username: Optional[str] = payload.get("sub")
         if username is None:
             return None
-        token_data = TokenData(username=username)
     except InvalidTokenError:
         return None
 
-    user = db.scalars(select(DBUser).where(DBUser.username == token_data.username)).first()
+    user = repos.users.get_by_username(username)
     if user is None or user.disabled or not user.email_verified:
         return None
 
@@ -143,7 +138,7 @@ async def get_optional_current_user(
 
 async def get_current_active_user_optional(
     token: Optional[str] = Depends(oauth2_scheme_optional),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> Optional[DBUser]:
     """
     Optionally returns the current active user if a valid Bearer token is present.
@@ -157,11 +152,10 @@ async def get_current_active_user_optional(
         username: Optional[str] = payload.get("sub")
         if username is None:
             return None  # Invalid token payload
-        token_data = TokenData(username=username)
     except InvalidTokenError:  # Covers expired, invalid signature, etc.
         return None  # Token is invalid or expired
 
-    user = db.scalars(select(DBUser).where(DBUser.username == token_data.username)).first()
+    user = repos.users.get_by_username(username)
     if user is None:
         return None  # User from token not found in DB
 

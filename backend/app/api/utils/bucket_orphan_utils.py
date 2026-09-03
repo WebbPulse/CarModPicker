@@ -10,8 +10,8 @@ from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car_generation import CarGeneration as DBCar
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.part import Part as DBPart
-from app.api.models.user import User as DBUser
 from app.api.utils.image_utils import is_file_key
+from app.db.dynamo.users import UserRepository
 
 
 def get_all_referenced_file_keys(db: Session) -> set[str]:
@@ -34,9 +34,8 @@ def get_all_referenced_file_keys(db: Session) -> set[str]:
     for image_urls in db.scalars(select(DBPart.image_urls)).all():
         _collect_image_urls(image_urls)
 
-    # Users: image_urls
-    for image_urls in db.scalars(select(DBUser.image_urls).where(DBUser.image_urls.isnot(None))).all():
-        _collect_image_urls(image_urls)
+    for user in UserRepository().list_all():
+        _collect_image_urls(user.image_urls)
 
     # Cars: image_urls
     for image_urls in db.scalars(select(DBCar.image_urls).where(DBCar.image_urls.isnot(None))).all():

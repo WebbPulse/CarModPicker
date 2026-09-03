@@ -13,7 +13,6 @@ from app.api.dependencies.auth import get_current_user
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_labor_estimate import BuildListLaborEstimate as DBBuildListLaborEstimate
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
-from app.api.models.user import User as DBUser
 from app.api.schemas.build_list_labor_estimate import (
     BuildListLaborEstimateRead,
     BuildListLaborEstimateUpdate,
@@ -25,6 +24,7 @@ from app.api.utils.common_patterns import (
     verify_user_access_or_admin,
 )
 from app.api.utils.endpoint_decorators import standard_responses
+from app.db.dynamo.users import User as DBUser
 
 router = APIRouter()
 
