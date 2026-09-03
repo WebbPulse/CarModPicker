@@ -47,7 +47,7 @@ Single-region deployment in `us-west-2`. ACM certs for CloudFront live in `us-ea
 | `secretsmanager.tf` | `database-url` (assembled from RDS), `secret-key` (JWT), `sentry-dsn`. |
 | `iam_github_actions.tf` | GitHub OIDC provider + `github-actions-deploy` role. |
 | `monitoring.tf` | Alarms SNS topic, pre-created CW log groups for App Runner + RDS, CloudWatch alarms (App Runner 5xx, RDS CPU/storage/connections/memory). |
-| `management.tf` | AppRegistry application + attribute group, Resource Group, Cost Anomaly Detection, Budgets. |
+| `management.tf` | Tag-based Resource Group (`Project=carmodpicker`), Cost Explorer anomaly monitor (per-service) + daily email subscription, two monthly cost budgets (warn/critical). |
 
 ## Conventions
 

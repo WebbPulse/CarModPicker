@@ -134,7 +134,7 @@ feature/* ──PR──▶ staging ──PR──▶ main
 - Hotfixes branch from `main` and PR into `main`, then are immediately back-merged `main` → `staging`. Skipping the back-merge is how the branches silently diverge.
 - Both accounts are `us-west-2`. Terraform Cloud org is `WebbPulse`.
 
-**Protection is convention only.** The WebbPulse org is on GitHub Free, so every repo — public and private — runs the same configuration: no branch protection, no rulesets. The real gate is Terraform Cloud manual apply on the production workspace: a merge cannot change AWS, only an apply can. CI runs on every PR but is not blocking — you have to read it.
+**Protection is enforced by rulesets, with one bypass.** The WebbPulse org is on the GitHub Team plan, and repository rulesets cover both `main` and `staging`: pull request required, force-push and deletion blocked. The repository-admin role can bypass them, so the rulesets stop mistakes, not a determined admin. The real gate is Terraform Cloud manual apply on the production workspace: a merge cannot change AWS, only an apply can. CI runs on every PR but is not blocking — you have to read it.
 
 ### Workflows
 
@@ -157,7 +157,7 @@ The three deploy workflows are fully independent — a backend merge never rebui
 
 ### Environment-scoped variables
 
-Deploy variables are currently **repo-scoped**, and a repo-scoped variable is single-valued: a `staging` push reading `AWS_DEPLOY_ROLE_ARN` assumes the production role and deploys into 734702670403. The workflows already declare `environment:`, so the fix is to create a `staging` GitHub Environment (only `production` exists) and redefine these at environment scope **before** the staging branch is created.
+Deploy variables are **environment-scoped**: `AWS_DEPLOY_ROLE_ARN`, `APP_RUNNER_SERVICE_ARN`, `CLOUDFRONT_DISTRIBUTION_ID`, `ECR_REPOSITORY_NAME` and `FRONTEND_S3_BUCKET` live on the `production` GitHub Environment, not the repository, so a `staging` push cannot silently pick up the production role. The workflows already declare `environment:`; a staging deploy needs a `staging` GitHub Environment (only `production` exists) with the same variables defined for the staging account.
 
 | Workflow | Variables | Secrets |
 |---|---|---|
