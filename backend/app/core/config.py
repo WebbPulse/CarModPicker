@@ -154,6 +154,24 @@ class Settings(BaseSettings):
     # Runtime environment settings
     PORT: int = 8000
     APP_ENVIRONMENT: str = "development"  # Set to "production" on App Runner via Terraform
+    RUN_STARTUP_TASKS: bool = Field(
+        default=True,
+        description="Run lifespan startup work (car generation seed, orphan job sweep). Lambda sets this false.",
+    )
+
+    # DynamoDB settings
+    DYNAMODB_TABLE_PREFIX: str = Field(
+        default="",
+        description="Prefix for every DynamoDB table name. Empty = carmodpicker-<APP_ENVIRONMENT>.",
+    )
+    DYNAMODB_ENDPOINT_URL: str = Field(
+        default="",
+        description="DynamoDB endpoint override (DynamoDB Local). Empty = native AWS endpoint.",
+    )
+
+    @property
+    def dynamodb_table_prefix(self) -> str:
+        return self.DYNAMODB_TABLE_PREFIX or f"carmodpicker-{self.APP_ENVIRONMENT.lower()}"
 
     # Security settings
     @property
