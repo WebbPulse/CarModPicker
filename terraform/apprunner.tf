@@ -84,7 +84,7 @@ resource "aws_iam_role_policy" "apprunner_instance_ses" {
       Effect = "Allow"
       Action = ["ses:SendEmail", "ses:SendRawMessage"]
       Resource = [
-        "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/carmodpicker.com",
+        "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/*",
         "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:configuration-set/carmodpicker-transactional",
       ]
     }]
