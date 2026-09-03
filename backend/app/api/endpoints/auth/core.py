@@ -167,10 +167,7 @@ async def verify_email_confirm(
     repos: Repositories = Depends(get_repositories),
 ) -> RedirectResponse:
     """Confirm email verification with token."""
-    if settings.DEBUG:
-        frontend_base_url = "http://localhost:4000/verify-email/confirm"
-    else:
-        frontend_base_url = "https://www.carmodpicker.com/verify-email/confirm"
+    frontend_base_url = f"{settings.frontend_base_url}/verify-email/confirm"
 
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
@@ -237,10 +234,7 @@ async def reset_password(
         expires_delta=timedelta(hours=1),
     )
 
-    if settings.DEBUG:
-        reset_url = f"http://localhost:4000/forgot-password/confirm?token={token}"
-    else:
-        reset_url = f"https://www.carmodpicker.com/forgot-password/confirm?token={token}"
+    reset_url = f"{settings.frontend_base_url}/forgot-password/confirm?token={token}"
 
     if not send_reset_password_email(user.email, reset_url):
         ResponsePatterns.raise_internal_server_error("Failed to send password reset email")

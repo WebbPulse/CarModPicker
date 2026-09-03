@@ -1,6 +1,7 @@
 import os
 from functools import lru_cache
 from typing import Any
+from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -53,12 +54,21 @@ class Settings(BaseSettings):
     def google_oauth_enabled(self) -> bool:
         return bool(self.GOOGLE_CLIENT_ID)
 
-    # WebAuthn / passkeys — RP ID and origins are derived from APP_ENVIRONMENT.
+    FRONTEND_URL: str = Field(
+        default="",
+        description="Public origin of the user-facing SPA. Empty = per-environment default derived from APP_ENVIRONMENT.",
+    )
+
+    # WebAuthn / passkeys — RP ID and origins are derived from FRONTEND_URL when
+    # it is set, otherwise from APP_ENVIRONMENT.
     # RP ID is the registrable domain users see; origins are the frontend URLs
     # that will call navigator.credentials.*. Passkeys registered on one
     # environment cannot be used on another (different RP IDs).
     @property
     def webauthn_rp_id(self) -> str:
+        hostname = urlparse(self.FRONTEND_URL).hostname if self.FRONTEND_URL else None
+        if hostname:
+            return hostname
         if not self.is_production:
             return "localhost"
         if self.APP_ENVIRONMENT.lower() == "staging":
@@ -71,6 +81,9 @@ class Settings(BaseSettings):
 
     @property
     def webauthn_origins_list(self) -> list[str]:
+        if self.FRONTEND_URL:
+            parsed = urlparse(self.frontend_base_url)
+            return [f"{parsed.scheme}://{parsed.netloc}"]
         if not self.is_production:
             return ["http://localhost:4000", "http://localhost:8000"]
         if self.APP_ENVIRONMENT.lower() == "staging":
@@ -83,9 +96,12 @@ class Settings(BaseSettings):
     @property
     def frontend_base_url(self) -> str:
         """Public origin of the user-facing SPA, used to build absolute URLs
-        (e.g. sitemap <loc> entries). The backend and frontend live on
-        separate domains, so this is derived from APP_ENVIRONMENT rather than
-        the request host. No trailing slash."""
+        (e.g. sitemap <loc> entries, email links). The backend and frontend
+        live on separate domains, so this comes from FRONTEND_URL when set and
+        otherwise from APP_ENVIRONMENT rather than the request host. No
+        trailing slash."""
+        if self.FRONTEND_URL:
+            return self.FRONTEND_URL.strip().rstrip("/")
         if not self.is_production:
             return "http://localhost:4000"
         if self.APP_ENVIRONMENT.lower() == "staging":
