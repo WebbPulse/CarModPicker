@@ -8,11 +8,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.core.config import settings
+from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR, get_default_category_id
+from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -122,9 +122,7 @@ class TestPartManufacturers:
             description="Inactive",
             is_active=False,
         )
-        db_session.add(inactive)
-        db_session.commit()
-        db_session.refresh(inactive)
+        inactive = save_catalog(inactive)
 
         response = client.get(f"{settings.API_STR}/part-manufacturers/?active_only=false")
         assert response.status_code == 200
@@ -158,10 +156,10 @@ class TestPartManufacturers:
 
         response = client.get(
             f"{settings.API_STR}/part-manufacturers/search",
-            params={"q": "Acme", "skip": 0, "limit": 10},
+            params={"q": "Acme", "limit": 10},
         )
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["items"]
         assert isinstance(data, list)
 
     def test_search_part_manufacturers_missing_q(self, client: TestClient) -> None:
@@ -251,9 +249,7 @@ class TestPartManufacturers:
             description="Curated",
             is_active=True,
         )
-        db_session.add(curated)
-        db_session.commit()
-        db_session.refresh(curated)
+        curated = save_catalog(curated)
 
         _, token = create_and_login_user(client, "update_curated_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
@@ -352,7 +348,7 @@ class TestPartManufacturers:
 
         response = client.get(f"{settings.API_STR}/part-manufacturers/{part_manufacturer_id}/parts")
         assert response.status_code == 200
-        parts = response.json()
+        parts = response.json()["items"]
         assert isinstance(parts, list)
         assert len(parts) >= 1
         assert all(p["part_manufacturer_id"] == part_manufacturer_id for p in parts)
@@ -376,11 +372,12 @@ class TestPartManufacturers:
 
         response = client.get(
             f"{settings.API_STR}/part-manufacturers/{part_manufacturer_id}/parts",
-            params={"skip": 1, "limit": 2},
+            params={"limit": 2},
         )
         assert response.status_code == 200
-        parts = response.json()
-        assert len(parts) <= 2
+        page = response.json()
+        assert len(page["items"]) == 2
+        assert page["has_next"] is True
 
     def test_get_part_manufacturer_parts_count_success(self, client: TestClient, db_session: Session) -> None:
         """Test getting parts count for a part_manufacturer (public)."""
@@ -454,9 +451,7 @@ class TestPartManufacturers:
             name=existing_name,
             is_active=True,
         )
-        db_session.add(existing)
-        db_session.commit()
-        db_session.refresh(existing)
+        existing = save_catalog(existing)
 
         _, token = create_and_login_user(client, "dedup_into_existing")
         # Use a case variant to also confirm case-insensitive match.
@@ -514,7 +509,7 @@ class TestPartManufacturers:
 
         response = client.get(f"{settings.API_STR}/part-manufacturers/{pm['id']}/parts")
         assert response.status_code == 200
-        parts = response.json()
+        parts = response.json()["items"]
         assert all(p["user_id"] == str(creator_id) for p in parts)
 
     def test_creator_cannot_update_own_manufacturer(self, client: TestClient, db_session: Session) -> None:

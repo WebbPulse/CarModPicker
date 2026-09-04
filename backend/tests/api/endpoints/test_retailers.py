@@ -8,13 +8,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.part_listing import PartListing
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.retailer import Retailer as DBRetailer
 from app.core.config import settings
+from app.db.dynamo.catalog import PartListing
+from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from app.db.dynamo.catalog import Retailer as DBRetailer
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR, get_default_category_id
+from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -126,9 +126,7 @@ class TestRetailers:
             domain=get_unique_name("inactive.com"),
             is_active=False,
         )
-        db_session.add(inactive)
-        db_session.commit()
-        db_session.refresh(inactive)
+        inactive = save_catalog(inactive)
 
         response = client.get(f"{settings.API_STR}/retailers/?active_only=false")
         assert response.status_code == 200
@@ -381,9 +379,7 @@ class TestRetailers:
         part_manufacturer = DBPartManufacturer(
             name=get_unique_name("RetPartManufacturer"), description="PartManufacturer", is_active=True
         )
-        db_session.add(part_manufacturer)
-        db_session.commit()
-        db_session.refresh(part_manufacturer)
+        part_manufacturer = save_catalog(part_manufacturer)
 
         # Create global part and part listing
         _, user_token = create_and_login_user(client, "ret_listings_user", db_session)
@@ -405,8 +401,7 @@ class TestRetailers:
             retailer_id=UUID(retailer_id),
             product_url="https://example.com/part",
         )
-        db_session.add(listing)
-        db_session.commit()
+        listing = save_catalog(listing)
 
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = client.delete(f"{settings.API_STR}/retailers/{retailer_id}", headers=headers)

@@ -77,7 +77,6 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("GET", "/api/parts/filter-options"),
     ("GET", "/api/parts/with-votes"),
     ("GET", "/api/parts/category/{category_id}"),
-    ("GET", "/api/parts/category/{filter_id}"),
     ("GET", "/api/parts/user/{user_id}/count"),
     ("GET", "/api/parts/{entity_id}"),
     ("GET", "/api/parts/{part_id}/best-listing"),
@@ -92,7 +91,6 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("GET", "/api/categories/{category_id}"),
     ("GET", "/api/categories/{category_id}/parts"),
     ("GET", "/api/categories/{category_id}/parts-count"),
-    ("GET", "/api/categories/{entity_id}"),
     # Part manufacturers (catalog reference data)
     ("GET", "/api/part-manufacturers/"),
     ("GET", "/api/part-manufacturers/count"),

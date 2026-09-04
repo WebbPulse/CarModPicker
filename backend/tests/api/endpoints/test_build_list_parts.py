@@ -5,9 +5,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.category import Category
-from app.api.models.part_manufacturer import PartManufacturer
 from app.core.config import settings
+from app.db.dynamo.catalog import Category, PartManufacturer
 from app.db.dynamo.users import User
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository

@@ -6,11 +6,12 @@ import os
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
-from app.api.models.part import Part
 from app.api.models.report import Report
 from app.api.schemas.report import EntityType, ReportCreate, ReportReason
 from app.api.services.report_service import ReportService
+from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import User, UserRepository
+from tests.conftest import save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -64,7 +65,7 @@ class TestReportService:
         """Test creating a report for a global part."""
         # Create another user and their global part
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.category import Category
+        from app.db.dynamo.catalog import Category, CategoryRepository
 
         other_user = UserRepository().create_user(
             User(
@@ -77,7 +78,7 @@ class TestReportService:
         )
 
         # Get or create a category
-        category = db_session.query(Category).first()
+        category = next(iter(CategoryRepository().list_all()), None)
         if not category:
             category = Category(
                 name="test_category",
@@ -86,21 +87,19 @@ class TestReportService:
                 is_active=True,
                 sort_order=1,
             )
-            db_session.add(category)
-            db_session.commit()
+            category = save_catalog(category)
 
         # Get or create a part_manufacturer
-        from app.api.models.part_manufacturer import PartManufacturer
+        from app.db.dynamo.catalog import PartManufacturer, PartManufacturerRepository
 
-        part_manufacturer = db_session.query(PartManufacturer).first()
+        part_manufacturer = next(iter(PartManufacturerRepository().list_all()), None)
         if not part_manufacturer:
             part_manufacturer = PartManufacturer(
                 name="test_part_manufacturer",
                 description="Test part_manufacturer",
                 is_active=True,
             )
-            db_session.add(part_manufacturer)
-            db_session.commit()
+            part_manufacturer = save_catalog(part_manufacturer)
 
         part = Part(
             name=get_unique_name("test_part"),
@@ -109,8 +108,7 @@ class TestReportService:
             category_id=category.id,
             part_manufacturer_id=part_manufacturer.id,
         )
-        db_session.add(part)
-        db_session.commit()
+        part = save_catalog(part)
 
         # Create report
         service = ReportService()
@@ -237,7 +235,7 @@ class TestReportService:
         """Test getting reports with filters."""
         # Create reports
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.category import Category
+        from app.db.dynamo.catalog import Category, CategoryRepository
 
         other_user = UserRepository().create_user(
             User(
@@ -258,7 +256,7 @@ class TestReportService:
         db_session.commit()
 
         # Get or create a category
-        category = db_session.query(Category).first()
+        category = next(iter(CategoryRepository().list_all()), None)
         if not category:
             category = Category(
                 name="test_category2",
@@ -267,21 +265,19 @@ class TestReportService:
                 is_active=True,
                 sort_order=1,
             )
-            db_session.add(category)
-            db_session.commit()
+            category = save_catalog(category)
 
         # Get or create a part_manufacturer
-        from app.api.models.part_manufacturer import PartManufacturer
+        from app.db.dynamo.catalog import PartManufacturer, PartManufacturerRepository
 
-        part_manufacturer = db_session.query(PartManufacturer).first()
+        part_manufacturer = next(iter(PartManufacturerRepository().list_all()), None)
         if not part_manufacturer:
             part_manufacturer = PartManufacturer(
                 name="test_part_manufacturer2",
                 description="Test part_manufacturer 2",
                 is_active=True,
             )
-            db_session.add(part_manufacturer)
-            db_session.commit()
+            part_manufacturer = save_catalog(part_manufacturer)
 
         part = Part(
             name=get_unique_name("test_part2"),
@@ -290,8 +286,7 @@ class TestReportService:
             category_id=category.id,
             part_manufacturer_id=part_manufacturer.id,
         )
-        db_session.add(part)
-        db_session.commit()
+        part = save_catalog(part)
 
         # Create reports
         service = ReportService()

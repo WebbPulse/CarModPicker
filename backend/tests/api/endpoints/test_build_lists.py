@@ -5,12 +5,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.category import Category as DBCategory
 from app.core.config import settings
+from app.db.dynamo.catalog import Category as DBCategory
 from app.db.dynamo.users import User
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR, create_car_in_db
+from tests.conftest import INVALID_UUID_STR, create_car_in_db, save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -621,19 +621,15 @@ class TestBuildLists:
 
         # Create a category for global parts
         category = DBCategory(name=get_unique_name("Test Category"))
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
 
         # Create a part_manufacturer for the global part
-        from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
+        from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 
         part_manufacturer = DBPartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
         )
-        db_session.add(part_manufacturer)
-        db_session.commit()
-        db_session.refresh(part_manufacturer)
+        part_manufacturer = save_catalog(part_manufacturer)
 
         # Create a global part
         part_data = {

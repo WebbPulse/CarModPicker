@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from app.api.models.build_list import BuildList
 from app.api.models.build_list_part import BuildListPart
-from app.api.models.part import Part
 from app.api.models.report import Report
 from app.api.models.vote import Vote
 
@@ -36,8 +35,6 @@ EXPECTED_INDEXED_FKS = [
     (BuildListPart, "part_id"),
     (BuildListPart, "added_by"),
     (BuildListPart, "build_list_phase_id"),
-    (Part, "user_id"),
-    (Part, "category_id"),
     (Report, "reviewed_by"),
 ]
 

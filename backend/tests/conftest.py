@@ -9,7 +9,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -24,9 +24,31 @@ INVALID_UUID_STR: str = str(INVALID_UUID)
 
 # Imports deferred until after env setup.
 from app.api.dependencies.auth import get_password_hash  # noqa: E402
-from app.api.models.category import Category  # noqa: E402
-from app.api.models.part_manufacturer import PartManufacturer  # noqa: E402
+from app.api.schemas.car_generation import CarGenerationRead  # noqa: E402
+from app.api.services.car_generation_service import CarGenerationService  # noqa: E402
 from app.db.base import Base  # noqa: E402
+from app.db.dynamo.catalog import (  # noqa: E402
+    CarGeneration,
+    CarGenerationRepository,
+    CarMake,
+    CarMakeRepository,
+    CarModel,
+    CarModelRepository,
+    Category,
+    CategoryRepository,
+    Part,
+    PartCar,
+    PartCarRepository,
+    PartListing,
+    PartListingRepository,
+    PartManufacturer,
+    PartManufacturerRepository,
+    PartPriceHistory,
+    PartPriceHistoryRepository,
+    PartRepository,
+    Retailer,
+    RetailerRepository,
+)
 from app.db.dynamo.users import User, UserRepository  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
@@ -263,7 +285,7 @@ def premium_test_user(db_session: Session, dynamo_tables: Any) -> User:
 
 
 @pytest.fixture(scope="function")
-def test_category(db_session: Session) -> Category:
+def test_category(db_session: Session, dynamo_tables: Any) -> Category:
     """Create a test category for testing."""
     category = Category(
         name=f"test_category_{os.getpid()}_{id(db_session)}",  # Make unique per worker
@@ -272,24 +294,18 @@ def test_category(db_session: Session) -> Category:
         is_active=True,
         sort_order=1,
     )
-    db_session.add(category)
-    db_session.commit()
-    db_session.refresh(category)
-    return category
+    return CategoryRepository().create_unique(category)
 
 
 @pytest.fixture(scope="function")
-def test_part_manufacturer(db_session: Session) -> PartManufacturer:
+def test_part_manufacturer(db_session: Session, dynamo_tables: Any) -> PartManufacturer:
     """Create a test part_manufacturer for testing."""
     part_manufacturer = PartManufacturer(
         name=f"test_part_manufacturer_{os.getpid()}_{id(db_session)}",  # Make unique per worker
         description="A test part_manufacturer",
         is_active=True,
     )
-    db_session.add(part_manufacturer)
-    db_session.commit()
-    db_session.refresh(part_manufacturer)
-    return part_manufacturer
+    return PartManufacturerRepository().create_unique(part_manufacturer)
 
 
 @pytest.fixture(scope="function")
@@ -322,22 +338,53 @@ def test_superuser_user(db_session: Session, dynamo_tables: Any) -> User:
     return UserRepository().create_user(user)
 
 
+_CATALOG_REPOSITORIES: Dict[type, type] = {
+    CarMake: CarMakeRepository,
+    CarModel: CarModelRepository,
+    CarGeneration: CarGenerationRepository,
+    Category: CategoryRepository,
+    PartManufacturer: PartManufacturerRepository,
+    Retailer: RetailerRepository,
+    Part: PartRepository,
+    PartCar: PartCarRepository,
+    PartListing: PartListingRepository,
+    PartPriceHistory: PartPriceHistoryRepository,
+}
+
+
+def catalog_repository(model: type) -> Any:
+    return _CATALOG_REPOSITORIES[model]()
+
+
+def save_catalog(entity: Any, car_ids: Optional[list[UUID]] = None) -> Any:
+    """Persist a catalog model through its repository and return the stored copy."""
+    repository = catalog_repository(type(entity))
+    if isinstance(entity, Part):
+        linked = list(car_ids if car_ids is not None else entity.car_ids)
+        entity = entity.model_copy(update={"car_ids": linked})
+        actions = [PartCarRepository().link_action(entity.id, car_id) for car_id in linked]
+        return repository.create_unique(entity, extra_actions=actions)
+    if hasattr(repository, "create_unique"):
+        return repository.create_unique(entity)
+    return repository.create(entity)
+
+
 # Test utilities
 def get_default_category_id(db_session: Session) -> UUID:
     """Get the ID of the 'other' category for testing."""
-    category = db_session.scalars(select(Category).where(Category.name == "other")).first()
+    categories = CategoryRepository()
+    category = categories.get_by_name("other")
     if not category:
         # Create the 'other' category if it doesn't exist
-        category = Category(
-            name="other",
-            display_name="Other",
-            description="Miscellaneous parts",
-            is_active=True,
-            sort_order=999,
+        category = categories.create_unique(
+            Category(
+                name="other",
+                display_name="Other",
+                description="Miscellaneous parts",
+                is_active=True,
+                sort_order=999,
+            )
         )
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
     return category.id
 
 
@@ -407,13 +454,44 @@ def create_car_for_user_cookie_auth(client: TestClient) -> UUID:
     )
 
 
+def _create_car_generation(
+    make: str,
+    model: str,
+    generation_name: str,
+    start_year: int,
+    end_year: Optional[int],
+    description: Optional[str],
+) -> CarGeneration:
+    makes = CarMakeRepository()
+    models = CarModelRepository()
+    generations = CarGenerationRepository()
+
+    make_entity = makes.get_by_name(make)
+    if make_entity is None:
+        make_entity = makes.create_unique(CarMake(name=make))
+
+    car_model_entity = models.get_by_make_and_name(make_entity.id, model)
+    if car_model_entity is None:
+        car_model_entity = models.create_unique(CarModel(car_make_id=make_entity.id, name=model))
+
+    return generations.create_unique(
+        CarGeneration(
+            car_model_id=car_model_entity.id,
+            generation_name=generation_name,
+            start_year=start_year,
+            end_year=end_year,
+            description=description,
+        )
+    )
+
+
 def create_car_in_db(
     db: Session,
     make: str = "Honda",
     model: str = "Civic",
     generation_name: str = "10th Gen",
     start_year: int = 2016,
-    end_year: int = 2021,
+    end_year: Optional[int] = 2021,
     description: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a car directly in the database for test setup. Cars are seeded from
@@ -421,37 +499,7 @@ def create_car_in_db(
     Creates CarMake and CarModel if needed, then CarGeneration.
     Returns a dict with id, make, model, generation_name, start_year, end_year (API shape).
     """
-    from app.api.models.car_generation import CarGeneration
-    from app.api.models.car_make import CarMake
-    from app.api.models.car_model import CarModel
-
-    make_entity = db.scalars(select(CarMake).where(CarMake.name == make)).first()
-    if make_entity is None:
-        make_entity = CarMake(name=make)
-        db.add(make_entity)
-        db.flush()
-
-    car_model_entity = db.scalars(
-        select(CarModel).where(
-            CarModel.car_make_id == make_entity.id,
-            CarModel.name == model,
-        )
-    ).first()
-    if car_model_entity is None:
-        car_model_entity = CarModel(car_make_id=make_entity.id, name=model)
-        db.add(car_model_entity)
-        db.flush()
-
-    car = CarGeneration(
-        car_model_id=car_model_entity.id,
-        generation_name=generation_name,
-        start_year=start_year,
-        end_year=end_year,
-        description=description,
-    )
-    db.add(car)
-    db.commit()
-    db.refresh(car)
+    car = _create_car_generation(make, model, generation_name, start_year, end_year, description)
     return {
         "id": car.id,
         "make": make,
@@ -471,52 +519,14 @@ def create_car_orm_in_db(
     model: str = "Civic",
     generation_name: str = "10th Gen",
     start_year: int = 2016,
-    end_year: int = 2021,
+    end_year: Optional[int] = 2021,
     description: Optional[str] = None,
-):
-    """Create a car in the DB and return the CarGeneration ORM instance (with relationships loaded).
-    Use when tests need the CarGeneration object (e.g. car.car_make_name, car.id) rather than the API dict.
+) -> CarGenerationRead:
+    """Create a car and return its hydrated read model (car_make_name, car_model_name, id, ...).
+    Use when tests need the car object rather than the API dict.
     """
-    from sqlalchemy.orm import joinedload
-
-    from app.api.models.car_generation import CarGeneration
-    from app.api.models.car_make import CarMake
-    from app.api.models.car_model import CarModel
-
-    make_entity = db.scalars(select(CarMake).where(CarMake.name == make)).first()
-    if make_entity is None:
-        make_entity = CarMake(name=make)
-        db.add(make_entity)
-        db.flush()
-
-    car_model_entity = db.scalars(
-        select(CarModel).where(
-            CarModel.car_make_id == make_entity.id,
-            CarModel.name == model,
-        )
-    ).first()
-    if car_model_entity is None:
-        car_model_entity = CarModel(car_make_id=make_entity.id, name=model)
-        db.add(car_model_entity)
-        db.flush()
-
-    car = CarGeneration(
-        car_model_id=car_model_entity.id,
-        generation_name=generation_name,
-        start_year=start_year,
-        end_year=end_year,
-        description=description,
-    )
-    db.add(car)
-    db.commit()
-    db.refresh(car)
-    # Reload with relationships so car.car_make_name / car.car_model_name work
-    car = db.scalars(
-        select(CarGeneration)
-        .options(joinedload(CarGeneration.car_model).joinedload(CarModel.car_make))
-        .where(CarGeneration.id == car.id)
-    ).first()
-    return car
+    car = _create_car_generation(make, model, generation_name, start_year, end_year, description)
+    return CarGenerationService().hydrate_one(car)
 
 
 @pytest.fixture

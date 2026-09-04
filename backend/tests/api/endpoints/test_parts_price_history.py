@@ -14,12 +14,12 @@ from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.models.part import Part as DBPart
-from app.api.models.part_listing import PartListing as DBPartListing
-from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
-from app.api.models.retailer import Retailer as DBRetailer
+from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.catalog import PartListing as DBPartListing
+from app.db.dynamo.catalog import PartPriceHistory as DBPartPriceHistory
+from app.db.dynamo.catalog import Retailer as DBRetailer
 from app.db.dynamo.users import User
-from tests.conftest import INVALID_UUID_STR, get_default_category_id
+from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
 
 PRICE_HISTORY_PATH = "/api/parts/{part_id}/price-history"
 BATCH_PRICE_HISTORY_PATH = "/api/parts/price-history"
@@ -35,8 +35,7 @@ def _make_retailer(db: Session, slug: str) -> DBRetailer:
         base_url=f"https://{slug}.example.com",
         is_active=True,
     )
-    db.add(retailer)
-    db.flush()
+    retailer = save_catalog(retailer)
     return retailer
 
 
@@ -54,8 +53,7 @@ def _make_part(
         is_universal=True,
         canonical_part_id=canonical_part_id,
     )
-    db.add(part)
-    db.flush()
+    part = save_catalog(part)
     return part
 
 
@@ -65,8 +63,7 @@ def _make_listing(db: Session, part: DBPart, retailer: DBRetailer) -> DBPartList
         retailer_id=retailer.id,
         product_url=f"https://{retailer.domain}/p/{uuid.uuid4().hex[:8]}",
     )
-    db.add(listing)
-    db.flush()
+    listing = save_catalog(listing)
     return listing
 
 
@@ -82,8 +79,7 @@ def _add_history(
         price_cents=price_cents,
         observed_at=observed_at,
     )
-    db.add(row)
-    db.flush()
+    row = save_catalog(row)
     return row
 
 

@@ -68,9 +68,7 @@ def round_trip_seed(postgres_engine: "Engine"):
     completed). Uses a per-worker, per-test unique slug so concurrent xdist
     workers cannot collide (per the WARN 8 convention in ``conftest.py``).
     """
-    from app.api.models.car_generation import CarGeneration
-    from app.api.models.car_make import CarMake
-    from app.api.models.car_model import CarModel
+    from app.db.dynamo.catalog import CarGeneration, CarMake, CarModel
 
     worker = sys.modules.get("xdist", None)
     unique = uuid.uuid4().hex[:12]
@@ -112,7 +110,7 @@ def round_trip_seed(postgres_engine: "Engine"):
 def test_emitted_rename_migration_round_trip_preserves_row_id(
     postgres_engine: "Engine", round_trip_seed: dict[str, Any]
 ) -> None:
-    from app.api.models.car_generation import CarGeneration
+    from app.db.dynamo.catalog import CarGeneration
 
     gen_id = round_trip_seed["gen_id"]
     assert isinstance(gen_id, uuid.UUID)
