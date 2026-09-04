@@ -167,9 +167,9 @@ class UniqueCatalogRepository(CatalogRepository[TTimestamped]):
     def unique_pairs(self, model: TTimestamped) -> list[UniquePair]:
         return []
 
-    def create_unique(self, model: TTimestamped) -> TTimestamped:
-        actions: list[dict[str, Any]] = [self.create_action(model)]
-        labels: list[str | None] = [None]
+    def create_unique(self, model: TTimestamped, extra_actions: Iterable[dict[str, Any]] = ()) -> TTimestamped:
+        actions: list[dict[str, Any]] = [self.create_action(model), *extra_actions]
+        labels: list[str | None] = [None] * len(actions)
         for label, value in self.unique_pairs(model):
             actions.append(self.ensure_unique_action(label, value, str(model.id)))
             labels.append(label)

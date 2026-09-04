@@ -56,8 +56,15 @@ def scan_matching(
     return matched
 
 
-def text_key(value: object) -> str:
-    return "" if value is None else str(value).lower()
+def _invert_ascii(value: str) -> str:
+    return "".join(chr(0x7E - (ord(char) - 0x20)) if 0x20 <= ord(char) <= 0x7E else char for char in value)
+
+
+def text_key(value: object, *, descending: bool = False, missing_last: bool = True) -> str:
+    if value is None or value == "":
+        return "~" if missing_last else " "
+    text = str(value).lower()
+    return _invert_ascii(text) if descending else text
 
 
 def numeric_key(value: int | float | None, *, descending: bool = False, missing_last: bool = True) -> str:
@@ -73,9 +80,7 @@ def datetime_key(value: datetime | None, *, descending: bool = False) -> str:
     if value is None:
         return "~"
     encoded = encode_datetime(value)
-    if not descending:
-        return encoded
-    return "".join(chr(0x7E - (ord(char) - 0x20)) if 0x20 <= ord(char) <= 0x7E else char for char in encoded)
+    return _invert_ascii(encoded) if descending else encoded
 
 
 def compound_key(*keys: str) -> str:

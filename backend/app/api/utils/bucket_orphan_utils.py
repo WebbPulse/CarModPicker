@@ -6,12 +6,10 @@ Collects all file keys referenced by entities so we can safely delete only unref
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.repositories import get_repositories
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car_generation import CarGeneration as DBCar
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
-from app.api.models.part import Part as DBPart
 from app.api.utils.image_utils import is_file_key
-from app.db.dynamo.users import UserRepository
 
 
 def get_all_referenced_file_keys(db: Session) -> set[str]:
@@ -23,6 +21,7 @@ def get_all_referenced_file_keys(db: Session) -> set[str]:
     build_list (image_urls), image_source_mapping (file_key).
     """
     referenced: set[str] = set()
+    repos = get_repositories()
 
     def _collect_image_urls(image_urls: list[str] | None) -> None:
         if image_urls:
@@ -30,16 +29,14 @@ def get_all_referenced_file_keys(db: Session) -> set[str]:
                 if k and is_file_key(k):
                     referenced.add(k)
 
-    # Parts: image_urls gallery
-    for image_urls in db.scalars(select(DBPart.image_urls)).all():
-        _collect_image_urls(image_urls)
+    for part in repos.parts.list_all():
+        _collect_image_urls(part.image_urls)
 
-    for user in UserRepository().list_all():
+    for user in repos.users.list_all():
         _collect_image_urls(user.image_urls)
 
-    # Cars: image_urls
-    for image_urls in db.scalars(select(DBCar.image_urls).where(DBCar.image_urls.isnot(None))).all():
-        _collect_image_urls(image_urls)
+    for car in repos.car_generations.list_all():
+        _collect_image_urls(car.image_urls)
 
     # Build lists: image_urls
     for image_urls in db.scalars(select(DBBuildList.image_urls).where(DBBuildList.image_urls.isnot(None))).all():

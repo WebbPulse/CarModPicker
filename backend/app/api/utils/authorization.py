@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
-from app.api.models.part import Part as DBPart
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
+from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 from app.db.dynamo.users import User as DBUser
 
 

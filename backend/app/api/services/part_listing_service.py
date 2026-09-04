@@ -9,19 +9,18 @@ Used by global part create, create-and-add-part, and scrapers to:
 
 import re
 from datetime import UTC, datetime
-from typing import Optional
+from typing import Any, Iterable, Optional
 from urllib.parse import urlparse
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.models.part import Part as DBPart
-from app.api.models.part_listing import PartListing as DBPartListing
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
-from app.api.models.retailer import Retailer as DBRetailer
+from app.api.dependencies.repositories import get_repositories
+from app.api.schemas.part_listing import PartListingRead, PartListingReadWithRetailer
+from app.api.schemas.retailer import RetailerRead
+from app.db.dynamo.catalog import Part, PartListing, PartManufacturer, PartPriceHistory, Retailer
+from app.db.dynamo.repository import transact_write
+from app.db.dynamo.users import UniqueAttributeTaken
 
 # Tokens stripped from the tail of a manufacturer name during canonical comparison.
 # Sub-divisions ("Performance", "Racing", "Electronics", ...) and corporate suffixes
@@ -87,53 +86,55 @@ def manufacturer_name_canonical(raw: str) -> str:
     return "".join(tokens)
 
 
+def _domain_variants(domain: str) -> list[str]:
+    normalized = domain.strip().lower()
+    if normalized.startswith("www."):
+        return [normalized, normalized[4:]]
+    return [normalized, "www." + normalized]
+
+
 def get_or_create_retailer(
-    db: Session,
     name: str,
     *,
     domain: Optional[str] = None,
     base_url: Optional[str] = None,
-) -> DBRetailer:
+) -> Retailer:
     """Get existing retailer by domain (if provided) or name; otherwise create."""
+    repos = get_repositories()
     if domain:
-        domain_normalized = domain.strip().lower()
-        # Match both www. and non-www. variants so e.g. "a90shop.com" and
-        # "www.a90shop.com" resolve to the same retailer row.
-        if domain_normalized.startswith("www."):
-            domain_alt = domain_normalized[4:]
-        else:
-            domain_alt = "www." + domain_normalized
-        retailer = db.scalars(
-            select(DBRetailer).where(or_(DBRetailer.domain == domain_normalized, DBRetailer.domain == domain_alt))
-        ).first()
-        if retailer:
-            return retailer
-    retailer = db.scalars(select(DBRetailer).where(DBRetailer.name.ilike(name.strip()))).first()
+        for candidate in _domain_variants(domain):
+            retailer = repos.retailers.get_by_domain(candidate)
+            if retailer:
+                return retailer
+    retailer = repos.retailers.get_by_name(name)
     if retailer:
         if domain and not retailer.domain:
-            retailer.domain = domain.strip().lower()
-            retailer.base_url = base_url or retailer.base_url
-            db.add(retailer)
-            db.flush()
+            retailer = repos.retailers.update_unique(
+                retailer, domain=domain.strip().lower(), base_url=base_url or retailer.base_url
+            )
         return retailer
-    retailer = DBRetailer(
+    candidate = Retailer(
         name=name.strip(),
         domain=domain.strip().lower() if domain else None,
         base_url=base_url,
         is_active=True,
     )
-    db.add(retailer)
-    db.flush()
-    return retailer
+    try:
+        return repos.retailers.create_unique(candidate)
+    except UniqueAttributeTaken:
+        existing = repos.retailers.get_by_name(name)
+        if existing is None and domain:
+            existing = repos.retailers.get_by_domain(domain.strip().lower())
+        if existing is not None:
+            return existing
+        raise
 
 
-def _find_pm_by_name(db: Session, name_normalized: str) -> Optional[DBPartManufacturer]:
+def _find_pm_by_name(name_normalized: str) -> Optional[PartManufacturer]:
     """Look up a manufacturer by name.
 
     Two-pass match:
-      1. Exact case-insensitive name match (preserves ``ilike`` semantics —
-         the fast path, and the only path the unique index on ``lower(name)``
-         enforces).
+      1. Exact case-insensitive name match.
       2. Canonical-key match: compute ``manufacturer_name_canonical`` for the
          input, then for each row, and return the first row whose canonical
          key matches. This lets ``"APR Performance"`` resolve to the existing
@@ -143,20 +144,21 @@ def _find_pm_by_name(db: Session, name_normalized: str) -> Optional[DBPartManufa
          two rows share a canonical key, return the first sorted by name for
          determinism.
     """
-    exact = db.scalars(select(DBPartManufacturer).where(DBPartManufacturer.name.ilike(name_normalized))).first()
+    repos = get_repositories()
+    exact = repos.part_manufacturers.get_by_name(name_normalized)
     if exact is not None:
         return exact
 
     canonical_key = manufacturer_name_canonical(name_normalized)
     if not canonical_key:
         return None
-    for pm in db.scalars(select(DBPartManufacturer).order_by(DBPartManufacturer.name)).all():
+    for pm in repos.part_manufacturers.list_sorted():
         if manufacturer_name_canonical(pm.name) == canonical_key:
             return pm
     return None
 
 
-def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[DBPartManufacturer]:
+def get_or_create_part_manufacturer_by_name(name: str) -> Optional[PartManufacturer]:
     """Get-or-create a manufacturer by name (case-insensitive).
 
     Used by the Chrome extension, the seed script, admin-driven creates, and
@@ -167,24 +169,15 @@ def get_or_create_part_manufacturer_by_name(db: Session, name: str) -> Optional[
     if not name or not name.strip():
         return None
     name_normalized = name.strip()
-    existing = _find_pm_by_name(db, name_normalized)
+    existing = _find_pm_by_name(name_normalized)
     if existing:
         return existing
-    # SAVEPOINT-scoped insert: parallel workers can race here and both try to
-    # insert the same manufacturer. The unique index on lower(name) rejects the
-    # loser; rolling back just this savepoint lets us re-query for the row the
-    # winner created without poisoning the outer txn.
     try:
-        with db.begin_nested():
-            part_manufacturer = DBPartManufacturer(
-                name=name_normalized,
-                is_active=True,
-            )
-            db.add(part_manufacturer)
-            db.flush()
-        return part_manufacturer
-    except IntegrityError:
-        existing = _find_pm_by_name(db, name_normalized)
+        return get_repositories().part_manufacturers.create_unique(
+            PartManufacturer(name=name_normalized, is_active=True)
+        )
+    except UniqueAttributeTaken:
+        existing = _find_pm_by_name(name_normalized)
         if existing is not None:
             return existing
         raise
@@ -219,19 +212,21 @@ def normalize_part_number(part_number: Optional[str]) -> Optional[str]:
     return s if s else None
 
 
+def _owned_by(part: Part, creator_id: Optional[UUID]) -> bool:
+    return creator_id is None or part.user_id == creator_id
+
+
 def find_part_by_product_url(
-    db: Session,
     product_url: str,
     *,
     creator_id: Optional[UUID] = None,
-) -> Optional[DBPart]:
+) -> Optional[Part]:
     """
     Find a part that owns a PartListing with this product URL.
 
     ``creator_id`` scopes the search to parts owned by that user — used by the
     create dup check to ask "does *this* user already have a part for this
-    URL?" without being fooled by another user's part sorting first in
-    ``.first()``.
+    URL?" without being fooled by another user's part sorting first.
 
     Returns any matching Part (canonical or duplicate). Callers doing canonical
     dedup should resolve the result to its canonical.
@@ -239,26 +234,29 @@ def find_part_by_product_url(
     normalized = _normalize_url(product_url)
     if not normalized:
         return None
-    stmt = (
-        select(DBPartListing)
-        .join(DBPart, DBPart.id == DBPartListing.part_id)
-        .where(DBPartListing.product_url == normalized)
-    )
-    if creator_id is not None:
-        stmt = stmt.where(DBPart.user_id == creator_id)
-    listing = db.scalars(stmt).first()
-    if listing:
-        return listing.part
+    repos = get_repositories()
+    listings = repos.part_listings.list_by_product_url(normalized)
+    parts = repos.parts.get_many(listing.part_id for listing in listings)
+    for listing in sorted(listings, key=lambda item: str(item.id)):
+        part = parts.get(listing.part_id)
+        if part is not None and _owned_by(part, creator_id):
+            return part
+    return None
+
+
+def _first_canonical(parts: Iterable[Part], creator_id: Optional[UUID]) -> Optional[Part]:
+    for part in sorted(parts, key=lambda item: str(item.id)):
+        if part.canonical_part_id is None and _owned_by(part, creator_id):
+            return part
     return None
 
 
 def find_part_by_part_manufacturer_and_part_number(
-    db: Session,
     part_manufacturer_id: UUID,
     part_number: str,
     *,
     creator_id: Optional[UUID] = None,
-) -> Optional[DBPart]:
+) -> Optional[Part]:
     """
     Find a canonical part by part_manufacturer_id and part_number.
 
@@ -273,14 +271,8 @@ def find_part_by_part_manufacturer_and_part_number(
     canonical = part_number_canonical(part_number)
     if not canonical:
         return None
-    stmt = select(DBPart).where(
-        DBPart.part_manufacturer_id == part_manufacturer_id,
-        DBPart.part_number_normalized == canonical,
-        DBPart.canonical_part_id.is_(None),
-    )
-    if creator_id is not None:
-        stmt = stmt.where(DBPart.user_id == creator_id)
-    return db.scalars(stmt).first()
+    matches = get_repositories().parts.list_by_manufacturer_part_number(part_manufacturer_id, canonical)
+    return _first_canonical(matches, creator_id)
 
 
 def normalize_gtin(gtin: Optional[str]) -> Optional[str]:
@@ -295,11 +287,10 @@ def normalize_gtin(gtin: Optional[str]) -> Optional[str]:
 
 
 def find_part_by_gtin(
-    db: Session,
     gtin: str,
     *,
     creator_id: Optional[UUID] = None,
-) -> Optional[DBPart]:
+) -> Optional[Part]:
     """
     Find a canonical part by GTIN (UPC/EAN).
 
@@ -311,33 +302,19 @@ def find_part_by_gtin(
     normalized = normalize_gtin(gtin)
     if not normalized:
         return None
-    exact_stmt = select(DBPart).where(
-        DBPart.gtin == normalized,
-        DBPart.canonical_part_id.is_(None),
-    )
-    if creator_id is not None:
-        exact_stmt = exact_stmt.where(DBPart.user_id == creator_id)
-    part = db.scalars(exact_stmt).first()
-    if part:
-        return part
-    fuzzy_stmt = select(DBPart).where(
-        DBPart.gtin.isnot(None),
-        DBPart.canonical_part_id.is_(None),
-    )
-    if creator_id is not None:
-        fuzzy_stmt = fuzzy_stmt.where(DBPart.user_id == creator_id)
-    for c in db.scalars(fuzzy_stmt).all():
-        if c.gtin and normalize_gtin(c.gtin) == normalized:
-            return c
-    return None
+    repos = get_repositories()
+    exact = _first_canonical(repos.parts.list_by_gtin(normalized), creator_id)
+    if exact is not None:
+        return exact
+    fuzzy = [part for part in repos.parts.list_canonical() if part.gtin and normalize_gtin(part.gtin) == normalized]
+    return _first_canonical(fuzzy, creator_id)
 
 
 def find_existing_part_for_create(
-    db: Session,
     *,
     creator_id: UUID,
     product_url: Optional[str] = None,
-) -> Optional[tuple[DBPart, str]]:
+) -> Optional[tuple[Part, str]]:
     """
     Decide whether a part-create attempt should be denied in favor of an
     existing part the same user already owns.
@@ -353,14 +330,59 @@ def find_existing_part_for_create(
     if not product_url or not product_url.strip():
         return None
 
-    # Scope by ``creator_id`` in the query (not after ``.first()``) so we
-    # don't miss the creator's own row when another user also has one for
-    # this URL.
-    own = find_part_by_product_url(db, product_url, creator_id=creator_id)
+    own = find_part_by_product_url(product_url, creator_id=creator_id)
     if own is not None:
         return own, "own_part_exists"
 
     return None
+
+
+def link_group_ids(part: Part) -> list[UUID]:
+    canonical_id = part.canonical_part_id or part.id
+    ids = [canonical_id]
+    ids.extend(linked.id for linked in get_repositories().parts.list_link_group(canonical_id))
+    if part.id not in ids:
+        ids.append(part.id)
+    return list(dict.fromkeys(ids))
+
+
+def best_price_for_group(part_ids: Iterable[UUID]) -> Optional[int]:
+    listings = get_repositories().part_listings.list_by_parts(part_ids)
+    prices = [
+        listing.last_known_price_cents
+        for listing in listings
+        if listing.last_known_price_cents is not None and listing.last_known_price_cents >= 0
+    ]
+    return min(prices) if prices else None
+
+
+def best_price_actions(part: Part, group_ids: list[UUID], best_price: Optional[int]) -> list[dict[str, Any]]:
+    repos = get_repositories()
+    canonical_id = part.canonical_part_id or part.id
+    actions: list[dict[str, Any]] = []
+    parts = repos.parts.get_many(group_ids)
+    for target_id in dict.fromkeys([canonical_id, part.id]):
+        target = parts.get(target_id)
+        if target is not None and target.best_price_cents != best_price:
+            actions.append(repos.parts.update_action(str(target_id), best_price_cents=best_price))
+    return actions
+
+
+def refresh_best_price(part_id: UUID) -> None:
+    repos = get_repositories()
+    part = repos.parts.get(str(part_id))
+    if part is None:
+        return
+    group_ids = link_group_ids(part)
+    actions = best_price_actions(part, group_ids, best_price_for_group(group_ids))
+    if actions:
+        transact_write(actions)
+
+
+def _same_day_bounds(ts: datetime) -> tuple[datetime, datetime]:
+    start = ts.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start.replace(hour=23, minute=59, second=59, microsecond=999999)
+    return start, end
 
 
 def create_or_update_listing_and_price(
@@ -371,77 +393,62 @@ def create_or_update_listing_and_price(
     product_url: Optional[str] = None,
     price_cents: Optional[int] = None,
     observed_at: Optional[datetime] = None,
-) -> DBPartListing:
+) -> PartListing:
     """
     Create or update PartListing for (part_id, retailer_id).
     If price_cents is provided, append PartPriceHistory and update listing's last_known_price_cents/last_price_updated_at.
     Returns the PartListing.
     """
-    listing = db.scalars(
-        select(DBPartListing).where(
-            DBPartListing.part_id == part_id,
-            DBPartListing.retailer_id == retailer_id,
+    repos = get_repositories()
+    normalized_url = _normalize_url(product_url)
+    listing = repos.part_listings.get_by_part_and_retailer(part_id, retailer_id)
+    if not listing and normalized_url:
+        listing = next(
+            (item for item in repos.part_listings.list_by_part(part_id) if item.product_url == normalized_url),
+            None,
         )
-    ).first()
-    if not listing and product_url:
-        normalized_url = _normalize_url(product_url)
-        if normalized_url:
-            listing = db.scalars(
-                select(DBPartListing).where(
-                    DBPartListing.part_id == part_id,
-                    DBPartListing.product_url == normalized_url,
-                )
-            ).first()
+    actions: list[dict[str, Any]] = []
     if not listing:
-        listing = DBPartListing(
-            part_id=part_id,
-            retailer_id=retailer_id,
-            product_url=_normalize_url(product_url) if product_url else None,
-        )
-        db.add(listing)
-        db.flush()
+        listing = PartListing(part_id=part_id, retailer_id=retailer_id, product_url=normalized_url)
+        actions.append(repos.part_listings.create_action(listing))
+    else:
+        if normalized_url:
+            listing = listing.model_copy(update={"product_url": normalized_url})
+        listing.touch()
+        actions.append(repos.part_listings.put_action(listing))
 
-    if product_url and _normalize_url(product_url):
-        listing.product_url = _normalize_url(product_url)
-        db.add(listing)
-        db.flush()
-
+    ts: Optional[datetime] = None
     if price_cents is not None and price_cents >= 0:
         ts = observed_at or datetime.now(UTC)
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=UTC)
-        target_date = ts.date()
-
-        # Max one price record per listing per calendar day (UTC); upsert if same day
-        existing = db.scalars(
-            select(DBPartPriceHistory).where(
-                DBPartPriceHistory.part_listing_id == listing.id,
-                func.date(DBPartPriceHistory.observed_at) == target_date,
-            )
-        ).first()
+        day_start, day_end = _same_day_bounds(ts)
+        existing = repos.part_price_history.find_between(listing.id, day_start, day_end)
         if existing:
-            existing.price_cents = price_cents
-            existing.observed_at = ts
-            db.add(existing)
+            history = existing.model_copy(update={"price_cents": price_cents, "observed_at": ts})
         else:
-            history = DBPartPriceHistory(
-                part_listing_id=listing.id,
-                price_cents=price_cents,
-                observed_at=ts,
-            )
-            db.add(history)
-        db.flush()
+            history = PartPriceHistory(part_listing_id=listing.id, price_cents=price_cents, observed_at=ts)
+        actions.append(repos.part_price_history.put_action(history))
         listing.last_known_price_cents = price_cents
         listing.last_price_updated_at = ts
-        db.add(listing)
-        db.flush()
+        actions[0] = repos.part_listings.put_action(listing)
 
-        # S07/T03: evaluate per-user price-drop alerts on this part. Same
-        # gating condition as the price-history append above (price_cents
-        # not None and >= 0). Alert evaluation is exception-safe at the
-        # per-alert level — a bad subscription must not poison the
-        # price-write transaction. Local import avoids a circular service
-        # import at module load.
+        part = repos.parts.get(str(part_id))
+        if part is not None:
+            group_ids = link_group_ids(part)
+            other_prices = [
+                item.last_known_price_cents
+                for item in repos.part_listings.list_by_parts(group_ids)
+                if item.id != listing.id
+                and item.last_known_price_cents is not None
+                and item.last_known_price_cents >= 0
+            ]
+            best_price = min([price_cents, *other_prices])
+            actions.extend(best_price_actions(part, group_ids, best_price))
+
+    transact_write(actions)
+
+    if ts is not None and price_cents is not None:
         from app.api.services.part_price_alert_service import (
             evaluate_alerts_for_listing,
         )
@@ -457,17 +464,54 @@ def create_or_update_listing_and_price(
     return listing
 
 
-def get_best_listing_for_part(db: Session, part_id: UUID) -> Optional[DBPartListing]:
+def get_best_listing_for_part(part_id: UUID) -> Optional[PartListing]:
     """Return the PartListing with the lowest current price for this part."""
-    return db.scalars(
-        select(DBPartListing)
-        .where(
-            DBPartListing.part_id == part_id,
-            DBPartListing.last_known_price_cents.isnot(None),
-            DBPartListing.last_known_price_cents >= 0,
-        )
-        .order_by(DBPartListing.last_known_price_cents.asc())
-    ).first()
+    priced = [
+        listing
+        for listing in get_repositories().part_listings.list_by_part(part_id)
+        if listing.last_known_price_cents is not None and listing.last_known_price_cents >= 0
+    ]
+    if not priced:
+        return None
+    return min(priced, key=lambda listing: (listing.last_known_price_cents or 0, str(listing.id)))
+
+
+def listing_with_retailer(listing: PartListing, retailer: Retailer) -> PartListingReadWithRetailer:
+    return PartListingReadWithRetailer(
+        **PartListingRead.model_validate(listing).model_dump(),
+        retailer=RetailerRead.model_validate(retailer),
+    )
+
+
+def listings_with_retailers(listings: Iterable[PartListing]) -> list[PartListingReadWithRetailer]:
+    listings = list(listings)
+    retailers = get_repositories().retailers.get_many(listing.retailer_id for listing in listings)
+    result: list[PartListingReadWithRetailer] = []
+    for listing in listings:
+        retailer = retailers.get(listing.retailer_id)
+        if retailer is not None:
+            result.append(listing_with_retailer(listing, retailer))
+    return result
+
+
+def delete_part_cascade_actions(part: Part) -> list[dict[str, Any]]:
+    repos = get_repositories()
+    actions: list[dict[str, Any]] = []
+    for car_id in part.car_ids:
+        actions.append(repos.part_cars.unlink_action(part.id, car_id))
+    return actions
+
+
+def delete_listing_with_history(listing: PartListing) -> None:
+    repos = get_repositories()
+    repos.part_price_history.delete_for_listing(listing.id)
+    repos.part_listings.delete(str(listing.id))
+
+
+def delete_part_listings(part_id: UUID) -> None:
+    repos = get_repositories()
+    for listing in repos.part_listings.delete_for_part(part_id):
+        repos.part_price_history.delete_for_listing(listing.id)
 
 
 def domain_from_url(url: str) -> Optional[str]:
