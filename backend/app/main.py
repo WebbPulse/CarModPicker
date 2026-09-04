@@ -73,8 +73,7 @@ logger = logging.getLogger(__name__)
 init_sentry(server_name="apprunner-backend")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):  # type: ignore[type-arg]
+def run_startup_tasks() -> None:
     db = SessionLocal()
     try:
         try:
@@ -83,6 +82,12 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
             logger.exception("Failed to initialize car generations on startup")
     finally:
         db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # type: ignore[type-arg]
+    if settings.RUN_STARTUP_TASKS:
+        run_startup_tasks()
     yield
 
 

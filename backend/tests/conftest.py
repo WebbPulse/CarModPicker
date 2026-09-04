@@ -651,6 +651,29 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
         }
 
 
+@pytest.fixture
+def dynamo_tables(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]:
+    from moto import mock_aws
+
+    from app.core.config import settings as app_settings
+    from app.db.dynamo import client as dynamo_client
+    from app.db.dynamo.tables import TABLES
+
+    monkeypatch.setattr(app_settings, "AWS_REGION", "us-east-1")
+    monkeypatch.setattr(app_settings, "DYNAMODB_TABLE_PREFIX", "test")
+    monkeypatch.setattr(app_settings, "DYNAMODB_ENDPOINT_URL", "")
+
+    with mock_aws():
+        dynamo_client.reset_clients()
+        resource = dynamo_client.get_resource()
+        for spec in TABLES:
+            resource.create_table(**spec.create_table_request(dynamo_client.table_name(spec)))
+        try:
+            yield resource
+        finally:
+            dynamo_client.reset_clients()
+
+
 # -----------------------------------------------------------------------
 # SAFE-06: pytest-recording (vcrpy) configuration for auth characterization
 # tests. Scrubs headers, post-body, and query-params that might carry
