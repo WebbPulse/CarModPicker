@@ -1,9 +1,13 @@
 # Pushes matching paths below build and sync the frontend to S3/CloudFront.
 # S3/CloudFront resources must already exist in Terraform state.
 #
+# The GitHub Environment is selected from the branch: main -> production, staging -> staging.
+# Every deploy-time value (role ARN, workspace id, bucket, distribution, API URL) comes
+# from that Environment's variables, so a staging push can never pick up production values.
+#
 # Ordering guarantee: the npm build runs immediately (no conflict with Terraform), but
 # before syncing to S3 the job waits for any active HCP Terraform run on the
-# CarModPicker workspace to reach a terminal state. This prevents partial deploys
+# workspace to reach a terminal state. This prevents partial deploys
 # against infrastructure that is mid-update.
 #
 # Requires GitHub Actions secret: TFC_API_TOKEN (a Terraform Cloud user/team token).
@@ -11,7 +15,7 @@ name: Frontend Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-deploy.yml"
@@ -24,12 +28,11 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
 
     env:
       AWS_REGION: us-west-2
-      # HCP Terraform workspace — update if the workspace is ever renamed.
-      TFC_WORKSPACE_ID: ws-oh1VvpTBPxmcrSYD
+      TFC_WORKSPACE_ID: ${{ vars.TFC_WORKSPACE_ID }}
 
     steps:
       - uses: actions/checkout@v7
@@ -48,7 +51,7 @@ jobs:
       - name: Build
         working-directory: frontend
         env:
-          VITE_API_URL: https://api.carmodpicker.com
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
           # Allowlist for the /extension-auth token hand-off. Without this, the
           # page refuses to send the JWT to any extension in production builds.
           VITE_ALLOWED_EXTENSION_IDS: ${{ vars.CWS_EXTENSION_ID }}

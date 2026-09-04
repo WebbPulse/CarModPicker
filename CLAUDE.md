@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CarModPicker is a full-stack web application for managing car modifications. Users can track their cars, create build lists with parts, browse a global parts catalog, and log their builds in forum-style threads. A companion Chrome extension scrapes parts from retailer pages.
 
-**Stack:** FastAPI (Python 3.13) backend + React 19 (TypeScript) frontend + PostgreSQL, deployed on AWS (App Runner + RDS). Infrastructure managed with Terraform (`terraform/`).
+**Stack:** FastAPI (Python 3.13) backend + React 19 (TypeScript) frontend, deployed on AWS as Lambda + HTTP API + DynamoDB (the legacy App Runner + RDS PostgreSQL stack still runs in production until cutover). Infrastructure managed with Terraform (`terraform/`).
 
 ---
 
@@ -138,38 +138,48 @@ feature/* ──PR──▶ staging ──PR──▶ main
 
 ### Workflows
 
-Six workflows in `.github/workflows/`, three CI and three deploy, each scoped by path. All six are `main`-only today.
+Six workflows in `.github/workflows/`, three CI and three deploy, each scoped by path.
 
-| Workflow | Trigger today | Paths |
+| Workflow | Trigger | Paths |
 |---|---|---|
 | `backend-ci.yml` | `pull_request` → `main` | `backend/**` |
 | `frontend-ci.yml` | `pull_request` → `main` | `frontend/**` |
 | `chrome-extension-ci.yml` | `pull_request` → `main` | `chrome-extension/**` |
-| `backend-deploy.yml` | `push` → `main` | `backend/**` |
-| `frontend-deploy.yml` | `push` → `main` | `frontend/**` |
+| `backend-deploy.yml` | `push` → `main`, `staging` | `backend/**` |
+| `frontend-deploy.yml` | `push` → `main`, `staging` | `frontend/**` |
 | `chrome-extension-deploy.yml` | `push` → `main` | `chrome-extension/**` |
 
 The three deploy workflows are fully independent — a backend merge never rebuilds the frontend.
 
-**What has to change when `staging` exists.** The three CI workflows need `staging` added to `pull_request: branches:`, or PRs into `staging` run no checks at all. `backend-deploy.yml` and `frontend-deploy.yml` need `staging` added to `push: branches:` and their hardcoded `environment: production` selected from the branch instead. Both also hardcode `TFC_WORKSPACE_ID: ws-oh1VvpTBPxmcrSYD`, and `frontend-deploy.yml` hardcodes `VITE_API_URL: https://api.carmodpicker.com` — both must become per-environment before a staging push is safe.
+`backend-deploy.yml` and `frontend-deploy.yml` pick their GitHub Environment from the branch (`main` → `production`, otherwise `staging`) and read every deploy-time value from that Environment. The backend deploy builds a Lambda zip (`requirements-lambda.txt` resolved for manylinux x86_64 / Python 3.13, plus `app/`), uploads it to the artifacts bucket keyed by commit SHA, waits for HCP Terraform to go idle, then runs `update-function-code` and `publish-version`. The Docker/ECR/App Runner steps still run only while `APP_RUNNER_SERVICE_ARN` is set on the Environment.
+
+**Still to change:** the three CI workflows only run on PRs into `main`; PRs into `staging` run no checks until `staging` is added to their `pull_request: branches:`.
 
 **`chrome-extension-deploy.yml` stays `main`-only.** It publishes to the Chrome Web Store, not to AWS: patch-bump `manifest.json`, tag `chrome-extension-vX.Y.Z`, cut a GitHub Release, upload and publish the zip via the CWS API. A browser extension has no staging-account equivalent and there is no staging store listing, so a `staging` trigger would have nothing to deploy to. It is also the one sanctioned exception to "never commit directly to `main`" — it pushes its own version bump with `git push origin HEAD:main`.
 
 ### Environment-scoped variables
 
-Deploy variables are **environment-scoped**: `AWS_DEPLOY_ROLE_ARN`, `APP_RUNNER_SERVICE_ARN`, `CLOUDFRONT_DISTRIBUTION_ID`, `ECR_REPOSITORY_NAME` and `FRONTEND_S3_BUCKET` live on the `production` GitHub Environment, not the repository, so a `staging` push cannot silently pick up the production role. The workflows already declare `environment:`; a staging deploy needs a `staging` GitHub Environment (only `production` exists) with the same variables defined for the staging account.
+Deploy variables are **environment-scoped**: they live on the `production` and `staging` GitHub Environments, not the repository, so a `staging` push cannot silently pick up the production role. Nothing deploy-related is hardcoded in the workflows any more — the workspace id and the API URL are Environment variables too. Values come from the matching workspace's Terraform outputs (`terraform/README.md` maps each variable to its output).
 
 | Workflow | Variables | Secrets |
 |---|---|---|
-| `backend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY_NAME`, `APP_RUNNER_SERVICE_ARN` | `TFC_API_TOKEN` |
-| `frontend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `FRONTEND_S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `CWS_EXTENSION_ID` | `TFC_API_TOKEN` |
+| `backend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `TFC_WORKSPACE_ID`, `LAMBDA_FUNCTION_NAME`, `LAMBDA_ARTIFACTS_BUCKET`; production only: `ECR_REPOSITORY_NAME`, `APP_RUNNER_SERVICE_ARN` | `TFC_API_TOKEN` |
+| `frontend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `TFC_WORKSPACE_ID`, `FRONTEND_S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_URL`, `CWS_EXTENSION_ID` | `TFC_API_TOKEN` |
 | `chrome-extension-deploy.yml` | `CWS_CLIENT_ID`, `CWS_EXTENSION_ID` | `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` |
 
-The backend and frontend deploys poll the HCP Terraform runs API with `TFC_API_TOKEN` and wait for the workspace to reach a terminal state before touching App Runner or S3 — that poll is what prevents the App Runner `OPERATION_IN_PROGRESS` error when Terraform is mid-apply. A staging deploy must poll the staging workspace, not `ws-oh1VvpTBPxmcrSYD`.
+The backend and frontend deploys poll the HCP Terraform runs API with `TFC_API_TOKEN` and wait for the workspace named by `TFC_WORKSPACE_ID` to reach a terminal state before touching Lambda, App Runner or S3 — that poll is what stops a code update racing an in-flight configuration change. Production polls `ws-oh1VvpTBPxmcrSYD`; staging polls `CarModPicker-staging`.
 
 ### A staging branch does not imply staging infrastructure
 
-`terraform/` is a single HCP workspace, `CarModPicker`, pinned in the `cloud` block in `versions.tf`. `var.environment` already validates `production | staging` and feeds `local.prefix`, but no staging workspace exists yet and `apprunner.tf` still hardcodes `APP_ENVIRONMENT = "production"`. Declare CarModPicker's staging profile (`none` / `reduced` / `full`) before assuming there is anything in 748861776298 to deploy to. Staging is never auto-provisioned to mirror production.
+`terraform/` is one root module applied by two HCP workspaces: `CarModPicker` (production, bound to `main`, pinned in the `cloud` block in `versions.tf`) and `CarModPicker-staging` (bound to `staging`, `environment = staging`, `staging_profile = reduced`). `var.environment` feeds `local.prefix` and every environment-dependent decision.
+
+The staging profile is `reduced`: DynamoDB, Lambda, HTTP API, CloudFront, S3 and SES, with no custom domain — the frontend lives on the CloudFront hostname and the API on the `execute-api` endpoint. `full` would add a hosted zone and certificates for `var.domain_name`. `none` is rejected. Staging can never build the legacy stack: `local.legacy_stack` is hard-wired to `environment == "production"`, so RDS and App Runner do not exist in 748861776298 whatever `legacy_stack_enabled` says. Staging is never auto-provisioned to mirror production.
+
+### The Lambda migration stack
+
+Production runs App Runner + RDS and Lambda + DynamoDB side by side until cutover. Three variables on the production workspace steer it: `legacy_stack_enabled` (default on; every legacy resource carries a `moved` block, so turning it on is a no-op and turning it off is a destroy), `api_target` (`legacy` keeps `api.carmodpicker.com` on App Runner, `lambda` flips the Route53 record to the HTTP API), and `custom_domain_enabled`. The full sequence is in `terraform/README.md` under "Production cutover".
+
+The Lambda's code is not Terraform's: the function is created from a placeholder zip with `ignore_changes` on the package, and `backend-deploy.yml` owns every update after that. Its secrets come from the `<prefix>/app` JSON secret, read at import by `backend/app/core/secrets.py` when `APP_SECRETS_ARN` is set. DynamoDB tables are declared once, in `backend/app/db/dynamo/tables.py`; `backend/scripts/export_dynamo_tables.py` renders them to `terraform/dynamodb_tables.json` and `tests/db/test_dynamo_tables_json_up_to_date.py` fails when the two drift.
 
 ---
 
