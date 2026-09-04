@@ -2083,6 +2083,134 @@
         "title": "CreatePartAndAddToBuildListRequest",
         "type": "object"
       },
+      "CursorPage_CarGenerationRead_": {
+        "properties": {
+          "has_next": {
+            "default": false,
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CarGenerationRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CursorPage[CarGenerationRead]",
+        "type": "object"
+      },
+      "CursorPage_PartManufacturerResponse_": {
+        "properties": {
+          "has_next": {
+            "default": false,
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PartManufacturerResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CursorPage[PartManufacturerResponse]",
+        "type": "object"
+      },
+      "CursorPage_PartReadWithVotes_": {
+        "properties": {
+          "has_next": {
+            "default": false,
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PartReadWithVotes"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CursorPage[PartReadWithVotes]",
+        "type": "object"
+      },
+      "CursorPage_PartRead_": {
+        "properties": {
+          "has_next": {
+            "default": false,
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PartRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CursorPage[PartRead]",
+        "type": "object"
+      },
       "CursorPage_Union_UserRead__PublicUserRead__": {
         "properties": {
           "has_next": {
@@ -3359,6 +3487,180 @@
           "updated_at"
         ],
         "title": "PartReadWithListings",
+        "type": "object"
+      },
+      "PartReadWithVotes": {
+        "properties": {
+          "best_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Lowest current price from any retailer listing (computed when available)",
+            "title": "Best Price Cents"
+          },
+          "canonical_part_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When set, this part is a duplicate. Clients should redirect or resolve to the referenced canonical part for display.",
+            "title": "Canonical Part Id"
+          },
+          "car_ids": {
+            "description": "Car IDs this part is associated with",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Car Ids",
+            "type": "array"
+          },
+          "category_id": {
+            "format": "uuid",
+            "title": "Category Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "downvotes": {
+            "default": 0,
+            "title": "Downvotes",
+            "type": "integer"
+          },
+          "edit_count": {
+            "title": "Edit Count",
+            "type": "integer"
+          },
+          "gtin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UPC/EAN/GTIN (digits only)",
+            "title": "Gtin"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "image_urls": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Urls"
+          },
+          "is_universal": {
+            "default": false,
+            "description": "When True, part fits all cars",
+            "title": "Is Universal",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "part_manufacturer_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Manufacturer Id"
+          },
+          "part_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Number"
+          },
+          "total_votes": {
+            "default": 0,
+            "title": "Total Votes",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "upvotes": {
+            "default": 0,
+            "title": "Upvotes",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_vote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Vote"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "category_id",
+          "user_id",
+          "edit_count",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PartReadWithVotes",
         "type": "object"
       },
       "PartUpdate": {
@@ -5589,7 +5891,7 @@
     },
     "/api/admin/stats/table-counts": {
       "get": {
-        "description": "Admin-only: counts for internal tables not exposed elsewhere, plus votes/reports by entity_type.\n\nTable totals are approximate (pg_class.reltuples) so this stays O(1) even on large\ntables; exact counts are used on SQLite/tests.",
+        "description": "Admin-only: counts for internal tables not exposed elsewhere, plus votes/reports by entity_type.\n\nSQL table totals are approximate (pg_class.reltuples) so this stays O(1) even on large\ntables; exact counts are used on SQLite/tests. DynamoDB table totals come from the\ntable's item count.",
         "operationId": "get_admin_table_counts_api_admin_stats_table_counts_get",
         "responses": {
           "200": {
@@ -9705,30 +10007,16 @@
     },
     "/api/car-generations/": {
       "get": {
-        "description": "List all entities with pagination and search.",
         "operationId": "list_entities_api_car_generations__get",
         "parameters": [
           {
-            "description": "Number of car_generations to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of car_generations to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of car_generations to return",
+            "description": "Maximum number of items to return",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Maximum number of car_generations to return",
+              "description": "Maximum number of items to return",
               "maximum": 1000,
               "minimum": 1,
               "title": "Limit",
@@ -9736,9 +10024,9 @@
             }
           },
           {
-            "description": "Search in car_generation names and descriptions",
+            "description": "Opaque cursor from a previous page's next_cursor",
             "in": "query",
-            "name": "search",
+            "name": "cursor",
             "required": false,
             "schema": {
               "anyOf": [
@@ -9749,8 +10037,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Search in car_generation names and descriptions",
-              "title": "Search"
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
             }
           }
         ],
@@ -9759,15 +10047,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/CarGenerationRead"
-                  },
-                  "title": "Response List Entities Api Car Generations  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_CarGenerationRead_"
                 }
               }
             },
-            "description": "List of car_generations retrieved successfully"
+            "description": "Car_Generation page retrieved successfully"
           },
           "422": {
             "content": {
@@ -9878,30 +10162,35 @@
             }
           },
           {
-            "description": "Number of generations to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of generations to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of generations to return",
+            "description": "Maximum number of items to return",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Maximum number of generations to return",
+              "description": "Maximum number of items to return",
               "maximum": 1000,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
             }
           }
         ],
@@ -9910,11 +10199,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/CarGenerationRead"
-                  },
-                  "title": "Response Get Car Generations By Car Make Api Car Generations Car Makes  Car Make Name  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_CarGenerationRead_"
                 }
               }
             },
@@ -9961,30 +10246,35 @@
             }
           },
           {
-            "description": "Number of generations to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of generations to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of generations to return",
+            "description": "Maximum number of items to return",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Maximum number of generations to return",
+              "description": "Maximum number of items to return",
               "maximum": 1000,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
             }
           }
         ],
@@ -9993,11 +10283,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/CarGenerationRead"
-                  },
-                  "title": "Response Get Car Generations By Car Make Model Api Car Generations Car Makes  Car Make Name  Car Models  Car Model Name  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_CarGenerationRead_"
                 }
               }
             },
@@ -10046,7 +10332,6 @@
     },
     "/api/car-generations/count": {
       "get": {
-        "description": "Get total count of entities.",
         "operationId": "count_entities_api_car_generations_count_get",
         "responses": {
           "200": {
@@ -10061,7 +10346,7 @@
                 }
               }
             },
-            "description": "Count of car_generations"
+            "description": "Car_Generation count retrieved successfully"
           }
         },
         "summary": "Count Entities",
@@ -10087,30 +10372,35 @@
             }
           },
           {
-            "description": "Number of generations to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of generations to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of generations to return",
+            "description": "Maximum number of items to return",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Maximum number of generations to return",
+              "description": "Maximum number of items to return",
               "maximum": 1000,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
             }
           }
         ],
@@ -10119,11 +10409,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/CarGenerationRead"
-                  },
-                  "title": "Response Search Car Generations Api Car Generations Search Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_CarGenerationRead_"
                 }
               }
             },
@@ -10177,8 +10463,7 @@
     },
     "/api/car-generations/{entity_id}": {
       "get": {
-        "description": "Get an entity by ID (public access).",
-        "operationId": "get_entity_public_api_car_generations__entity_id__get",
+        "operationId": "read_entity_public_api_car_generations__entity_id__get",
         "parameters": [
           {
             "in": "path",
@@ -10216,7 +10501,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Entity Public",
+        "summary": "Read Entity Public",
         "tags": [
           "car-generations"
         ]
@@ -10250,8 +10535,7 @@
     },
     "/api/categories/count": {
       "get": {
-        "description": "Get total count of entities.",
-        "operationId": "count_entities_api_categories_count_get",
+        "operationId": "count_categories_api_categories_count_get",
         "responses": {
           "200": {
             "content": {
@@ -10260,15 +10544,15 @@
                   "additionalProperties": {
                     "type": "integer"
                   },
-                  "title": "Response Count Entities Api Categories Count Get",
+                  "title": "Response Count Categories Api Categories Count Get",
                   "type": "object"
                 }
               }
             },
-            "description": "Count of categorys"
+            "description": "Category count retrieved successfully"
           }
         },
-        "summary": "Count Entities",
+        "summary": "Count Categories",
         "tags": [
           "categories"
         ]
@@ -10334,30 +10618,35 @@
             }
           },
           {
-            "description": "Number of parts to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of parts to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of parts to return",
+            "description": "Maximum number of items to return",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Maximum number of parts to return",
+              "description": "Maximum number of items to return",
               "maximum": 1000,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
             }
           }
         ],
@@ -10366,11 +10655,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PartRead"
-                  },
-                  "title": "Response Get Parts By Category Api Categories  Category Id  Parts Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_PartRead_"
                 }
               }
             },
@@ -10439,53 +10724,6 @@
           }
         },
         "summary": "Get Category Parts Count",
-        "tags": [
-          "categories"
-        ]
-      }
-    },
-    "/api/categories/{entity_id}": {
-      "get": {
-        "description": "Get an entity by ID (public access).",
-        "operationId": "get_entity_public_api_categories__entity_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "entity_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Entity Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CategoryResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "description": "Category not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Entity Public",
         "tags": [
           "categories"
         ]
@@ -11046,8 +11284,7 @@
     },
     "/api/part-manufacturers/count": {
       "get": {
-        "description": "Get total count of entities.",
-        "operationId": "count_entities_api_part_manufacturers_count_get",
+        "operationId": "count_part_manufacturers_api_part_manufacturers_count_get",
         "responses": {
           "200": {
             "content": {
@@ -11056,15 +11293,15 @@
                   "additionalProperties": {
                     "type": "integer"
                   },
-                  "title": "Response Count Entities Api Part Manufacturers Count Get",
+                  "title": "Response Count Part Manufacturers Api Part Manufacturers Count Get",
                   "type": "object"
                 }
               }
             },
-            "description": "Count of part manufacturers"
+            "description": "Part manufacturer count retrieved successfully"
           }
         },
-        "summary": "Count Entities",
+        "summary": "Count Part Manufacturers",
         "tags": [
           "part_manufacturers"
         ]
@@ -11113,30 +11350,35 @@
             }
           },
           {
-            "description": "Number of part manufacturers to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of part manufacturers to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of part manufacturers to return",
+            "description": "Maximum number of items to return",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Maximum number of part manufacturers to return",
+              "description": "Maximum number of items to return",
               "maximum": 1000,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
             }
           }
         ],
@@ -11145,11 +11387,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PartManufacturerResponse"
-                  },
-                  "title": "Response Search Part Manufacturers Api Part Manufacturers Search Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_PartManufacturerResponse_"
                 }
               }
             },
@@ -11356,30 +11594,35 @@
             }
           },
           {
-            "description": "Number of parts to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of parts to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of parts to return",
+            "description": "Maximum number of items to return",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Maximum number of parts to return",
+              "description": "Maximum number of items to return",
               "maximum": 1000,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
             }
           }
         ],
@@ -11388,11 +11631,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PartRead"
-                  },
-                  "title": "Response Get Parts By Part Manufacturer Api Part Manufacturers  Part Manufacturer Id  Parts Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_PartRead_"
                 }
               }
             },
@@ -11702,36 +11941,9 @@
     },
     "/api/parts/": {
       "get": {
-        "description": "List all entities with pagination and search.",
-        "operationId": "list_entities_api_parts__get",
+        "description": "List canonical parts newest-first, optionally filtered by a search term.",
+        "operationId": "list_parts_api_parts__get",
         "parameters": [
-          {
-            "description": "Number of parts to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of parts to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of parts to return",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Maximum number of parts to return",
-              "maximum": 1000,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
           {
             "description": "Search in part names and descriptions",
             "in": "query",
@@ -11749,6 +11961,38 @@
               "description": "Search in part names and descriptions",
               "title": "Search"
             }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum number of items to return",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -11756,15 +12000,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PartRead"
-                  },
-                  "title": "Response List Entities Api Parts  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_PartRead_"
                 }
               }
             },
-            "description": "List of parts retrieved successfully"
+            "description": "Part page retrieved successfully"
           },
           "422": {
             "content": {
@@ -11777,14 +12017,14 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Entities",
+        "summary": "List Parts",
         "tags": [
           "parts"
         ]
       },
       "post": {
-        "description": "Create a new entity.",
-        "operationId": "create_entity_api_parts__post",
+        "description": "Create a user-contributed part, optionally with a retailer listing and price.",
+        "operationId": "create_part_api_parts__post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11807,13 +12047,13 @@
             "description": "Successful Response"
           },
           "400": {
-            "description": "Invalid part data"
-          },
-          "402": {
-            "description": "Subscription limit reached"
+            "description": "Bad request"
           },
           "403": {
-            "description": "Not authorized to create part"
+            "description": "Not authorized"
+          },
+          "409": {
+            "description": "Part already exists"
           },
           "422": {
             "content": {
@@ -11831,7 +12071,7 @@
             "OAuth2PasswordBearer": []
           }
         ],
-        "summary": "Create Entity",
+        "summary": "Create Part",
         "tags": [
           "parts"
         ]
@@ -11853,30 +12093,35 @@
             }
           },
           {
-            "description": "Number of parts to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of parts to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of parts to return",
+            "description": "Maximum number of items to return",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Maximum number of parts to return",
+              "description": "Maximum number of items to return",
               "maximum": 1000,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
             }
           }
         ],
@@ -11885,11 +12130,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/PartRead"
-                  },
-                  "title": "Response Get Parts By Category Api Parts Category  Category Id  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_PartRead_"
                 }
               }
             },
@@ -11907,79 +12148,6 @@
           }
         },
         "summary": "Get Parts By Category",
-        "tags": [
-          "parts"
-        ]
-      }
-    },
-    "/api/parts/category/{filter_id}": {
-      "get": {
-        "description": "Filter entities by a specific field.",
-        "operationId": "filter_entities_api_parts_category__filter_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "filter_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Filter Id",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Number of parts to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of parts to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of parts to return",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Maximum number of parts to return",
-              "maximum": 1000,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {},
-                  "title": "Response Filter Entities Api Parts Category  Filter Id  Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "List of parts filtered by category retrieved successfully"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Filter Entities",
         "tags": [
           "parts"
         ]
@@ -12051,7 +12219,6 @@
     },
     "/api/parts/count": {
       "get": {
-        "description": "Get total count of entities.",
         "operationId": "count_entities_api_parts_count_get",
         "responses": {
           "200": {
@@ -12066,7 +12233,7 @@
                 }
               }
             },
-            "description": "Count of parts"
+            "description": "Part count retrieved successfully"
           }
         },
         "summary": "Count Entities",
@@ -12414,33 +12581,6 @@
         "operationId": "read_parts_with_votes_api_parts_with_votes_get",
         "parameters": [
           {
-            "description": "Number of parts to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of parts to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of parts to return",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Maximum number of parts to return",
-              "maximum": 1000,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
             "description": "Filter by category ID (single; use category_ids for multi)",
             "in": "query",
             "name": "category_id",
@@ -12692,6 +12832,38 @@
               "description": "When true, return only parts that fit all cars (is_universal)",
               "title": "Universal"
             }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum number of items to return",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page's next_cursor",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -12699,9 +12871,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Read Parts With Votes Api Parts With Votes Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CursorPage_PartReadWithVotes_"
                 }
               }
             },
@@ -12730,62 +12900,8 @@
       }
     },
     "/api/parts/{entity_id}": {
-      "delete": {
-        "description": "Delete an entity and return the deleted data.",
-        "operationId": "delete_entity_api_parts__entity_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "entity_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Entity Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "403": {
-            "description": "Not authorized to delete this part"
-          },
-          "404": {
-            "description": "Part not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Delete Entity",
-        "tags": [
-          "parts"
-        ]
-      },
       "get": {
-        "description": "Get an entity by ID (public access).",
-        "operationId": "get_entity_public_api_parts__entity_id__get",
+        "operationId": "read_entity_public_api_parts__entity_id__get",
         "parameters": [
           {
             "in": "path",
@@ -12823,13 +12939,12 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Entity Public",
+        "summary": "Read Entity Public",
         "tags": [
           "parts"
         ]
       },
       "put": {
-        "description": "Update an existing entity.",
         "operationId": "update_entity_api_parts__entity_id__put",
         "parameters": [
           {
@@ -12865,7 +12980,7 @@
             "description": "Successful Response"
           },
           "403": {
-            "description": "Not authorized to update this part"
+            "description": "Not authorized"
           },
           "404": {
             "description": "Part not found"
@@ -12887,6 +13002,61 @@
           }
         ],
         "summary": "Update Entity",
+        "tags": [
+          "parts"
+        ]
+      }
+    },
+    "/api/parts/{part_id}": {
+      "delete": {
+        "description": "Delete a part. Only the creator or an admin can delete it.",
+        "operationId": "delete_part_api_parts__part_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "part_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Part Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Part not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Part",
         "tags": [
           "parts"
         ]
@@ -14027,8 +14197,7 @@
     },
     "/api/retailers/count": {
       "get": {
-        "description": "Get total count of entities.",
-        "operationId": "count_entities_api_retailers_count_get",
+        "operationId": "count_retailers_api_retailers_count_get",
         "responses": {
           "200": {
             "content": {
@@ -14037,15 +14206,15 @@
                   "additionalProperties": {
                     "type": "integer"
                   },
-                  "title": "Response Count Entities Api Retailers Count Get",
+                  "title": "Response Count Retailers Api Retailers Count Get",
                   "type": "object"
                 }
               }
             },
-            "description": "Count of retailers"
+            "description": "Retailer count retrieved successfully"
           }
         },
-        "summary": "Count Entities",
+        "summary": "Count Retailers",
         "tags": [
           "retailers"
         ]
@@ -14265,7 +14434,7 @@
     },
     "/api/search/": {
       "get": {
-        "description": "Search across build lists, user profiles, and global parts.\nReturns results separated by entity type.",
+        "description": "Search across build lists, user profiles, and global parts.\nReturns results separated by entity type, each as a cursor page.",
         "operationId": "search_all_api_search__get",
         "parameters": [
           {
@@ -14280,19 +14449,6 @@
             }
           },
           {
-            "description": "Number of results to skip per category",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of results to skip per category",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
             "description": "Maximum number of results to return per category",
             "in": "query",
             "name": "limit",
@@ -14304,6 +14460,24 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor for the next page of build list results",
+            "in": "query",
+            "name": "build_lists_cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor for the next page of build list results",
+              "title": "Build Lists Cursor"
             }
           },
           {
@@ -14322,6 +14496,24 @@
               ],
               "description": "Opaque cursor for the next page of user results",
               "title": "Users Cursor"
+            }
+          },
+          {
+            "description": "Opaque cursor for the next page of part results",
+            "in": "query",
+            "name": "parts_cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor for the next page of part results",
+              "title": "Parts Cursor"
             }
           }
         ],
