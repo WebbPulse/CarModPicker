@@ -46,8 +46,15 @@ resource "aws_secretsmanager_secret" "sentry_dsn" {
 }
 
 resource "aws_secretsmanager_secret_version" "sentry_dsn" {
+  count = var.sentry_dsn != "" ? 1 : 0
+
   secret_id     = aws_secretsmanager_secret.sentry_dsn.id
   secret_string = var.sentry_dsn
+}
+
+moved {
+  from = aws_secretsmanager_secret_version.sentry_dsn
+  to   = aws_secretsmanager_secret_version.sentry_dsn[0]
 }
 
 resource "aws_secretsmanager_secret" "app" {

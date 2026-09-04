@@ -229,7 +229,7 @@ resource "aws_apprunner_service" "backend" {
         runtime_environment_secrets = {
           DATABASE_URL = aws_secretsmanager_secret_version.database_url[0].arn
           SECRET_KEY   = aws_secretsmanager_secret_version.secret_key.arn
-          SENTRY_DSN   = aws_secretsmanager_secret_version.sentry_dsn.arn
+          SENTRY_DSN   = aws_secretsmanager_secret.sentry_dsn.arn
         }
       }
     }
