@@ -11,15 +11,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import case, func, literal, select
+from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_labor_estimate import BuildListLaborEstimate as DBBuildListLaborEstimate
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
-from app.api.models.car_generation import CarGeneration as DBCar
-from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.build_list import (
     MAX_IMAGES_PER_BUILDLIST,
@@ -58,6 +58,19 @@ router = APIRouter()
 
 # Create service
 build_list_service = BuildListService()
+
+
+def _best_price_expression(db: Session, repos: Repositories) -> Any:
+    part_ids = set(db.scalars(select(DBBuildListPart.part_id).distinct()).all())
+    prices = {
+        part_id: part.best_price_cents
+        for part_id, part in repos.parts.get_many(part_ids).items()
+        if part.best_price_cents is not None
+    }
+    if not prices:
+        return literal(0)
+    return case(*[(DBBuildListPart.part_id == part_id, price) for part_id, price in prices.items()], else_=0)
+
 
 # Create base endpoint router
 # Disable the base GET endpoint since we have a custom one that allows read access for all authenticated users
@@ -101,6 +114,7 @@ async def read_build_lists_with_votes(
     ),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, Any]:
     """Get all build lists with vote data and optional filtering and search."""
     db = deps["db"]
@@ -108,23 +122,13 @@ async def read_build_lists_with_votes(
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    # Subquery: best price (min last_known_price_cents) per part
-    min_prices = (
-        select(
-            DBPartListing.part_id,
-            func.min(DBPartListing.last_known_price_cents).label("min_price"),
-        )
-        .where(DBPartListing.last_known_price_cents.isnot(None))
-        .group_by(DBPartListing.part_id)
-        .subquery()
-    )
+    best_price_expr = _best_price_expression(db, repos)
     # Subquery: parts cost per build list (sum of quantity * best_price per part)
     parts_cost_subq = (
         select(
             DBBuildListPart.build_list_id,
-            func.sum(DBBuildListPart.quantity * func.coalesce(min_prices.c.min_price, 0)).label("parts_cost_cents"),
+            func.sum(DBBuildListPart.quantity * best_price_expr).label("parts_cost_cents"),
         )
-        .outerjoin(min_prices, DBBuildListPart.part_id == min_prices.c.part_id)
         .group_by(DBBuildListPart.build_list_id)
         .subquery()
     )
@@ -593,6 +597,7 @@ async def read_build_lists_by_car(
     search: Optional[str] = Query(None, description="Search in build list names and descriptions"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, Any]:
     """
     Retrieve all build lists associated with a specific car with pagination.
@@ -604,7 +609,8 @@ async def read_build_lists_by_car(
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
     # Verify the car exists (cars are now centrally managed, no ownership check needed)
-    get_entity_or_404(db, DBCar, car_id, "car")
+    if repos.car_generations.get(str(car_id)) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Car not found")
 
     # Build base select with search filter
     base_stmt = select(DBBuildList).where(DBBuildList.car_id == car_id)

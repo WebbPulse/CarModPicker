@@ -21,18 +21,18 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.orm import Session
 
-from app.api.models.part import Part as DBPart
-from app.api.models.part_listing import PartListing as DBPartListing
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
-from app.api.models.retailer import Retailer as DBRetailer
 from app.api.services.part_price_aggregation_service import (
     aggregate_batch,
     aggregate_single_part,
     parse_window,
 )
+from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.catalog import PartListing as DBPartListing
+from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from app.db.dynamo.catalog import PartPriceHistory as DBPartPriceHistory
+from app.db.dynamo.catalog import Retailer as DBRetailer
 from app.db.dynamo.users import User
-from tests.conftest import get_default_category_id
+from tests.conftest import get_default_category_id, save_catalog
 
 # --- helpers -----------------------------------------------------------------
 
@@ -44,8 +44,7 @@ def _make_retailer(db: Session, slug: str) -> DBRetailer:
         base_url=f"https://{slug}.example.com",
         is_active=True,
     )
-    db.add(retailer)
-    db.flush()
+    retailer = save_catalog(retailer)
     return retailer
 
 
@@ -55,8 +54,7 @@ def _make_manufacturer(db: Session, suffix: str) -> DBPartManufacturer:
         description="test mfr",
         is_active=True,
     )
-    db.add(pm)
-    db.flush()
+    pm = save_catalog(pm)
     return pm
 
 
@@ -75,8 +73,7 @@ def _make_part(
         is_universal=True,
         canonical_part_id=canonical_part_id,
     )
-    db.add(part)
-    db.flush()
+    part = save_catalog(part)
     return part
 
 
@@ -86,8 +83,7 @@ def _make_listing(db: Session, part: DBPart, retailer: DBRetailer) -> DBPartList
         retailer_id=retailer.id,
         product_url=f"https://{retailer.domain}/p/{uuid.uuid4().hex[:8]}",
     )
-    db.add(listing)
-    db.flush()
+    listing = save_catalog(listing)
     return listing
 
 
@@ -103,8 +99,7 @@ def _add_history(
         price_cents=price_cents,
         observed_at=observed_at,
     )
-    db.add(row)
-    db.flush()
+    row = save_catalog(row)
     return row
 
 
@@ -121,7 +116,7 @@ def test_aggregate_single_part_basic(db_session: Session, test_user: User) -> No
     _add_history(db_session, listing, price_cents=1500, observed_at=now - timedelta(days=30))
     _add_history(db_session, listing, price_cents=1200, observed_at=now - timedelta(days=1))
 
-    result = aggregate_single_part(db_session, part.id, "90d")
+    result = aggregate_single_part(part.id, "90d")
 
     assert result.summary.observation_count == 3
     assert result.summary.min_cents == 1000
@@ -151,7 +146,7 @@ def test_aggregate_single_part_window_filters_old_observations(db_session: Sessi
     _add_history(db_session, listing, price_cents=2500, observed_at=now - timedelta(days=20))
     _add_history(db_session, listing, price_cents=2000, observed_at=now - timedelta(days=5))
 
-    result = aggregate_single_part(db_session, part.id, "30d")
+    result = aggregate_single_part(part.id, "30d")
 
     assert result.summary.observation_count == 2
     assert len(result.history) == 2
@@ -163,7 +158,7 @@ def test_aggregate_single_part_empty_history(db_session: Session, test_user: Use
     part = _make_part(db_session, test_user, name="Empty Part")
     # No listings, no history.
 
-    result = aggregate_single_part(db_session, part.id, "90d")
+    result = aggregate_single_part(part.id, "90d")
 
     assert result.summary.observation_count == 0
     assert result.summary.min_cents is None
@@ -204,14 +199,14 @@ def test_aggregate_single_part_trend_up_down_flat(
             observed_at=now - timedelta(days=(len(series) - i) * 5),
         )
 
-    result = aggregate_single_part(db_session, part.id, "90d")
+    result = aggregate_single_part(part.id, "90d")
     assert result.summary.trend == expected
 
 
 def test_aggregate_single_part_invalid_window_raises(db_session: Session, test_user: User) -> None:
     part = _make_part(db_session, test_user, name="Bad Window Part")
     with pytest.raises(ValueError):
-        aggregate_single_part(db_session, part.id, "99x")
+        aggregate_single_part(part.id, "99x")
     # parse_window directly, too — keeps the contract obvious.
     with pytest.raises(ValueError):
         parse_window("year")
@@ -233,7 +228,7 @@ def test_aggregate_batch_returns_entry_per_requested_id(db_session: Session, tes
     _add_history(db_session, listing_a, price_cents=1100, observed_at=now - timedelta(days=2))
     _add_history(db_session, listing_b, price_cents=2000, observed_at=now - timedelta(days=4))
 
-    result = aggregate_batch(db_session, [part_a.id, part_b.id, part_empty.id], "90d")
+    result = aggregate_batch([part_a.id, part_b.id, part_empty.id], "90d")
 
     assert set(result.keys()) == {part_a.id, part_b.id, part_empty.id}
     assert result[part_a.id].observation_count == 2
@@ -264,7 +259,7 @@ def test_aggregate_batch_canonical_dedup(db_session: Session, test_user: User) -
     _add_history(db_session, listing_canon, price_cents=1500, observed_at=now - timedelta(days=10))
     _add_history(db_session, listing_dupe, price_cents=900, observed_at=now - timedelta(days=4))
 
-    result = aggregate_batch(db_session, [canonical.id, duplicate.id], "90d")
+    result = aggregate_batch([canonical.id, duplicate.id], "90d")
 
     # Both keys present; both share the same group → identical aggregates.
     assert canonical.id in result
@@ -279,13 +274,8 @@ def test_aggregate_batch_canonical_dedup(db_session: Session, test_user: User) -
     assert dupe_item.max_cents == 1500
 
 
-def test_aggregate_batch_query_count(db_session: Session, test_user: User, query_counter) -> None:
-    """For a 10-part-id batch, ≤ 5 SELECTs (no N+1).
-
-    Budget: requested-row resolution + sibling resolution + min/max/count + obs
-    fetch + at most one extra (e.g. category-id resolution if category_id default
-    needs a SELECT). The contract is "independent of batch size".
-    """
+def test_aggregate_batch_ten_parts(db_session: Session, test_user: User) -> None:
+    """A 10-part-id batch returns one entry per requested part."""
     retailer = _make_retailer(db_session, "qc")
     parts: list[DBPart] = []
     now = datetime.now(UTC)
@@ -302,11 +292,7 @@ def test_aggregate_batch_query_count(db_session: Session, test_user: User, query
 
     part_ids = [p.id for p in parts]
 
-    with query_counter() as counter:
-        result = aggregate_batch(db_session, part_ids, "90d")
+    result = aggregate_batch(part_ids, "90d")
 
     assert len(result) == 10
-    # Hard cap from the plan: ≤ 5 SQL statements for the aggregation work.
-    assert counter.count <= 5, f"aggregate_batch issued {counter.count} SELECTs (expected ≤ 5):\n" + "\n".join(
-        counter.statements
-    )
+    assert set(result) == set(part_ids)

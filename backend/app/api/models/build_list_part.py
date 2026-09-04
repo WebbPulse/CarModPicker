@@ -11,7 +11,6 @@ from app.db.base_class import Base
 if TYPE_CHECKING:
     from .build_list import BuildList
     from .build_list_phase import BuildListPhase
-    from .part import Part
 
 
 class BuildListPart(Base):
@@ -27,7 +26,7 @@ class BuildListPart(Base):
     build_list_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("build_lists.id"), nullable=False, index=True
     )
-    part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("parts.id"), nullable=False, index=True)
+    part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     added_by: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     quantity: Mapped[int] = mapped_column(default=1, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(nullable=True)
@@ -42,4 +41,3 @@ class BuildListPart(Base):
     build_list_phase: Mapped[Optional["BuildListPhase"]] = relationship(
         "BuildListPhase", back_populates="build_list_parts", foreign_keys=[build_list_phase_id]
     )
-    part: Mapped["Part"] = relationship("Part", back_populates="build_list_parts")

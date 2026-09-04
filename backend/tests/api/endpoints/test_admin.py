@@ -4,12 +4,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.part import Part as DBPart
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.core.config import settings
+from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR
+from tests.conftest import INVALID_UUID_STR, catalog_repository, save_catalog
 
 
 def create_and_login_admin_user(client: TestClient, db_session: Session, username_suffix: str = "admin") -> str:
@@ -87,10 +87,8 @@ class TestAdminDeleteAllPartManufacturers:
         part_manufacturer2 = DBPartManufacturer(
             name="part_manufacturer_delete_2", description="PartManufacturer 2", is_active=True
         )
-        db_session.add_all([part_manufacturer1, part_manufacturer2])
-        db_session.commit()
-        db_session.refresh(part_manufacturer1)
-        db_session.refresh(part_manufacturer2)
+        part_manufacturer1 = save_catalog(part_manufacturer1)
+        part_manufacturer2 = save_catalog(part_manufacturer2)
 
         token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_success")
         headers = {"Authorization": f"Bearer {token}"}
@@ -104,7 +102,7 @@ class TestAdminDeleteAllPartManufacturers:
         assert data["deleted_count"] == 2
 
         # Verify part_manufacturers are gone
-        remaining = db_session.query(DBPartManufacturer).count()
+        remaining = catalog_repository(DBPartManufacturer).count()
         assert remaining == 0
 
     def test_delete_all_part_manufacturers_nullifies_part_part_manufacturer_ids(
@@ -114,9 +112,7 @@ class TestAdminDeleteAllPartManufacturers:
         part_manufacturer = DBPartManufacturer(
             name="part_manufacturer_for_part", description="PartManufacturer", is_active=True
         )
-        db_session.add(part_manufacturer)
-        db_session.commit()
-        db_session.refresh(part_manufacturer)
+        part_manufacturer = save_catalog(part_manufacturer)
 
         part = DBPart(
             name="Part with part_manufacturer",
@@ -125,9 +121,7 @@ class TestAdminDeleteAllPartManufacturers:
             user_id=test_user.id,
             part_manufacturer_id=part_manufacturer.id,
         )
-        db_session.add(part)
-        db_session.commit()
-        db_session.refresh(part)
+        part = save_catalog(part)
         part_id = part.id
 
         token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_nullify")
@@ -140,8 +134,7 @@ class TestAdminDeleteAllPartManufacturers:
         assert response.json()["deleted_count"] == 1
 
         # Verify part still exists but part_manufacturer_id is null
-        db_session.expire_all()  # Clear any cached state
-        part_after = db_session.query(DBPart).filter(DBPart.id == part_id).first()
+        part_after = catalog_repository(DBPart).get(str(part_id))
         assert part_after is not None
         assert part_after.part_manufacturer_id is None
 

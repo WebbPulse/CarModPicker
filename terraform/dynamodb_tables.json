@@ -608,6 +608,12 @@
         "range_key": "part_number_normalized"
       },
       {
+        "hash_key": "part_manufacturer_id",
+        "name": "part_manufacturer_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      },
+      {
         "hash_key": "user_id",
         "name": "user_id-created_at-index",
         "projection_type": "ALL",

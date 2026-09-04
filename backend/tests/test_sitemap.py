@@ -14,10 +14,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.part import Part as DBPart
 from app.api.services import sitemap_service
+from app.db.dynamo.catalog import Part as DBPart
 from app.db.dynamo.users import User
-from tests.conftest import get_default_category_id
+from tests.conftest import get_default_category_id, save_catalog
 
 SM_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
 
@@ -35,16 +35,15 @@ def _make_part(
     canonical_part_id: uuid.UUID | None = None,
     name: str = "Sitemap Part",
 ) -> DBPart:
-    part = DBPart(
-        name=name,
-        category_id=get_default_category_id(db),
-        user_id=user.id,
-        is_universal=True,
-        canonical_part_id=canonical_part_id,
+    return save_catalog(
+        DBPart(
+            name=name,
+            category_id=get_default_category_id(db),
+            user_id=user.id,
+            is_universal=True,
+            canonical_part_id=canonical_part_id,
+        )
     )
-    db.add(part)
-    db.flush()
-    return part
 
 
 def test_sitemap_index_lists_child_sitemaps(client: TestClient) -> None:

@@ -4,10 +4,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.category import Category as DBCategory
 from app.core.config import settings
+from app.db.dynamo.catalog import Category as DBCategory
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
+from tests.conftest import save_catalog
 
 
 # Helper function to create and login an admin user
@@ -157,9 +158,7 @@ class TestCategoriesAdminAuthentication:
             sort_order=1,
             is_active=True,
         )
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
         update_data = {"display_name": "Updated Category Name", "description": "Updated description"}
         response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data)
         assert response.status_code in (404, 405), "Update endpoint is removed"
@@ -173,9 +172,7 @@ class TestCategoriesAdminAuthentication:
             sort_order=1,
             is_active=True,
         )
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
         _, token = create_and_login_regular_user(client, db_session, "update_cat")
         headers = {"Authorization": f"Bearer {token}"}
         update_data = {"display_name": "Updated Category Name", "description": "Updated description"}
@@ -191,9 +188,7 @@ class TestCategoriesAdminAuthentication:
             sort_order=1,
             is_active=True,
         )
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
         _, token = create_and_login_admin_user(client, db_session, "update_cat")
         headers = {"Authorization": f"Bearer {token}"}
         update_data = {
@@ -213,9 +208,7 @@ class TestCategoriesAdminAuthentication:
             sort_order=1,
             is_active=True,
         )
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
         response = client.delete(f"{settings.API_STR}/categories/{category.id}")
         assert response.status_code in (404, 405), "Delete endpoint is removed"
 
@@ -228,9 +221,7 @@ class TestCategoriesAdminAuthentication:
             sort_order=1,
             is_active=True,
         )
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
         _, token = create_and_login_regular_user(client, db_session, "delete_cat")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
@@ -245,9 +236,7 @@ class TestCategoriesAdminAuthentication:
             sort_order=1,
             is_active=True,
         )
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
         _, token = create_and_login_admin_user(client, db_session, "delete_cat")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
@@ -255,7 +244,7 @@ class TestCategoriesAdminAuthentication:
 
     def test_delete_category_with_parts_fails(self, client: TestClient, db_session: Session) -> None:
         """Categories are seeded from backend; delete endpoint is removed (404/405)."""
-        from app.api.models.part import Part as DBPart
+        from app.db.dynamo.catalog import Part as DBPart
 
         user = UserRepository().create_user(
             DBUser(
@@ -275,17 +264,14 @@ class TestCategoriesAdminAuthentication:
             sort_order=1,
             is_active=True,
         )
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
         part = DBPart(
             name="Test Part",
             description="A test part",
             category_id=category.id,
             user_id=user.id,
         )
-        db_session.add(part)
-        db_session.commit()
+        part = save_catalog(part)
         _, token = create_and_login_admin_user(client, db_session, "delete_cat_parts")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
@@ -301,9 +287,7 @@ class TestCategoriesAdminAuthentication:
             sort_order=1,
             is_active=True,
         )
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
 
         # Test GET /categories/ (public)
         response = client.get(f"{settings.API_STR}/categories/")
@@ -323,7 +307,7 @@ class TestCategoriesAdminAuthentication:
         response = client.get(f"{settings.API_STR}/categories/{category.id}/parts")
         assert response.status_code == 200, "Category global parts should be public"
 
-        parts = response.json()
+        parts = response.json()["items"]
         assert isinstance(parts, list), "Should return a list of parts"
 
     def test_duplicate_category_name_fails(self, client: TestClient, db_session: Session) -> None:

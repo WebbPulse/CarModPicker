@@ -6,12 +6,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.category import Category
-from app.api.models.part_manufacturer import PartManufacturer
 from app.core.config import settings
+from app.db.dynamo.catalog import Category, CategoryRepository, PartManufacturer
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR, create_car_in_db, get_default_category_id, test_part_manufacturer
+from tests.conftest import (
+    INVALID_UUID_STR,
+    create_car_in_db,
+    get_default_category_id,
+    save_catalog,
+    test_part_manufacturer,
+)
 
 
 def get_unique_name(base_name: str) -> str:
@@ -128,7 +133,7 @@ class TestCategories:
     def test_get_categories_success(self, client: TestClient, db_session: Session) -> None:
         """Test getting all active categories."""
         # Create a default category if none exist
-        if db_session.query(Category).count() == 0:
+        if CategoryRepository().count() == 0:
             default_category = Category(
                 name="test_category",
                 display_name="Test Category",
@@ -136,8 +141,7 @@ class TestCategories:
                 is_active=True,
                 sort_order=1,
             )
-            db_session.add(default_category)
-            db_session.commit()
+            default_category = save_catalog(default_category)
 
         response = client.get(f"{settings.API_STR}/categories/")
         assert response.status_code == 200
@@ -179,7 +183,7 @@ class TestCategories:
         response = client.get(f"{settings.API_STR}/categories/{category_id}/parts")
         assert response.status_code == 200
 
-        parts = response.json()
+        parts = response.json()["items"]
         assert isinstance(parts, list)
 
     def test_get_parts_by_category_with_pagination(
@@ -209,12 +213,14 @@ class TestCategories:
             response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
             assert response.status_code == 200
 
-        response = client.get(f"{settings.API_STR}/categories/{category_id}/parts?skip=2&limit=2")
+        response = client.get(f"{settings.API_STR}/categories/{category_id}/parts?limit=2")
         assert response.status_code == 200
 
-        parts: list[Any] = response.json()
+        page = response.json()
+        parts: list[Any] = page["items"]
         assert isinstance(parts, list)
-        assert len(parts) <= 2
+        assert len(parts) == 2
+        assert page["has_next"] is True
 
     def test_get_parts_by_category_empty(self, client: TestClient, db_session: Session) -> None:
         """Test getting parts by category when no parts exist."""
@@ -224,7 +230,7 @@ class TestCategories:
         response = client.get(f"{settings.API_STR}/categories/{category_id}/parts")
         assert response.status_code == 200
 
-        parts = response.json()
+        parts = response.json()["items"]
         assert isinstance(parts, list)
         # Note: This might not be empty if there are existing parts in the test database
 
@@ -280,9 +286,7 @@ class TestCategories:
         part_manufacturer = PartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
         )
-        db_session.add(part_manufacturer)
-        db_session.commit()
-        db_session.refresh(part_manufacturer)
+        part_manufacturer = save_catalog(part_manufacturer)
 
         part_data = {
             "name": "Test Part",
@@ -328,9 +332,7 @@ class TestCategories:
         part_manufacturer = PartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
         )
-        db_session.add(part_manufacturer)
-        db_session.commit()
-        db_session.refresh(part_manufacturer)
+        part_manufacturer = save_catalog(part_manufacturer)
 
         # Create a part in that category
         part_data = {

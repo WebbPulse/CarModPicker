@@ -25,14 +25,14 @@ from typing import Any
 import pytest
 from sqlalchemy.orm import Session
 
-from app.api.models.part import Part as DBPart
-from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
-from app.api.models.retailer import Retailer as DBRetailer
 from app.api.services.part_listing_service import create_or_update_listing_and_price
 from app.api.services.part_price_alert_service import evaluate_alerts_for_listing
+from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.catalog import PartListingRepository
+from app.db.dynamo.catalog import Retailer as DBRetailer
 from app.db.dynamo.users import User, UserRepository
-from tests.conftest import get_default_category_id
+from tests.conftest import get_default_category_id, save_catalog
 
 # --- helpers ----------------------------------------------------------------
 
@@ -56,9 +56,7 @@ def _make_part(db: Session, owner: User, *, name: str = "Brake Disc") -> DBPart:
         user_id=owner.id,
         is_universal=True,
     )
-    db.add(part)
-    db.flush()
-    db.refresh(part)
+    part = save_catalog(part)
     return part
 
 
@@ -69,9 +67,7 @@ def _make_retailer(db: Session, slug: str = "shop") -> DBRetailer:
         base_url=f"https://{slug}.example.com",
         is_active=True,
     )
-    db.add(r)
-    db.flush()
-    db.refresh(r)
+    r = save_catalog(r)
     return r
 
 
@@ -391,10 +387,6 @@ def test_create_or_update_listing_and_price_invokes_evaluator(
     )
 
     assert len(calls) == 1
-    listing = (
-        db_session.query(DBPartListing)
-        .filter(DBPartListing.part_id == part.id, DBPartListing.retailer_id == retailer.id)
-        .first()
-    )
+    listing = PartListingRepository().get_by_part_and_retailer(part.id, retailer.id)
     assert listing is not None
     assert listing.last_known_price_cents == 11_000

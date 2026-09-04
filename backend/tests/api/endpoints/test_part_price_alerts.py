@@ -17,13 +17,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import ALGORITHM, create_access_token
-from app.api.models.part import Part as DBPart
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.core.config import settings
+from app.db.dynamo.catalog import Part as DBPart
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 from tests.api.endpoints.test_users import create_and_login_user, get_auth_headers
-from tests.conftest import INVALID_UUID_STR, get_default_category_id
+from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
 
 ALERTS_PATH = f"{settings.API_STR}/part-price-alerts"
 
@@ -40,9 +40,7 @@ def _make_part(db: Session, owner: DBUser, *, name: str = "Brake Disc") -> DBPar
         user_id=owner.id,
         is_universal=True,
     )
-    db.add(part)
-    db.commit()
-    db.refresh(part)
+    part = save_catalog(part)
     return part
 
 

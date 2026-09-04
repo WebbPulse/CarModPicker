@@ -87,17 +87,18 @@ async def upload_image(
 
     # If entity_id is provided, verify the user owns the entity
     if entity_id:
+        from app.api.dependencies.repositories import get_repositories
         from app.api.models.build_list import BuildList as DBBuildList
-        from app.api.models.part import Part as DBPart
 
+        repos = get_repositories()
         entity_owned = False
         if entity_type == "build_list":
             entity = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
             if entity and entity.user_id == current_user.id:
                 entity_owned = True
         elif entity_type == "part":
-            entity = db.scalars(select(DBPart).where(DBPart.id == entity_id)).first()
-            if entity and entity.user_id == current_user.id:
+            part = repos.parts.get(str(entity_id))
+            if part and part.user_id == current_user.id:
                 entity_owned = True
         elif entity_type == "user":
             # Users can only upload images for themselves
@@ -141,7 +142,7 @@ async def upload_image(
         if entity_type == "part":
             from app.api.schemas.part import MAX_IMAGES_PER_PART
 
-            part = db.scalars(select(DBPart).where(DBPart.id == entity_id)).first()
+            part = repos.parts.get(str(entity_id))
             if part:
                 current_count = len(part.image_urls or [])
                 if current_count >= MAX_IMAGES_PER_PART:

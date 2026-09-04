@@ -25,16 +25,15 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.models.category import Category
-from app.api.models.part import Part
 from app.api.models.part_price_alert import PartPriceAlert
 from app.api.schemas.part_price_alert import (
     PartPriceAlertCreate,
     PartPriceAlertRead,
     PartPriceAlertUpdate,
 )
+from app.db.dynamo.catalog import Category, Part
 from app.db.dynamo.users import User, UserRepository
-from tests.conftest import get_default_category_id
+from tests.conftest import get_default_category_id, save_catalog
 
 
 def _make_part(db: Session, user: User, name: str = "Test Part") -> Part:
@@ -45,9 +44,7 @@ def _make_part(db: Session, user: User, name: str = "Test Part") -> Part:
         user_id=user.id,
         is_universal=True,
     )
-    db.add(part)
-    db.commit()
-    db.refresh(part)
+    part = save_catalog(part)
     return part
 
 

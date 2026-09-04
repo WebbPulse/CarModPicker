@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import JSON, BigInteger, ForeignKey, Uuid, text
+from sqlalchemy import JSON, BigInteger, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from uuid6 import uuid7
 
@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from .build_list_part import BuildListPart
     from .build_list_phase import BuildListPhase
     from .build_log import BuildLog
-    from .car_generation import CarGeneration
     from .report import Report
     from .vote import Vote
 
@@ -25,9 +24,7 @@ class BuildList(Base):
     name: Mapped[str] = mapped_column(index=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(index=True, nullable=True)
     image_urls: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Build list cover image(s)
-    car_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("car_generations.id"), nullable=True, index=True
-    )
+    car_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid(as_uuid=True), nullable=True, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     # Purchase price of the donor car, in cents. Folded into total build cost.
     base_price_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"), default=0)
@@ -36,7 +33,6 @@ class BuildList(Base):
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
-    car_generation: Mapped[Optional["CarGeneration"]] = relationship("CarGeneration", back_populates="build_lists")
     build_list_parts: Mapped[List["BuildListPart"]] = relationship(
         "BuildListPart",
         back_populates="build_list",

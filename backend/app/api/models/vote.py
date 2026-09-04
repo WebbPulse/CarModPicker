@@ -10,8 +10,6 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list import BuildList
-    from .car_generation import CarGeneration
-    from .part import Part
 
 
 class Vote(Base):
@@ -34,25 +32,12 @@ class Vote(Base):
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Polymorphic relationships (these will be handled by the entity models)
-    car_generation: Mapped[Optional["CarGeneration"]] = relationship(
-        "CarGeneration",
-        foreign_keys="[Vote.entity_id]",
-        primaryjoin="and_(Vote.entity_id == CarGeneration.id, Vote.entity_type == 'car_generation')",
-        viewonly=True,
-    )
     build_list: Mapped[Optional["BuildList"]] = relationship(
         "BuildList",
         foreign_keys="[Vote.entity_id]",
         primaryjoin="and_(Vote.entity_id == BuildList.id, Vote.entity_type == 'build_list')",
         viewonly=True,
     )
-    part: Mapped[Optional["Part"]] = relationship(
-        "Part",
-        foreign_keys="[Vote.entity_id]",
-        primaryjoin="and_(Vote.entity_id == Part.id, Vote.entity_type == 'part')",
-        viewonly=True,
-    )
-
     # Ensure one vote per user per entity
     __table_args__ = (
         UniqueConstraint("user_id", "entity_type", "entity_id", name="unique_user_entity_vote"),

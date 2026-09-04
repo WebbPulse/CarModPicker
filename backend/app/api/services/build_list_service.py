@@ -10,11 +10,11 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.repositories import get_repositories
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
-from app.api.models.car_generation import CarGeneration as DBCar
 from app.api.schemas.build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.common_operations import verify_entity_exists
@@ -59,7 +59,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
             HTTPException: If car not found, creation fails, or free user limit reached (402)
         """
         # Verify the car exists
-        verify_entity_exists(db, DBCar, data.car_id, "car")
+        self._verify_car_exists(data.car_id)
 
         # Enforce build list cap for free users (premium = unlimited).
         # When the admin kill switch is on, is_user_premium returns True for everyone.
@@ -119,7 +119,7 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
         # If car_id is being updated, verify the car exists (if not None)
         update_dict = data.model_dump(exclude_unset=True)
         if "car_id" in update_dict and update_dict["car_id"] is not None:
-            verify_entity_exists(db, DBCar, update_dict["car_id"], "car")
+            self._verify_car_exists(update_dict["car_id"])
 
         # Call parent update method
         return super().update(
@@ -211,6 +211,10 @@ class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRe
 
         log.info(f"Retrieved {len(build_lists)} build lists for user {user_id}")
         return build_lists
+
+    def _verify_car_exists(self, car_id: UUID) -> None:
+        if get_repositories().car_generations.get(str(car_id)) is None:
+            raise HTTPException(status_code=404, detail="Car not found")
 
     def count_by_user(
         self,

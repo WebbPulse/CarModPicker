@@ -6,15 +6,12 @@ from typing import Generator
 
 import pytest
 from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 # Disable rate limiting for tests
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
-from app.api.models.car_generation import CarGeneration  # noqa: E402
-from app.api.models.car_make import CarMake  # noqa: E402
-from app.api.models.car_model import CarModel  # noqa: E402
 from app.api.utils.pagination_utils import (  # noqa: E402
     apply_search_filter,
     apply_sorting,
@@ -23,7 +20,20 @@ from app.api.utils.pagination_utils import (  # noqa: E402
     get_total_count,
     paginate_query,
 )
-from app.db.base import Base  # noqa: E402
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class CarGeneration(Base):
+    __tablename__ = "car_generations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    make_name: Mapped[str]
+    generation_name: Mapped[str]
+    start_year: Mapped[int]
+    end_year: Mapped[int]
 
 
 @pytest.fixture
@@ -38,24 +48,9 @@ def test_db_session() -> Generator[Session, None, None]:
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = SessionLocal()
 
-    # Add test data: CarMake -> CarModel -> CarGeneration
     for i in range(20):
-        make_name = f"Make{i % 5}"
-        model_name = f"Model{i}"
-        make_entity = session.scalars(select(CarMake).where(CarMake.name == make_name)).first()
-        if make_entity is None:
-            make_entity = CarMake(name=make_name)
-            session.add(make_entity)
-            session.flush()
-        car_model_entity = session.scalars(
-            select(CarModel).where(CarModel.car_make_id == make_entity.id, CarModel.name == model_name)
-        ).first()
-        if car_model_entity is None:
-            car_model_entity = CarModel(car_make_id=make_entity.id, name=model_name)
-            session.add(car_model_entity)
-            session.flush()
         car = CarGeneration(
-            car_model_id=car_model_entity.id,
+            make_name=f"Make{i % 5}",
             generation_name=f"Gen{i}",
             start_year=2000 + i,
             end_year=2000 + i + 1,
@@ -144,9 +139,7 @@ class TestTotalCount:
 
     def test_get_total_count_filtered(self, test_db_session: Session) -> None:
         """Test getting total count of filtered query (by make via join)."""
-        stmt = (
-            select(CarGeneration).join(CarGeneration.car_model).join(CarModel.car_make).where(CarMake.name == "Make1")
-        )
+        stmt = select(CarGeneration).where(CarGeneration.make_name == "Make1")
         total = get_total_count(test_db_session, stmt)
 
         assert total == 4  # 20 total / 5 makes = 4 per make

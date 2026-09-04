@@ -82,40 +82,34 @@ import json
 import sys
 from pathlib import Path
 
+from collections import Counter
+
 # Local import — runs only when the user invokes the live load test.
-from app.api.models.part_price_history import PartPriceHistory
-from app.api.models.part_listing import PartListing
-from app.api.models.part import Part
-from app.db.session import SessionLocal  # type: ignore[import-not-found]
-from sqlalchemy import func, select
+from app.api.dependencies.repositories import get_repositories
 
 pool_path = Path("${POOL_PATH}")
-db = SessionLocal()
-try:
-    total = db.scalar(select(func.count()).select_from(PartPriceHistory)) or 0
-    if total == 0:
-        print(
-            "[perf-gate] FATAL: part_price_history is empty. "
-            "Run python scripts/populate_sample_data.py first.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    # Part → PartListing → PartPriceHistory (price history hangs off listings,
-    # not parts directly — see app/api/models/part_listing.py).
-    rows = db.execute(
-        select(Part.id, func.count(PartPriceHistory.id).label("obs"))
-        .join(PartListing, PartListing.part_id == Part.id)
-        .join(PartPriceHistory, PartPriceHistory.part_listing_id == PartListing.id)
-        .group_by(Part.id)
-        .order_by(func.count(PartPriceHistory.id).desc())
-        .limit(500)
-    ).all()
-    pool = [str(part_id) for part_id, _obs in rows]
-    pool_path.parent.mkdir(parents=True, exist_ok=True)
-    pool_path.write_text(json.dumps(pool, indent=2))
-    print(f"[perf-gate] wrote {len(pool)} part IDs to {pool_path}")
-finally:
-    db.close()
+repos = get_repositories()
+history = repos.part_price_history.list_all()
+if not history:
+    print(
+        "[perf-gate] FATAL: part_price_history is empty. "
+        "Run python scripts/populate_sample_data.py first.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+# Part → PartListing → PartPriceHistory (price history hangs off listings,
+# not parts directly — see app/db/dynamo/catalog.py).
+listing_counts = Counter(row.part_listing_id for row in history)
+listings = repos.part_listings.get_many(listing_counts)
+part_counts = Counter()
+for listing_id, observations in listing_counts.items():
+    listing = listings.get(listing_id)
+    if listing is not None:
+        part_counts[listing.part_id] += observations
+pool = [str(part_id) for part_id, _obs in part_counts.most_common(500)]
+pool_path.parent.mkdir(parents=True, exist_ok=True)
+pool_path.write_text(json.dumps(pool, indent=2))
+print(f"[perf-gate] wrote {len(pool)} part IDs to {pool_path}")
 PYEOF
 POOL_RC=$?
 if [[ ${POOL_RC} -ne 0 ]]; then

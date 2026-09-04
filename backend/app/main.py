@@ -77,7 +77,7 @@ def run_startup_tasks() -> None:
     db = SessionLocal()
     try:
         try:
-            init_car_generations(db)
+            init_car_generations()
         except Exception:
             logger.exception("Failed to initialize car generations on startup")
     finally:

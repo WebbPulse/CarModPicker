@@ -153,7 +153,7 @@ def test_get_cars_by_make_success(client: TestClient, db_session: Session) -> No
     response = client.get(f"{settings.API_STR}/car-generations/car-makes/Toyota")
     assert response.status_code == 200, response.text
 
-    cars: list[Any] = response.json()
+    cars: list[Any] = response.json()["items"]
     assert isinstance(cars, list)
     assert len(cars) >= 2
 
@@ -168,7 +168,7 @@ def test_get_cars_by_make_no_results(client: TestClient, db_session: Session) ->
     response = client.get(f"{settings.API_STR}/car-generations/car-makes/NonExistentMake")
     assert response.status_code == 200, response.text
 
-    cars: list[Any] = response.json()
+    cars: list[Any] = response.json()["items"]
     assert isinstance(cars, list)
     assert len(cars) == 0
 
@@ -185,7 +185,7 @@ def test_get_cars_by_make_model_success(client: TestClient, db_session: Session)
     response = client.get(f"{settings.API_STR}/car-generations/car-makes/Honda/car-models/Civic")
     assert response.status_code == 200, response.text
 
-    cars: list[Any] = response.json()
+    cars: list[Any] = response.json()["items"]
     assert isinstance(cars, list)
     assert len(cars) >= 2
 
@@ -205,7 +205,7 @@ def test_search_cars_by_make(client: TestClient, db_session: Session) -> None:
     response = client.get(f"{settings.API_STR}/car-generations/search?q=Tesla")
     assert response.status_code == 200, response.text
 
-    cars: list[Any] = response.json()
+    cars: list[Any] = response.json()["items"]
     assert isinstance(cars, list)
     assert len(cars) >= 1
 
@@ -225,7 +225,7 @@ def test_search_cars_by_model(client: TestClient, db_session: Session) -> None:
     response = client.get(f"{settings.API_STR}/car-generations/search?q=M3")
     assert response.status_code == 200, response.text
 
-    cars: list[Any] = response.json()
+    cars: list[Any] = response.json()["items"]
     assert len(cars) >= 1
 
     # Verify M3 is in results
@@ -249,7 +249,7 @@ def test_search_cars_no_results(client: TestClient, db_session: Session) -> None
     response = client.get(f"{settings.API_STR}/car-generations/search?q=NonExistentCarBrandXYZ123")
     assert response.status_code == 200, response.text
 
-    cars: list[Any] = response.json()
+    cars: list[Any] = response.json()["items"]
     assert isinstance(cars, list)
     assert len(cars) == 0
 
@@ -332,10 +332,10 @@ def test_count_cars_success(client: TestClient, db_session: Session) -> None:
     assert response.json()["count"] == initial_count + 1
 
     # Remove car via DB (no delete API)
-    from app.api.models.car_generation import CarGeneration
+    from app.db.dynamo.catalog import CarGenerationRepository
 
-    db_session.query(CarGeneration).filter(CarGeneration.id == car["id"]).delete()
-    db_session.commit()
+    generations = CarGenerationRepository()
+    generations.delete_unique(generations.get_or_raise(str(car["id"])))
     response = client.get(f"{settings.API_STR}/car-generations/count")
     assert response.status_code == 200
     assert response.json()["count"] == initial_count

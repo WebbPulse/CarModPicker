@@ -5,7 +5,6 @@ from uuid6 import uuid7
 
 from app.api.models.build_list import BuildList
 from app.api.models.build_list_part import BuildListPart
-from app.api.models.part import Part
 from app.api.utils.authorization import (
     can_delete_build_list_part,
     can_delete_part,
@@ -16,6 +15,7 @@ from app.api.utils.authorization import (
     require_part_delete_permission,
     require_part_edit_permission,
 )
+from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import User, UserRepository
 
 
@@ -25,6 +25,7 @@ class TestAuthorization:
     def test_can_delete_part_owner(self, test_user: User) -> None:
         """Test that owner can delete their global part."""
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,
@@ -46,6 +47,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,  # Owned by different user
@@ -67,6 +69,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,  # Owned by different user
@@ -76,6 +79,7 @@ class TestAuthorization:
     def test_can_edit_part_owner(self, test_user: User) -> None:
         """Test that owner can edit their global part."""
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,
@@ -97,6 +101,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,
@@ -192,6 +197,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,
@@ -218,6 +224,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,

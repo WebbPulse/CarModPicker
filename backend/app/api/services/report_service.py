@@ -4,15 +4,15 @@ Unified report service for all entity types.
 
 import logging
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.repositories import get_repositories
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.part import Part as DBPart
 from app.api.models.report import Report as DBReport
 from app.api.schemas.report import (
     EntityType,
@@ -20,7 +20,7 @@ from app.api.schemas.report import (
     ReportRead,
     ReportWithDetails,
 )
-from app.api.utils.common_operations import verify_entity_exists
+from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import UserRepository
 
 
@@ -62,8 +62,7 @@ class ReportService:
             HTTPException: If entity doesn't exist or user tries to report their own entity
         """
         # Verify entity exists
-        entity_model = self._get_entity_model(entity_type)
-        entity = verify_entity_exists(db, entity_model, entity_id, entity_type.value)
+        entity = self._get_entity_or_404(db, entity_type, entity_id)
 
         # Check if user is trying to report their own entity
         if entity.user_id == user_id:
@@ -369,14 +368,17 @@ class ReportService:
             reviewer_username=reviewer_username,
         )
 
-    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBBuildList, DBPart]]:
-        """Get the SQLAlchemy model for the entity type."""
+    def _get_entity_or_404(self, db: Session, entity_type: EntityType, entity_id: UUID) -> Union[DBBuildList, Part]:
+        entity: Union[DBBuildList, Part, None]
         if entity_type == EntityType.BUILD_LIST:
-            return DBBuildList
+            entity = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
         elif entity_type == EntityType.PART:
-            return DBPart
+            entity = get_repositories().parts.get(str(entity_id))
         else:
             raise ValueError(f"Unknown entity type: {entity_type}")
+        if entity is None:
+            raise HTTPException(status_code=404, detail=f"{entity_type.value.title()} not found")
+        return entity
 
     def _get_entity_details(self, db: Session, entity_type: str, entity_id: UUID) -> Dict[str, Any]:
         """Get entity details for report display."""
@@ -385,7 +387,7 @@ class ReportService:
             if bl:
                 return {"name": bl.name, "description": bl.description}
         elif entity_type == "part":
-            part = db.scalars(select(DBPart).where(DBPart.id == entity_id)).first()
+            part = get_repositories().parts.get(str(entity_id))
             if part:
                 return {"name": part.name, "description": part.description}
 

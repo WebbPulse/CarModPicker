@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.dynamo.users import User, UserRepository
-from tests.conftest import INVALID_UUID_STR, create_car_in_db
+from tests.conftest import INVALID_UUID_STR, create_car_in_db, save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -148,22 +148,18 @@ class TestUnifiedReports:
         )
 
         # Create a category first
-        from app.api.models.category import Category as DBCategory
+        from app.db.dynamo.catalog import Category as DBCategory
 
         category = DBCategory(name=get_unique_name("Test Category"))
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
 
         # Create a part_manufacturer
-        from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
+        from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 
         part_manufacturer = DBPartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
         )
-        db_session.add(part_manufacturer)
-        db_session.commit()
-        db_session.refresh(part_manufacturer)
+        part_manufacturer = save_catalog(part_manufacturer)
 
         # Login as part owner and create a global part
         login_data = {"username": part_owner.username, "password": "testpassword"}

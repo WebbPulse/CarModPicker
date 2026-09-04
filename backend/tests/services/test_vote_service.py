@@ -6,11 +6,12 @@ import os
 from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList
-from app.api.models.part import Part
 from app.api.models.vote import Vote
 from app.api.schemas.vote import EntityType, VoteCreate, VoteType
 from app.api.services.vote_service import VoteService
+from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import User, UserRepository
+from tests.conftest import save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -72,9 +73,9 @@ class TestVoteService:
     def test_vote_on_part(self, db_session: Session, test_user: User) -> None:
         """Test voting on a global part."""
         # Create a global part
-        from app.api.models.category import Category
+        from app.db.dynamo.catalog import Category, CategoryRepository
 
-        category = db_session.query(Category).first()
+        category = next(iter(CategoryRepository().list_all()), None)
         if not category:
             category = Category(
                 name="test_category",
@@ -83,8 +84,7 @@ class TestVoteService:
                 is_active=True,
                 sort_order=1,
             )
-            db_session.add(category)
-            db_session.commit()
+            category = save_catalog(category)
 
         part = Part(
             name=get_unique_name("test_part"),
@@ -92,8 +92,7 @@ class TestVoteService:
             user_id=test_user.id,
             category_id=category.id,
         )
-        db_session.add(part)
-        db_session.commit()
+        part = save_catalog(part)
 
         # Vote on global part
         service = VoteService()

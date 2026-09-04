@@ -4,15 +4,16 @@ Unified vote service for all entity types.
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import List, Optional, Type, Union
+from typing import Any, List, Optional, Union
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import Float, and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car_generation import CarGeneration as DBCar
-from app.api.models.part import Part as DBPart
+from app.api.models.report import Report as DBReport
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.vote import (
     EntityType,
@@ -20,7 +21,10 @@ from app.api.schemas.vote import (
     VoteCreate,
     VoteSummary,
 )
-from app.api.utils.common_operations import verify_entity_exists
+from app.db.dynamo.catalog import CarGeneration, Part
+from app.db.dynamo.repository import ItemNotFound
+
+VotableEntity = Union[CarGeneration, DBBuildList, Part]
 
 
 class VoteService:
@@ -31,9 +35,9 @@ class VoteService:
     using the unified Vote model.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, repos: Optional[Repositories] = None) -> None:
         """Initialize the unified vote service."""
-        pass
+        self.repos = repos or get_repositories()
 
     def vote_on_entity(
         self,
@@ -61,11 +65,8 @@ class VoteService:
         Raises:
             HTTPException: If entity doesn't exist
         """
-        # Verify entity exists
-        entity_model = self._get_entity_model(entity_type)
-        _ = verify_entity_exists(db, entity_model, entity_id, entity_type.value)
+        self._get_entity_or_404(db, entity_type, entity_id)
 
-        # Check for existing vote
         existing_vote = db.scalars(
             select(DBVote).where(
                 DBVote.user_id == user_id,
@@ -75,28 +76,28 @@ class VoteService:
         ).first()
 
         if existing_vote:
-            # Update existing vote
             existing_vote.vote_type = vote_data.vote_type.value
             existing_vote.updated_at = datetime.now(UTC)
             db.commit()
             db.refresh(existing_vote)
+            self._sync_part_net_votes(db, entity_type, entity_id)
 
             logger.info(f"Vote updated: {existing_vote.id} by user {user_id} on {entity_type.value} {entity_id}")
             return existing_vote
-        else:
-            # Create new vote
-            db_vote = DBVote(
-                user_id=user_id,
-                entity_type=entity_type.value,
-                entity_id=entity_id,
-                vote_type=vote_data.vote_type.value,
-            )
-            db.add(db_vote)
-            db.commit()
-            db.refresh(db_vote)
 
-            logger.info(f"Vote created: {db_vote.id} by user {user_id} on {entity_type.value} {entity_id}")
-            return db_vote
+        db_vote = DBVote(
+            user_id=user_id,
+            entity_type=entity_type.value,
+            entity_id=entity_id,
+            vote_type=vote_data.vote_type.value,
+        )
+        db.add(db_vote)
+        db.commit()
+        db.refresh(db_vote)
+        self._sync_part_net_votes(db, entity_type, entity_id)
+
+        logger.info(f"Vote created: {db_vote.id} by user {user_id} on {entity_type.value} {entity_id}")
+        return db_vote
 
     def remove_vote(
         self,
@@ -130,6 +131,7 @@ class VoteService:
         if vote:
             db.delete(vote)
             db.commit()
+            self._sync_part_net_votes(db, entity_type, entity_id)
             logger.info(f"Vote removed: {vote.id} by user {user_id} on {entity_type.value} {entity_id}")
             return True
 
@@ -159,27 +161,12 @@ class VoteService:
         Raises:
             HTTPException: If entity not found
         """
-        # Verify entity exists
-        entity_model = self._get_entity_model(entity_type)
-        verify_entity_exists(db, entity_model, entity_id, entity_type.value)
+        self._get_entity_or_404(db, entity_type, entity_id)
 
-        # Get vote counts
-        vote_counts = db.execute(
-            select(DBVote.vote_type, func.count(DBVote.id).label("count"))
-            .where(
-                DBVote.entity_type == entity_type.value,
-                DBVote.entity_id == entity_id,
-            )
-            .group_by(DBVote.vote_type)
-        ).all()
-
-        # vote_counts is a list of tuples: (vote_type, count)
-        upvotes = sum(int(count[1]) for count in vote_counts if count[0] == "upvote")
-        downvotes = sum(int(count[1]) for count in vote_counts if count[0] == "downvote")
+        upvotes, downvotes = self._vote_counts(db, entity_type, entity_id)
         total_votes = upvotes + downvotes
         vote_score = upvotes - downvotes
 
-        # Get user's vote if user_id provided
         user_vote = None
         if user_id:
             user_vote_obj = db.scalars(
@@ -220,9 +207,6 @@ class VoteService:
         Returns:
             List of flagged entity summaries
         """
-        entity_model = self._get_entity_model(entity_type)
-
-        # Calculate vote statistics for each entity
         vote_stats = (
             select(
                 DBVote.entity_id,
@@ -244,110 +228,113 @@ class VoteService:
             )
             .where(DBVote.entity_type == entity_type.value)
             .group_by(DBVote.entity_id)
-            .having(func.count(DBVote.id) >= 5)  # Only entities with at least 5 votes
+            .having(func.count(DBVote.id) >= 5)
             .subquery()
         )
+        downvote_ratio = case(
+            (
+                vote_stats.c.total_votes > 0,
+                vote_stats.c.downvotes.cast(Float) / vote_stats.c.total_votes,
+            ),
+            else_=0.0,
+        )
 
-        # Get entities with their vote stats and check for reports
-        flagged_entities = db.execute(
+        rows = db.execute(
             select(
-                entity_model,
+                vote_stats.c.entity_id,
                 vote_stats.c.upvotes,
                 vote_stats.c.downvotes,
                 vote_stats.c.total_votes,
                 vote_stats.c.recent_downvotes,
-                func.coalesce(vote_stats.c.upvotes, 0) - func.coalesce(vote_stats.c.downvotes, 0).label("vote_score"),
-                case(
-                    (
-                        vote_stats.c.total_votes > 0,
-                        vote_stats.c.downvotes.cast(Float) / vote_stats.c.total_votes,
-                    ),
-                    else_=0.0,
-                ).label("downvote_ratio"),
+                downvote_ratio.label("downvote_ratio"),
                 exists(
                     select(1)
-                    .select_from(DBVote)
+                    .select_from(DBReport)
                     .where(
                         and_(
-                            DBVote.entity_type == entity_type.value,
-                            DBVote.entity_id == entity_model.id,
+                            DBReport.entity_type == entity_type.value,
+                            DBReport.entity_id == vote_stats.c.entity_id,
                         )
                     )
                 ).label("has_reports"),
             )
-            .join(vote_stats, entity_model.id == vote_stats.c.entity_id)
-            .where(
-                or_(
-                    # High downvote ratio
-                    case(
-                        (
-                            vote_stats.c.total_votes > 0,
-                            vote_stats.c.downvotes.cast(Float) / vote_stats.c.total_votes,
-                        ),
-                        else_=0.0,
-                    )
-                    >= 0.3,
-                    # Many recent downvotes
-                    vote_stats.c.recent_downvotes >= 3,
-                )
-            )
-            .order_by(
-                case(
-                    (
-                        vote_stats.c.total_votes > 0,
-                        vote_stats.c.downvotes.cast(Float) / vote_stats.c.total_votes,
-                    ),
-                    else_=0.0,
-                ).desc(),
-                vote_stats.c.recent_downvotes.desc(),
-            )
+            .where(or_(downvote_ratio >= 0.3, vote_stats.c.recent_downvotes >= 3))
+            .order_by(downvote_ratio.desc(), vote_stats.c.recent_downvotes.desc())
             .limit(limit)
         ).all()
 
-        return [
-            FlaggedEntitySummary(
-                entity_id=entity.id,
-                entity_type=entity_type.value,
-                entity_name=self._get_entity_name(entity, entity_type),
-                entity_description=getattr(entity, "description", None),
-                upvotes=upvotes or 0,
-                downvotes=downvotes or 0,
-                total_votes=total_votes or 0,
-                vote_score=vote_score or 0,
-                downvote_ratio=downvote_ratio or 0.0,
-                recent_downvotes=recent_downvotes or 0,
-                has_reports=has_reports,
-                created_at=entity.created_at,
-                flagged_at=datetime.now(UTC),
+        entities = self._get_entities(db, entity_type, [row[0] for row in rows])
+        flagged: List[FlaggedEntitySummary] = []
+        for entity_id, upvotes, downvotes, total_votes, recent_downvotes, ratio, has_reports in rows:
+            entity = entities.get(entity_id)
+            if entity is None:
+                continue
+            flagged.append(
+                FlaggedEntitySummary(
+                    entity_id=entity.id,
+                    entity_type=entity_type.value,
+                    entity_name=self._get_entity_name(entity, entity_type),
+                    entity_description=getattr(entity, "description", None),
+                    upvotes=upvotes or 0,
+                    downvotes=downvotes or 0,
+                    total_votes=total_votes or 0,
+                    vote_score=(upvotes or 0) - (downvotes or 0),
+                    downvote_ratio=ratio or 0.0,
+                    recent_downvotes=recent_downvotes or 0,
+                    has_reports=bool(has_reports),
+                    created_at=entity.created_at,
+                    flagged_at=datetime.now(UTC),
+                )
             )
-            for (
-                entity,
-                upvotes,
-                downvotes,
-                total_votes,
-                recent_downvotes,
-                vote_score,
-                downvote_ratio,
-                has_reports,
-            ) in flagged_entities
-        ]
+        return flagged
 
-    def _get_entity_model(self, entity_type: EntityType) -> Type[Union[DBCar, DBBuildList, DBPart]]:
-        """Get the SQLAlchemy model for the entity type."""
+    def _vote_counts(self, db: Session, entity_type: EntityType, entity_id: UUID) -> tuple[int, int]:
+        vote_counts = db.execute(
+            select(DBVote.vote_type, func.count(DBVote.id).label("count"))
+            .where(
+                DBVote.entity_type == entity_type.value,
+                DBVote.entity_id == entity_id,
+            )
+            .group_by(DBVote.vote_type)
+        ).all()
+        upvotes = sum(int(count[1]) for count in vote_counts if count[0] == "upvote")
+        downvotes = sum(int(count[1]) for count in vote_counts if count[0] == "downvote")
+        return upvotes, downvotes
+
+    def _sync_part_net_votes(self, db: Session, entity_type: EntityType, entity_id: UUID) -> None:
+        if entity_type != EntityType.PART:
+            return
+        upvotes, downvotes = self._vote_counts(db, entity_type, entity_id)
+        try:
+            self.repos.parts.update(str(entity_id), net_votes=upvotes - downvotes)
+        except ItemNotFound:
+            return
+
+    def _get_entities(self, db: Session, entity_type: EntityType, ids: List[Any]) -> dict[UUID, VotableEntity]:
+        if not ids:
+            return {}
+        if entity_type == EntityType.BUILD_LIST:
+            rows = db.scalars(select(DBBuildList).where(DBBuildList.id.in_(ids))).all()
+            return {row.id: row for row in rows}
         if entity_type == EntityType.CAR_GENERATION:
-            return DBCar
-        elif entity_type == EntityType.BUILD_LIST:
-            return DBBuildList
-        elif entity_type == EntityType.PART:
-            return DBPart
-        else:
-            raise ValueError(f"Unknown entity type: {entity_type}")
+            return dict(self.repos.car_generations.get_many(ids))
+        if entity_type == EntityType.PART:
+            return dict(self.repos.parts.get_many(ids))
+        raise ValueError(f"Unknown entity type: {entity_type}")
 
-    def _get_entity_name(self, entity: Union[DBCar, DBBuildList, DBPart], entity_type: EntityType) -> str:
+    def _get_entity_or_404(self, db: Session, entity_type: EntityType, entity_id: UUID) -> VotableEntity:
+        entity = self._get_entities(db, entity_type, [entity_id]).get(entity_id)
+        if entity is None:
+            raise HTTPException(status_code=404, detail=f"{entity_type.value.title()} not found")
+        return entity
+
+    def _get_entity_name(self, entity: VotableEntity, entity_type: EntityType) -> str:
         """Get the display name for an entity."""
-        if entity_type == EntityType.CAR_GENERATION:
-            return str(f"{entity.make} {entity.model} {entity.generation_name} ({entity.start_year}-{entity.end_year})")
-        elif entity_type == EntityType.BUILD_LIST:
-            return str(entity.name)
-        else:  # EntityType.PART
-            return str(entity.name)
+        if isinstance(entity, CarGeneration):
+            from app.api.services.car_generation_service import CarGenerationService
+
+            read = CarGenerationService(self.repos).hydrate_one(entity)
+            return (
+                f"{read.car_make_name} {read.car_model_name} {read.generation_name} ({read.start_year}-{read.end_year})"
+            )
+        return str(entity.name)

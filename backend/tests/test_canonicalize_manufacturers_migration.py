@@ -25,6 +25,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
+import pytest
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
@@ -36,6 +37,27 @@ assert _spec is not None and _spec.loader is not None
 _mig: Any = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = _mig
 _spec.loader.exec_module(_mig)
+
+
+_LEGACY_TABLES = {
+    "part_manufacturers": "id TEXT PRIMARY KEY, name TEXT NOT NULL, is_active BOOLEAN, created_at TIMESTAMP, updated_at TIMESTAMP",
+    "categories": (
+        "id TEXT PRIMARY KEY, name TEXT NOT NULL, is_active BOOLEAN, sort_order INTEGER, "
+        "created_at TIMESTAMP, updated_at TIMESTAMP"
+    ),
+    "parts": (
+        "id TEXT PRIMARY KEY, name TEXT NOT NULL, category_id TEXT, part_manufacturer_id TEXT, user_id TEXT, "
+        "is_universal BOOLEAN, edit_count INTEGER, created_at TIMESTAMP, updated_at TIMESTAMP"
+    ),
+}
+
+
+@pytest.fixture(autouse=True)
+def legacy_catalog_tables(db_session: Session) -> None:
+    conn = db_session.connection()
+    for table, columns in _LEGACY_TABLES.items():
+        conn.execute(sa.text(f"CREATE TABLE IF NOT EXISTS {table} ({columns})"))  # nosec B608
+        conn.execute(sa.text(f"DELETE FROM {table}"))  # nosec B608
 
 
 def _insert_mfr(conn: sa.Connection, name: str) -> str:

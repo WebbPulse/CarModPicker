@@ -9,16 +9,10 @@ via resolve_car_triples_to_ids().
 """
 
 import re
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
-
 from app.core.car_generations_data import CAR_GENERATIONS
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
-
 
 AMBIGUOUS_STANDALONE_CODES: frozenset[str] = frozenset(
     {
@@ -3513,7 +3507,6 @@ def infer_car_generations_via_engine(
 
 
 def resolve_car_triples_to_ids(
-    db: "Session",
     triples: list[tuple[str, str, str]],
 ) -> list[UUID]:
     """
@@ -3523,30 +3516,22 @@ def resolve_car_triples_to_ids(
     """
     if not triples:
         return []
-    from app.api.models.car_generation import CarGeneration
-    from app.api.models.car_make import CarMake
-    from app.api.models.car_model import CarModel
+    from app.api.dependencies.repositories import get_repositories
 
+    repos = get_repositories()
     ids: list[UUID] = []
     seen_ids: set[UUID] = set()
     for car_make_name, car_model_name, gen_name in triples:
-        car_make = db.scalars(select(CarMake).where(CarMake.name == car_make_name)).first()
+        car_make = repos.car_makes.get_by_name(car_make_name)
         if not car_make:
             continue
-        car_model = db.scalars(
-            select(CarModel).where(
-                CarModel.car_make_id == car_make.id,
-                CarModel.name == car_model_name,
-            )
-        ).first()
+        car_model = repos.car_models.get_by_make_and_name(car_make.id, car_model_name)
         if not car_model:
             continue
-        car_generation = db.scalars(
-            select(CarGeneration).where(
-                CarGeneration.car_model_id == car_model.id,
-                CarGeneration.generation_name == gen_name,
-            )
-        ).first()
+        car_generation = next(
+            (gen for gen in repos.car_generations.list_by_model(car_model.id) if gen.generation_name == gen_name),
+            None,
+        )
         if car_generation and car_generation.id not in seen_ids:
             seen_ids.add(car_generation.id)
             ids.append(car_generation.id)

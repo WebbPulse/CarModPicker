@@ -677,21 +677,17 @@ def iterate_corpus_audit(
     """
     # Local imports — module is importable in pure unit tests without app/.
     from sqlalchemy.exc import OperationalError, ProgrammingError
-    from sqlalchemy.orm import selectinload
 
+    from app.api.dependencies.repositories import get_repositories
     from app.api.models.crawled_page import CrawledPage
-    from app.api.models.part import Part
+    from app.db.dynamo.catalog import Part
 
+    repos = get_repositories()
     canonical_index: dict[str, CanonicalRow] = {}
     iterated = 0
     failed_rows = 0
 
-    q = (
-        db.query(CrawledPage)
-        .options(selectinload(CrawledPage.part).selectinload(Part.car_generations))
-        .filter(CrawledPage.part_id.is_not(None))
-        .order_by(CrawledPage.source, CrawledPage.id)
-    )
+    q = db.query(CrawledPage).filter(CrawledPage.part_id.is_not(None)).order_by(CrawledPage.source, CrawledPage.id)
     if limit:
         q = q.limit(limit)
 
@@ -729,10 +725,10 @@ def iterate_corpus_audit(
             return [], dict(empty_summary)
         iterated += 1
         try:
-            part: Optional[Part] = page.part
+            part: Optional[Part] = repos.parts.get(str(page.part_id))
             if part is None:
                 continue
-            for cg in part.car_generations or []:
+            for cg in repos.car_generations.get_many(part.car_ids).values():
                 cg_id = str(cg.id)
                 canonical_form = cg.generation_name or ""
                 row = canonical_index.setdefault(
@@ -755,7 +751,7 @@ def iterate_corpus_audit(
             logger.debug(
                 "audit_row_failed",
                 extra={
-                    "canonical_id": getattr(getattr(page, "part", None), "id", "?"),
+                    "canonical_id": getattr(page, "part_id", "?"),
                     "error_class": type(exc).__name__,
                 },
             )
