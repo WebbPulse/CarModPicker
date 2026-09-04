@@ -14,6 +14,7 @@ locals {
 
   legacy_stack  = var.environment == "production" && coalesce(var.legacy_stack_enabled, true)
   custom_domain = coalesce(var.custom_domain_enabled, var.environment == "production" || var.staging_profile == "full")
+  api_target    = coalesce(var.api_target, local.legacy_stack ? "legacy" : "lambda")
 
   domain_name       = var.environment == "production" ? var.domain_name : "staging.${var.domain_name}"
   active_domain     = local.custom_domain ? local.domain_name : var.domain_name
@@ -22,7 +23,7 @@ locals {
   email_from = coalesce(var.email_from, "no-reply@${local.active_domain}")
 
   frontend_url = local.custom_domain ? "https://www.${local.domain_name}" : "https://${aws_cloudfront_distribution.frontend.domain_name}"
-  api_url      = local.custom_domain && var.api_target == "lambda" ? "https://api.${local.domain_name}" : aws_apigatewayv2_api.api.api_endpoint
+  api_url      = local.custom_domain && local.api_target == "lambda" ? "https://api.${local.domain_name}" : aws_apigatewayv2_api.api.api_endpoint
 
   dev_origins     = ["http://localhost", "http://localhost:3000", "http://localhost:4000"]
   allowed_origins = var.environment == "production" ? "" : join(",", concat(local.dev_origins, local.custom_domain ? ["https://${local.domain_name}", "https://www.${local.domain_name}"] : [local.frontend_url]))

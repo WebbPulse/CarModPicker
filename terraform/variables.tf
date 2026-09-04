@@ -23,12 +23,13 @@ variable "legacy_stack_enabled" {
 }
 
 variable "api_target" {
-  description = "Which backend api.<domain_name> points at: 'legacy' (App Runner) or 'lambda' (HTTP API)."
+  description = "Which backend api.<domain_name> points at: 'legacy' (App Runner) or 'lambda' (HTTP API). null = 'legacy' while the legacy stack is enabled, 'lambda' otherwise."
   type        = string
-  default     = "legacy"
+  default     = null
+  nullable    = true
 
   validation {
-    condition     = contains(["legacy", "lambda"], var.api_target)
+    condition     = var.api_target == null || contains(["legacy", "lambda"], var.api_target)
     error_message = "api_target must be 'legacy' or 'lambda'."
   }
 }

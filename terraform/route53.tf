@@ -63,7 +63,7 @@ moved {
 
 # api → App Runner service URL
 resource "aws_route53_record" "api" {
-  count = local.custom_domain && local.legacy_stack && var.api_target == "legacy" ? 1 : 0
+  count = local.custom_domain && local.legacy_stack && local.api_target == "legacy" ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
   name    = "api.${local.domain_name}"
@@ -79,7 +79,7 @@ moved {
 
 # api → HTTP API custom domain
 resource "aws_route53_record" "api_lambda" {
-  count = local.custom_domain && var.api_target == "lambda" ? 1 : 0
+  count = local.custom_domain && local.api_target == "lambda" ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
   name    = "api.${local.domain_name}"

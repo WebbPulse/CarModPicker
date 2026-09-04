@@ -177,7 +177,7 @@ The intended staging profile is `full`: the same stack as production minus the l
 
 ### The Lambda migration stack
 
-Production runs App Runner + RDS and Lambda + DynamoDB side by side until cutover. Three variables on the production workspace steer it: `legacy_stack_enabled` (default on; every legacy resource carries a `moved` block, so turning it on is a no-op and turning it off is a destroy), `api_target` (`legacy` keeps `api.carmodpicker.com` on App Runner, `lambda` flips the Route53 record to the HTTP API), and `custom_domain_enabled`. The full sequence is in `terraform/README.md` under "Production cutover".
+Production runs App Runner + RDS and Lambda + DynamoDB side by side until cutover. Three variables on the production workspace steer it: `legacy_stack_enabled` (default on; every legacy resource carries a `moved` block, so turning it on is a no-op and turning it off is a destroy), `api_target` (unset defaults to `legacy` while the legacy stack is enabled and `lambda` once it is off; `legacy` keeps `api.carmodpicker.com` on App Runner, `lambda` flips the Route53 record to the HTTP API), and `custom_domain_enabled`. The full sequence is in `terraform/README.md` under "Production cutover".
 
 The Lambda's code is not Terraform's: the function is created from a placeholder zip with `ignore_changes` on the package, and `backend-deploy.yml` owns every update after that. Its secrets come from the `<prefix>/app` JSON secret, read at import by `backend/app/core/secrets.py` when `APP_SECRETS_ARN` is set. DynamoDB tables are declared once, in `backend/app/db/dynamo/tables.py`; `backend/scripts/export_dynamo_tables.py` renders them to `terraform/dynamodb_tables.json` and `tests/db/test_dynamo_tables_json_up_to_date.py` fails when the two drift.
 
