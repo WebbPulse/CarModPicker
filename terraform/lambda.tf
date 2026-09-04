@@ -120,7 +120,7 @@ locals {
     PORT                  = "8000"
     USER_IMAGES_BUCKET    = aws_s3_bucket.user_images.bucket
     S3_ENDPOINT_URL       = ""
-    EMAIL_FROM            = var.email_from
+    EMAIL_FROM            = local.email_from
     EMAIL_ENABLED         = "true"
     SENTRY_RELEASE        = var.sentry_release
     SENTRY_SERVICE_NAME   = "lambda-api"
@@ -129,7 +129,7 @@ locals {
     DYNAMODB_TABLE_PREFIX = local.prefix
     APP_SECRETS_ARN       = aws_secretsmanager_secret.app.arn
     FRONTEND_URL          = local.frontend_url
-    ALLOWED_ORIGINS       = local.custom_domain ? "" : "http://localhost,http://localhost:3000,http://localhost:4000,${local.frontend_url}"
+    ALLOWED_ORIGINS       = local.allowed_origins
   } : key => value if value != "" }
 }
 

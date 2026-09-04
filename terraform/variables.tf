@@ -41,9 +41,33 @@ variable "custom_domain_enabled" {
 }
 
 variable "domain_name" {
-  description = "Apex domain served by this environment"
+  description = "Registered apex domain. Production serves it directly; staging serves staging.<domain_name> from a delegated child zone."
   type        = string
   default     = "carmodpicker.com"
+}
+
+variable "parent_route53_zone_id" {
+  description = "Hosted zone id of <domain_name> in the production account. Staging writes the NS delegation for its child zone into it. Pushed to the staging workspace by WebbPulse-Platform."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.environment != "staging" || !coalesce(var.custom_domain_enabled, var.staging_profile == "full") || var.parent_route53_zone_id != null
+    error_message = "parent_route53_zone_id must be set when environment is 'staging' and the custom domain is on: the staging.<domain_name> zone is delegated from the parent zone owned by the production workspace. WebbPulse-Platform pushes it to the workspace."
+  }
+}
+
+variable "route53_write_role_arn" {
+  description = "IAM role in the production account assumed to write the NS delegation record into parent_route53_zone_id. Pushed to the staging workspace by WebbPulse-Platform; null means no cross-account provider is configured."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.environment != "staging" || !coalesce(var.custom_domain_enabled, var.staging_profile == "full") || var.route53_write_role_arn != null
+    error_message = "route53_write_role_arn must be set when environment is 'staging' and the custom domain is on: the NS delegation for staging.<domain_name> is written into the parent zone through that role. WebbPulse-Platform pushes it to the workspace."
+  }
 }
 
 variable "api_throttle_burst_limit" {
@@ -94,9 +118,10 @@ variable "secret_key" {
 }
 
 variable "email_from" {
-  description = "Sender address for transactional email"
+  description = "Sender address for transactional email. null = no-reply@ the domain SES is verified for (the served domain with a custom domain, the apex otherwise)."
   type        = string
-  default     = "no-reply@carmodpicker.com"
+  default     = null
+  nullable    = true
 }
 
 # ---------------------------------------------------------------------------

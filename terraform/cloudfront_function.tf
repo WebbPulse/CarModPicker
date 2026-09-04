@@ -21,5 +21,5 @@ resource "aws_cloudfront_function" "frontend_uri_rewrite" {
   runtime = "cloudfront-js-2.0"
   comment = "Redirect apex→www and rewrite extensionless paths to index.html."
   publish = true
-  code    = file("${path.module}/cloudfront_functions/uri_rewrite.js")
+  code    = templatefile("${path.module}/cloudfront_functions/uri_rewrite.js.tftpl", { domain = local.active_domain })
 }

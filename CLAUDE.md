@@ -159,7 +159,7 @@ The three deploy workflows are fully independent — a backend merge never rebui
 
 ### Environment-scoped variables
 
-Deploy variables are **environment-scoped**: they live on the `production` and `staging` GitHub Environments, not the repository, so a `staging` push cannot silently pick up the production role. Nothing deploy-related is hardcoded in the workflows any more — the workspace id and the API URL are Environment variables too. Values come from the matching workspace's Terraform outputs (`terraform/README.md` maps each variable to its output).
+Deploy variables are **environment-scoped**: they live on the `production` and `staging` GitHub Environments, not the repository, so a `staging` push cannot silently pick up the production role. Nothing deploy-related is hardcoded in the workflows any more — the workspace id and the API URL are Environment variables too. Values come from the matching workspace's Terraform outputs (`terraform/README.md` maps each variable to its output). `VITE_API_URL` is `api_url`, which follows the served domain (`https://api.carmodpicker.com`, `https://api.staging.carmodpicker.com` once staging runs profile `full`), so it has to be re-copied when a profile flips; `frontend_url`, `domain_name`, `route53_zone_id` and `route53_zone_name_servers` are the other hostname-bearing outputs.
 
 | Workflow | Variables | Secrets |
 |---|---|---|
@@ -171,9 +171,9 @@ The backend and frontend deploys poll the HCP Terraform runs API with `TFC_API_T
 
 ### A staging branch does not imply staging infrastructure
 
-`terraform/` is one root module applied by two HCP workspaces: `CarModPicker` (production, bound to `main`, pinned in the `cloud` block in `versions.tf`) and `CarModPicker-staging` (bound to `staging`, `environment = staging`, `staging_profile = reduced`). `var.environment` feeds `local.prefix` and every environment-dependent decision.
+`terraform/` is one root module applied by two HCP workspaces: `CarModPicker` (production, bound to `main`, pinned in the `cloud` block in `versions.tf`) and `CarModPicker-staging` (bound to `staging`, `environment = staging`). `var.environment` feeds `local.prefix`, `local.domain_name` and every environment-dependent decision.
 
-The staging profile is `reduced`: DynamoDB, Lambda, HTTP API, CloudFront, S3 and SES, with no custom domain — the frontend lives on the CloudFront hostname and the API on the `execute-api` endpoint. `full` would add a hosted zone and certificates for `var.domain_name`. `none` is rejected. Staging can never build the legacy stack: `local.legacy_stack` is hard-wired to `environment == "production"`, so RDS and App Runner do not exist in 748861776298 whatever `legacy_stack_enabled` says. Staging is never auto-provisioned to mirror production.
+The intended staging profile is `full`: the same stack as production minus the legacy pieces, served as `staging.carmodpicker.com` / `www.staging.carmodpicker.com` / `api.staging.carmodpicker.com`. The staging account owns the `staging.carmodpicker.com` hosted zone, and the same apply writes its `NS` delegation into the `carmodpicker.com` zone in the production account through the `aws.parent_dns` provider alias, which assumes `route53_write_role_arn` (scoped to that one record) and targets `parent_route53_zone_id`. WebbPulse-Platform pushes both variables to the workspace; SES uses the domain identity exactly as production does. `reduced` is the fallback while those variables are absent: no custom domain, frontend on the CloudFront hostname, API on the `execute-api` endpoint, SES on a mailbox identity. `none` is rejected. Staging can never build the legacy stack: `local.legacy_stack` is hard-wired to `environment == "production"`, so RDS and App Runner do not exist in 748861776298 whatever `legacy_stack_enabled` says. Staging is never auto-provisioned to mirror production.
 
 ### The Lambda migration stack
 

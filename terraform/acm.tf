@@ -3,11 +3,11 @@ resource "aws_acm_certificate" "carmodpicker" {
   count = local.custom_domain ? 1 : 0
 
   provider          = aws.us_east_1
-  domain_name       = var.domain_name
+  domain_name       = local.domain_name
   validation_method = "DNS"
 
   subject_alternative_names = [
-    "*.${var.domain_name}",
+    "*.${local.domain_name}",
   ]
 
   lifecycle {
@@ -44,6 +44,8 @@ resource "aws_acm_certificate_validation" "carmodpicker" {
   provider                = aws.us_east_1
   certificate_arn         = aws_acm_certificate.carmodpicker[0].arn
   validation_record_fqdns = [for record in aws_route53_record.acm_validation : record.fqdn]
+
+  depends_on = [aws_route53_record.parent_delegation]
 }
 
 moved {
@@ -55,7 +57,7 @@ moved {
 resource "aws_acm_certificate" "api" {
   count = local.custom_domain ? 1 : 0
 
-  domain_name       = "api.${var.domain_name}"
+  domain_name       = "api.${local.domain_name}"
   validation_method = "DNS"
 
   lifecycle {
@@ -86,4 +88,6 @@ resource "aws_acm_certificate_validation" "api" {
 
   certificate_arn         = aws_acm_certificate.api[0].arn
   validation_record_fqdns = [for record in aws_route53_record.acm_api_validation : record.fqdn]
+
+  depends_on = [aws_route53_record.parent_delegation]
 }

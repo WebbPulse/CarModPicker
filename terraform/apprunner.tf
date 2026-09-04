@@ -212,7 +212,7 @@ resource "aws_apprunner_service" "backend" {
           CRAWL_BUCKET       = aws_s3_bucket.crawl_data.bucket
           AWS_REGION         = var.aws_region
           S3_ENDPOINT_URL    = "" # Empty → boto3 uses native AWS S3
-          EMAIL_FROM         = var.email_from
+          EMAIL_FROM         = local.email_from
           EMAIL_ENABLED      = "true"
 
           # Observability (Phase 2 / OBS-01 + OBS-02). SENTRY_RELEASE is the
@@ -268,7 +268,7 @@ resource "aws_apprunner_custom_domain_association" "api" {
   count = local.legacy_stack && local.custom_domain ? 1 : 0
 
   service_arn          = aws_apprunner_service.backend[0].arn
-  domain_name          = "api.${var.domain_name}"
+  domain_name          = "api.${local.domain_name}"
   enable_www_subdomain = false
 }
 
