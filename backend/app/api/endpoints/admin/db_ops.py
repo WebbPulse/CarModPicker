@@ -21,7 +21,7 @@ from app.core.init_cars import init_car_generations
 from app.core.init_categories import init_part_categories
 from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import User as DBUser
-from app.db.session import SessionLocal, get_db
+from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
