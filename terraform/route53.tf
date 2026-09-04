@@ -1,12 +1,23 @@
 resource "aws_route53_zone" "carmodpicker" {
   count = local.custom_domain ? 1 : 0
 
-  name = var.domain_name
+  name = local.domain_name
 }
 
 moved {
   from = aws_route53_zone.carmodpicker
   to   = aws_route53_zone.carmodpicker[0]
+}
+
+resource "aws_route53_record" "parent_delegation" {
+  count    = local.parent_delegation ? 1 : 0
+  provider = aws.parent_dns
+
+  zone_id = var.parent_route53_zone_id
+  name    = local.domain_name
+  type    = "NS"
+  ttl     = 300
+  records = aws_route53_zone.carmodpicker[0].name_servers
 }
 
 # Apex → CloudFront (redirect to www is done by the CloudFront viewer-request
@@ -15,7 +26,7 @@ resource "aws_route53_record" "apex_a" {
   count = local.custom_domain ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = var.domain_name
+  name    = local.domain_name
   type    = "A"
 
   alias {
@@ -35,7 +46,7 @@ resource "aws_route53_record" "www" {
   count = local.custom_domain ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = "www.${var.domain_name}"
+  name    = "www.${local.domain_name}"
   type    = "A"
 
   alias {
@@ -55,7 +66,7 @@ resource "aws_route53_record" "api" {
   count = local.custom_domain && local.legacy_stack && var.api_target == "legacy" ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = "api.${var.domain_name}"
+  name    = "api.${local.domain_name}"
   type    = "CNAME"
   ttl     = 60
   records = [aws_apprunner_service.backend[0].service_url]
@@ -71,7 +82,7 @@ resource "aws_route53_record" "api_lambda" {
   count = local.custom_domain && var.api_target == "lambda" ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = "api.${var.domain_name}"
+  name    = "api.${local.domain_name}"
   type    = "A"
 
   alias {
@@ -87,7 +98,7 @@ resource "aws_route53_record" "spf" {
   count = local.custom_domain ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = var.domain_name
+  name    = local.domain_name
   type    = "TXT"
   ttl     = 300
   records = [
@@ -106,7 +117,7 @@ resource "aws_route53_record" "www_google_site_verification" {
   count = local.custom_domain ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = "www.${var.domain_name}"
+  name    = "www.${local.domain_name}"
   type    = "TXT"
   ttl     = 300
   records = ["google-site-verification=kJMc_JNCEf4utqVGE2_00H14I1TUKJKUakLPbvq13_8"]
@@ -121,7 +132,7 @@ moved {
 resource "aws_route53_record" "ses_dkim" {
   count   = local.custom_domain ? 3 : 0
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = "${aws_sesv2_email_identity.domain[0].dkim_signing_attributes[0].tokens[count.index]}._domainkey.${var.domain_name}"
+  name    = "${aws_sesv2_email_identity.domain[0].dkim_signing_attributes[0].tokens[count.index]}._domainkey.${local.domain_name}"
   type    = "CNAME"
   ttl     = 60
   records = ["${aws_sesv2_email_identity.domain[0].dkim_signing_attributes[0].tokens[count.index]}.dkim.amazonses.com"]
@@ -147,7 +158,7 @@ resource "aws_route53_record" "ses_mail_from_mx" {
   count = local.custom_domain ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = "bounce.${var.domain_name}"
+  name    = "bounce.${local.domain_name}"
   type    = "MX"
   ttl     = 300
   records = ["10 feedback-smtp.${var.aws_region}.amazonses.com"]
@@ -162,7 +173,7 @@ resource "aws_route53_record" "ses_mail_from_spf" {
   count = local.custom_domain ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = "bounce.${var.domain_name}"
+  name    = "bounce.${local.domain_name}"
   type    = "TXT"
   ttl     = 300
   records = ["v=spf1 include:amazonses.com ~all"]
@@ -178,7 +189,7 @@ resource "aws_route53_record" "dmarc" {
   count = local.custom_domain ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = "_dmarc.${var.domain_name}"
+  name    = "_dmarc.${local.domain_name}"
   type    = "TXT"
   ttl     = 60
   records = ["v=DMARC1; p=none;"]

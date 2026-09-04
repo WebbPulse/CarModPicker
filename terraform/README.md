@@ -5,7 +5,7 @@ Terraform configuration for the CarModPicker AWS stack. One root module, two HCP
 | Workspace | AWS account | VCS branch | `environment` | `staging_profile` |
 | --- | --- | --- | --- | --- |
 | `CarModPicker` | 734702670403 | `main` | `production` | — |
-| `CarModPicker-staging` | 748861776298 | `staging` | `staging` | `reduced` |
+| `CarModPicker-staging` | 748861776298 | `staging` | `staging` | `full` (intended), `reduced` (fallback) |
 
 State lives in HCP Terraform; applies are triggered by pushing to the bound branch. Production is manual-apply.
 
@@ -28,18 +28,21 @@ Route53 ──┐       │              CloudFront                │
                                        └──▶ App Runner ──▶ RDS PostgreSQL 16   (legacy, production only)
 ```
 
-Single-region deployment in `us-west-2`. The CloudFront cert lives in `us-east-1` via the `aws.us_east_1` provider alias; the HTTP API cert is regional.
+Single-region deployment in `us-west-2`. The CloudFront cert lives in `us-east-1` via the `aws.us_east_1` provider alias; the HTTP API cert is regional. Staging serves the same shape one label down: `staging.carmodpicker.com`, `www.staging.carmodpicker.com`, `api.staging.carmodpicker.com`, from a child zone it owns and that the parent zone delegates to (see "Staging profiles").
 
 ## Environment shaping
 
-Four inputs decide what a workspace builds. Every other resource is unconditional.
+Six inputs decide what a workspace builds. Every other resource is unconditional.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `legacy_stack_enabled` | `null` → `true` in production, always `false` in staging | Builds VPC, RDS, ECR, App Runner, their secrets, log groups and alarms. `local.legacy_stack` can never be true outside production, so staging cannot create RDS or App Runner whatever the variable says. |
 | `api_target` | `legacy` | Which backend `api.<domain>` resolves to when a custom domain exists: `legacy` = CNAME to App Runner, `lambda` = alias to the HTTP API domain. Ignored when there is no custom domain. |
 | `custom_domain_enabled` | `null` → `true` in production or when `staging_profile = full` | Hosted zone, ACM certs, custom-domain records, SES domain identity, CloudFront aliases, HTTP API domain name. |
-| `domain_name` | `carmodpicker.com` | Apex used for every hostname and the SES identity. |
+| `domain_name` | `carmodpicker.com` | Registered apex. `local.domain_name` is the domain actually served: `domain_name` in production, `staging.<domain_name>` in staging. Every hostname, the hosted zone, the ACM certs, the SES identity and the CloudFront apex→www redirect derive from it. |
+| `parent_route53_zone_id` | `null` | Staging only: hosted zone id of `domain_name` in the production account, where the NS delegation for `staging.<domain_name>` is written. Required when staging has a custom domain. |
+| `route53_write_role_arn` | `null` | Staging only: role in the production account, scoped to that one NS record, assumed by the `aws.parent_dns` provider alias. Required when staging has a custom domain. |
+| `email_from` | `null` → `no-reply@<served domain>` with a custom domain, `no-reply@<domain_name>` without | Sender address for transactional mail; must belong to the SES identity the environment verifies. |
 
 `db_password` is optional; a precondition on the RDS instance rejects a null value only when the legacy stack is enabled.
 
@@ -47,8 +50,10 @@ Four inputs decide what a workspace builds. Every other resource is unconditiona
 
 `staging_profile` is `reduced` or `full` (`none` is rejected — a staging workspace with nothing in it should not exist).
 
-- **`reduced`** (current): DynamoDB + Lambda + HTTP API + CloudFront + S3 + SES, no custom domain. The frontend is served from the CloudFront hostname, the API from the `execute-api` endpoint, and SES sends from a verified mailbox identity (`var.email_from`) instead of a domain identity. Outputs `frontend_url` and `api_url` carry the generated hostnames.
-- **`full`**: adds the hosted zone and every custom-domain resource for `var.domain_name`, so set `domain_name` to a delegated name such as `staging.carmodpicker.com`.
+- **`full`** (intended): everything `reduced` builds plus real DNS. The staging account owns a hosted zone for `staging.carmodpicker.com`; in the same apply the `aws.parent_dns` provider assumes `route53_write_role_arn` in the production account and writes the `NS` delegation for `staging.carmodpicker.com` into `parent_route53_zone_id` (the `carmodpicker.com` zone owned by the production workspace). Both ACM validations `depends_on` that record so validation does not start before the child zone is reachable. Hostnames: `staging.carmodpicker.com` (CloudFront alias, 301 → www), `www.staging.carmodpicker.com` (SPA), `api.staging.carmodpicker.com` (HTTP API custom domain), `bounce.staging.carmodpicker.com` (SES MAIL FROM). SES uses the domain identity exactly as production does; `email_from` defaults to `no-reply@staging.carmodpicker.com`. Both variables are pushed to the workspace by WebbPulse-Platform; until they are, the profile must stay `reduced`.
+- **`reduced`** (fallback): DynamoDB + Lambda + HTTP API + CloudFront + S3 + SES, no custom domain. The frontend is served from the CloudFront hostname, the API from the `execute-api` endpoint, and SES sends from a mailbox identity (`email_from`, defaulting to `no-reply@carmodpicker.com`) instead of a domain identity. Outputs `frontend_url` and `api_url` carry the generated hostnames.
+
+Switching `reduced` → `full` changes `frontend_url` and `api_url`, so `VITE_API_URL` on the `staging` GitHub Environment has to be re-copied from `api_url` afterwards.
 
 ### Production cutover
 
@@ -64,9 +69,9 @@ Production runs both stacks until the Lambda path is proven:
 | File | What it manages |
 | --- | --- |
 | `versions.tf` | Terraform version pin, AWS + archive provider versions, HCP Terraform cloud block (production workspace; the staging workspace overrides it). |
-| `providers.tf` | Default `aws` provider + `aws.us_east_1` alias (CloudFront certs). |
+| `providers.tf` | Default `aws` provider, `aws.us_east_1` alias (CloudFront certs), `aws.parent_dns` alias that assumes `route53_write_role_arn` when set (staging NS delegation). |
 | `variables.tf` | Input variables: region, environment, shaping toggles above, throttling, secrets. |
-| `locals.tf` | `project`, `prefix` (`carmodpicker-<env>`), `legacy_stack`, `custom_domain`, `frontend_url`, `api_url`. |
+| `locals.tf` | `project`, `prefix` (`carmodpicker-<env>`), `legacy_stack`, `custom_domain`, `domain_name` (served domain), `active_domain` (served domain, or the apex when no custom domain is bound), `parent_delegation`, `email_from`, `frontend_url`, `api_url`, `allowed_origins`. |
 | `data.tf` | `aws_caller_identity`, `aws_region` lookups for ARN construction. |
 | `outputs.tf` | API/Lambda/DynamoDB/CloudFront identifiers plus everything the deploy workflows need. Legacy outputs are `null` when the stack is off. |
 | `dynamodb.tf` | One `aws_dynamodb_table` per entry in `dynamodb_tables.json`, on-demand billing, PITR + deletion protection in production. |
@@ -80,9 +85,9 @@ Production runs both stacks until the Lambda path is proven:
 | `apprunner.tf` | Legacy: access role, instance role, auto-scaling config, App Runner service, custom domain association. |
 | `s3.tf` | `user-images` (private), `crawl-data` (private), `lambda-artifacts` (versioned, 30-day noncurrent expiry), `frontend` (private + OAC). |
 | `cloudfront.tf` | Distribution for the frontend, managed cache/origin/headers policies, SPA 403/404 fallback. Aliases and the ACM cert apply only with a custom domain. |
-| `cloudfront_function.tf` | Viewer-request function that rewrites `/foo` → `/foo/index.html` for prerendered routes. |
-| `acm.tf` | Wildcard cert for the domain in `us-east-1` (CloudFront) and a regional cert for `api.<domain>` (HTTP API), both DNS-validated. |
-| `route53.tf` | Hosted zone, apex/`www`/`api` records, SES DKIM/MAIL-FROM/DMARC, App Runner validation records. `api` is a CNAME to App Runner or an alias to the HTTP API depending on `api_target`. |
+| `cloudfront_function.tf` | Viewer-request function, rendered from `cloudfront_functions/uri_rewrite.js.tftpl` with the served domain: apex → www 301 and `/foo` → `/foo/index.html` rewrite for prerendered routes. |
+| `acm.tf` | Wildcard cert for the served domain in `us-east-1` (CloudFront) and a regional cert for `api.<domain>` (HTTP API), both DNS-validated; validation waits on the staging delegation record. |
+| `route53.tf` | Hosted zone for the served domain, staging NS delegation into the parent zone (`aws.parent_dns`), apex/`www`/`api` records, SES DKIM/MAIL-FROM/DMARC, App Runner validation records. `api` is a CNAME to App Runner or an alias to the HTTP API depending on `api_target`. |
 | `ses.tf` | SESv2 configuration set, domain identity (custom domain) or mailbox identity (`email_from`), custom MAIL FROM, SNS topic + subscription for bounces/complaints, account-level VDM. |
 | `secretsmanager.tf` | `<prefix>/app` JSON secret (`SECRET_KEY`, `SENTRY_DSN`) read by the Lambda at import; `secret-key` / `sentry-dsn` / `database-url` (legacy) for App Runner. |
 | `iam_github_actions.tf` | GitHub OIDC provider + `github-actions-deploy` role: Lambda code updates, artifacts upload, frontend sync, invalidation; ECR + App Runner only while the legacy stack exists. |
@@ -102,9 +107,10 @@ Production runs both stacks until the Lambda path is proven:
 Set per workspace, not in `.tfvars`:
 
 - `environment` and `staging_profile` — pushed from the WebbPulse-Platform repo.
+- `parent_route53_zone_id` and `route53_write_role_arn` — staging only, pushed from the WebbPulse-Platform repo; required once the profile is `full`.
 - `secret_key`, `sentry_dsn` — sensitive, set by hand.
 - `db_password` — sensitive, production only (legacy RDS).
-- `legacy_stack_enabled`, `api_target`, `custom_domain_enabled`, `domain_name` — optional, see above.
+- `legacy_stack_enabled`, `api_target`, `custom_domain_enabled`, `domain_name`, `email_from` — optional, see above.
 
 AWS credentials are injected automatically via HCP Terraform dynamic provider credentials (no static keys).
 
@@ -120,7 +126,7 @@ The deploy workflows select the `production` or `staging` GitHub Environment fro
 | `LAMBDA_ARTIFACTS_BUCKET` | `lambda_artifacts_bucket` |
 | `FRONTEND_S3_BUCKET` | `frontend_bucket` |
 | `CLOUDFRONT_DISTRIBUTION_ID` | `cloudfront_distribution_id` |
-| `VITE_API_URL` | `api_url` |
+| `VITE_API_URL` | `api_url` (`https://api.carmodpicker.com` / `https://api.staging.carmodpicker.com` with a custom domain, the `execute-api` endpoint without) |
 | `CWS_EXTENSION_ID` | Chrome Web Store extension id |
 | `ECR_REPOSITORY_NAME`, `APP_RUNNER_SERVICE_ARN` | production only, from `ecr_repository_url` / `app_runner_service_arn`; remove with the legacy stack |
 

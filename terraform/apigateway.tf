@@ -65,7 +65,7 @@ resource "aws_lambda_permission" "api" {
 resource "aws_apigatewayv2_domain_name" "api" {
   count = local.custom_domain ? 1 : 0
 
-  domain_name = "api.${var.domain_name}"
+  domain_name = "api.${local.domain_name}"
 
   domain_name_configuration {
     certificate_arn = aws_acm_certificate_validation.api[0].certificate_arn

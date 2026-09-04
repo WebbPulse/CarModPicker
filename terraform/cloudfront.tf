@@ -6,7 +6,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
-  aliases             = local.custom_domain ? ["www.${var.domain_name}", var.domain_name] : []
+  aliases             = local.custom_domain ? ["www.${local.domain_name}", local.domain_name] : []
   price_class         = "PriceClass_100" # US + Europe only — cheapest tier
 
   origin {

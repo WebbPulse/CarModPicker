@@ -43,6 +43,21 @@ output "frontend_bucket" {
   value       = aws_s3_bucket.frontend.bucket
 }
 
+output "domain_name" {
+  description = "Domain this environment serves (null without a custom domain)"
+  value       = local.custom_domain ? local.domain_name : null
+}
+
+output "route53_zone_id" {
+  description = "Hosted zone id for domain_name (null without a custom domain)"
+  value       = one(aws_route53_zone.carmodpicker[*].zone_id)
+}
+
+output "route53_zone_name_servers" {
+  description = "Name servers of the hosted zone; in staging these are what the parent-zone NS delegation points at"
+  value       = one(aws_route53_zone.carmodpicker[*].name_servers)
+}
+
 output "frontend_url" {
   description = "Public origin of the SPA (custom domain, or the CloudFront hostname)"
   value       = local.frontend_url
