@@ -21,19 +21,13 @@ moved {
 }
 
 resource "aws_route53_record" "acm_validation" {
-  for_each = {
-    for dvo in flatten(aws_acm_certificate.carmodpicker[*].domain_validation_options) : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      type   = dvo.resource_record_type
-      record = dvo.resource_record_value
-    }
-  }
+  for_each = local.custom_domain ? toset([local.domain_name, "*.${local.domain_name}"]) : toset([])
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = each.value.name
-  type    = each.value.type
+  name    = one([for dvo in aws_acm_certificate.carmodpicker[0].domain_validation_options : dvo.resource_record_name if dvo.domain_name == each.key])
+  type    = one([for dvo in aws_acm_certificate.carmodpicker[0].domain_validation_options : dvo.resource_record_type if dvo.domain_name == each.key])
   ttl     = 60
-  records = [each.value.record]
+  records = [one([for dvo in aws_acm_certificate.carmodpicker[0].domain_validation_options : dvo.resource_record_value if dvo.domain_name == each.key])]
 
   allow_overwrite = true
 }
@@ -66,19 +60,13 @@ resource "aws_acm_certificate" "api" {
 }
 
 resource "aws_route53_record" "acm_api_validation" {
-  for_each = {
-    for dvo in flatten(aws_acm_certificate.api[*].domain_validation_options) : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      type   = dvo.resource_record_type
-      record = dvo.resource_record_value
-    }
-  }
+  for_each = local.custom_domain ? toset(["api.${local.domain_name}"]) : toset([])
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = each.value.name
-  type    = each.value.type
+  name    = one([for dvo in aws_acm_certificate.api[0].domain_validation_options : dvo.resource_record_name if dvo.domain_name == each.key])
+  type    = one([for dvo in aws_acm_certificate.api[0].domain_validation_options : dvo.resource_record_type if dvo.domain_name == each.key])
   ttl     = 60
-  records = [each.value.record]
+  records = [one([for dvo in aws_acm_certificate.api[0].domain_validation_options : dvo.resource_record_value if dvo.domain_name == each.key])]
 
   allow_overwrite = true
 }
