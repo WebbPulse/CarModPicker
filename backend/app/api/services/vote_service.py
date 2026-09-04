@@ -21,7 +21,6 @@ from app.api.schemas.vote import (
     VoteCreate,
     VoteSummary,
 )
-from app.api.services.car_generation_service import CarGenerationService
 from app.db.dynamo.catalog import CarGeneration, Part
 from app.db.dynamo.repository import ItemNotFound
 
@@ -332,6 +331,8 @@ class VoteService:
     def _get_entity_name(self, entity: VotableEntity, entity_type: EntityType) -> str:
         """Get the display name for an entity."""
         if isinstance(entity, CarGeneration):
+            from app.api.services.car_generation_service import CarGenerationService
+
             read = CarGenerationService(self.repos).hydrate_one(entity)
             return (
                 f"{read.car_make_name} {read.car_model_name} {read.generation_name} ({read.start_year}-{read.end_year})"
