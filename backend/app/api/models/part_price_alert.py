@@ -1,15 +1,12 @@
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, Uuid
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import CheckConstraint, UniqueConstraint, Uuid
+from sqlalchemy.orm import Mapped, mapped_column
 from uuid6 import uuid7
 
 from app.db.base_class import Base
-
-if TYPE_CHECKING:
-    from .part import Part
 
 
 class PartPriceAlert(Base):
@@ -27,12 +24,10 @@ class PartPriceAlert(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
-    part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("parts.id"), nullable=False, index=True)
+    part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     threshold_cents: Mapped[int] = mapped_column(nullable=False)
     active: Mapped[bool] = mapped_column(default=True, nullable=False)
     last_fired_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-
-    part: Mapped["Part"] = relationship("Part")

@@ -18,9 +18,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.models.part import Part as DBPart
+from app.api.dependencies.repositories import get_repositories
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
-from app.api.models.retailer import Retailer as DBRetailer
 from app.db.dynamo.users import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -185,8 +184,9 @@ def evaluate_alerts_for_listing(
         return
 
     # Resolve part + retailer once; both are referenced by every email body.
-    part = db.scalars(select(DBPart).where(DBPart.id == part_id)).first()
-    retailer = db.scalars(select(DBRetailer).where(DBRetailer.id == retailer_id)).first()
+    repos = get_repositories()
+    part = repos.parts.get(str(part_id))
+    retailer = repos.retailers.get(str(retailer_id))
     if part is None or retailer is None:
         # Defensive — the chokepoint guarantees both exist, but evaluate should
         # never crash a price-write transaction.

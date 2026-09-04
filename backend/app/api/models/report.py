@@ -10,7 +10,6 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .build_list import BuildList
-    from .part import Part
 
 
 class Report(Base):
@@ -46,13 +45,6 @@ class Report(Base):
         primaryjoin="and_(Report.entity_id == BuildList.id, Report.entity_type == 'build_list')",
         viewonly=True,
     )
-    part: Mapped[Optional["Part"]] = relationship(
-        "Part",
-        foreign_keys="[Report.entity_id]",
-        primaryjoin="and_(Report.entity_id == Part.id, Report.entity_type == 'part')",
-        viewonly=True,
-    )
-
     __table_args__ = (
         Index("ix_reports_entity", "entity_type", "entity_id"),
         Index("ix_reports_status", "status"),

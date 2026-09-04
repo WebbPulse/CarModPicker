@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import ALGORITHM, get_current_user
-from app.api.models.part import Part as DBPart
+from app.api.dependencies.repositories import get_repositories
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.schemas.part_price_alert import (
     PartPriceAlertCreate,
@@ -61,7 +61,7 @@ async def subscribe_to_part_price_alert(
     Idempotent on (user_id, part_id) — re-subscribing updates the threshold and
     reactivates a previously-soft-deleted alert instead of creating a duplicate.
     """
-    part = db.scalars(select(DBPart).where(DBPart.id == payload.part_id)).first()
+    part = get_repositories().parts.get(str(payload.part_id))
     if part is None:
         ResponsePatterns.raise_not_found("Part", payload.part_id)
 

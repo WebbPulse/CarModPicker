@@ -8,21 +8,18 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import func, select
 from sqlalchemy import update as sql_update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car_generation import CarGeneration as DBCar
-from app.api.models.car_make import CarMake as DBMake
-from app.api.models.car_model import CarModel as DBCarModel
-from app.api.models.part import Part as DBPart
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.vote import Vote as DBVote
+from app.api.services.part_service import PartService, purge_sql_rows_for_parts
 from app.api.utils.endpoint_decorators import standard_responses
 from app.core.init_cars import init_car_generations
 from app.core.init_categories import init_part_categories
+from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import User as DBUser
 from app.db.session import SessionLocal, get_db
 
@@ -33,6 +30,14 @@ router = APIRouter()
 def _init_result(success: bool, message: str) -> Dict[str, Any]:
     """Standard response for init endpoints."""
     return {"success": success, "message": message}
+
+
+def _purge_parts(db: Session, repos: Repositories, parts: list[Part]) -> int:
+    service = PartService(repos)
+    for part in parts:
+        service.purge(part)
+    purge_sql_rows_for_parts(db, [part.id for part in parts])
+    return len(parts)
 
 
 @router.post(
@@ -55,12 +60,8 @@ async def init_car_generations_endpoint(
     """
     try:
         logger.info(f"Admin {current_user.id} triggered car generations init")
-        db = SessionLocal()
-        try:
-            init_car_generations(db)
-            return _init_result(True, "Car generations initialized successfully")
-        finally:
-            db.close()
+        init_car_generations()
+        return _init_result(True, "Car generations initialized successfully")
     except Exception as e:
         logger.exception("Car generations init failed")
         raise HTTPException(
@@ -88,12 +89,8 @@ async def init_part_categories_endpoint(
     """
     try:
         logger.info(f"Admin {current_user.id} triggered part categories init")
-        db = SessionLocal()
-        try:
-            init_part_categories(db)
-            return _init_result(True, "Part categories initialized successfully")
-        finally:
-            db.close()
+        init_part_categories()
+        return _init_result(True, "Part categories initialized successfully")
     except Exception as e:
         logger.exception("Part categories init failed")
         raise HTTPException(
@@ -120,6 +117,7 @@ class DeleteAllCarsResponse(BaseModel):
 )
 async def delete_all_cars(
     current_user: DBUser = Depends(get_current_admin_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> DeleteAllCarsResponse:
     """
     Delete all cars / car generations (admin only).
@@ -131,26 +129,31 @@ async def delete_all_cars(
     """
     db = SessionLocal()
     try:
-        # Unlink build lists from cars so we can delete cars (FK has no ON DELETE)
         db.execute(
             sql_update(DBBuildList)
             .where(DBBuildList.car_id.isnot(None))
             .values(car_id=None)
             .execution_options(synchronize_session=False)
         )
-        # Remove votes that reference cars
         db.execute(
             sql_delete(DBVote)
             .where(DBVote.entity_type == "car_generation")
             .execution_options(synchronize_session=False)
         )
-        count = db.scalar(select(func.count()).select_from(DBCar)) or 0
-        db.execute(sql_delete(DBCar).execution_options(synchronize_session=False))
-        car_models_count = db.scalar(select(func.count()).select_from(DBCarModel)) or 0
-        db.execute(sql_delete(DBCarModel).execution_options(synchronize_session=False))
-        makes_count = db.scalar(select(func.count()).select_from(DBMake)) or 0
-        db.execute(sql_delete(DBMake).execution_options(synchronize_session=False))
         db.commit()
+        generations = repos.car_generations.list_all()
+        for generation in generations:
+            repos.part_cars.delete_for_car(generation.id)
+            repos.car_generations.delete_unique(generation)
+        count = len(generations)
+        car_models = repos.car_models.list_all()
+        for car_model in car_models:
+            repos.car_models.delete_unique(car_model)
+        car_models_count = len(car_models)
+        makes = repos.car_makes.list_all()
+        for make in makes:
+            repos.car_makes.delete_unique(make)
+        makes_count = len(makes)
         logger.info(
             "Admin %s deleted all cars: %s cars, %s car models, %s makes",
             current_user.id,
@@ -190,6 +193,7 @@ class DeleteAllPartsResponse(BaseModel):
 )
 async def delete_all_parts(
     current_user: DBUser = Depends(get_current_admin_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> DeleteAllPartsResponse:
     """
     Delete all parts (admin only).
@@ -199,11 +203,7 @@ async def delete_all_parts(
     """
     db = SessionLocal()
     try:
-        parts = list(db.scalars(select(DBPart)).all())
-        count = len(parts)
-        for part in parts:
-            db.delete(part)
-        db.commit()
+        count = _purge_parts(db, repos, repos.parts.list_all())
         logger.info("Admin %s deleted all %s parts", current_user.id, count)
         return DeleteAllPartsResponse(deleted_count=count)
     except Exception as e:
@@ -233,7 +233,7 @@ class DeleteAllPartManufacturersResponse(BaseModel):
 )
 async def delete_all_part_manufacturers(
     current_user: DBUser = Depends(get_current_admin_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> DeleteAllPartManufacturersResponse:
     """
     Delete all part manufacturers (admin only).
@@ -242,22 +242,16 @@ async def delete_all_part_manufacturers(
     This action cannot be undone.
     """
     try:
-        # Nullify part_manufacturer_id on all global parts so we can delete part_manufacturers
-        db.execute(
-            sql_update(DBPart)
-            .where(DBPart.part_manufacturer_id.isnot(None))
-            .values(part_manufacturer_id=None)
-            .execution_options(synchronize_session=False)
-        )
-        part_manufacturers = list(db.scalars(select(DBPartManufacturer)).all())
+        for part in repos.parts.list_all():
+            if part.part_manufacturer_id is not None:
+                repos.parts.update_unique(part, part_manufacturer_id=None)
+        part_manufacturers = repos.part_manufacturers.list_all()
         count = len(part_manufacturers)
         for part_manufacturer in part_manufacturers:
-            db.delete(part_manufacturer)
-        db.commit()
+            repos.part_manufacturers.delete_unique(part_manufacturer)
         logger.info("Admin %s deleted all %s part manufacturers", current_user.id, count)
         return DeleteAllPartManufacturersResponse(deleted_count=count)
     except Exception as e:
-        db.rollback()
         logger.exception("Delete all part manufacturers failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

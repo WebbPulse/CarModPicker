@@ -19,7 +19,6 @@ from app.api.dependencies.auth import (
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_list_part import BuildListPart as DBBuildListPart
-from app.api.models.part import Part as DBPart
 from app.api.models.report import Report as DBReport
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.pagination import CursorPage
@@ -30,6 +29,7 @@ from app.api.schemas.user import (
     UserRead,
     UserUpdate,
 )
+from app.api.services.part_service import PartService, purge_sql_rows_for_parts
 from app.api.services.storage_service import storage_service
 from app.api.services.user_service import UserService, user_read, user_reads
 from app.api.utils.cursor_pagination import CursorParams, get_cursor_params, paginate_in_memory
@@ -56,7 +56,6 @@ def _raise_duplicate(error: UniqueAttributeTaken) -> None:
 def _purge_owned_sql_rows(db: Session, user_id: UUID) -> None:
     for model, column in (
         (DBBuildList, DBBuildList.user_id),
-        (DBPart, DBPart.user_id),
         (DBBuildListPart, DBBuildListPart.added_by),
         (DBVote, DBVote.user_id),
         (DBReport, DBReport.user_id),
@@ -66,7 +65,16 @@ def _purge_owned_sql_rows(db: Session, user_id: UUID) -> None:
     db.commit()
 
 
+def _purge_owned_parts(db: Session, repos: Repositories, user: DBUser) -> None:
+    service = PartService(repos)
+    parts = repos.parts.list_by_user(user.id)
+    for part in parts:
+        service.purge(part)
+    purge_sql_rows_for_parts(db, [part.id for part in parts])
+
+
 def _delete_user_everywhere(db: Session, repos: Repositories, user: DBUser) -> None:
+    _purge_owned_parts(db, repos, user)
     _purge_owned_sql_rows(db, user.id)
     repos.oauth_accounts.delete_all_for_user(user.id)
     repos.webauthn_credentials.delete_all_for_user(user.id)
