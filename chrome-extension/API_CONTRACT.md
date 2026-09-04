@@ -1761,12 +1761,6 @@ Raises:
 
 **Summary:** Scrape Page From Extension
 
-**Description:** Accept full page HTML from the Chrome extension, archive it, and parse part attributes.
-
-Picks the registered site-specific adapter when the URL matches a known retailer;
-falls back to the generic parser for all other sites. Returns best-guess part
-attributes for the user to review before submitting.
-
 **Request body (`application/json`):**
 
 ```json
@@ -1796,21 +1790,10 @@ attributes for the user to review before submitting.
 
 ```json
 {
-  "description": "Parsed part attributes returned to the Chrome extension after server-side inference.",
   "properties": {
     "adapter_used": {
       "title": "Adapter Used",
       "type": "string"
-    },
-    "archive_skipped_duplicate": {
-      "default": false,
-      "title": "Archive Skipped Duplicate",
-      "type": "boolean"
-    },
-    "archived": {
-      "default": true,
-      "title": "Archived",
-      "type": "boolean"
     },
     "description": {
       "anyOf": [
