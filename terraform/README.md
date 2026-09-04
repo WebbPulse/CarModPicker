@@ -37,7 +37,7 @@ Six inputs decide what a workspace builds. Every other resource is unconditional
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `legacy_stack_enabled` | `null` → `true` in production, always `false` in staging | Builds VPC, RDS, ECR, App Runner, their secrets, log groups and alarms. `local.legacy_stack` can never be true outside production, so staging cannot create RDS or App Runner whatever the variable says. |
-| `api_target` | `legacy` | Which backend `api.<domain>` resolves to when a custom domain exists: `legacy` = CNAME to App Runner, `lambda` = alias to the HTTP API domain. Ignored when there is no custom domain. |
+| `api_target` | `null` → `legacy` while `local.legacy_stack` is true, `lambda` otherwise | Which backend `api.<domain>` resolves to when a custom domain exists: `legacy` = CNAME to App Runner, `lambda` = alias to the HTTP API domain. Ignored when there is no custom domain. Staging can never run the legacy stack, so it always resolves to `lambda`. |
 | `custom_domain_enabled` | `null` → `true` in production or when `staging_profile = full` | Hosted zone, ACM certs, custom-domain records, SES domain identity, CloudFront aliases, HTTP API domain name. |
 | `domain_name` | `carmodpicker.com` | Registered apex. `local.domain_name` is the domain actually served: `domain_name` in production, `staging.<domain_name>` in staging. Every hostname, the hosted zone, the ACM certs, the SES identity and the CloudFront apex→www redirect derive from it. |
 | `parent_route53_zone_id` | `null` | Staging only: hosted zone id of `domain_name` in the production account, where the NS delegation for `staging.<domain_name>` is written. Required when staging has a custom domain. |
@@ -62,7 +62,7 @@ Production runs both stacks until the Lambda path is proven:
 1. Apply with defaults. The legacy stack is untouched (every gated resource has a `moved` block so nothing is recreated); DynamoDB, Lambda, the HTTP API and `api.carmodpicker.com` on API Gateway are created alongside it. DNS still points at App Runner.
 2. Deploy the backend so the Lambda holds real code (the Terraform-managed zip is a 503 placeholder), then migrate data.
 3. Set `api_target = lambda`. The Route53 `api` record flips from the App Runner CNAME to the HTTP API alias. Set it back to `legacy` to roll back.
-4. Set `legacy_stack_enabled = false` to destroy VPC, RDS, ECR and App Runner. Unset `APP_RUNNER_SERVICE_ARN` on the `production` GitHub Environment at the same time so the deploy workflow stops building images.
+4. Set `legacy_stack_enabled = false` to destroy VPC, RDS, ECR and App Runner. `api_target` can be unset at the same time: with the legacy stack off it defaults to `lambda`. Unset `APP_RUNNER_SERVICE_ARN` on the `production` GitHub Environment at the same time so the deploy workflow stops building images.
 
 ## File map
 
