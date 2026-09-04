@@ -13,8 +13,6 @@ from datetime import UTC, datetime, timedelta
 import jwt
 from fastapi import APIRouter, Depends
 from jwt import InvalidTokenError
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 from webauthn import (
     generate_authentication_options,
     generate_registration_options,
@@ -36,8 +34,7 @@ from app.api.dependencies.auth import (
     get_access_token_expires_delta_for_user,
     get_current_user,
 )
-from app.api.models.user import User as DBUser
-from app.api.models.webauthn_credential import WebAuthnCredential
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.user import UserRead
 from app.api.schemas.webauthn import (
     WebAuthnCredentialRename,
@@ -49,9 +46,12 @@ from app.api.schemas.webauthn import (
     WebAuthnRegisterOptionsResponse,
     WebAuthnRegisterVerifyRequest,
 )
+from app.api.services.user_service import user_read
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
-from app.db.session import get_db
+from app.db.dynamo.users import UniqueAttributeTaken
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import WebAuthnCredential
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -96,7 +96,7 @@ def _decode_challenge_token(token: str, expected_purpose: str) -> tuple[bytes, s
 async def webauthn_register_options(
     request: WebAuthnRegisterOptionsRequest,
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> WebAuthnRegisterOptionsResponse:
     """Start passkey registration: generate a challenge + options object for the browser."""
     nickname = request.nickname.strip()
@@ -104,7 +104,7 @@ async def webauthn_register_options(
         ResponsePatterns.raise_bad_request("Nickname cannot be empty")
 
     challenge = secrets.token_bytes(32)
-    existing = list(db.scalars(select(WebAuthnCredential).where(WebAuthnCredential.user_id == current_user.id)).all())
+    existing = repos.webauthn_credentials.list_by_user(current_user.id)
     exclude = [PublicKeyCredentialDescriptor(id=cred.credential_id) for cred in existing]
 
     options = generate_registration_options(
@@ -134,7 +134,7 @@ async def webauthn_register_options(
 async def webauthn_register_verify(
     request: WebAuthnRegisterVerifyRequest,
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> WebAuthnCredentialSummary:
     """Verify the browser's attestation and persist the new credential."""
     challenge, challenge_user_id = _decode_challenge_token(request.challenge_token, WEBAUTHN_REGISTER_PURPOSE)
@@ -156,7 +156,7 @@ async def webauthn_register_verify(
         logger.warning(f"WebAuthn registration verify failed for {current_user.username}: {e}")
         ResponsePatterns.raise_bad_request(f"Registration failed: {e}")
 
-    if db.scalars(select(WebAuthnCredential).where(WebAuthnCredential.credential_id == verified.credential_id)).first():
+    if repos.webauthn_credentials.get_by_credential_id(verified.credential_id) is not None:
         ResponsePatterns.raise_conflict("This credential is already registered", "CREDENTIAL_EXISTS")
 
     transports = None
@@ -176,9 +176,10 @@ async def webauthn_register_verify(
         backup_eligible=bool(getattr(verified, "credential_backed_up", False)),
         backup_state=bool(getattr(verified, "credential_backed_up", False)),
     )
-    db.add(cred)
-    db.commit()
-    db.refresh(cred)
+    try:
+        repos.webauthn_credentials.create_credential(cred)
+    except UniqueAttributeTaken:
+        ResponsePatterns.raise_conflict("This credential is already registered", "CREDENTIAL_EXISTS")
 
     logger.info(f"WebAuthn credential registered for user: {current_user.username}")
     return WebAuthnCredentialSummary.model_validate(cred)
@@ -187,16 +188,16 @@ async def webauthn_register_verify(
 @router.post("/login/options", response_model=WebAuthnLoginOptionsResponse)
 async def webauthn_login_options(
     request: WebAuthnLoginOptionsRequest,
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> WebAuthnLoginOptionsResponse:
     """Start passkey login: generate a challenge. Username is optional (discoverable flow)."""
     challenge = secrets.token_bytes(32)
 
     allow_credentials: list[PublicKeyCredentialDescriptor] = []
     if request.username:
-        user = db.scalars(select(DBUser).where(DBUser.username == request.username)).first()
+        user = repos.users.get_by_username(request.username)
         if user:
-            creds = list(db.scalars(select(WebAuthnCredential).where(WebAuthnCredential.user_id == user.id)).all())
+            creds = repos.webauthn_credentials.list_by_user(user.id)
             allow_credentials = [PublicKeyCredentialDescriptor(id=c.credential_id) for c in creds]
 
     options = generate_authentication_options(
@@ -217,7 +218,7 @@ async def webauthn_login_options(
 @router.post("/login/verify")
 async def webauthn_login_verify(
     request: WebAuthnLoginVerifyRequest,
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str | UserRead]:
     """Verify a passkey assertion, bump sign_count, and mint an access token.
 
@@ -233,12 +234,12 @@ async def webauthn_login_verify(
     except (ValueError, binascii.Error):
         ResponsePatterns.raise_bad_request("Invalid credential id")
 
-    cred = db.scalars(select(WebAuthnCredential).where(WebAuthnCredential.credential_id == credential_id_bytes)).first()
+    cred = repos.webauthn_credentials.get_by_credential_id(credential_id_bytes)
     if not cred:
         logger.warning("WebAuthn login: credential not recognized")
         ResponsePatterns.raise_unauthorized("Unknown credential")
 
-    user = db.scalars(select(DBUser).where(DBUser.id == cred.user_id)).first()
+    user = repos.users.get(cred.user_id)
     if not user:
         logger.error(f"WebAuthn credential {cred.id} has no matching user")
         ResponsePatterns.raise_unauthorized("Unknown credential")
@@ -264,9 +265,7 @@ async def webauthn_login_verify(
         logger.warning(f"WebAuthn login verify failed: {e}")
         ResponsePatterns.raise_unauthorized(f"Authentication failed: {e}")
 
-    cred.sign_count = verified.new_sign_count
-    cred.last_used_at = datetime.now(UTC)
-    db.commit()
+    repos.webauthn_credentials.update(cred.id, sign_count=verified.new_sign_count, last_used_at=datetime.now(UTC))
 
     access_token = create_access_token(
         data={"sub": user.username},
@@ -276,22 +275,16 @@ async def webauthn_login_verify(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": UserRead.model_validate(user),
+        "user": user_read(user, repos),
     }
 
 
 @router.get("/credentials", response_model=list[WebAuthnCredentialSummary])
 async def list_webauthn_credentials(
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> list[WebAuthnCredentialSummary]:
-    creds = list(
-        db.scalars(
-            select(WebAuthnCredential)
-            .where(WebAuthnCredential.user_id == current_user.id)
-            .order_by(WebAuthnCredential.created_at.desc())
-        ).all()
-    )
+    creds = repos.webauthn_credentials.list_by_user(current_user.id)
     return [WebAuthnCredentialSummary.model_validate(c) for c in creds]
 
 
@@ -300,21 +293,15 @@ async def rename_webauthn_credential(
     credential_id: uuid.UUID,
     request: WebAuthnCredentialRename,
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> WebAuthnCredentialSummary:
     nickname = request.nickname.strip()
     if not nickname:
         ResponsePatterns.raise_bad_request("Nickname cannot be empty")
-    cred = db.scalars(
-        select(WebAuthnCredential).where(
-            WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id
-        )
-    ).first()
-    if not cred:
+    cred = repos.webauthn_credentials.get(credential_id)
+    if not cred or cred.user_id != current_user.id:
         ResponsePatterns.raise_not_found("Passkey")
-    cred.nickname = nickname
-    db.commit()
-    db.refresh(cred)
+    cred = repos.webauthn_credentials.update(cred.id, nickname=nickname)
     return WebAuthnCredentialSummary.model_validate(cred)
 
 
@@ -322,16 +309,11 @@ async def rename_webauthn_credential(
 async def delete_webauthn_credential(
     credential_id: uuid.UUID,
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str]:
-    cred = db.scalars(
-        select(WebAuthnCredential).where(
-            WebAuthnCredential.id == credential_id, WebAuthnCredential.user_id == current_user.id
-        )
-    ).first()
-    if not cred:
+    cred = repos.webauthn_credentials.get(credential_id)
+    if not cred or cred.user_id != current_user.id:
         ResponsePatterns.raise_not_found("Passkey")
-    db.delete(cred)
-    db.commit()
+    repos.webauthn_credentials.delete_credential(cred)
     logger.info(f"WebAuthn credential deleted: {credential_id} (user {current_user.username})")
     return {"message": "Passkey removed"}

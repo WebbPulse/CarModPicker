@@ -18,10 +18,10 @@ from app.api.dependencies.auth import (
     get_optional_current_user,
 )
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
-from app.api.models.user import User as DBUser
 from app.api.services.storage_service import storage_service
 from app.api.utils.bucket_orphan_utils import get_all_referenced_file_keys
 from app.api.utils.image_url_utils import get_canonical_image_url
+from app.db.dynamo.users import User as DBUser
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)

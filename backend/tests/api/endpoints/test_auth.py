@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 # Helper to create a user directly in the DB for testing login
 # This is an alternative to calling the /users/ endpoint if you want to bypass API validation for setup
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser  # For direct DB manipulation if needed
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser  # For direct DB manipulation if needed
+from app.db.dynamo.users import UserRepository
 
 
 def get_unique_username(base_name: str) -> str:
@@ -25,10 +26,7 @@ def create_test_user_direct_db(db: Session, username: str, email: str, password:
         hashed_password=hashed_password,
         disabled=disabled,
     )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    return UserRepository().create_user(db_user)
 
 
 def test_login_for_access_token_success(client: TestClient) -> None:
@@ -187,14 +185,14 @@ def test_verify_email_already_verified(client: TestClient, db_session: Session) 
     email = f"{username}@example.com"
 
     # Create user and manually verify
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        email_verified=True,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            email_verified=True,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
 
     # Try to request verification again
     response = client.post(f"{settings.API_STR}/auth/verify-email", json={"email": email})
@@ -213,15 +211,14 @@ def test_verify_email_confirm_success(client: TestClient, db_session: Session) -
     email = f"{username}@example.com"
 
     # Create unverified user
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        email_verified=False,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            email_verified=False,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
 
     # Create a valid token
     token = create_access_token(data={"sub": email, "purpose": "verify_email"}, expires_delta=timedelta(hours=1))
@@ -235,7 +232,7 @@ def test_verify_email_confirm_success(client: TestClient, db_session: Session) -
     assert "status=success" in response.headers["location"]
 
     # Verify user is now verified
-    db_session.refresh(user)
+    user = UserRepository().get_or_raise(user.id)
     assert user.email_verified is True
 
 
@@ -281,14 +278,14 @@ def test_reset_password_send_success(client: TestClient, db_session: Session) ->
     email = f"{username}@example.com"
 
     # Create user
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        email_verified=True,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            email_verified=True,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
 
     # Request password reset
     response = client.post(f"{settings.API_STR}/auth/reset-password", json={"email": email})
@@ -323,15 +320,14 @@ def test_reset_password_confirm_success(client: TestClient, db_session: Session)
     email = f"{username}@example.com"
 
     # Create user
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(old_password),
-        email_verified=True,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(old_password),
+            email_verified=True,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
 
     # Create valid reset token
     token = create_access_token(
@@ -348,7 +344,7 @@ def test_reset_password_confirm_success(client: TestClient, db_session: Session)
     assert response.json()["message"] == "Password reset successfully"
 
     # Verify password was changed
-    db_session.refresh(user)
+    user = UserRepository().get_or_raise(user.id)
     assert verify_password(new_password, user.hashed_password)
     assert not verify_password(old_password, user.hashed_password)
 
@@ -512,9 +508,7 @@ def test_verify_2fa_success(client: TestClient, db_session: Session) -> None:
     assert "enabled" in data["message"].lower()
 
     # Verify user has 2FA enabled
-    from app.api.models.user import User
-
-    user = db_session.query(User).filter(User.username == username).first()
+    user = UserRepository().get_by_username(username)
     assert user.totp_enabled is True
 
 
@@ -695,9 +689,7 @@ def test_disable_2fa_success(client: TestClient, db_session: Session) -> None:
     assert "disabled" in response.json()["message"].lower()
 
     # Verify user has 2FA disabled
-    from app.api.models.user import User
-
-    user = db_session.query(User).filter(User.username == username).first()
+    user = UserRepository().get_by_username(username)
     assert user.totp_enabled is False
     assert user.totp_secret is None
 
@@ -843,12 +835,8 @@ def test_login_with_2fa_missing_secret(client: TestClient, db_session: Session) 
     assert create_response.status_code == 200
 
     # Manually set totp_enabled=True but leave totp_secret=None (simulating config error)
-    from app.api.models.user import User
-
-    user = db_session.query(User).filter(User.username == username).first()
-    user.totp_enabled = True
-    user.totp_secret = None
-    db_session.commit()
+    user = UserRepository().get_by_username(username)
+    UserRepository().update(user.id, totp_enabled=True, totp_secret=None)
 
     # Try to login with 2FA
     login_2fa_data = {"username": username, "password": password, "otp": "123456"}
@@ -930,10 +918,7 @@ def test_setup_2fa_multiple_calls(client: TestClient, db_session: Session) -> No
     assert secret1 != secret2
 
     # Verify that 2FA is still not enabled (requires verify step)
-    from app.api.models.user import User as DBUser
-
-    db = db_session
-    user = db.query(DBUser).filter(DBUser.username == username).first()
+    user = UserRepository().get_by_username(username)
     assert user is not None
     assert user.totp_enabled is False
     assert user.totp_secret == secret2  # Latest secret should be stored
@@ -1262,11 +1247,8 @@ def test_2fa_verify_with_invalid_secret_format(client: TestClient, db_session: S
     headers = {"Authorization": f"Bearer {token}"}
 
     # Manually set an invalid secret format in database (simulating corruption)
-    from app.api.models.user import User as DBUser
-
-    user = db_session.query(DBUser).filter(DBUser.username == username).first()
-    user.totp_secret = "INVALID_SECRET_FORMAT_NOT_BASE32"  # Invalid base32 format
-    db_session.commit()
+    user = UserRepository().get_by_username(username)
+    UserRepository().update(user.id, totp_secret="INVALID_SECRET_FORMAT_NOT_BASE32")
 
     # Try to verify with OTP (should handle gracefully)
     verify_response = client.post(

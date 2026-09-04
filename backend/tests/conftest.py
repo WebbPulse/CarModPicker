@@ -26,8 +26,8 @@ INVALID_UUID_STR: str = str(INVALID_UUID)
 from app.api.dependencies.auth import get_password_hash  # noqa: E402
 from app.api.models.category import Category  # noqa: E402
 from app.api.models.part_manufacturer import PartManufacturer  # noqa: E402
-from app.api.models.user import User  # noqa: E402
 from app.db.base import Base  # noqa: E402
+from app.db.dynamo.users import User, UserRepository  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 
@@ -63,7 +63,7 @@ def engine() -> Generator[Engine, None, None]:
 
 
 @pytest.fixture(scope="function")
-def db_session(engine: Engine) -> Generator[Session, None, None]:
+def db_session(engine: Engine, dynamo_tables: Any) -> Generator[Session, None, None]:
     """
     Per-test session wrapped in an outer transaction that always rolls back.
     `join_transaction_mode="create_savepoint"` lets test code call session.commit()
@@ -206,7 +206,7 @@ def postgres_session(postgres_engine):
 
 
 @pytest.fixture
-def client(db_session: Session) -> Generator[TestClient, None, None]:
+def client(db_session: Session, dynamo_tables: Any) -> Generator[TestClient, None, None]:
     """
     TestClient bound to the current test's db_session.
 
@@ -230,7 +230,7 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture(scope="function")
-def test_user(db_session: Session) -> User:
+def test_user(db_session: Session, dynamo_tables: Any) -> User:
     """Create a test user for testing."""
     user = User(
         username=f"test_user_{os.getpid()}_{id(db_session)}",  # Make unique per worker
@@ -241,14 +241,11 @@ def test_user(db_session: Session) -> User:
         is_admin=False,
         is_superuser=False,
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-    return user
+    return UserRepository().create_user(user)
 
 
 @pytest.fixture(scope="function")
-def premium_test_user(db_session: Session) -> User:
+def premium_test_user(db_session: Session, dynamo_tables: Any) -> User:
     """Create a test user with premium subscription (unlimited build lists)."""
     user = User(
         username=f"premium_user_{os.getpid()}_{id(db_session)}",
@@ -262,10 +259,7 @@ def premium_test_user(db_session: Session) -> User:
         subscription_status="active",
         subscription_expires_at=None,
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-    return user
+    return UserRepository().create_user(user)
 
 
 @pytest.fixture(scope="function")
@@ -299,7 +293,7 @@ def test_part_manufacturer(db_session: Session) -> PartManufacturer:
 
 
 @pytest.fixture(scope="function")
-def test_admin_user(db_session: Session) -> User:
+def test_admin_user(db_session: Session, dynamo_tables: Any) -> User:
     """Create an admin user for testing."""
     user = User(
         username=f"admin_user_{os.getpid()}_{id(db_session)}",  # Make unique per worker
@@ -310,14 +304,11 @@ def test_admin_user(db_session: Session) -> User:
         is_admin=True,
         is_superuser=False,
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-    return user
+    return UserRepository().create_user(user)
 
 
 @pytest.fixture(scope="function")
-def test_superuser_user(db_session: Session) -> User:
+def test_superuser_user(db_session: Session, dynamo_tables: Any) -> User:
     """Create a superuser for testing."""
     user = User(
         username=f"superuser_{os.getpid()}_{id(db_session)}",  # Make unique per worker
@@ -328,10 +319,7 @@ def test_superuser_user(db_session: Session) -> User:
         is_admin=True,
         is_superuser=True,
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-    return user
+    return UserRepository().create_user(user)
 
 
 # Test utilities
@@ -651,6 +639,15 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
         }
 
 
+@pytest.fixture(autouse=True)
+def _isolate_aws(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+
+
 @pytest.fixture
 def dynamo_tables(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]:
     from moto import mock_aws
@@ -724,21 +721,4 @@ def create_and_login_admin_user(client: TestClient, username: str) -> User:
     # Login
     login_user(client, username)
 
-    # Return a mock User object since we can't easily construct one from the response
-    # This is a test utility function, so this is acceptable
-    from app.api.models.user import User
-
-    user_id: UUID = UUID(admin_user_data["id"])
-    user_name: str = admin_user_data.get("username", "")
-    user_email: str = admin_user_data.get("email", "")
-
-    return User(
-        id=user_id,
-        username=user_name,
-        email=user_email,
-        hashed_password="",
-        email_verified=True,
-        disabled=False,
-        is_admin=True,
-        is_superuser=False,
-    )
+    return UserRepository().get_or_raise(UUID(admin_user_data["id"]))

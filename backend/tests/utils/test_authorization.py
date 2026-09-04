@@ -6,7 +6,6 @@ from uuid6 import uuid7
 from app.api.models.build_list import BuildList
 from app.api.models.build_list_part import BuildListPart
 from app.api.models.part import Part
-from app.api.models.user import User
 from app.api.utils.authorization import (
     can_delete_build_list_part,
     can_delete_part,
@@ -17,6 +16,7 @@ from app.api.utils.authorization import (
     require_part_delete_permission,
     require_part_edit_permission,
 )
+from app.db.dynamo.users import User, UserRepository
 
 
 class TestAuthorization:
@@ -146,17 +146,17 @@ class TestAuthorization:
         """Test that build list owner can edit parts in their build list."""
         from app.api.dependencies.auth import get_password_hash
 
-        other_user = User(
-            username="other_user2",
-            email="other2@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        other_user = UserRepository().create_user(
+            User(
+                username="other_user2",
+                email="other2@example.com",
+                hashed_password=get_password_hash("password"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name="Test Build List",

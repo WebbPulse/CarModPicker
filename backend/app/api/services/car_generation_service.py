@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session, joinedload
 from app.api.models.car_generation import CarGeneration as DBCarGeneration
 from app.api.models.car_make import CarMake
 from app.api.models.car_model import CarModel
-from app.api.models.user import User as DBUser
 from app.api.schemas.car_generation import CarGenerationCreate, CarGenerationRead, CarGenerationUpdate
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.common_operations import (
@@ -22,6 +21,7 @@ from app.api.utils.common_operations import (
     verify_entity_access,
     verify_entity_exists,
 )
+from app.db.dynamo.users import User as DBUser
 
 
 def _car_generation_select_with_make_model() -> Select[tuple[DBCarGeneration]]:

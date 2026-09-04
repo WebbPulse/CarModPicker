@@ -10,7 +10,6 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from .part import Part
-    from .user import User
 
 
 class PartPriceAlert(Base):
@@ -27,7 +26,7 @@ class PartPriceAlert(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     part_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("parts.id"), nullable=False, index=True)
     threshold_cents: Mapped[int] = mapped_column(nullable=False)
     active: Mapped[bool] = mapped_column(default=True, nullable=False)
@@ -36,5 +35,4 @@ class PartPriceAlert(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    user: Mapped["User"] = relationship("User")
     part: Mapped["Part"] = relationship("Part")

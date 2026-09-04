@@ -21,7 +21,6 @@ from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.part import (
     MAX_IMAGES_PER_PART,
@@ -68,6 +67,7 @@ from app.api.utils.common_patterns import (
 from app.api.utils.endpoint_decorators import pagination_responses, standard_responses
 from app.api.utils.pagination_utils import create_paginated_response
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.users import User as DBUser
 
 # Create router
 router = APIRouter()

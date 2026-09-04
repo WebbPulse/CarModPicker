@@ -6,9 +6,9 @@ import os
 from sqlalchemy.orm import Session
 
 from app.api.models.car_generation import CarGeneration
-from app.api.models.user import User
 from app.api.schemas.car_generation import CarGenerationCreate, CarGenerationUpdate
 from app.api.services.car_generation_service import CarGenerationService
+from app.db.dynamo.users import User
 from tests.conftest import create_car_orm_in_db
 
 

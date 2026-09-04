@@ -8,11 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from app.api.dependencies.auth import get_current_user
-from app.api.models.user import User as DBUser
 from app.api.services.page_html_sanitizer import sanitize_html
 from app.api.services.page_parser import parse_page
 from app.core.category_inference import infer_category
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

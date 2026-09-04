@@ -17,7 +17,6 @@ from app.api.models.category import Category as DBCategory
 from app.api.models.part import Part as DBPart
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User as DBUser
 from app.api.schemas.build_list_part import (
     BuildListPartCreate,
     BuildListPartRead,
@@ -46,6 +45,7 @@ from app.api.utils.common_patterns import (
 )
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.users import User as DBUser
 
 # Create router
 router = APIRouter()

@@ -33,9 +33,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.oauth_account import OAuthAccount
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import OAuthAccountRepository
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 
 # pytest-recording stores cassettes at: <test_dir>/cassettes/<module_basename>/<test_name>.yaml
 _CASSETTE = (
@@ -78,16 +79,15 @@ def test_google_oauth_link_existing_user(client: TestClient, db_session: Session
     username = _uniq("oauth_link")
 
     # Step 1 — create an email/password user whose email matches the cassette Google account
-    user = DBUser(
-        username=username,
-        email=email_from_cassette,
-        hashed_password=get_password_hash(password),
-        email_verified=True,
-        disabled=False,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email_from_cassette,
+            hashed_password=get_password_hash(password),
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
 
     # Step 2 — POST /api/auth/oauth/google → should return link_token (email match, no existing link)
     google_resp = client.post(
@@ -109,6 +109,6 @@ def test_google_oauth_link_existing_user(client: TestClient, db_session: Session
     assert "access_token" in link_body
 
     # DB state: OAuthAccount row now exists for this user
-    oauth = db_session.query(OAuthAccount).filter_by(user_id=user.id).first()
+    oauth = OAuthAccountRepository().get_for_user_provider(user.id, "google")
     assert oauth is not None
     assert oauth.provider == "google"

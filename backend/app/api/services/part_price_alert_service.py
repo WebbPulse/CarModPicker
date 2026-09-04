@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.api.models.part import Part as DBPart
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User as DBUser
+from app.db.dynamo.users import UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +216,7 @@ def evaluate_alerts_for_listing(
                 )
                 continue
 
-            user = db.scalars(select(DBUser).where(DBUser.id == alert.user_id)).first()
+            user = UserRepository().get(alert.user_id)
             if user is None:
                 # Alert points at a deleted user — skip and log; do not crash.
                 logger.warning(

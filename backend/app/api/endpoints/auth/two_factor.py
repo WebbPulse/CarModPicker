@@ -10,13 +10,12 @@ import logging
 import pyotp
 import qrcode
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     get_current_user,
     verify_password,
 )
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.auth import (
     TOTPDisableRequest,
     TOTPSetupResponse,
@@ -25,7 +24,7 @@ from app.api.schemas.auth import (
 )
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
-from app.db.session import get_db
+from app.db.dynamo.users import User as DBUser
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -34,7 +33,7 @@ router = APIRouter()
 @router.post("/setup", response_model=TOTPSetupResponse)
 async def setup_2fa(
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> TOTPSetupResponse:
     """
     Generate a new 2FA secret and QR code for the current user.
@@ -44,8 +43,7 @@ async def setup_2fa(
     secret = pyotp.random_base32()
 
     # Store the secret temporarily (will be saved when verified)
-    current_user.totp_secret = secret
-    db.commit()
+    repos.users.update(current_user.id, totp_secret=secret)
 
     # Create TOTP object
     totp = pyotp.TOTP(secret)
@@ -83,7 +81,7 @@ async def setup_2fa(
 async def verify_2fa(
     request: TOTPVerifyRequest,
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> TOTPVerifyResponse:
     """
     Verify the OTP code and enable 2FA for the current user.
@@ -111,8 +109,7 @@ async def verify_2fa(
         ResponsePatterns.raise_internal_server_error("2FA configuration error")
 
     # Enable 2FA
-    current_user.totp_enabled = True
-    db.commit()
+    repos.users.update(current_user.id, totp_enabled=True)
 
     logger.info(f"2FA enabled successfully for user: {current_user.username}")
     return TOTPVerifyResponse(
@@ -125,7 +122,7 @@ async def verify_2fa(
 async def disable_2fa(
     request: TOTPDisableRequest,
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str]:
     """
     Disable 2FA for the current user.
@@ -155,9 +152,7 @@ async def disable_2fa(
         ResponsePatterns.raise_unauthorized("Invalid OTP code")
 
     # Disable 2FA
-    current_user.totp_enabled = False
-    current_user.totp_secret = None
-    db.commit()
+    repos.users.update(current_user.id, totp_enabled=False, totp_secret=None)
 
     logger.info(f"2FA disabled for user: {current_user.username}")
     return {"message": "2FA has been disabled successfully"}

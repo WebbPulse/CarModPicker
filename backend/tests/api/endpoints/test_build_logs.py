@@ -6,8 +6,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
@@ -42,18 +43,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -324,16 +324,15 @@ class TestBuildLogs:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
         user2_token = get_auth_token(client, username2)
         user2_headers = get_auth_headers(user2_token)
 
@@ -374,16 +373,15 @@ class TestBuildLogs:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
         user2_token = get_auth_token(client, username2)
         user2_headers = get_auth_headers(user2_token)
 
@@ -471,16 +469,15 @@ class TestBuildLogs:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
         user2_token = get_auth_token(client, username2)
         user2_headers = get_auth_headers(user2_token)
 
@@ -519,16 +516,15 @@ class TestBuildLogs:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
 
         # Test user creates a build list
         token = get_auth_token(client, test_user.username)
@@ -759,16 +755,15 @@ class TestBuildLogs:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
         user2_token = get_auth_token(client, username2)
         user2_headers = get_auth_headers(user2_token)
 
@@ -794,9 +789,7 @@ class TestBuildLogs:
         assert response.status_code == 201
         post_id = response.json()["id"]
 
-        # Delete user2
-        db_session.delete(user2)
-        db_session.commit()
+        UserRepository().delete_user(user2)
 
         # Retrieve the build log - should handle deleted author gracefully
         response = client.get(f"{settings.API_STR}/build-logs/build-list/{build_list_id}")
@@ -827,9 +820,7 @@ class TestBuildLogs:
         build_list_id = response.json()["id"]
 
         # Ensure test_user has no profile picture
-        test_user.image_urls = None
-        db_session.add(test_user)
-        db_session.commit()
+        test_user = UserRepository().update(test_user.id, image_urls=None)
 
         # Create a post
         post_data = {"content": "Test post"}

@@ -292,7 +292,7 @@ def ownership_verification(
             from sqlalchemy import select
             from sqlalchemy.orm import Session
 
-            from app.api.models.user import User as DBUser
+            from app.db.dynamo.users import User as DBUser
 
             db = cast(Session, db_value)
             current_user = cast(DBUser, user_value)
@@ -321,7 +321,7 @@ def admin_only(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
 
     @wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
         user_value = kwargs.get("current_user")
         if not user_value:

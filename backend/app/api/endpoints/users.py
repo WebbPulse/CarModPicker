@@ -1,19 +1,10 @@
-"""
-Refactored users endpoint using base classes to eliminate redundancy.
-
-This endpoint now uses the BaseEndpointRouter to provide common CRUD
-operations while maintaining user-specific functionality like password
-hashing and admin management.
-"""
-
 import logging
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
-from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
@@ -25,7 +16,13 @@ from app.api.dependencies.auth import (
     get_password_hash,
     verify_password,
 )
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
+from app.api.models.build_list import BuildList as DBBuildList
+from app.api.models.build_list_part import BuildListPart as DBBuildListPart
+from app.api.models.part import Part as DBPart
+from app.api.models.report import Report as DBReport
+from app.api.models.vote import Vote as DBVote
+from app.api.schemas.pagination import CursorPage
 from app.api.schemas.user import (
     AdminUserUpdate,
     PublicUserRead,
@@ -34,38 +31,82 @@ from app.api.schemas.user import (
     UserUpdate,
 )
 from app.api.services.storage_service import storage_service
-from app.api.services.user_service import UserService
-from app.api.utils.base_endpoint_router import BaseEndpointRouter
-from app.api.utils.endpoint_decorators import crud_responses, validate_pagination_params
+from app.api.services.user_service import UserService, user_read, user_reads
+from app.api.utils.cursor_pagination import CursorParams, get_cursor_params, paginate_in_memory
+from app.api.utils.endpoint_decorators import crud_responses
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
+from app.db.dynamo.users import EMAIL, UniqueAttributeTaken
+from app.db.dynamo.users import User as DBUser
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
-# Create router
 router = APIRouter()
 
-# Create service
 user_service = UserService()
 
-# Register custom endpoints BEFORE BaseEndpointRouter to ensure proper
-# route precedence (More specific routes like /me must be registered
-# before generic routes like /{entity_id})
+
+def _raise_duplicate(error: UniqueAttributeTaken) -> None:
+    if error.attribute == EMAIL:
+        ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
+    ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
+
+
+def _purge_owned_sql_rows(db: Session, user_id: UUID) -> None:
+    for model, column in (
+        (DBBuildList, DBBuildList.user_id),
+        (DBPart, DBPart.user_id),
+        (DBBuildListPart, DBBuildListPart.added_by),
+        (DBVote, DBVote.user_id),
+        (DBReport, DBReport.user_id),
+    ):
+        for row in db.scalars(select(model).where(column == user_id)).all():
+            db.delete(row)
+    db.commit()
+
+
+def _delete_user_everywhere(db: Session, repos: Repositories, user: DBUser) -> None:
+    _purge_owned_sql_rows(db, user.id)
+    repos.oauth_accounts.delete_all_for_user(user.id)
+    repos.webauthn_credentials.delete_all_for_user(user.id)
+    repos.users.delete_user(user)
+
+
+def _user_page(
+    users: list[DBUser], params: CursorParams, repos: Repositories, full: bool
+) -> CursorPage[Union[UserRead, PublicUserRead]]:
+    if full:
+        reads = {read.id: read for read in user_reads(users, repos)}
+        return paginate_in_memory(
+            users,
+            limit=params.limit,
+            cursor=params.cursor,
+            sort_key=lambda user: user.username.lower(),
+            item_id=lambda user: str(user.id),
+            transform=lambda user: reads[user.id],
+        )
+    return paginate_in_memory(
+        users,
+        limit=params.limit,
+        cursor=params.cursor,
+        sort_key=lambda user: user.username.lower(),
+        item_id=lambda user: str(user.id),
+        transform=PublicUserRead.model_validate,
+    )
 
 
 @router.get("/me", response_model=UserRead)
 async def read_users_me_route(
     current_user: DBUser = Depends(get_current_user),
-) -> DBUser:
+    repos: Repositories = Depends(get_repositories),
+) -> UserRead:
     """
     Fetch the current logged in user.
     """
-    return current_user
+    return user_read(current_user, repos)
 
 
-# Count endpoint - register BEFORE /{user_id} to avoid route conflicts
-# FastAPI matches routes in order, so specific routes must come before parameterized routes
 @router.get(
     "/count",
     response_model=Dict[str, int],
@@ -73,14 +114,12 @@ async def read_users_me_route(
         200: {"description": "Count of users"},
     },
 )
-async def count_users(
-    db: Session = Depends(get_db),
-) -> Dict[str, int]:
+async def count_users() -> Dict[str, int]:
     """
     Get total count of users.
     """
     try:
-        count = user_service.count_all(db=db, logger=logger)
+        count = user_service.count_all(logger=logger)
         return {"count": count}
     except Exception as e:
         logger.error(f"Error counting users: {str(e)}")
@@ -91,7 +130,7 @@ async def count_users(
 async def upload_profile_picture(
     file: UploadFile = File(...),
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> UserRead:
     """
     Upload a profile picture for the current user.
@@ -113,40 +152,31 @@ async def upload_profile_picture(
         HTTPException: If upload fails or validation fails
     """
     try:
-        # Upload image to storage with square aspect ratio enforcement
         file_key = storage_service.upload_image(
             file=file,
             entity_type="user",
             user_id=current_user.id,
             entity_id=current_user.id,
-            force_square=True,  # Enforce square aspect ratio for profile pictures
+            force_square=True,
         )
 
-        # Delete old profile picture if it exists
         old_key = (current_user.image_urls or [None])[0]
         if old_key:
             try:
                 storage_service.delete_image(old_key)
                 logger.info(f"Deleted old profile picture for user {current_user.id}: {old_key}")
             except Exception as e:
-                # Log but don't fail if old image deletion fails
                 logger.warning(f"Failed to delete old profile picture for user {current_user.id}: {str(e)}")
 
-        # Update user's image_urls (single-element array)
-        current_user.image_urls = [file_key]
-        db.add(current_user)
-        db.commit()
-        db.refresh(current_user)
+        updated = repos.users.update(current_user.id, image_urls=[file_key])
 
         logger.info(f"User {current_user.id} uploaded new profile picture: {file_key}")
-        return UserRead.model_validate(current_user)
+        return user_read(updated, repos)
 
     except HTTPException:
-        # Re-raise HTTP exceptions (validation errors, etc.)
         raise
     except Exception as e:
         logger.error(f"Unexpected error during profile picture upload: {str(e)}")
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred during profile picture upload",
@@ -156,7 +186,7 @@ async def upload_profile_picture(
 @router.delete("/me/profile-picture", response_model=UserRead)
 async def delete_profile_picture(
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> UserRead:
     """
     Delete the current user's profile picture.
@@ -183,31 +213,22 @@ async def delete_profile_picture(
         )
 
     try:
-        # Delete image from storage
         storage_service.delete_image(old_file_key)
-
-        # Clear user's image_urls
-        current_user.image_urls = None
-        db.add(current_user)
-        db.commit()
-        db.refresh(current_user)
+        updated = repos.users.update(current_user.id, image_urls=None)
 
         logger.info(f"User {current_user.id} deleted profile picture: {old_file_key}")
-        return UserRead.model_validate(current_user)
+        return user_read(updated, repos)
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"Unexpected error during profile picture deletion: {str(e)}")
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred during profile picture deletion",
         )
 
 
-# Custom GET endpoint for users with permission checks for sensitive fields
 @router.get(
     "/{user_id}",
     response_model=Union[UserRead, PublicUserRead],
@@ -217,7 +238,7 @@ async def delete_profile_picture(
 )
 async def get_user(
     user_id: UUID,
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
 ) -> Union[UserRead, PublicUserRead]:
     """
@@ -230,38 +251,33 @@ async def get_user(
 
     Otherwise returns PublicUserRead (without sensitive fields).
     """
-    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
+    db_user = repos.users.get(user_id)
     if not db_user:
         ResponsePatterns.raise_not_found("User", user_id)
 
-    # Check if current user has permission to see sensitive fields
-    # Only the user themselves, admins, or superusers can see email_verified and totp_enabled
     if current_user is not None and (current_user.id == user_id or current_user.is_admin or current_user.is_superuser):
-        # current_user is guaranteed to be not None here due to the condition above
-        assert current_user is not None  # Type guard for type checker
+        assert current_user is not None
         logger.info(f"User {current_user.id} retrieved full user data for user {user_id}")
-        return UserRead.model_validate(db_user)
+        return user_read(db_user, repos)
     else:
         user_id_str = "anonymous" if current_user is None else str(current_user.id)
         logger.info(f"User {user_id_str} retrieved public user data for user {user_id}")
         return PublicUserRead.model_validate(db_user)
 
 
-# Custom list endpoint for users with permission checks
 @router.get(
     "/",
-    response_model=List[Union[UserRead, PublicUserRead]],
+    response_model=CursorPage[Union[UserRead, PublicUserRead]],
     responses={
         200: {"description": "List of users retrieved successfully"},
     },
 )
 async def list_users(
-    skip: int = Query(0, ge=0, description="Number of users to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of users to return"),
     search: Optional[str] = Query(None, description="Search in usernames and emails"),
-    db: Session = Depends(get_db),
+    params: CursorParams = Depends(get_cursor_params),
+    repos: Repositories = Depends(get_repositories),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
-) -> List[Union[UserRead, PublicUserRead]]:
+) -> CursorPage[Union[UserRead, PublicUserRead]]:
     """
     List all users with pagination and search.
 
@@ -271,58 +287,18 @@ async def list_users(
 
     Otherwise returns PublicUserRead (without sensitive fields) for each user.
     """
-    # IN-03: ``validate_pagination_params`` is already imported at module top
-    # (line ~39) via ``from app.api.utils.endpoint_decorators import ...``.
-    # The previous function-local re-import was redundant.
-    skip, limit = validate_pagination_params(skip=skip, limit=limit)
+    users = user_service.get_all_users(search=search, logger=logger)
 
-    # Build statement
-    stmt = select(DBUser)
-
-    # Apply search if provided
-    if search:
-        from sqlalchemy import or_
-
-        search_term = f"%{search}%"
-        stmt = stmt.where(
-            or_(
-                DBUser.username.ilike(search_term),
-                DBUser.email.ilike(search_term),
-            )
-        )
-
-    # Get users
-    users = list(db.scalars(stmt.offset(skip).limit(limit)).all())
-
-    # Check if current user has permission to see sensitive fields
     can_see_sensitive_fields = current_user is not None and (current_user.is_admin or current_user.is_superuser)
+    page = _user_page(users, params, repos, full=can_see_sensitive_fields)
 
     if can_see_sensitive_fields:
-        assert current_user is not None  # Type guard for type checker
-        logger.info(f"Admin/superuser {current_user.id} retrieved {len(users)} users with full data")
-        return [UserRead.model_validate(user) for user in users]
+        assert current_user is not None
+        logger.info(f"Admin/superuser {current_user.id} retrieved {len(page.items)} users with full data")
     else:
         user_id_str = "anonymous" if current_user is None else str(current_user.id)
-        logger.info(f"User {user_id_str} retrieved {len(users)} users with public data")
-        return [PublicUserRead.model_validate(user) for user in users]
-
-
-# Create base endpoint router AFTER /me, /count, /{user_id}, and / to avoid route collision
-base_router = BaseEndpointRouter(
-    service=user_service,
-    router=router,
-    entity_name="user",
-    allow_public_read=True,  # Allow public read access to user profiles (for viewing build list owners, etc.)
-    additional_create_data={},  # No additional data needed
-    disable_endpoints=["create", "update", "delete", "get", "list"],  # Use custom endpoints instead
-    create_schema=UserCreate,
-    read_schema=UserRead,
-    update_schema=UserUpdate,
-    search_fields=["username", "email"],
-)
-
-
-# Custom endpoints specific to users (continued)
+        logger.info(f"User {user_id_str} retrieved {len(page.items)} users with public data")
+    return page
 
 
 @router.post(
@@ -332,28 +308,18 @@ base_router = BaseEndpointRouter(
 )
 async def create_user(
     user: UserCreate,
-    db: Session = Depends(get_db),
-) -> DBUser:
+    repos: Repositories = Depends(get_repositories),
+) -> UserRead:
     """
     Creates a new user in the database.
     """
-
-    # Checked if the user already exists
-    db_user_by_username = db.scalars(select(DBUser).where(DBUser.username == user.username)).first()
-    if db_user_by_username:
+    if repos.users.get_by_username(user.username):
         ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
 
-    db_user_by_email = db.scalars(select(DBUser).where(DBUser.email == user.email)).first()
-    if db_user_by_email:
+    if repos.users.get_by_email(user.email):
         ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
 
-    # Hash the received password
     hashed_password = get_password_hash(user.password)
-
-    # Create DBUser instance (excluding plain password)
-    # Auto-verify email in the test environment. conftest sets TESTING=true at import,
-    # before any app code loads — checking the env var avoids relying on `db.bind.url`,
-    # which depends on whether the Session is bound to an Engine or a Connection.
     email_verified = os.environ.get("TESTING") == "true"
 
     db_user = DBUser(
@@ -363,11 +329,12 @@ async def create_user(
         email_verified=email_verified,
     )
 
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    logger.info(msg=f"User added to database: {db_user}")
-    return db_user
+    try:
+        repos.users.create_user(db_user)
+    except UniqueAttributeTaken as e:
+        _raise_duplicate(e)
+    logger.info(msg=f"User added to database: {db_user.id}")
+    return user_read(db_user, repos)
 
 
 @router.put(
@@ -379,22 +346,19 @@ async def update_user(
     user_id: UUID,
     user: UserUpdate,
     response: Response,
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
-    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
+    db_user = repos.users.get(user_id)
 
     if not db_user:
         logger.warning(f"Attempt to update non-existent user {user_id}.")
         ResponsePatterns.raise_not_found("User", user_id)
 
-    # Check if the current user is the user being updated
     if db_user.id != current_user.id:
         logger.warning(f"User {current_user.id} attempt to update user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
-    # Require current_password if it's provided (for security, even if password isn't being changed)
-    # or if password is being changed
     update_data_dict = user.model_dump(exclude_unset=True)
     password_is_being_changed = "password" in update_data_dict and update_data_dict["password"]
     current_password_provided = user.current_password is not None
@@ -402,24 +366,20 @@ async def update_user(
     if password_is_being_changed:
         if not current_password_provided:
             ResponsePatterns.raise_bad_request("Current password is required to change your password")
-        # Type guard: current_password is guaranteed to be not None here
         assert user.current_password is not None
         if not verify_password(user.current_password, db_user.hashed_password):
             logger.warning(f"User {current_user.id} provided incorrect current password for update.")
             ResponsePatterns.raise_unauthorized("Incorrect current password")
     elif current_password_provided:
-        # If current_password is provided but password isn't being changed, still validate it
-        # Type guard: current_password is guaranteed to be not None here
         assert user.current_password is not None
         if not verify_password(user.current_password, db_user.hashed_password):
             logger.warning(f"User {current_user.id} provided incorrect current password for update.")
             ResponsePatterns.raise_unauthorized("Incorrect current password")
 
-    update_data = user.model_dump(
-        exclude_unset=True, exclude={"current_password", "otp"}
-    )  # Exclude current_password and otp from data to be saved
+    update_data = user.model_dump(exclude_unset=True, exclude={"current_password", "otp"})
     username_changed = False
     session_expire_minutes_changed = False
+    changes: dict[str, Any] = {}
 
     if (
         "username" in update_data
@@ -428,37 +388,32 @@ async def update_user(
     ):
         username_changed = True
 
-    # Clamp user session preference to server bounds; allow None for "use server default"
     if "session_expire_minutes" in update_data:
         val = update_data["session_expire_minutes"]
         if val is None:
-            if getattr(db_user, "session_expire_minutes", None) is not None:
+            if db_user.session_expire_minutes is not None:
                 session_expire_minutes_changed = True
-            db_user.session_expire_minutes = None
+            changes["session_expire_minutes"] = None
         else:
             clamped = max(
                 settings.ACCESS_TOKEN_EXPIRE_MINUTES_MIN,
                 min(settings.ACCESS_TOKEN_EXPIRE_MINUTES_MAX, val),
             )
-            if clamped != getattr(db_user, "session_expire_minutes", None):
+            if clamped != db_user.session_expire_minutes:
                 session_expire_minutes_changed = True
-            db_user.session_expire_minutes = clamped
+            changes["session_expire_minutes"] = clamped
         del update_data["session_expire_minutes"]
 
     if "password" in update_data and update_data["password"]:
-        hashed_password = get_password_hash(update_data["password"])
-        db_user.hashed_password = hashed_password
-
+        changes["hashed_password"] = get_password_hash(update_data["password"])
         del update_data["password"]
 
     for field, value in update_data.items():
-        if value is not None:  # Ensures only set fields that are explicitly provided
-            setattr(db_user, field, value)
+        if value is not None:
+            changes[field] = value
 
     try:
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
+        db_user = repos.users.update_user(user_id, **changes) if changes else db_user
         logger.info(f"User {user_id} updated successfully by user {current_user.id}.")
 
         if username_changed or session_expire_minutes_changed:
@@ -472,34 +427,15 @@ async def update_user(
                     f"Session expiry preference updated for user {user_id}. "
                     f"Returning new token with updated expiry."
                 )
-            # Return new token so client gets correct expiry (and username if changed)
             new_access_token_data = {"sub": db_user.username}
             expires_delta = get_access_token_expires_delta_for_user(db_user)
             new_access_token = create_access_token(data=new_access_token_data, expires_delta=expires_delta)
             response.headers["X-New-Access-Token"] = new_access_token
 
-    except IntegrityError as e:
-        db.rollback()
-        logger.warning(f"IntegrityError during user update for user {user_id}: {e.orig}")
-        error_detail_str = str(e.orig).lower()
-        if (
-            "users_username_key" in error_detail_str
-            or "ix_users_username" in error_detail_str
-            or ("unique constraint" in error_detail_str and "users.username" in error_detail_str)
-        ):
-            ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
-        elif (
-            "users_email_key" in error_detail_str
-            or "ix_users_email" in error_detail_str
-            or ("unique constraint" in error_detail_str and "users.email" in error_detail_str)
-        ):
-            ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
-        else:
-            ResponsePatterns.raise_bad_request(
-                "A user with the provided username or email may already exist, "
-                "or another integrity constraint was violated."
-            )
-    return UserRead.model_validate(db_user)
+    except UniqueAttributeTaken as e:
+        logger.warning(f"Duplicate {e.attribute} during user update for user {user_id}")
+        _raise_duplicate(e)
+    return user_read(db_user, repos)
 
 
 @router.delete(
@@ -510,84 +446,57 @@ async def update_user(
 async def delete_user(
     user_id: UUID,
     db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
     """
     Delete a user account. Users can only delete their own account.
     """
-    # Check if the current user is trying to delete their own account
     if user_id != current_user.id:
         logger.warning(f"User {current_user.id} attempted to delete user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to delete this user")
 
-    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
+    db_user = repos.users.get(user_id)
     if not db_user:
         ResponsePatterns.raise_not_found("User", user_id)
 
-    # Convert the SQLAlchemy model to the Pydantic model before deleting
-    deleted_user_data = UserRead.model_validate(db_user)
+    deleted_user_data = user_read(db_user, repos)
 
-    db.delete(db_user)
-    db.commit()
+    _delete_user_everywhere(db, repos, db_user)
     logger.info(f"User {current_user.id} deleted their own account")
     return deleted_user_data
 
 
-# --- Admin Endpoints ---
-
-
 @router.get(
     "/admin/users",
+    response_model=CursorPage[UserRead],
     responses=crud_responses("user", "list", allow_public_read=False),
 )
 async def get_all_users(
-    skip: int = Query(0, ge=0, description="Number of users to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of users to return"),
     search: Optional[str] = Query(None, description="Search in usernames and emails"),
-    db: Session = Depends(get_db),
+    params: CursorParams = Depends(get_cursor_params),
+    repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_admin_user),
-) -> Dict[str, Any]:
+) -> CursorPage[UserRead]:
     """
     Get all users (admin only) with pagination and search.
     """
-    from sqlalchemy import or_
-    from sqlalchemy.orm import selectinload
-
-    from app.api.utils.common_patterns import create_paginated_response
-
-    skip, limit = validate_pagination_params(skip=skip, limit=limit)
-
-    # Eager-load oauth_accounts so the listing isn't N+1 when serializing UserRead.
-    stmt = select(DBUser).options(selectinload(DBUser.oauth_accounts))
-
-    # Apply search if provided
-    if search:
-        search_term = f"%{search}%"
-        stmt = stmt.where(
-            or_(
-                DBUser.username.ilike(search_term),
-                DBUser.email.ilike(search_term),
-            )
-        )
-
-    # Get total count (after applying search filter)
-    total_count = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-
-    # Get paginated users
-    users = list(db.scalars(stmt.offset(skip).limit(limit)).all())
-    user_reads = [UserRead.model_validate(user) for user in users]
+    users = user_service.get_all_users(search=search, logger=logger)
+    reads = {read.id: read for read in user_reads(users, repos)}
+    page = paginate_in_memory(
+        users,
+        limit=params.limit,
+        cursor=params.cursor,
+        sort_key=lambda user: user.username.lower(),
+        item_id=lambda user: str(user.id),
+        transform=lambda user: reads[user.id],
+    )
 
     logger.info(
-        f"Admin {current_user.id} retrieved {len(users)} users (total: {total_count})"
+        f"Admin {current_user.id} retrieved {len(page.items)} users (total: {len(users)})"
         + (f" with search: '{search}'" if search else "")
     )
-
-    return create_paginated_response(
-        data=user_reads,
-        total=total_count,
-        skip=skip,
-        limit=limit,
-    )
+    return page
 
 
 @router.put(
@@ -598,39 +507,33 @@ async def get_all_users(
 async def admin_update_user(
     user_id: UUID,
     user_update: AdminUserUpdate,
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> UserRead:
     """
     Update a user with admin privileges (admin only).
     """
-    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
+    db_user = repos.users.get(user_id)
     if db_user is None:
         ResponsePatterns.raise_not_found("User", user_id)
 
-    # Prevent admin from removing their own admin privileges
     if user_id == current_user.id and (user_update.is_admin is False or user_update.is_superuser is False):
         ResponsePatterns.raise_bad_request("Cannot remove your own admin privileges")
 
     update_data = user_update.model_dump(exclude_unset=True)
 
-    # Hash password if provided
     if "password" in update_data:
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
-
-    # Update model fields
-    for key, value in update_data.items():
-        setattr(db_user, key, value)
+    for key in ("username", "email"):
+        if key in update_data and update_data[key] is None:
+            del update_data[key]
 
     try:
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
+        updated = repos.users.update_user(user_id, **update_data) if update_data else db_user
         logger.info(f"Admin {current_user.id} updated user {user_id}")
-        return UserRead.model_validate(db_user)
-    except IntegrityError as e:
-        db.rollback()
-        logger.warning(f"IntegrityError during admin user update: {e.orig}")
+        return user_read(updated, repos)
+    except UniqueAttributeTaken as e:
+        logger.warning(f"Duplicate {e.attribute} during admin user update")
         ResponsePatterns.raise_conflict("Username or email already exists", "USERNAME_EMAIL_EXISTS")
 
 
@@ -642,23 +545,21 @@ async def admin_update_user(
 async def admin_delete_user(
     user_id: UUID,
     db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> UserRead:
     """
     Delete a user with admin privileges (admin only).
     """
-    # Prevent admin from deleting themselves
     if user_id == current_user.id:
         ResponsePatterns.raise_bad_request("Cannot delete your own account")
 
-    db_user = db.scalars(select(DBUser).where(DBUser.id == user_id)).first()
+    db_user = repos.users.get(user_id)
     if db_user is None:
         ResponsePatterns.raise_not_found("User", user_id)
 
-    # Convert the SQLAlchemy model to the Pydantic model before deleting
-    deleted_user_data = UserRead.model_validate(db_user)
+    deleted_user_data = user_read(db_user, repos)
 
-    db.delete(db_user)
-    db.commit()
+    _delete_user_everywhere(db, repos, db_user)
     logger.info(f"Admin {current_user.id} deleted user {user_id}")
     return deleted_user_data

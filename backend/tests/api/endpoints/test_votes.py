@@ -5,9 +5,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
@@ -32,18 +33,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -89,20 +89,19 @@ class TestUnifiedVotes:
         """Test successfully downvoting a build list."""
         # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        build_list_owner = DBUser(
-            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
-            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        build_list_owner = UserRepository().create_user(
+            DBUser(
+                username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+                email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(build_list_owner)
-        db_session.commit()
-        db_session.refresh(build_list_owner)
 
         # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
@@ -152,20 +151,19 @@ class TestUnifiedVotes:
         """Test successfully voting on a global part."""
         # Create a second user to own the global part
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        part_owner = DBUser(
-            username=f"part_owner_{os.getpid()}_{id(db_session)}",
-            email=f"part_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        part_owner = UserRepository().create_user(
+            DBUser(
+                username=f"part_owner_{os.getpid()}_{id(db_session)}",
+                email=f"part_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(part_owner)
-        db_session.commit()
-        db_session.refresh(part_owner)
 
         # Create a category first
         from app.api.models.category import Category as DBCategory

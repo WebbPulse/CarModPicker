@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.models.app_settings import AppSettings as DBAppSettings
-from app.api.models.user import User as DBUser
 from app.api.schemas.app_settings import AppSettingsRead, AppSettingsUpdate
 from app.api.utils.endpoint_decorators import standard_responses
+from app.db.dynamo.users import User as DBUser
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)

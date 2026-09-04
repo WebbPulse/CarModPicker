@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.category import Category
 from app.api.models.part_manufacturer import PartManufacturer
-from app.api.models.user import User
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, create_car_in_db, login_user
 
 
@@ -34,18 +35,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -1043,9 +1043,7 @@ class TestBuildListParts:
     ) -> None:
         """Test adding a part to a build list with a disabled user account."""
         # Disable the user and commit to database
-        test_user.disabled = True
-        db_session.commit()
-        db_session.refresh(test_user)
+        test_user = UserRepository().update(test_user.id, disabled=True)
 
         # Try to login as disabled user - this should fail
         from app.core.config import settings
@@ -1067,9 +1065,7 @@ class TestBuildListParts:
     ) -> None:
         """Test adding a part to a build list with an unverified email user account."""
         # Set email as unverified and commit to database
-        test_user.email_verified = False
-        db_session.commit()
-        db_session.refresh(test_user)
+        test_user = UserRepository().update(test_user.id, email_verified=False)
 
         # Login as test user (this should work since email verification is checked later)
         token = login_user(client, test_user.username)

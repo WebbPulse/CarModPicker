@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR
 
 
@@ -304,9 +305,7 @@ def test_delete_own_user_success(client: TestClient, db_session: Session) -> Non
     assert login_response.status_code == 401  # Or 400 if "Inactive user" vs "Incorrect username/password"
 
     # Verify user is deleted by checking if username no longer exists in database
-    from app.api.models.user import User as DBUser
-
-    deleted_user_check = db_session.query(DBUser).filter(DBUser.username == username).first()
+    deleted_user_check = UserRepository().get_by_username(username)
     assert deleted_user_check is None, "User should no longer exist in database"
 
 
@@ -662,14 +661,12 @@ def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_
     """Test rollback behavior if storage service fails after DB update (should rollback DB change)."""
     from PIL import Image
 
-    from app.api.models.user import User as DBUser
-
     user_info, token = create_and_login_user(client, "profile_storage_fail")
     headers = get_auth_headers(token)
     user_id = UUID(user_info["id"])
 
     # Get initial state
-    user_before = db_session.query(DBUser).filter(DBUser.id == user_id).first()
+    user_before = UserRepository().get(user_id)
     assert user_before is not None
     initial_image_urls = user_before.image_urls
 
@@ -689,15 +686,13 @@ def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_
         assert response.status_code == 500, f"Expected 500 on storage failure, got {response.status_code}"
 
         # Verify DB was rolled back (image_urls should not be updated)
-        db_session.refresh(user_before)
+        user_before = UserRepository().get_or_raise(user_id)
         assert user_before.image_urls == initial_image_urls, "DB should be rolled back on storage failure"
 
 
 def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_session: Session) -> None:
     """Test graceful handling when storage deletion fails but DB update succeeds."""
     from PIL import Image
-
-    from app.api.models.user import User as DBUser
 
     user_info, token = create_and_login_user(client, "profile_delete_storage_fail")
     headers = get_auth_headers(token)
@@ -715,7 +710,7 @@ def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_
     # Only test deletion if upload succeeded
     if upload_response.status_code == 200:
         # Get the file_key/image_urls before deletion
-        user_before = db_session.query(DBUser).filter(DBUser.id == user_id).first()
+        user_before = UserRepository().get(user_id)
         assert user_before is not None
         old_image_urls = user_before.image_urls
 
@@ -729,6 +724,6 @@ def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_
 
             # If it returns 500, verify DB was rolled back
             if response.status_code == 500:
-                db_session.refresh(user_before)
+                user_before = UserRepository().get_or_raise(user_id)
                 # DB should be rolled back (image_urls should still be set)
                 assert user_before.image_urls == old_image_urls, "DB should be rolled back on storage deletion failure"

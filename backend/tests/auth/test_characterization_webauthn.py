@@ -28,9 +28,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser
-from app.api.models.webauthn_credential import WebAuthnCredential
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository, WebAuthnCredential, WebAuthnCredentialRepository
 
 
 def _uniq(base: str) -> str:
@@ -51,10 +51,7 @@ def _create_verified_user(db: Session) -> DBUser:
         email_verified=True,
         disabled=False,
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+    return UserRepository().create_user(user)
 
 
 def _login(client: TestClient, user: DBUser) -> str:
@@ -159,7 +156,7 @@ def test_webauthn_register_and_authenticate(
     assert r2.status_code == 200, r2.text
 
     # DB state: credential row exists for this user
-    creds = db_session.query(WebAuthnCredential).filter_by(user_id=user.id).all()
+    creds = WebAuthnCredentialRepository().list_by_user(user.id)
     assert len(creds) == 1
     assert creds[0].credential_id == fake_cred_id
     assert creds[0].public_key == fake_pubkey

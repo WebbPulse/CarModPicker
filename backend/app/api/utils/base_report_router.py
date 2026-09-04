@@ -10,9 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
-from app.api.models.user import User as DBUser
 from app.api.protocols import BaseModel, HasModelDump, ReportModel
 from app.api.services.base_report_service import BaseReportService
+from app.db.dynamo.users import User as DBUser
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)

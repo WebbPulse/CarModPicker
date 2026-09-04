@@ -5,8 +5,8 @@ import os
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.models.user import User
 from app.core.config import settings
+from app.db.dynamo.users import User, UserRepository
 from tests.conftest import create_car_in_db, login_user
 
 
@@ -118,16 +118,15 @@ class TestBuildListLaborEstimatesCRUD:
         # Second user attempts to edit
         from app.api.dependencies.auth import get_password_hash
 
-        other = User(
-            username=_unique("other"),
-            email=_unique("other") + "@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        other = UserRepository().create_user(
+            User(
+                username=_unique("other"),
+                email=_unique("other") + "@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(other)
-        db_session.commit()
-        db_session.refresh(other)
         other_token = login_user(client, other.username)
 
         forbidden = client.put(

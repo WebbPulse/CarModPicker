@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Index, UniqueConstraint, Uuid
+from sqlalchemy import Index, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from uuid6 import uuid7
 
@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from .build_list import BuildList
     from .car_generation import CarGeneration
     from .part import Part
-    from .user import User
 
 
 class Vote(Base):
@@ -24,7 +23,7 @@ class Vote(Base):
     __tablename__ = "votes"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid7, index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     vote_type: Mapped[str] = mapped_column(nullable=False)  # 'upvote', 'downvote'
 
     # Polymorphic entity reference
@@ -33,9 +32,6 @@ class Vote(Base):
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-
-    # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="votes")
 
     # Polymorphic relationships (these will be handled by the entity models)
     car_generation: Mapped[Optional["CarGeneration"]] = relationship(

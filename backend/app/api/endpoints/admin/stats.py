@@ -14,15 +14,15 @@ from app.api.models.associations.part_car import part_cars
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
-from app.api.models.oauth_account import OAuthAccount as DBOAuthAccount
 from app.api.models.part_listing import PartListing as DBPartListing
 from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
 from app.api.models.report import Report as DBReport
-from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
-from app.api.models.webauthn_credential import WebAuthnCredential as DBWebAuthnCredential
 from app.api.utils.approximate_count import approximate_count
 from app.api.utils.endpoint_decorators import standard_responses
+from app.db.dynamo.users import OAuthAccountRepository
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import WebAuthnCredentialRepository
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -62,8 +62,8 @@ async def get_admin_table_counts(
         "image_source_mappings": approximate_count(db, DBImageSourceMapping),
         "build_logs": approximate_count(db, DBBuildLog),
         "part_cars": approximate_count(db, part_cars),
-        "oauth_accounts": approximate_count(db, DBOAuthAccount),
-        "webauthn_credentials": approximate_count(db, DBWebAuthnCredential),
+        "oauth_accounts": OAuthAccountRepository().count(),
+        "webauthn_credentials": WebAuthnCredentialRepository().count(),
         "votes_by_entity_type": votes_by_entity_type,
         "reports_by_entity_type": reports_by_entity_type,
     }

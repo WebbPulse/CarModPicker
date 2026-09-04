@@ -5,8 +5,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import create_car_in_db
 
 
@@ -41,18 +42,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -133,8 +133,8 @@ class TestSearch:
         response = client.get(f"{settings.API_STR}/search/?q={search_term}")
         assert response.status_code == 200
         data = response.json()
-        assert len(data["users"]["data"]) > 0
-        assert any(search_term.lower() in u["username"].lower() for u in data["users"]["data"])
+        assert len(data["users"]["items"]) > 0
+        assert any(search_term.lower() in u["username"].lower() for u in data["users"]["items"])
 
     def test_search_users_by_email(self, client: TestClient, test_user: DBUser) -> None:
         """Test searching users by email."""
@@ -144,7 +144,7 @@ class TestSearch:
         assert response.status_code == 200
         data = response.json()
         # Note: email might not be in PublicUserRead, so we check username matches
-        assert len(data["users"]["data"]) > 0
+        assert len(data["users"]["items"]) > 0
 
     def test_search_parts_by_name(
         self, client: TestClient, test_user: DBUser, test_category, test_part_manufacturer, db_session: Session
@@ -218,7 +218,7 @@ class TestSearch:
         assert response.status_code == 200
         data = response.json()
         assert data["build_lists"]["data"] == []
-        assert data["users"]["data"] == []
+        assert data["users"]["items"] == []
         assert data["parts"]["data"] == []
         assert data["query"] == ""
 
@@ -228,7 +228,7 @@ class TestSearch:
         assert response.status_code == 200
         data = response.json()
         assert len(data["build_lists"]["data"]) == 0
-        assert len(data["users"]["data"]) == 0
+        assert len(data["users"]["items"]) == 0
         assert len(data["parts"]["data"]) == 0
 
     def test_search_case_insensitive(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
@@ -421,7 +421,7 @@ class TestSearch:
             assert "users" in data
             assert "parts" in data
             assert data["build_lists"]["data"] == []
-            assert data["users"]["data"] == []
+            assert data["users"]["items"] == []
             assert data["parts"]["data"] == []
         else:
             # Old format (list) - for backward compatibility
@@ -452,7 +452,7 @@ class TestSearch:
         # Should return empty results for all categories
         if isinstance(data, dict):
             assert data["build_lists"]["data"] == []
-            assert data["users"]["data"] == []
+            assert data["users"]["items"] == []
             assert data["parts"]["data"] == []
         else:
             # Old format

@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.category import Category
 from app.api.models.part_manufacturer import PartManufacturer
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, create_car_in_db, get_default_category_id, test_part_manufacturer
 
 
@@ -30,18 +31,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}

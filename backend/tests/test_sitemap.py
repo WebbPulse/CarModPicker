@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.part import Part as DBPart
-from app.api.models.user import User
 from app.api.services import sitemap_service
+from app.db.dynamo.users import User
 from tests.conftest import get_default_category_id
 
 SM_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"

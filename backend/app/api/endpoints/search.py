@@ -13,14 +13,15 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.car_generation import CarGeneration as DBCar
 from app.api.models.car_make import CarMake as DBMake
 from app.api.models.car_model import CarModel as DBCarModel
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListRead
+from app.api.schemas.pagination import CursorPage
 from app.api.schemas.part import PartRead
 from app.api.schemas.user import PublicUserRead
 from app.api.utils.common_patterns import (
@@ -28,6 +29,7 @@ from app.api.utils.common_patterns import (
     get_standard_public_endpoint_dependencies,
     validate_pagination_params,
 )
+from app.api.utils.cursor_pagination import paginate_in_memory
 from app.api.utils.endpoint_decorators import search_responses
 from app.api.utils.pagination_utils import get_total_count
 
@@ -44,7 +46,9 @@ async def search_all(
     q: str = Query(..., description="Search term to search across all entities"),
     skip: int = Query(0, ge=0, description="Number of results to skip per category"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of results to return per category"),
+    users_cursor: str | None = Query(None, description="Opaque cursor for the next page of user results"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, Any]:
     """
     Search across build lists, user profiles, and global parts.
@@ -65,13 +69,7 @@ async def search_all(
                 "skip": skip,
                 "limit": limit,
             },
-            "users": {
-                "data": [],
-                "total": 0,
-                "has_next": False,
-                "skip": skip,
-                "limit": limit,
-            },
+            "users": CursorPage[PublicUserRead](items=[]),
             "parts": {
                 "data": [],
                 "total": 0,
@@ -108,18 +106,15 @@ async def search_all(
     build_list_results = [BuildListRead.model_validate(bl) for bl in build_lists]
     build_list_has_next = (skip + limit) < build_list_total
 
-    # Search users (username, email)
-    user_stmt = select(DBUser).where(
-        or_(
-            DBUser.username.ilike(f"%{search_term}%"),
-            DBUser.email.ilike(f"%{search_term}%"),
-        )
+    matched_users = repos.users.search(search_term)
+    user_page = paginate_in_memory(
+        matched_users,
+        limit=limit,
+        cursor=users_cursor,
+        sort_key=lambda user: user.username.lower(),
+        item_id=lambda user: str(user.id),
+        transform=PublicUserRead.model_validate,
     )
-    user_total = get_total_count(db, user_stmt)
-    users = list(db.scalars(user_stmt.offset(skip).limit(limit)).all())
-    # Use PublicUserRead to exclude sensitive fields (email_verified, totp_enabled)
-    user_results = [PublicUserRead.model_validate(u) for u in users]
-    user_has_next = (skip + limit) < user_total
 
     # Search parts (name, description, part_manufacturer name, part_number).
     # Non-canonical duplicates are hidden so search returns only surface parts.
@@ -145,7 +140,7 @@ async def search_all(
 
     logger.info(
         f"Search for '{search_term}' returned {len(build_list_results)}/{build_list_total} build lists, "
-        f"{len(user_results)}/{user_total} users, and {len(part_results)}/{part_total} parts"
+        f"{len(user_page.items)}/{len(matched_users)} users, and {len(part_results)}/{part_total} parts"
     )
 
     return {
@@ -156,13 +151,7 @@ async def search_all(
             "skip": skip,
             "limit": limit,
         },
-        "users": {
-            "data": user_results,
-            "total": user_total,
-            "has_next": user_has_next,
-            "skip": skip,
-            "limit": limit,
-        },
+        "users": user_page,
         "parts": {
             "data": part_results,
             "total": part_total,

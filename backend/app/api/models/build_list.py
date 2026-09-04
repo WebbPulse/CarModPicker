@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from .build_log import BuildLog
     from .car_generation import CarGeneration
     from .report import Report
-    from .user import User
     from .vote import Vote
 
 
@@ -29,7 +28,7 @@ class BuildList(Base):
     car_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("car_generations.id"), nullable=True, index=True
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     # Purchase price of the donor car, in cents. Folded into total build cost.
     base_price_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"), default=0)
 
@@ -38,7 +37,6 @@ class BuildList(Base):
 
     # Relationships
     car_generation: Mapped[Optional["CarGeneration"]] = relationship("CarGeneration", back_populates="build_lists")
-    owner: Mapped["User"] = relationship("User", back_populates="build_lists")
     build_list_parts: Mapped[List["BuildListPart"]] = relationship(
         "BuildListPart",
         back_populates="build_list",

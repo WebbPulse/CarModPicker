@@ -23,7 +23,6 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import ALGORITHM, get_current_user
 from app.api.models.part import Part as DBPart
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
-from app.api.models.user import User as DBUser
 from app.api.schemas.part_price_alert import (
     PartPriceAlertCreate,
     PartPriceAlertRead,
@@ -33,6 +32,7 @@ from app.api.services import part_price_alert_service
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)

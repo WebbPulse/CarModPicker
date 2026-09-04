@@ -12,13 +12,13 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.api.models.bug_report import BugReport as DBBugReport
-from app.api.models.user import User as DBUser
 from app.api.schemas.bug_report import (
     BugReportCreate,
     BugReportRead,
     BugReportUpdate,
     BugReportWithDetails,
 )
+from app.db.dynamo.users import UserRepository
 
 
 class BugReportService:
@@ -27,8 +27,7 @@ class BugReportService:
     """
 
     def __init__(self) -> None:
-        """Initialize the bug report service."""
-        pass
+        self.users = UserRepository()
 
     def create_bug_report(
         self,
@@ -137,20 +136,18 @@ class BugReportService:
         # Get total count before pagination
         total_count = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
 
-        # Get bug reports with user details
-        bug_reports_with_details: List[BugReportWithDetails] = []
-        for bug_report in db.scalars(stmt.order_by(desc(DBBugReport.created_at)).offset(skip).limit(limit)).all():
-            # Get reporter username if exists
-            reporter_username = None
-            if bug_report.user_id:
-                reporter = db.scalars(select(DBUser).where(DBUser.id == bug_report.user_id)).first()
-                reporter_username = reporter.username if reporter else None
+        bug_reports = db.scalars(stmt.order_by(desc(DBBugReport.created_at)).offset(skip).limit(limit)).all()
+        user_ids = [bug_report.user_id for bug_report in bug_reports if bug_report.user_id] + [
+            bug_report.assigned_to for bug_report in bug_reports if bug_report.assigned_to
+        ]
+        users_by_id = self.users.get_many(user_ids)
 
-            # Get assignee username if exists
-            assignee_username = None
-            if bug_report.assigned_to:
-                assignee = db.scalars(select(DBUser).where(DBUser.id == bug_report.assigned_to)).first()
-                assignee_username = assignee.username if assignee else None
+        bug_reports_with_details: List[BugReportWithDetails] = []
+        for bug_report in bug_reports:
+            reporter = users_by_id.get(bug_report.user_id) if bug_report.user_id else None
+            reporter_username = reporter.username if reporter else None
+            assignee = users_by_id.get(bug_report.assigned_to) if bug_report.assigned_to else None
+            assignee_username = assignee.username if assignee else None
 
             bug_reports_with_details.append(
                 BugReportWithDetails(
@@ -278,17 +275,10 @@ class BugReportService:
         if not bug_report:
             return None
 
-        # Get reporter username if exists
-        reporter_username = None
-        if bug_report.user_id:
-            reporter = db.scalars(select(DBUser).where(DBUser.id == bug_report.user_id)).first()
-            reporter_username = reporter.username if reporter else None
-
-        # Get assignee username if exists
-        assignee_username = None
-        if bug_report.assigned_to:
-            assignee = db.scalars(select(DBUser).where(DBUser.id == bug_report.assigned_to)).first()
-            assignee_username = assignee.username if assignee else None
+        reporter = self.users.get(bug_report.user_id) if bug_report.user_id else None
+        reporter_username = reporter.username if reporter else None
+        assignee = self.users.get(bug_report.assigned_to) if bug_report.assigned_to else None
+        assignee_username = assignee.username if assignee else None
 
         return BugReportWithDetails(
             id=bug_report.id,

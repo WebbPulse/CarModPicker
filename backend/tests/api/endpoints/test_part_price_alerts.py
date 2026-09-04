@@ -19,8 +19,9 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import ALGORITHM, create_access_token
 from app.api.models.part import Part as DBPart
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.api.endpoints.test_users import create_and_login_user, get_auth_headers
 from tests.conftest import INVALID_UUID_STR, get_default_category_id
 
@@ -48,7 +49,7 @@ def _make_part(db: Session, owner: DBUser, *, name: str = "Brake Disc") -> DBPar
 def _create_user_part_pair(client: TestClient, db_session: Session, suffix: str) -> Tuple[Dict[str, Any], str, DBPart]:
     """Convenience: register+login a user, return (user_dict, token, owned_part)."""
     user_info, token = create_and_login_user(client, suffix)
-    db_user = db_session.query(DBUser).filter(DBUser.username == user_info["username"]).first()
+    db_user = UserRepository().get_by_username(user_info["username"])
     assert db_user is not None
     part = _make_part(db_session, db_user, name=f"part_{suffix}")
     return user_info, token, part
@@ -61,7 +62,7 @@ def test_subscribe_requires_auth(client: TestClient, db_session: Session) -> Non
     """POST without a Bearer token must 401."""
     # Need a real part_id so we don't depend on validation-order quirks.
     user_info, _ = create_and_login_user(client, "alerts_anon_seed")
-    db_user = db_session.query(DBUser).filter(DBUser.username == user_info["username"]).first()
+    db_user = UserRepository().get_by_username(user_info["username"])
     assert db_user is not None
     part = _make_part(db_session, db_user)
 

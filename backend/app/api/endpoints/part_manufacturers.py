@@ -20,7 +20,6 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_current_user
 from app.api.models.part import Part as DBPart
 from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.user import User as DBUser
 from app.api.schemas.part import PartRead
 from app.api.schemas.part_manufacturer import (
     PartManufacturerAdminUpdate,
@@ -51,6 +50,7 @@ from app.api.utils.endpoint_decorators import (
     standard_responses,
 )
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.users import User as DBUser
 
 
 class PartManufacturerService(

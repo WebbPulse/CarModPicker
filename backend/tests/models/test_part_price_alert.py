@@ -28,12 +28,12 @@ from sqlalchemy.orm import Session
 from app.api.models.category import Category
 from app.api.models.part import Part
 from app.api.models.part_price_alert import PartPriceAlert
-from app.api.models.user import User
 from app.api.schemas.part_price_alert import (
     PartPriceAlertCreate,
     PartPriceAlertRead,
     PartPriceAlertUpdate,
 )
+from app.db.dynamo.users import User, UserRepository
 from tests.conftest import get_default_category_id
 
 
@@ -119,15 +119,14 @@ def test_part_price_alert_same_user_different_parts_allowed(db_session: Session,
 def test_part_price_alert_different_users_same_part_allowed(db_session: Session, test_user: User) -> None:
     """The unique constraint is on (user_id, part_id) — two different users
     can each subscribe to the same part."""
-    other = User(
-        username="other_alert_user",
-        email="other_alert_user@example.com",
-        hashed_password="x",
-        email_verified=True,
+    other = UserRepository().create_user(
+        User(
+            username="other_alert_user",
+            email="other_alert_user@example.com",
+            hashed_password="x",
+            email_verified=True,
+        )
     )
-    db_session.add(other)
-    db_session.commit()
-    db_session.refresh(other)
 
     part = _make_part(db_session, test_user)
 

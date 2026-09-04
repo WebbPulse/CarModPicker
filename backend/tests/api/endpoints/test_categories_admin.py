@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.api.models.category import Category as DBCategory
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 
 
 # Helper function to create and login an admin user
@@ -19,18 +20,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -51,18 +51,17 @@ def create_and_login_regular_user(
     password = "testpassword"
 
     # Create regular user directly in database
-    regular_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=False,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    regular_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=False,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(regular_user)
-    db_session.commit()
-    db_session.refresh(regular_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -123,17 +122,17 @@ class TestCategoriesAdminAuthentication:
         username = "superuser_test_create"
         email = f"{username}@example.com"
         password = "testpassword"
-        superuser = DBUser(
-            username=username,
-            email=email,
-            hashed_password=get_password_hash(password),
-            is_admin=False,
-            is_superuser=True,
-            email_verified=True,
-            disabled=False,
+        superuser = UserRepository().create_user(
+            DBUser(
+                username=username,
+                email=email,
+                hashed_password=get_password_hash(password),
+                is_admin=False,
+                is_superuser=True,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(superuser)
-        db_session.commit()
         login_data = {"username": username, "password": password}
         token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert token_response.status_code == 200
@@ -258,18 +257,17 @@ class TestCategoriesAdminAuthentication:
         """Categories are seeded from backend; delete endpoint is removed (404/405)."""
         from app.api.models.part import Part as DBPart
 
-        user = DBUser(
-            username="test_user_for_part",
-            email="test_user_for_part@example.com",
-            hashed_password="hashed_password",
-            is_admin=False,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
+        user = UserRepository().create_user(
+            DBUser(
+                username="test_user_for_part",
+                email="test_user_for_part@example.com",
+                hashed_password="hashed_password",
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user)
-        db_session.commit()
-        db_session.refresh(user)
         category = DBCategory(
             name="test_delete_category_with_parts",
             display_name="Test Delete Category With Parts",

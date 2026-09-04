@@ -15,7 +15,6 @@ from app.api.dependencies.auth import (
     get_current_user,
     get_optional_current_user,
 )
-from app.api.models.user import User as DBUser
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.vote import (
     EntityType,
@@ -31,6 +30,7 @@ from app.api.utils.common_patterns import (
 )
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.users import User as DBUser
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)

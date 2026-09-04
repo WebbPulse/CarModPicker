@@ -15,12 +15,12 @@ from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.car_generation import CarGeneration as DBCar
-from app.api.models.user import User as DBUser
 from app.api.schemas.build_list import BuildListCreate, BuildListRead, BuildListUpdate
 from app.api.services.base_crud_service import BaseCRUDService
 from app.api.utils.common_operations import verify_entity_exists
 from app.api.utils.subscription_utils import is_user_premium
 from app.core.logging import get_logger
+from app.db.dynamo.users import User as DBUser
 
 logger = get_logger()
 

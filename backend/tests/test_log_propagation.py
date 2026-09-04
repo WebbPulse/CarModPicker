@@ -18,12 +18,12 @@ import logging
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.models.user import User
 from app.core.log_context import (
     bg_log_context,
     request_id_var,
     user_id_var,
 )
+from app.db.dynamo.users import User
 from tests.conftest import login_user
 
 # Loggers that emit OUTSIDE the request middleware scope in TestClient context
@@ -35,6 +35,8 @@ from tests.conftest import login_user
 # not subject to the OBS-04 invariant.
 _OUT_OF_SCOPE_LOGGERS = (
     "asyncio",
+    "boto3",
+    "botocore",
     "httpx",
     "httpcore",
     "python_multipart",
@@ -64,10 +66,9 @@ def test_log_propagation_request_scope(
     "In-scope" = records emitted by application code (not TestClient plumbing).
     """
     from fastapi import Depends
-    from sqlalchemy.orm import Session
 
     from app.api.dependencies.auth import get_current_user, oauth2_scheme
-    from app.db.session import get_db
+    from app.api.dependencies.repositories import Repositories, get_repositories
     from app.main import app as fastapi_app
 
     emitted_request_ids: list[str] = []
@@ -76,9 +77,9 @@ def test_log_propagation_request_scope(
     # Override with a FastAPI-compatible signature so Depends() introspection works.
     async def logging_current_user(
         token: str = Depends(oauth2_scheme),
-        db: Session = Depends(get_db),
+        repos: Repositories = Depends(get_repositories),
     ) -> User:
-        result = await get_current_user(token=token, db=db)  # type: ignore[arg-type]
+        result = await get_current_user(token=token, repos=repos)
         test_logger = logging.getLogger("app.tests.log_propagation")
         test_logger.info("post-auth request scope log emit")
         emitted_request_ids.append(request_id_var.get())

@@ -10,7 +10,6 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.models.user import User as DBUser
 from app.api.protocols import BaseModel, HasModelDump
 from app.api.utils.approximate_count import approximate_count
 from app.api.utils.common_operations import (
@@ -23,6 +22,7 @@ from app.api.utils.common_operations import (
     verify_entity_exists,
     verify_entity_ownership,
 )
+from app.db.dynamo.users import User as DBUser
 
 # Generic types for different models and schemas
 # ModelType must have an 'id' attribute at minimum
