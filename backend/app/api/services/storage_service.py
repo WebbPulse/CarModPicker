@@ -64,18 +64,16 @@ class StorageService:
         self.max_size_bytes = settings.max_image_size_bytes
         self.allowed_extensions = settings.allowed_image_extensions_list
         self.presigned_url_expiration = min(settings.PRESIGNED_URL_EXPIRATION, 7776000)  # Max 90 days
+        self.s3_client = None
+        self.s3_client_presigner = None
 
         if not self.bucket_name:
             logger.warning("USER_IMAGES_BUCKET not configured. Image uploads will be disabled.")
-            self.s3_client = None
-            self.s3_client_presigner = None
-            return
 
-        # In test environments, don't try to connect to the bucket
-        if _is_test_environment():
-            logger.warning("Test environment detected. Storage service initialized without bucket connection.")
-            self.s3_client = None
-            self.s3_client_presigner = None
+    def _ensure_client(self) -> None:
+        if self.s3_client is not None and self.s3_client_presigner is not None:
+            return
+        if not self.bucket_name or _is_test_environment():
             return
 
         try:
@@ -85,6 +83,7 @@ class StorageService:
             client_kwargs = {
                 "aws_access_key_id": settings.AWS_ACCESS_KEY_ID or None,
                 "aws_secret_access_key": settings.AWS_SECRET_ACCESS_KEY or None,
+                "aws_session_token": settings.AWS_SESSION_TOKEN or None,
                 "region_name": settings.AWS_REGION or None,
                 "endpoint_url": settings.S3_ENDPOINT_URL or None,
                 # Default urllib3 pool is 10 per-host; the crawler runs up to
@@ -96,14 +95,11 @@ class StorageService:
                 "config": BotoConfig(max_pool_connections=100),
             }
 
-            self.s3_client = boto3.client("s3", **client_kwargs)  # type: ignore[redundant-cast]
-
-            # Create presigner client for generating presigned URLs
-            self.s3_client_presigner = boto3.client("s3", **client_kwargs)  # type: ignore[redundant-cast]
+            s3_client = boto3.client("s3", **client_kwargs)  # type: ignore[redundant-cast]
 
             # Verify bucket exists and is accessible
             try:
-                self.s3_client.head_bucket(Bucket=self.bucket_name)  # type: ignore[attr-defined]
+                s3_client.head_bucket(Bucket=self.bucket_name)  # type: ignore[attr-defined]
                 logger.info(f"S3 bucket '{self.bucket_name}' is accessible")
             except ClientError as e:
                 error_code = e.response.get("Error", {}).get("Code", "")
@@ -123,15 +119,12 @@ class StorageService:
                         detail=f"Error accessing S3 bucket: {str(e)}",
                     )
 
+            self.s3_client = s3_client
+            # Create presigner client for generating presigned URLs
+            self.s3_client_presigner = boto3.client("s3", **client_kwargs)  # type: ignore[redundant-cast]
+
         except Exception as e:
             logger.error(f"Failed to initialize S3 bucket client: {str(e)}")
-            # In test environments, don't raise exceptions - just disable the service
-            if _is_test_environment():
-                logger.warning("Test environment detected during error handling. Storage service disabled.")
-                self.s3_client = None
-                self.s3_client_presigner = None
-                return
-            # In production, raise the exception
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to initialize storage service: {str(e)}",
@@ -353,6 +346,10 @@ class StorageService:
         Returns:
             True if the object exists, False otherwise (404 or error).
         """
+        try:
+            self._ensure_client()
+        except HTTPException:
+            return False
         if not self.s3_client or not self.bucket_name:
             return False
         try:
@@ -395,6 +392,7 @@ class StorageService:
         Raises:
             HTTPException: If upload fails or validation fails
         """
+        self._ensure_client()
         if not self.s3_client or not self.bucket_name:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -466,6 +464,7 @@ class StorageService:
         Raises:
             HTTPException: If URL generation fails
         """
+        self._ensure_client()
         if not self.s3_client_presigner:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -503,6 +502,10 @@ class StorageService:
         Returns:
             bool: True if deletion was successful, False otherwise
         """
+        try:
+            self._ensure_client()
+        except HTTPException:
+            return False
         if not self.s3_client or not self.bucket_name:
             logger.warning("S3 bucket client not initialized, cannot delete image")
             return False
@@ -533,6 +536,7 @@ class StorageService:
         Raises:
             HTTPException: If counting fails or bucket is not configured
         """
+        self._ensure_client()
         if not self.s3_client or not self.bucket_name:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -597,6 +601,7 @@ class StorageService:
         Returns:
             dict with keys: total (int), by_entity_type (dict[str, int]), other (int)
         """
+        self._ensure_client()
         if not self.s3_client or not self.bucket_name:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -681,6 +686,7 @@ class StorageService:
         Raises:
             HTTPException: If listing fails or bucket is not configured
         """
+        self._ensure_client()
         if not self.s3_client or not self.bucket_name:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
