@@ -6,6 +6,8 @@ from urllib.parse import urlparse
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.secrets import load_app_secrets
+
 
 class Settings(BaseSettings):
     # API settings
@@ -266,6 +268,10 @@ class Settings(BaseSettings):
         default="",
         description="AWS secret access key. Leave empty on App Runner to use the instance IAM role.",
     )
+    AWS_SESSION_TOKEN: str = Field(
+        default="",
+        description="AWS session token. Lambda sets this alongside the key pair; required whenever the credentials are temporary.",
+    )
     AWS_REGION: str = Field(
         default="auto",
         description="AWS region for the S3 bucket. Also accepts AWS_DEFAULT_REGION.",
@@ -317,9 +323,7 @@ def get_settings() -> Settings:
     return Settings()
 
 
+load_app_secrets()
+
 # Create settings instance for normal usage
 settings = get_settings()
-
-from app.core.secrets import apply_app_secrets  # noqa: E402
-
-apply_app_secrets(settings)
