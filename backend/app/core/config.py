@@ -190,6 +190,10 @@ class Settings(BaseSettings):
         default="",
         description="DynamoDB endpoint override (DynamoDB Local). Empty = native AWS endpoint.",
     )
+    DYNAMODB_SEARCH_SCAN_PAGE_LIMIT: int = Field(
+        default=50,
+        description="Maximum number of DynamoDB scan pages a single catalog search may read before it stops.",
+    )
 
     @property
     def dynamodb_table_prefix(self) -> str:

@@ -172,6 +172,7 @@ PARTS = TableSpec(
     indexes=(
         gsi("category_id", "created_at"),
         gsi("part_manufacturer_id", "part_number_normalized"),
+        gsi("part_manufacturer_id", "created_at"),
         gsi("user_id", "created_at"),
         gsi("canonical_id"),
         gsi("gtin"),
