@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid5
 
 import pytest
 from uuid6 import uuid7
@@ -120,12 +120,23 @@ class TestBuildPlan:
 
     def test_creates_the_missing_build_log(self, dynamo_tables: Any) -> None:
         rows = sample_rows()
+        # psycopg2 returns uuid columns as strings; a list that already has a log must not get another.
+        covered_list = str(uuid7())
+        rows["build_lists"].append(
+            _stamped(id=covered_list, name="Street build", user_id=rows["users"][0]["id"], car_id=None)
+        )
+        rows["build_logs"].append(
+            _stamped(id=str(uuid7()), build_list_id=covered_list, title="Build Log: Street build")
+        )
         plan = backfill.build_plan(rows, get_repositories())
 
         assert plan.created_build_logs == 1
-        (log,) = plan.models["build_logs"]
+        existing, log = plan.models["build_logs"]
+        assert str(existing.build_list_id) == covered_list
         assert log.build_list_id == rows["build_lists"][0]["id"]
         assert log.title == "Build Log: Track build"
+        assert log.id == uuid5(backfill.BUILD_LOG_NAMESPACE, str(rows["build_lists"][0]["id"]))
+        assert backfill.build_plan(rows, get_repositories()).models["build_logs"][1].id == log.id
 
     def test_lookup_items_cover_users_oauth_webauthn_and_catalog(self, dynamo_tables: Any) -> None:
         plan = backfill.build_plan(sample_rows(), get_repositories())

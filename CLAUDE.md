@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CarModPicker is a full-stack web application for managing car modifications. Users can track their cars, create build lists with parts, browse a global parts catalog, and log their builds in forum-style threads. A companion Chrome extension scrapes parts from retailer pages.
 
-**Stack:** FastAPI (Python 3.13) backend + React 19 (TypeScript) frontend, deployed on AWS as Lambda + HTTP API + DynamoDB (the legacy App Runner + RDS PostgreSQL stack still runs in production until cutover). Infrastructure managed with Terraform (`terraform/`).
+**Stack:** FastAPI (Python 3.13) backend + React 19 (TypeScript) frontend, deployed on AWS as Lambda + HTTP API + DynamoDB. Infrastructure managed with Terraform (`terraform/`).
 
 ---
 
@@ -148,7 +148,7 @@ Six workflows in `.github/workflows/`, three CI and three deploy, each scoped by
 
 The three deploy workflows are fully independent — a backend merge never rebuilds the frontend.
 
-`backend-deploy.yml` and `frontend-deploy.yml` pick their GitHub Environment from the branch (`main` → `production`, otherwise `staging`) and read every deploy-time value from that Environment. The backend deploy builds a Lambda zip (`requirements-lambda.txt` resolved for manylinux x86_64 / Python 3.13, plus `app/`), uploads it to the artifacts bucket keyed by commit SHA, waits for HCP Terraform to go idle, then runs `update-function-code` and `publish-version`. The Docker/ECR/App Runner steps still run only while `APP_RUNNER_SERVICE_ARN` is set on the Environment.
+`backend-deploy.yml` and `frontend-deploy.yml` pick their GitHub Environment from the branch (`main` → `production`, otherwise `staging`) and read every deploy-time value from that Environment. The backend deploy builds a Lambda zip (`requirements-lambda.txt` resolved for manylinux x86_64 / Python 3.13, plus `app/`), uploads it to the artifacts bucket keyed by commit SHA, waits for HCP Terraform to go idle, then runs `update-function-code` and `publish-version`.
 
 **Still to change:** the three CI workflows only run on PRs into `main`; PRs into `staging` run no checks until `staging` is added to their `pull_request: branches:`.
 
@@ -160,21 +160,21 @@ Deploy variables are **environment-scoped**: they live on the `production` and `
 
 | Workflow | Variables | Secrets |
 |---|---|---|
-| `backend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `TFC_WORKSPACE_ID`, `LAMBDA_FUNCTION_NAME`, `LAMBDA_ARTIFACTS_BUCKET`; production only: `ECR_REPOSITORY_NAME`, `APP_RUNNER_SERVICE_ARN` | `TFC_API_TOKEN` |
+| `backend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `TFC_WORKSPACE_ID`, `LAMBDA_FUNCTION_NAME`, `LAMBDA_ARTIFACTS_BUCKET` | `TFC_API_TOKEN` |
 | `frontend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `TFC_WORKSPACE_ID`, `FRONTEND_S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_URL`, `CWS_EXTENSION_ID` | `TFC_API_TOKEN` |
 | `chrome-extension-deploy.yml` | `CWS_CLIENT_ID`, `CWS_EXTENSION_ID` | `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` |
 
-The backend and frontend deploys poll the HCP Terraform runs API with `TFC_API_TOKEN` and wait for the workspace named by `TFC_WORKSPACE_ID` to reach a terminal state before touching Lambda, App Runner or S3 — that poll is what stops a code update racing an in-flight configuration change. Production polls `ws-oh1VvpTBPxmcrSYD`; staging polls `CarModPicker-staging`.
+The backend and frontend deploys poll the HCP Terraform runs API with `TFC_API_TOKEN` and wait for the workspace named by `TFC_WORKSPACE_ID` to reach a terminal state before touching Lambda or S3 — that poll is what stops a code update racing an in-flight configuration change. Production polls `ws-oh1VvpTBPxmcrSYD`; staging polls `CarModPicker-staging`.
 
 ### A staging branch does not imply staging infrastructure
 
 `terraform/` is one root module applied by two HCP workspaces: `CarModPicker` (production, bound to `main`, pinned in the `cloud` block in `versions.tf`) and `CarModPicker-staging` (bound to `staging`, `environment = staging`). `var.environment` feeds `local.prefix`, `local.domain_name` and every environment-dependent decision.
 
-The intended staging profile is `full`: the same stack as production minus the legacy pieces, served as `staging.carmodpicker.com` / `www.staging.carmodpicker.com` / `api.staging.carmodpicker.com`. The staging account owns the `staging.carmodpicker.com` hosted zone, and the same apply writes its `NS` delegation into the `carmodpicker.com` zone in the production account through the `aws.parent_dns` provider alias, which assumes `route53_write_role_arn` (scoped to that one record) and targets `parent_route53_zone_id`. WebbPulse-Platform pushes both variables to the workspace; SES uses the domain identity exactly as production does. `reduced` is the fallback while those variables are absent: no custom domain, frontend on the CloudFront hostname, API on the `execute-api` endpoint, SES on a mailbox identity. `none` is rejected. Staging can never build the legacy stack: `local.legacy_stack` is hard-wired to `environment == "production"`, so RDS and App Runner do not exist in 748861776298 whatever `legacy_stack_enabled` says. Staging is never auto-provisioned to mirror production.
+The intended staging profile is `full`: the same stack as production, served as `staging.carmodpicker.com` / `www.staging.carmodpicker.com` / `api.staging.carmodpicker.com`. The staging account owns the `staging.carmodpicker.com` hosted zone, and the same apply writes its `NS` delegation into the `carmodpicker.com` zone in the production account through the `aws.parent_dns` provider alias, which assumes `route53_write_role_arn` (scoped to that one record) and targets `parent_route53_zone_id`. WebbPulse-Platform pushes both variables to the workspace; SES uses the domain identity exactly as production does. `reduced` is the fallback while those variables are absent: no custom domain, frontend on the CloudFront hostname, API on the `execute-api` endpoint, SES on a mailbox identity. `none` is rejected. Staging is never auto-provisioned to mirror production.
 
 ### The Lambda migration stack
 
-Production runs App Runner + RDS and Lambda + DynamoDB side by side until cutover. Three variables on the production workspace steer it: `legacy_stack_enabled` (default on; every legacy resource carries a `moved` block, so turning it on is a no-op and turning it off is a destroy), `api_target` (unset defaults to `legacy` while the legacy stack is enabled and `lambda` once it is off; `legacy` keeps `api.carmodpicker.com` on App Runner, `lambda` flips the Route53 record to the HTTP API), and `custom_domain_enabled`. The full sequence is in `terraform/README.md` under "Production cutover".
+Production was cut over from App Runner + RDS PostgreSQL to Lambda + DynamoDB on 2026-09-06 and the legacy stack has been destroyed; `terraform/README.md` keeps a short record under "Production cutover". The only remaining Postgres artefact is `backend/scripts/backfill_from_postgres.py`, kept for reference.
 
 The Lambda's code is not Terraform's: the function is created from a placeholder zip with `ignore_changes` on the package, and `backend-deploy.yml` owns every update after that. Its secrets come from the `<prefix>/app` JSON secret, read at import by `backend/app/core/secrets.py` when `APP_SECRETS_ARN` is set. DynamoDB tables are declared once, in `backend/app/db/dynamo/tables.py`; `backend/scripts/export_dynamo_tables.py` renders them to `terraform/dynamodb_tables.json` and `tests/db/test_dynamo_tables_json_up_to_date.py` fails when the two drift.
 
