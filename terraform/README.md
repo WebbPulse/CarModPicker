@@ -62,7 +62,8 @@ Production runs both stacks until the Lambda path is proven:
 1. Apply with defaults. The legacy stack is untouched (every gated resource has a `moved` block so nothing is recreated); DynamoDB, Lambda, the HTTP API and `api.carmodpicker.com` on API Gateway are created alongside it. DNS still points at App Runner.
 2. Deploy the backend so the Lambda holds real code (the Terraform-managed zip is a 503 placeholder), then migrate data.
 3. Set `api_target = lambda`. The Route53 `api` record flips from the App Runner CNAME to the HTTP API alias. Set it back to `legacy` to roll back.
-4. Set `legacy_stack_enabled = false` to destroy VPC, RDS, ECR and App Runner. `api_target` can be unset at the same time: with the legacy stack off it defaults to `lambda`. Unset `APP_RUNNER_SERVICE_ARN` on the `production` GitHub Environment at the same time so the deploy workflow stops building images.
+4. Set `rds_deletion_protection = false` and apply, so the instance can be destroyed (the final snapshot `carmodpicker-production-final-snapshot` is still taken).
+5. Set `legacy_stack_enabled = false` to destroy VPC, RDS, ECR and App Runner. `api_target` can be unset at the same time: with the legacy stack off it defaults to `lambda`. Unset `APP_RUNNER_SERVICE_ARN` on the `production` GitHub Environment at the same time so the deploy workflow stops building images.
 
 ## File map
 
@@ -110,7 +111,7 @@ Set per workspace, not in `.tfvars`:
 - `parent_route53_zone_id` and `route53_write_role_arn` — staging only, pushed from the WebbPulse-Platform repo; required once the profile is `full`.
 - `secret_key`, `sentry_dsn` — sensitive, set by hand.
 - `db_password` — sensitive, production only (legacy RDS).
-- `legacy_stack_enabled`, `api_target`, `custom_domain_enabled`, `domain_name`, `email_from` — optional, see above.
+- `legacy_stack_enabled`, `rds_deletion_protection`, `api_target`, `custom_domain_enabled`, `domain_name`, `email_from` — optional, see above.
 
 AWS credentials are injected automatically via HCP Terraform dynamic provider credentials (no static keys).
 

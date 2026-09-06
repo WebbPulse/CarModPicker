@@ -22,6 +22,12 @@ variable "legacy_stack_enabled" {
   nullable    = true
 }
 
+variable "rds_deletion_protection" {
+  description = "Keep deletion protection on the legacy RDS instance. Set to false (and apply) before legacy_stack_enabled = false, otherwise the destroy is refused."
+  type        = bool
+  default     = true
+}
+
 variable "api_target" {
   description = "Which backend api.<domain_name> points at: 'legacy' (App Runner) or 'lambda' (HTTP API). null = 'legacy' while the legacy stack is enabled, 'lambda' otherwise."
   type        = string

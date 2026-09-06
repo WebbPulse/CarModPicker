@@ -75,9 +75,10 @@ resource "aws_db_instance" "main" {
 
   auto_minor_version_upgrade = true
 
-  # deletion_protection blocks accidental terraform destroy.
-  # To tear down this instance: set deletion_protection = false, apply, then destroy.
-  deletion_protection       = true
+  # deletion_protection blocks accidental terraform destroy. Tearing the legacy
+  # stack down is a two-step apply: rds_deletion_protection = false first, then
+  # legacy_stack_enabled = false. The final snapshot is always taken.
+  deletion_protection       = var.rds_deletion_protection
   skip_final_snapshot       = false
   final_snapshot_identifier = "${local.prefix}-final-snapshot"
 
