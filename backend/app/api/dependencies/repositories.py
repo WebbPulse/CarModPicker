@@ -21,6 +21,7 @@ from app.db.dynamo.catalog import (
     PartRepository,
     RetailerRepository,
 )
+from app.db.dynamo.image_source_mappings import ImageSourceMappingRepository
 from app.db.dynamo.moderation import ReportRepository, VoteRepository
 from app.db.dynamo.part_price_alerts import PartPriceAlertRepository
 from app.db.dynamo.users import OAuthAccountRepository, UserRepository, WebAuthnCredentialRepository
@@ -52,6 +53,7 @@ class Repositories:
     bug_reports: BugReportRepository
     app_settings: AppSettingsRepository
     part_price_alerts: PartPriceAlertRepository
+    image_source_mappings: ImageSourceMappingRepository
 
 
 _repositories = Repositories(
@@ -79,6 +81,7 @@ _repositories = Repositories(
     bug_reports=BugReportRepository(),
     app_settings=AppSettingsRepository(),
     part_price_alerts=PartPriceAlertRepository(),
+    image_source_mappings=ImageSourceMappingRepository(),
 )
 
 

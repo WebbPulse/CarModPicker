@@ -1723,7 +1723,6 @@ Args:
     entity_id: Optional ID of the entity (for updates)
     file: Image file to upload
     current_user: Authenticated user (from JWT token)
-    db: Database session
 
 Returns:
     dict: Contains 'file_key' (store this in your database) and 'presigned_url' (for immediate use)

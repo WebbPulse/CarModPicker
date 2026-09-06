@@ -5923,7 +5923,7 @@
     },
     "/api/admin/stats/table-counts": {
       "get": {
-        "description": "Admin-only: counts for internal tables not exposed elsewhere, plus votes/reports by entity_type.\n\nSQL table totals are approximate (pg_class.reltuples) so this stays O(1) even on large\ntables; exact counts are used on SQLite/tests. DynamoDB table totals come from the\ntable's item count.",
+        "description": "Admin-only: counts for internal tables not exposed elsewhere, plus votes/reports by entity_type.\n\nTotals come from scanning each table; these are small internal tables.",
         "operationId": "get_admin_table_counts_api_admin_stats_table_counts_get",
         "responses": {
           "200": {
@@ -10805,7 +10805,7 @@
     },
     "/api/images/admin/count": {
       "get": {
-        "description": "Get the total count of objects in the S3 bucket (admin only).\n\nArgs:\n    current_user: Authenticated admin user (from JWT token)\n    db: Database session\n\nReturns:\n    dict: Contains 'count' with the total number of bucket objects\n\nRaises:\n    HTTPException: If counting fails or user is not an admin",
+        "description": "Get the total count of objects in the S3 bucket (admin only).\n\nArgs:\n    current_user: Authenticated admin user (from JWT token)\n\nReturns:\n    dict: Contains 'count' with the total number of bucket objects\n\nRaises:\n    HTTPException: If counting fails or user is not an admin",
         "operationId": "get_bucket_object_count_api_images_admin_count_get",
         "responses": {
           "200": {
@@ -11001,7 +11001,7 @@
     },
     "/api/images/delete": {
       "delete": {
-        "description": "Delete an image from S3 bucket.\n\nOnly the owner of the image can delete it. Ownership is verified by checking\nthe user_hash embedded in the file_key.\n\nArgs:\n    file_key: The file key to delete\n    current_user: Authenticated user (from JWT token)\n    db: Database session\n\nReturns:\n    dict: Success message\n\nRaises:\n    HTTPException: If deletion fails, user is not authenticated, or user doesn't own the image",
+        "description": "Delete an image from S3 bucket.\n\nOnly the owner of the image can delete it. Ownership is verified by checking\nthe user_hash embedded in the file_key.\n\nArgs:\n    file_key: The file key to delete\n    current_user: Authenticated user (from JWT token)\n\nReturns:\n    dict: Success message\n\nRaises:\n    HTTPException: If deletion fails, user is not authenticated, or user doesn't own the image",
         "operationId": "delete_image_api_images_delete_delete",
         "parameters": [
           {
@@ -11053,7 +11053,7 @@
     },
     "/api/images/presigned-url": {
       "get": {
-        "description": "Generate a presigned URL for accessing an image in S3 bucket.\n\nThe S3 bucket is private; presigned URLs are required to access images.\nThese URLs are temporary and expire after the specified time (default: 24 hours).\n\nFor security, if a user is authenticated, we verify they own the image.\nPublic access is allowed for images that may be shared (e.g., public build lists).\n\nArgs:\n    file_key: The file key stored in your database (from upload endpoint)\n    expiration: Optional expiration time in seconds (default: 24 hours, max: 90 days)\n    current_user: Optional authenticated user (for private images)\n    db: Database session\n\nReturns:\n    dict: Contains 'presigned_url' for accessing the image\n\nRaises:\n    HTTPException: If URL generation fails or user doesn't own the image",
+        "description": "Generate a presigned URL for accessing an image in S3 bucket.\n\nThe S3 bucket is private; presigned URLs are required to access images.\nThese URLs are temporary and expire after the specified time (default: 24 hours).\n\nFor security, if a user is authenticated, we verify they own the image.\nPublic access is allowed for images that may be shared (e.g., public build lists).\n\nArgs:\n    file_key: The file key stored in your database (from upload endpoint)\n    expiration: Optional expiration time in seconds (default: 24 hours, max: 90 days)\n    current_user: Optional authenticated user (for private images)\n\nReturns:\n    dict: Contains 'presigned_url' for accessing the image\n\nRaises:\n    HTTPException: If URL generation fails or user doesn't own the image",
         "operationId": "get_presigned_url_api_images_presigned_url_get",
         "parameters": [
           {
@@ -11121,7 +11121,7 @@
     },
     "/api/images/upload": {
       "post": {
-        "description": "Upload an image file to S3 bucket.\n\nThe file is validated for security (type, size, content) and stored\nin S3 bucket. Returns the file key which should be stored\nin your database. Use the /presigned-url endpoint to get a URL for displaying.\n\nArgs:\n    entity_type: Type of entity (e.g., 'build_list', 'part', 'user', 'car')\n    entity_id: Optional ID of the entity (for updates)\n    file: Image file to upload\n    current_user: Authenticated user (from JWT token)\n    db: Database session\n\nReturns:\n    dict: Contains 'file_key' (store this in your database) and 'presigned_url' (for immediate use)\n\nRaises:\n    HTTPException: If upload fails, validation fails, or user is not authenticated",
+        "description": "Upload an image file to S3 bucket.\n\nThe file is validated for security (type, size, content) and stored\nin S3 bucket. Returns the file key which should be stored\nin your database. Use the /presigned-url endpoint to get a URL for displaying.\n\nArgs:\n    entity_type: Type of entity (e.g., 'build_list', 'part', 'user', 'car')\n    entity_id: Optional ID of the entity (for updates)\n    file: Image file to upload\n    current_user: Authenticated user (from JWT token)\n\nReturns:\n    dict: Contains 'file_key' (store this in your database) and 'presigned_url' (for immediate use)\n\nRaises:\n    HTTPException: If upload fails, validation fails, or user is not authenticated",
         "operationId": "upload_image_api_images_upload_post",
         "parameters": [
           {
