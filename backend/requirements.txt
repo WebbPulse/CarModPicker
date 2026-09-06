@@ -18,9 +18,6 @@ uvicorn==0.52.4
 mangum==0.22.0
 
 # Database dependencies
-sqlalchemy==2.0.52
-psycopg2-binary==2.9.12
-alembic==1.19.1
 uuid6==2025.0.1
 
 # Authentication and security

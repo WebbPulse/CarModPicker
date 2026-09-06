@@ -15,7 +15,6 @@ typing-inspection==0.4.4
 typing_extensions==4.16.0
 mangum==0.22.0
 
-sqlalchemy==2.0.52
 uuid6==2025.0.1
 
 PyJWT==2.13.0

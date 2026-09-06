@@ -2,7 +2,6 @@ import os
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -25,7 +24,7 @@ def get_auth_headers(token: str) -> dict[str, str]:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_vote_test_{username_suffix}"
@@ -57,7 +56,7 @@ def create_and_login_admin_user(
 class TestUnifiedVotes:
     """Test cases for unified votes endpoints."""
 
-    def test_upvote_car_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_upvote_car_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully upvoting a car."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -85,7 +84,7 @@ class TestUnifiedVotes:
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "upvote"
 
-    def test_downvote_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_downvote_build_list_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully downvoting a build list."""
         # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
@@ -147,7 +146,7 @@ class TestUnifiedVotes:
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "downvote"
 
-    def test_vote_part_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_vote_part_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully voting on a global part."""
         # Create a second user to own the global part
         from app.api.dependencies.auth import get_password_hash
@@ -219,7 +218,7 @@ class TestUnifiedVotes:
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "upvote"
 
-    def test_vote_unauthorized(self, client: TestClient, db_session: Session) -> None:
+    def test_vote_unauthorized(self, client: TestClient, db_session: Any) -> None:
         """Test voting without authentication."""
         # Try to upvote without authentication
         vote_data = {"vote_type": "upvote"}
@@ -242,7 +241,7 @@ class TestUnifiedVotes:
         )
         assert response.status_code == 404
 
-    def test_update_existing_vote(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_update_existing_vote(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test updating an existing vote."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -278,7 +277,7 @@ class TestUnifiedVotes:
         assert updated_vote["id"] == first_vote["id"]
         assert updated_vote["vote_type"] == "downvote"
 
-    def test_remove_vote_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_remove_vote_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully removing a vote."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -304,7 +303,7 @@ class TestUnifiedVotes:
         assert response.status_code == 200
         assert response.json()["message"] == "Vote removed successfully"
 
-    def test_remove_vote_not_found(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_remove_vote_not_found(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test removing a vote that doesn't exist."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -320,7 +319,7 @@ class TestUnifiedVotes:
         response = client.delete(f"{settings.API_STR}/votes/car_generation/{car['id']}", headers=test_user_headers)
         assert response.status_code == 404
 
-    def test_get_vote_summary_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_vote_summary_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully getting vote summary for an entity."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -366,7 +365,7 @@ class TestUnifiedVotes:
         response = client.get(f"{settings.API_STR}/votes/car_generation/{INVALID_UUID_STR}/summary", headers=headers)
         assert response.status_code == 404
 
-    def test_get_flagged_entities_admin_only(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_flagged_entities_admin_only(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test that getting flagged entities requires admin access."""
         # Login as regular user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -379,7 +378,7 @@ class TestUnifiedVotes:
         response = client.get(f"{settings.API_STR}/votes/admin/flagged/car_generation", headers=headers)
         assert response.status_code == 403
 
-    def test_get_flagged_entities_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
+    def test_get_flagged_entities_success(self, client: TestClient, test_admin_user: User, db_session: Any) -> None:
         """Test successfully getting flagged entities as admin."""
         # Login as admin user
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
@@ -410,7 +409,7 @@ class TestUnifiedVotes:
         )
         assert response.status_code == 422  # Validation error
 
-    def test_vote_invalid_vote_type(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_vote_invalid_vote_type(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test voting with invalid vote type."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -428,7 +427,7 @@ class TestUnifiedVotes:
         response = client.post(f"{settings.API_STR}/votes/car_generation/{car['id']}", json=vote_data, headers=headers)
         assert response.status_code == 422  # Validation error
 
-    def test_count_votes_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_count_votes_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test counting votes."""
         # Get initial count (public endpoint, no auth required)
         response = client.get(f"{settings.API_STR}/votes/count")

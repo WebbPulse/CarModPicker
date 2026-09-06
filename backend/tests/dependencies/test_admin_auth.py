@@ -1,6 +1,7 @@
+from typing import Any
+
 import pytest
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_current_superuser
 from app.db.dynamo.users import User as DBUser
@@ -11,7 +12,7 @@ class TestAdminAuthentication:
     """Test cases for admin authentication dependencies."""
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_with_admin_user(self, db_session: Session) -> None:
+    async def test_get_current_admin_user_with_admin_user(self, db_session: Any) -> None:
         """Test that admin user can access admin endpoints."""
         # Create an admin user
         admin_user = UserRepository().create_user(
@@ -31,7 +32,7 @@ class TestAdminAuthentication:
         assert result == admin_user
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_with_superuser(self, db_session: Session) -> None:
+    async def test_get_current_admin_user_with_superuser(self, db_session: Any) -> None:
         """Test that superuser can access admin endpoints."""
         # Create a superuser
         superuser = UserRepository().create_user(
@@ -51,7 +52,7 @@ class TestAdminAuthentication:
         assert result == superuser
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_with_regular_user(self, db_session: Session) -> None:
+    async def test_get_current_admin_user_with_regular_user(self, db_session: Any) -> None:
         """Test that regular user cannot access admin endpoints."""
         # Create a regular user
         regular_user = UserRepository().create_user(
@@ -74,7 +75,7 @@ class TestAdminAuthentication:
         assert "Admin access required" in str(exc_info.value.detail)
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_with_disabled_admin(self, db_session: Session) -> None:
+    async def test_get_current_admin_user_with_disabled_admin(self, db_session: Any) -> None:
         """Test that disabled admin user can still access admin endpoints (disabled check is in base dependency)."""
         # Create a disabled admin user
         disabled_admin = UserRepository().create_user(
@@ -99,7 +100,7 @@ class TestSuperuserAuthentication:
     """Test cases for superuser authentication dependencies."""
 
     @pytest.mark.asyncio
-    async def test_get_current_superuser_with_superuser(self, db_session: Session) -> None:
+    async def test_get_current_superuser_with_superuser(self, db_session: Any) -> None:
         """Test that superuser can access superuser endpoints."""
         # Create a superuser
         superuser = UserRepository().create_user(
@@ -119,7 +120,7 @@ class TestSuperuserAuthentication:
         assert result == superuser
 
     @pytest.mark.asyncio
-    async def test_get_current_superuser_with_admin_user(self, db_session: Session) -> None:
+    async def test_get_current_superuser_with_admin_user(self, db_session: Any) -> None:
         """Test that admin user cannot access superuser endpoints."""
         # Create an admin user (not superuser)
         admin_user = UserRepository().create_user(
@@ -142,7 +143,7 @@ class TestSuperuserAuthentication:
         assert "Superuser privileges required" in str(exc_info.value.detail)
 
     @pytest.mark.asyncio
-    async def test_get_current_superuser_with_regular_user(self, db_session: Session) -> None:
+    async def test_get_current_superuser_with_regular_user(self, db_session: Any) -> None:
         """Test that regular user cannot access superuser endpoints."""
         # Create a regular user
         regular_user = UserRepository().create_user(
@@ -165,7 +166,7 @@ class TestSuperuserAuthentication:
         assert "Superuser privileges required" in str(exc_info.value.detail)
 
     @pytest.mark.asyncio
-    async def test_get_current_superuser_with_disabled_superuser(self, db_session: Session) -> None:
+    async def test_get_current_superuser_with_disabled_superuser(self, db_session: Any) -> None:
         """Test that disabled superuser can still access superuser endpoints (disabled check is in base dependency)."""
         # Create a disabled superuser
         disabled_superuser = UserRepository().create_user(
@@ -190,7 +191,7 @@ class TestPrivilegeHierarchy:
     """Test cases for privilege hierarchy and edge cases."""
 
     @pytest.mark.asyncio
-    async def test_user_with_both_admin_and_superuser_flags(self, db_session: Session) -> None:
+    async def test_user_with_both_admin_and_superuser_flags(self, db_session: Any) -> None:
         """Test user with both admin and superuser flags set."""
         # Create a user with both flags
         dual_user = UserRepository().create_user(
@@ -214,7 +215,7 @@ class TestPrivilegeHierarchy:
         assert superuser_result == dual_user
 
     @pytest.mark.asyncio
-    async def test_user_with_no_privileges(self, db_session: Session) -> None:
+    async def test_user_with_no_privileges(self, db_session: Any) -> None:
         """Test user with no admin or superuser privileges."""
         # Create a user with no privileges
         no_privilege_user = UserRepository().create_user(

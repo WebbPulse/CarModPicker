@@ -25,7 +25,6 @@ from typing import Any
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -42,7 +41,7 @@ def _b64url(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
 
 
-def _create_verified_user(db: Session) -> DBUser:
+def _create_verified_user(db: Any) -> DBUser:
     username = _uniq("wa_char")
     user = DBUser(
         username=username,
@@ -73,7 +72,7 @@ def test_webauthn_register_and_authenticate(
     mock_gen_auth: Any,
     mock_ver_auth: Any,
     client: TestClient,
-    db_session: Session,
+    db_session: Any,
 ) -> None:
     """Flow 4: WebAuthn registration round-trip then authentication round-trip.
 

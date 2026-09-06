@@ -1,7 +1,6 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -13,7 +12,7 @@ from tests.conftest import save_catalog
 
 # Helper function to create and login an admin user
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
@@ -44,7 +43,7 @@ def create_and_login_admin_user(
 
 # Helper function to create and login a regular user
 def create_and_login_regular_user(
-    client: TestClient, db_session: Session, username_suffix: str = "regular"
+    client: TestClient, db_session: Any, username_suffix: str = "regular"
 ) -> tuple[dict[str, Any], str]:
     """Create a regular user and log them in. Returns (user_dict, token)."""
     username = f"regular_test_{username_suffix}"
@@ -78,7 +77,7 @@ class TestCategoriesAdminAuthentication:
     These tests assert that write endpoints return 404 or 405 (method/path not available).
     """
 
-    def test_create_category_without_authentication(self, client: TestClient, db_session: Session) -> None:
+    def test_create_category_without_authentication(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; create endpoint is removed (404/405)."""
         category_data = {
             "name": "test_category",
@@ -90,7 +89,7 @@ class TestCategoriesAdminAuthentication:
         response = client.post(f"{settings.API_STR}/categories/", json=category_data)
         assert response.status_code in (404, 405), "Create endpoint is removed"
 
-    def test_create_category_with_regular_user(self, client: TestClient, db_session: Session) -> None:
+    def test_create_category_with_regular_user(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; create endpoint is removed (404/405)."""
         _, token = create_and_login_regular_user(client, db_session, "create_cat")
         headers = {"Authorization": f"Bearer {token}"}
@@ -104,7 +103,7 @@ class TestCategoriesAdminAuthentication:
         response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
         assert response.status_code in (404, 405), "Create endpoint is removed"
 
-    def test_create_category_with_admin_user(self, client: TestClient, db_session: Session) -> None:
+    def test_create_category_with_admin_user(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; create endpoint is removed (404/405)."""
         _, token = create_and_login_admin_user(client, db_session, "create_cat")
         headers = {"Authorization": f"Bearer {token}"}
@@ -118,7 +117,7 @@ class TestCategoriesAdminAuthentication:
         response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
         assert response.status_code in (404, 405), "Create endpoint is removed"
 
-    def test_create_category_with_superuser(self, client: TestClient, db_session: Session) -> None:
+    def test_create_category_with_superuser(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; create endpoint is removed (404/405)."""
         username = "superuser_test_create"
         email = f"{username}@example.com"
@@ -149,7 +148,7 @@ class TestCategoriesAdminAuthentication:
         response = client.post(f"{settings.API_STR}/categories/", json=category_data, headers=headers)
         assert response.status_code in (404, 405), "Create endpoint is removed"
 
-    def test_update_category_without_authentication(self, client: TestClient, db_session: Session) -> None:
+    def test_update_category_without_authentication(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; update endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_update_category",
@@ -163,7 +162,7 @@ class TestCategoriesAdminAuthentication:
         response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data)
         assert response.status_code in (404, 405), "Update endpoint is removed"
 
-    def test_update_category_with_regular_user(self, client: TestClient, db_session: Session) -> None:
+    def test_update_category_with_regular_user(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; update endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_update_category_regular",
@@ -179,7 +178,7 @@ class TestCategoriesAdminAuthentication:
         response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data, headers=headers)
         assert response.status_code in (404, 405), "Update endpoint is removed"
 
-    def test_update_category_with_admin_user(self, client: TestClient, db_session: Session) -> None:
+    def test_update_category_with_admin_user(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; update endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_update_category_admin",
@@ -199,7 +198,7 @@ class TestCategoriesAdminAuthentication:
         response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data, headers=headers)
         assert response.status_code in (404, 405), "Update endpoint is removed"
 
-    def test_delete_category_without_authentication(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_category_without_authentication(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; delete endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_delete_category",
@@ -212,7 +211,7 @@ class TestCategoriesAdminAuthentication:
         response = client.delete(f"{settings.API_STR}/categories/{category.id}")
         assert response.status_code in (404, 405), "Delete endpoint is removed"
 
-    def test_delete_category_with_regular_user(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_category_with_regular_user(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; delete endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_delete_category_regular",
@@ -227,7 +226,7 @@ class TestCategoriesAdminAuthentication:
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert response.status_code in (404, 405), "Delete endpoint is removed"
 
-    def test_delete_category_with_admin_user(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_category_with_admin_user(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; delete endpoint is removed (404/405)."""
         category = DBCategory(
             name="test_delete_category_admin",
@@ -242,7 +241,7 @@ class TestCategoriesAdminAuthentication:
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert response.status_code in (404, 405), "Delete endpoint is removed"
 
-    def test_delete_category_with_parts_fails(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_category_with_parts_fails(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; delete endpoint is removed (404/405)."""
         from app.db.dynamo.catalog import Part as DBPart
 
@@ -277,7 +276,7 @@ class TestCategoriesAdminAuthentication:
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert response.status_code in (404, 405), "Delete endpoint is removed"
 
-    def test_public_category_endpoints_remain_public(self, client: TestClient, db_session: Session) -> None:
+    def test_public_category_endpoints_remain_public(self, client: TestClient, db_session: Any) -> None:
         """Test that public category endpoints remain accessible without authentication."""
         # Create a category first
         category = DBCategory(
@@ -310,7 +309,7 @@ class TestCategoriesAdminAuthentication:
         parts = response.json()["items"]
         assert isinstance(parts, list), "Should return a list of parts"
 
-    def test_duplicate_category_name_fails(self, client: TestClient, db_session: Session) -> None:
+    def test_duplicate_category_name_fails(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; create endpoint is removed (404/405)."""
         _, token = create_and_login_admin_user(client, db_session, "duplicate_cat")
         headers = {"Authorization": f"Bearer {token}"}

@@ -17,9 +17,9 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
-from sqlalchemy.orm import Session
 
 from app.api.services.part_price_aggregation_service import (
     aggregate_batch,
@@ -37,7 +37,7 @@ from tests.conftest import get_default_category_id, save_catalog
 # --- helpers -----------------------------------------------------------------
 
 
-def _make_retailer(db: Session, slug: str) -> DBRetailer:
+def _make_retailer(db: Any, slug: str) -> DBRetailer:
     retailer = DBRetailer(
         name=f"retailer_{slug}_{uuid.uuid4().hex[:8]}",
         domain=f"{slug}-{uuid.uuid4().hex[:8]}.example.com",
@@ -48,7 +48,7 @@ def _make_retailer(db: Session, slug: str) -> DBRetailer:
     return retailer
 
 
-def _make_manufacturer(db: Session, suffix: str) -> DBPartManufacturer:
+def _make_manufacturer(db: Any, suffix: str) -> DBPartManufacturer:
     pm = DBPartManufacturer(
         name=f"mfr_{suffix}_{uuid.uuid4().hex[:8]}",
         description="test mfr",
@@ -59,7 +59,7 @@ def _make_manufacturer(db: Session, suffix: str) -> DBPartManufacturer:
 
 
 def _make_part(
-    db: Session,
+    db: Any,
     user: User,
     *,
     canonical_part_id: uuid.UUID | None = None,
@@ -77,7 +77,7 @@ def _make_part(
     return part
 
 
-def _make_listing(db: Session, part: DBPart, retailer: DBRetailer) -> DBPartListing:
+def _make_listing(db: Any, part: DBPart, retailer: DBRetailer) -> DBPartListing:
     listing = DBPartListing(
         part_id=part.id,
         retailer_id=retailer.id,
@@ -88,7 +88,7 @@ def _make_listing(db: Session, part: DBPart, retailer: DBRetailer) -> DBPartList
 
 
 def _add_history(
-    db: Session,
+    db: Any,
     listing: DBPartListing,
     *,
     price_cents: int,
@@ -106,7 +106,7 @@ def _add_history(
 # --- single-part tests -------------------------------------------------------
 
 
-def test_aggregate_single_part_basic(db_session: Session, test_user: User) -> None:
+def test_aggregate_single_part_basic(db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "basic")
     part = _make_part(db_session, test_user, name="Basic Part")
     listing = _make_listing(db_session, part, retailer)
@@ -133,7 +133,7 @@ def test_aggregate_single_part_basic(db_session: Session, test_user: User) -> No
     assert result.window == "90d"
 
 
-def test_aggregate_single_part_window_filters_old_observations(db_session: Session, test_user: User) -> None:
+def test_aggregate_single_part_window_filters_old_observations(db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "winfilter")
     part = _make_part(db_session, test_user, name="Window Part")
     listing = _make_listing(db_session, part, retailer)
@@ -154,7 +154,7 @@ def test_aggregate_single_part_window_filters_old_observations(db_session: Sessi
     assert result.summary.max_cents == 2500
 
 
-def test_aggregate_single_part_empty_history(db_session: Session, test_user: User) -> None:
+def test_aggregate_single_part_empty_history(db_session: Any, test_user: User) -> None:
     part = _make_part(db_session, test_user, name="Empty Part")
     # No listings, no history.
 
@@ -183,7 +183,7 @@ def test_aggregate_single_part_empty_history(db_session: Session, test_user: Use
     ],
 )
 def test_aggregate_single_part_trend_up_down_flat(
-    db_session: Session, test_user: User, series: list[int], expected: str
+    db_session: Any, test_user: User, series: list[int], expected: str
 ) -> None:
     retailer = _make_retailer(db_session, f"trend-{expected}")
     part = _make_part(db_session, test_user, name=f"Trend {expected}")
@@ -203,7 +203,7 @@ def test_aggregate_single_part_trend_up_down_flat(
     assert result.summary.trend == expected
 
 
-def test_aggregate_single_part_invalid_window_raises(db_session: Session, test_user: User) -> None:
+def test_aggregate_single_part_invalid_window_raises(db_session: Any, test_user: User) -> None:
     part = _make_part(db_session, test_user, name="Bad Window Part")
     with pytest.raises(ValueError):
         aggregate_single_part(part.id, "99x")
@@ -215,7 +215,7 @@ def test_aggregate_single_part_invalid_window_raises(db_session: Session, test_u
 # --- batch tests -------------------------------------------------------------
 
 
-def test_aggregate_batch_returns_entry_per_requested_id(db_session: Session, test_user: User) -> None:
+def test_aggregate_batch_returns_entry_per_requested_id(db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "batch-entry")
     part_a = _make_part(db_session, test_user, name="Batch A")
     part_b = _make_part(db_session, test_user, name="Batch B")
@@ -247,7 +247,7 @@ def test_aggregate_batch_returns_entry_per_requested_id(db_session: Session, tes
     assert empty.trend == "flat"
 
 
-def test_aggregate_batch_canonical_dedup(db_session: Session, test_user: User) -> None:
+def test_aggregate_batch_canonical_dedup(db_session: Any, test_user: User) -> None:
     retailer_a = _make_retailer(db_session, "dedup-a")
     retailer_b = _make_retailer(db_session, "dedup-b")
     canonical = _make_part(db_session, test_user, name="Dedup Canon")
@@ -274,7 +274,7 @@ def test_aggregate_batch_canonical_dedup(db_session: Session, test_user: User) -
     assert dupe_item.max_cents == 1500
 
 
-def test_aggregate_batch_ten_parts(db_session: Session, test_user: User) -> None:
+def test_aggregate_batch_ten_parts(db_session: Any, test_user: User) -> None:
     """A 10-part-id batch returns one entry per requested part."""
     retailer = _make_retailer(db_session, "qc")
     parts: list[DBPart] = []

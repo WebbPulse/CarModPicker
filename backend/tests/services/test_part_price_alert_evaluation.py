@@ -23,7 +23,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from sqlalchemy.orm import Session
 
 from app.api.services.part_listing_service import create_or_update_listing_and_price
 from app.api.services.part_price_alert_service import evaluate_alerts_for_listing
@@ -38,7 +37,7 @@ from tests.conftest import get_default_category_id, save_catalog
 # --- helpers ----------------------------------------------------------------
 
 
-def _make_user(db: Session, suffix: str) -> User:
+def _make_user(db: Any, suffix: str) -> User:
     """Create a test user with a unique username/email."""
     u = User(
         username=f"alert_user_{suffix}_{os.getpid()}_{uuid.uuid4().hex[:8]}",
@@ -50,7 +49,7 @@ def _make_user(db: Session, suffix: str) -> User:
     return UserRepository().create_user(u)
 
 
-def _make_part(db: Session, owner: User, *, name: str = "Brake Disc") -> DBPart:
+def _make_part(db: Any, owner: User, *, name: str = "Brake Disc") -> DBPart:
     part = DBPart(
         name=f"{name}_{uuid.uuid4().hex[:8]}",
         category_id=get_default_category_id(db),
@@ -61,7 +60,7 @@ def _make_part(db: Session, owner: User, *, name: str = "Brake Disc") -> DBPart:
     return part
 
 
-def _make_retailer(db: Session, slug: str = "shop") -> DBRetailer:
+def _make_retailer(db: Any, slug: str = "shop") -> DBRetailer:
     r = DBRetailer(
         name=f"retailer_{slug}_{uuid.uuid4().hex[:8]}",
         domain=f"{slug}-{uuid.uuid4().hex[:8]}.example.com",
@@ -73,7 +72,7 @@ def _make_retailer(db: Session, slug: str = "shop") -> DBRetailer:
 
 
 def _make_alert(
-    db: Session,
+    db: Any,
     user: User,
     part: DBPart,
     threshold_cents: int,
@@ -123,7 +122,7 @@ def _stub_email_send(*, return_value: bool = True) -> tuple[Any, list[dict[str, 
 
 
 def test_below_threshold_fires_email_and_updates_last_fired_at(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
+    db_session: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     user = _make_user(db_session, "below")
     part = _make_part(db_session, user)
@@ -151,7 +150,7 @@ def test_below_threshold_fires_email_and_updates_last_fired_at(
     assert alert.last_fired_at == observed_at or alert.last_fired_at.replace(tzinfo=UTC) == observed_at
 
 
-def test_above_threshold_skips(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_above_threshold_skips(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "above")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
@@ -172,7 +171,7 @@ def test_above_threshold_skips(db_session: Session, monkeypatch: pytest.MonkeyPa
     assert alert.last_fired_at is None
 
 
-def test_at_threshold_fires(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_at_threshold_fires(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """price_cents == threshold_cents is "at or below" → fires."""
     user = _make_user(db_session, "at")
     part = _make_part(db_session, user)
@@ -194,7 +193,7 @@ def test_at_threshold_fires(db_session: Session, monkeypatch: pytest.MonkeyPatch
 # --- cooldown ---------------------------------------------------------------
 
 
-def test_24h_cooldown_suppresses_second_fire(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_24h_cooldown_suppresses_second_fire(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "cooldown_supp")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
@@ -215,7 +214,7 @@ def test_24h_cooldown_suppresses_second_fire(db_session: Session, monkeypatch: p
     assert calls == [], "alert within 24h cooldown must not re-fire"
 
 
-def test_cooldown_reset_after_25h_fires_again(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cooldown_reset_after_25h_fires_again(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "cooldown_reset")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
@@ -244,7 +243,7 @@ def test_cooldown_reset_after_25h_fires_again(db_session: Session, monkeypatch: 
 # --- cross-user isolation ---------------------------------------------------
 
 
-def test_alert_on_one_part_does_not_fire_on_another_part(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_alert_on_one_part_does_not_fire_on_another_part(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """Alice's alert on part A must not fire on bob's listing observation on part B."""
     alice = _make_user(db_session, "iso_alice")
     bob = _make_user(db_session, "iso_bob")
@@ -271,7 +270,7 @@ def test_alert_on_one_part_does_not_fire_on_another_part(db_session: Session, mo
 # --- failure paths ----------------------------------------------------------
 
 
-def test_send_failure_leaves_last_fired_at_unchanged(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_failure_leaves_last_fired_at_unchanged(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "send_fail")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
@@ -293,7 +292,7 @@ def test_send_failure_leaves_last_fired_at_unchanged(db_session: Session, monkey
     assert alert.last_fired_at is None, "SES failure must leave last_fired_at None so the next observation retries"
 
 
-def test_exception_in_one_alert_does_not_block_another(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_exception_in_one_alert_does_not_block_another(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """Two alerts on the same part — the first send raises, the second still fires."""
     alice = _make_user(db_session, "exc_alice")
     bob = _make_user(db_session, "exc_bob")
@@ -334,7 +333,7 @@ def test_exception_in_one_alert_does_not_block_another(db_session: Session, monk
 # --- inactive alerts are skipped --------------------------------------------
 
 
-def test_inactive_alert_is_skipped(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_inactive_alert_is_skipped(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "inactive")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
@@ -355,9 +354,7 @@ def test_inactive_alert_is_skipped(db_session: Session, monkeypatch: pytest.Monk
 # --- integration with the price-write chokepoint ----------------------------
 
 
-def test_create_or_update_listing_and_price_invokes_evaluator(
-    db_session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_create_or_update_listing_and_price_invokes_evaluator(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """End-to-end: a price-write through the chokepoint must drive the evaluator.
 
     This is the integration evidence that T03 actually wired the hook in

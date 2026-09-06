@@ -7,8 +7,7 @@ the invariant asserted by D-27: no build list exists without a build log.
 from __future__ import annotations
 
 import logging
-
-from sqlalchemy.orm import Session
+from typing import Any
 
 from app.api.schemas.build_list import BuildListCreate
 from app.api.services.build_list_service import BuildListService
@@ -20,7 +19,7 @@ from tests.conftest import create_car_orm_in_db
 logger = logging.getLogger(__name__)
 
 
-def test_new_build_list_has_eager_build_log(db_session: Session, test_user: User) -> None:
+def test_new_build_list_has_eager_build_log(db_session: Any, test_user: User) -> None:
     """Seed a BuildList via the service; assert a BuildLog row exists (D-23)."""
     car = create_car_orm_in_db(
         db_session,
@@ -42,7 +41,7 @@ def test_new_build_list_has_eager_build_log(db_session: Session, test_user: User
     assert build_log.title == "Build Log: test-eager-create"
 
 
-def test_no_orphan_build_lists(db_session: Session, premium_test_user: User) -> None:
+def test_no_orphan_build_lists(db_session: Any, premium_test_user: User) -> None:
     """The DATA-08 invariant (D-27): no build_list lacks a build_log.
 
     Uses premium_test_user to bypass the free-tier single-build-list cap so we

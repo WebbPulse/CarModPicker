@@ -17,9 +17,9 @@ used in tests/api/endpoints/test_auth.py::test_verify_email_confirm_success.
 
 import os
 from datetime import timedelta
+from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import create_access_token, get_password_hash
 from app.core.config import settings
@@ -32,7 +32,7 @@ def _uniq(base: str) -> str:
     return f"{base}_{worker}_{os.getpid()}"
 
 
-def test_signup_and_verify_email(client: TestClient, db_session: Session) -> None:
+def test_signup_and_verify_email(client: TestClient, db_session: Any) -> None:
     """Flow 1: user is created unverified, then email_verified is flipped by the confirm endpoint."""
     username = _uniq("sig_verify")
     email = f"{username}@example.com"

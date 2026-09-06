@@ -259,7 +259,7 @@ async def update_build_list_part(
     existing = _require_build_list_part(repos, build_list_part_id)
     build_list = _require_build_list(repos, existing.build_list_id)
 
-    require_build_list_part_edit_permission(current_user, existing, None, build_list)
+    require_build_list_part_edit_permission(current_user, existing, build_list)
 
     update_data = build_list_part.model_dump(exclude_unset=True)
     if "build_list_phase_id" in update_data:
@@ -504,7 +504,7 @@ async def update_part_in_build_list(
     build_list = _require_build_list(repos, build_list_id)
     existing = _require_part_in_build_list(repos, build_list_id, part_id)
 
-    require_build_list_part_edit_permission(current_user, existing, None, build_list)
+    require_build_list_part_edit_permission(current_user, existing, build_list)
 
     update_data = build_list_part.model_dump(exclude_unset=True)
     if "build_list_phase_id" in update_data:

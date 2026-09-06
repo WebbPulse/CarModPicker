@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from PIL import Image
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -37,7 +36,7 @@ def get_auth_headers(token: str) -> Dict[str, str]:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[Dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
@@ -78,7 +77,7 @@ def create_test_image() -> io.BytesIO:
 class TestImages:
     """Test cases for images endpoints."""
 
-    def test_upload_image_success(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_upload_image_success(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test uploading an image."""
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
@@ -138,9 +137,7 @@ class TestImages:
         # Should fail validation (400/422) or service unavailable (503)
         assert response.status_code in [400, 422, 503], f"Unexpected status: {response.text}"
 
-    def test_upload_image_build_list_ownership(
-        self, client: TestClient, test_user: DBUser, db_session: Session
-    ) -> None:
+    def test_upload_image_build_list_ownership(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that user can only upload images for their own build lists."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -181,7 +178,7 @@ class TestImages:
         )
         assert response.status_code == 403
 
-    def test_upload_image_car_admin_only(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_upload_image_car_admin_only(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that only admins can upload images for cars."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -229,7 +226,7 @@ class TestImages:
         assert response.status_code == 400
 
     def test_get_presigned_url_ownership_verification(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that authenticated users can only access their own images."""
         # Create another user
@@ -291,7 +288,7 @@ class TestImages:
         response = client.delete(f"{settings.API_STR}/images/delete?file_key={file_key}")
         assert response.status_code == 401
 
-    def test_delete_image_wrong_owner(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_delete_image_wrong_owner(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that users can only delete their own images."""
         # Create another user
         username2 = get_unique_name("user2")
@@ -318,7 +315,7 @@ class TestImages:
         assert response.status_code == 403
 
     def test_delete_image_admin_can_delete_other_users(
-        self, client: TestClient, test_admin_user: DBUser, db_session: Session
+        self, client: TestClient, test_admin_user: DBUser, db_session: Any
     ) -> None:
         """Admins can delete any user's image (moderation / cleanup)."""
         import hashlib
@@ -348,7 +345,7 @@ class TestImages:
         assert response.status_code in [200, 500, 503], f"Unexpected status: {response.text}"
 
     def test_get_bucket_object_count_admin_only(
-        self, client: TestClient, test_user: DBUser, db_session: Session, mock_s3: Dict[str, Any]
+        self, client: TestClient, test_user: DBUser, db_session: Any, mock_s3: Dict[str, Any]
     ) -> None:
         """Test that only admins can get bucket object count; with moto S3 admin gets 200."""
         _ = mock_s3
@@ -368,7 +365,7 @@ class TestImages:
         assert data["count"] == 0
 
     def test_get_bucket_count_by_entity_type_admin_only(
-        self, client: TestClient, test_user: DBUser, db_session: Session, mock_s3: Dict[str, Any]
+        self, client: TestClient, test_user: DBUser, db_session: Any, mock_s3: Dict[str, Any]
     ) -> None:
         """Non-admins forbidden; admin gets totals grouped by standard key prefix and other."""
         token = get_auth_token(client, test_user.username)
@@ -401,7 +398,7 @@ class TestImages:
         assert body["other"] == 2
 
     def test_get_bucket_object_count_admin_503_without_s3(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Without mock_s3, admin bucket count returns 503 (no S3 client in test env)."""
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("admin_no_s3"))
@@ -409,7 +406,7 @@ class TestImages:
         response = client.get(f"{settings.API_STR}/images/admin/count", headers=admin_headers)
         assert response.status_code == 503
 
-    def test_upload_image_build_log_post(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_upload_image_build_log_post(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test uploading an image for a build log post."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -456,7 +453,7 @@ class TestImages:
         assert "not found" in response.json()["message"].lower()
 
     def test_upload_image_part(
-        self, client: TestClient, test_user: DBUser, test_category, test_part_manufacturer, db_session: Session
+        self, client: TestClient, test_user: DBUser, test_category, test_part_manufacturer, db_session: Any
     ) -> None:
         """Test uploading an image for a global part."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -526,7 +523,7 @@ class TestImages:
         assert response.status_code in [200, 503], f"Unexpected status: {response.text}"
 
     def test_upload_image_build_log_post_without_entity_id(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test image upload for build_log_post without entity_id (should be allowed per code)."""
         token = get_auth_token(client, test_user.username)
@@ -589,7 +586,7 @@ class TestImages:
         assert response.status_code in [200, 400, 422, 503], f"Unexpected status: {response.text}"
 
     def test_get_presigned_url_ownership_verification_authenticated_user(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test presigned URL ownership verification when user is authenticated but doesn't own the file."""
         import hashlib

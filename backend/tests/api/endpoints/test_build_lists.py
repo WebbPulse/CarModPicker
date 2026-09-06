@@ -2,7 +2,6 @@ import os
 from typing import Any, Dict
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -36,7 +35,7 @@ def get_auth_headers(token: str) -> dict[str, str]:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
@@ -68,7 +67,7 @@ def create_and_login_admin_user(
 class TestBuildLists:
     """Test cases for build lists endpoints."""
 
-    def test_create_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_create_build_list_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully creating a build list."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
@@ -102,7 +101,7 @@ class TestBuildLists:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data)
         assert response.status_code == 401
 
-    def test_create_build_list_missing_name(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_create_build_list_missing_name(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test creating a build list without providing a name."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
@@ -116,7 +115,7 @@ class TestBuildLists:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 422
 
-    def test_create_build_list_empty_name(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_create_build_list_empty_name(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test creating a build list with an empty name."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
@@ -134,9 +133,7 @@ class TestBuildLists:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 422
 
-    def test_create_build_list_free_user_limit_402(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_create_build_list_free_user_limit_402(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Free users are limited to 1 build list; second create returns 402."""
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
@@ -162,7 +159,7 @@ class TestBuildLists:
         assert "free" in str(msg).lower() or "limit" in str(msg).lower()
 
     def test_create_build_list_premium_user_unlimited(
-        self, client: TestClient, premium_test_user: User, db_session: Session
+        self, client: TestClient, premium_test_user: User, db_session: Any
     ) -> None:
         """Premium users can create multiple build lists."""
         token = get_auth_token(client, premium_test_user.username)
@@ -177,7 +174,7 @@ class TestBuildLists:
             response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
             assert response.status_code == 200, f"Premium user should create build list {i + 1}"
 
-    def test_get_build_list_by_id(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_build_list_by_id(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test retrieving a specific build list by ID."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
@@ -213,7 +210,7 @@ class TestBuildLists:
         response = client.get(f"{settings.API_STR}/build-lists/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
-    def test_get_build_list_unauthorized(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_build_list_unauthorized(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test retrieving a build list without authentication (public read is allowed)."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -234,7 +231,7 @@ class TestBuildLists:
         response = client.get(f"{settings.API_STR}/build-lists/{build_list_id}")
         assert response.status_code == 200  # Public read is allowed
 
-    def test_get_user_build_lists(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_user_build_lists(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test retrieving build lists for the current user."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
@@ -266,7 +263,7 @@ class TestBuildLists:
         response = client.get(f"{settings.API_STR}/build-lists/user/me")
         assert response.status_code == 401
 
-    def test_update_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_update_build_list_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test updating a build list."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
@@ -307,7 +304,7 @@ class TestBuildLists:
         response = client.put(f"{settings.API_STR}/build-lists/{INVALID_UUID_STR}", json=update_data)
         assert response.status_code == 401
 
-    def test_delete_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_delete_build_list_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test deleting a build list."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
@@ -340,7 +337,7 @@ class TestBuildLists:
         response = client.delete(f"{settings.API_STR}/build-lists/{INVALID_UUID_STR}")
         assert response.status_code == 401
 
-    def test_get_build_lists_by_car(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_build_lists_by_car(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test retrieving build lists for a specific car."""
         # Login and get token
         token = get_auth_token(client, test_user.username)
@@ -370,9 +367,7 @@ class TestBuildLists:
         for build_list in data["data"]:
             assert build_list["car_id"] == str(car["id"])
 
-    def test_get_build_lists_by_car_unauthorized(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_get_build_lists_by_car_unauthorized(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test retrieving build lists for a car (public read is allowed)."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -381,9 +376,7 @@ class TestBuildLists:
         response = client.get(f"{settings.API_STR}/build-lists/car/{car['id']}")
         assert response.status_code == 200  # Public read is allowed
 
-    def test_create_build_list_with_extra_fields(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_create_build_list_with_extra_fields(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test creating a build list with extra fields in the request."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
@@ -422,7 +415,7 @@ class TestBuildLists:
         assert response.status_code == 422
 
     def test_create_build_list_with_wrong_content_type(
-        self, client: TestClient, test_user: User, db_session: Session
+        self, client: TestClient, test_user: User, db_session: Any
     ) -> None:
         """Test creating a build list with wrong content type."""
         # Login as test user and get token
@@ -446,9 +439,7 @@ class TestBuildLists:
         )
         assert response.status_code == 422
 
-    def test_update_build_list_with_extra_fields(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_update_build_list_with_extra_fields(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test updating a build list with extra fields in the request."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
@@ -480,9 +471,7 @@ class TestBuildLists:
         assert data["name"] == update_data["name"]
         assert data["description"] == update_data["description"]
 
-    def test_update_build_list_with_malformed_json(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_update_build_list_with_malformed_json(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test updating a build list with malformed JSON."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
@@ -512,7 +501,7 @@ class TestBuildLists:
         assert response.status_code == 422
 
     def test_update_build_list_with_wrong_content_type(
-        self, client: TestClient, test_user: User, db_session: Session
+        self, client: TestClient, test_user: User, db_session: Any
     ) -> None:
         """Test updating a build list with wrong content type."""
         # Login as test user and get token
@@ -546,9 +535,7 @@ class TestBuildLists:
         )
         assert response.status_code == 422
 
-    def test_create_build_list_with_disabled_user(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_create_build_list_with_disabled_user(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test creating a build list with a disabled user account."""
         # Disable the user and commit to database
         test_user = UserRepository().update(test_user.id, disabled=True)
@@ -562,7 +549,7 @@ class TestBuildLists:
         # The test demonstrates that disabled users cannot authenticate
 
     def test_create_build_list_with_unverified_email(
-        self, client: TestClient, test_user: User, db_session: Session
+        self, client: TestClient, test_user: User, db_session: Any
     ) -> None:
         """Test creating a build list with an unverified email user account."""
         # Set email as unverified and commit to database
@@ -594,7 +581,7 @@ class TestBuildLists:
 
         # The test demonstrates that unverified email users cannot access protected endpoints
 
-    def test_copy_build_list_success(self, client: TestClient, premium_test_user: User, db_session: Session) -> None:
+    def test_copy_build_list_success(self, client: TestClient, premium_test_user: User, db_session: Any) -> None:
         """Test successfully copying a build list.
 
         Uses premium_test_user: IN-02 closed the free-tier cap bypass on the copy
@@ -680,7 +667,7 @@ class TestBuildLists:
         assert parts[0]["quantity"] == 2
 
     def test_copy_build_list_with_custom_name(
-        self, client: TestClient, premium_test_user: User, db_session: Session
+        self, client: TestClient, premium_test_user: User, db_session: Any
     ) -> None:
         """Test copying a build list with a custom name. Uses premium_test_user per IN-02 (see test_copy_build_list_success)."""
         # Login as test user and get token
@@ -715,7 +702,7 @@ class TestBuildLists:
         assert copied_build_list["id"] != original_build_list["id"]
 
     def test_copy_build_list_without_custom_name(
-        self, client: TestClient, premium_test_user: User, db_session: Session
+        self, client: TestClient, premium_test_user: User, db_session: Any
     ) -> None:
         """Test copying a build list without custom name (uses default). Uses premium_test_user per IN-02."""
         # Login as test user and get token
@@ -770,7 +757,7 @@ class TestBuildLists:
         )
         assert response.status_code == 401
 
-    def test_copy_build_list_ownership(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_copy_build_list_ownership(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test that copied build list is owned by the current user."""
         # Create a second user to own the original build list
         original_owner = UserRepository().create_user(
@@ -818,7 +805,7 @@ class TestBuildLists:
         assert copied_build_list["user_id"] == str(test_user.id)
         assert copied_build_list["user_id"] != str(original_owner.id)
 
-    def test_copy_free_tier_cap(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_copy_free_tier_cap(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """IN-02 regression — free-tier user at the 1-list cap cannot copy to
         create a second list.
 
@@ -875,7 +862,7 @@ class TestBuildLists:
         assert len(user_lists) == 1, f"Expected exactly 1 build list after blocked copy, got {len(user_lists)}"
         assert user_lists[0]["id"] == original_id
 
-    def test_get_build_lists_with_votes_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_build_lists_with_votes_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test retrieving build lists with vote data."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
@@ -946,9 +933,7 @@ class TestBuildLists:
         assert found_build_list["downvotes"] == 0
         assert found_build_list["total_votes"] == 1
 
-    def test_get_build_lists_with_votes_no_votes(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_get_build_lists_with_votes_no_votes(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test retrieving build lists with no votes."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
@@ -985,7 +970,7 @@ class TestBuildLists:
         assert found_build_list["total_votes"] == 0
 
     def test_get_build_lists_with_votes_public_access(
-        self, client: TestClient, test_user: User, db_session: Session
+        self, client: TestClient, test_user: User, db_session: Any
     ) -> None:
         """Test that build lists with votes endpoint allows public access."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -1010,7 +995,7 @@ class TestBuildLists:
         assert "data" in data
 
     def test_get_build_lists_with_votes_pagination(
-        self, client: TestClient, premium_test_user: User, db_session: Session
+        self, client: TestClient, premium_test_user: User, db_session: Any
     ) -> None:
         """Test pagination with build lists with votes."""
         # Use premium user so we can create multiple build lists
@@ -1039,7 +1024,7 @@ class TestBuildLists:
         assert "skip" in data
         assert "limit" in data
 
-    def test_get_build_lists_with_votes_search(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_build_lists_with_votes_search(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test search functionality with build lists with votes."""
         # Login as test user and get token
         token = get_auth_token(client, test_user.username)
@@ -1072,7 +1057,7 @@ class TestBuildLists:
         assert found
 
     def test_get_build_lists_with_votes_filter_by_car(
-        self, client: TestClient, premium_test_user: User, db_session: Session
+        self, client: TestClient, premium_test_user: User, db_session: Any
     ) -> None:
         """Test filtering by car_id with build lists with votes."""
         # Use premium user so we can create multiple build lists
@@ -1115,7 +1100,7 @@ class TestBuildLists:
         assert found
 
     def test_get_build_lists_with_votes_filter_by_owner(
-        self, client: TestClient, test_user: User, db_session: Session
+        self, client: TestClient, test_user: User, db_session: Any
     ) -> None:
         """Test filtering /with-votes by owner_id returns only that user's build lists."""
         token = get_auth_token(client, test_user.username)
@@ -1168,7 +1153,7 @@ class TestBuildLists:
         assert other_build_list["id"] not in returned_ids
 
     def test_get_build_lists_with_votes_multiple_votes(
-        self, client: TestClient, test_user: User, db_session: Session
+        self, client: TestClient, test_user: User, db_session: Any
     ) -> None:
         """Test build lists with multiple votes."""
         # Login as test user and get token

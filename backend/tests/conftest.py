@@ -1,18 +1,10 @@
 import os
-import re
 import uuid
-from contextlib import contextmanager
-from dataclasses import dataclass, field
 from typing import Any, Dict, Generator, Optional
-from urllib.parse import urlparse, urlunparse
 from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 # Set test environment variables BEFORE importing any app code
 # so storage service, rate limiter, etc. detect the test environment at import time.
@@ -26,7 +18,6 @@ INVALID_UUID_STR: str = str(INVALID_UUID)
 from app.api.dependencies.auth import get_password_hash  # noqa: E402
 from app.api.schemas.car_generation import CarGenerationRead  # noqa: E402
 from app.api.services.car_generation_service import CarGenerationService  # noqa: E402
-from app.db.base import Base  # noqa: E402
 from app.db.dynamo.catalog import (  # noqa: E402
     CarGeneration,
     CarGenerationRepository,
@@ -50,210 +41,39 @@ from app.db.dynamo.catalog import (  # noqa: E402
     RetailerRepository,
 )
 from app.db.dynamo.users import User, UserRepository  # noqa: E402
-from app.db.session import get_db  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
-from tests.sql_stub import StubRecord  # noqa: E402, F401  (registers the stand-in table on Base)
 
 
-@pytest.fixture(scope="session")
-def engine() -> Generator[Engine, None, None]:
+class TestDatabase:
+    """Per-test marker handed to tests as ``db_session``.
+
+    The application has no SQL session any more; every table lives in DynamoDB,
+    which the ``dynamo_tables`` fixture mocks. The fixture name survives because
+    many tests accept ``db_session`` to order fixture setup and to derive unique
+    names via ``id(db_session)``.
     """
-    One SQLite in-memory engine per xdist worker, shared across every test in that
-    worker. Tables are created once; per-test isolation is achieved via nested
-    transactions (SAVEPOINTs) in db_session, not by tearing down the engine.
-    """
-    eng = create_engine(
-        "sqlite:///:memory:",
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-    )
-
-    # SQLite defaults to autocommit-ish behavior that breaks SAVEPOINT nesting.
-    # This disables pysqlite's implicit BEGIN so SQLAlchemy fully controls transactions.
-    @event.listens_for(eng, "connect")
-    def _disable_pysqlite_autobegin(dbapi_connection: Any, _: Any) -> None:
-        dbapi_connection.isolation_level = None
-
-    @event.listens_for(eng, "begin")
-    def _emit_begin(conn: Any) -> None:
-        conn.exec_driver_sql("BEGIN")
-
-    Base.metadata.create_all(bind=eng)
-
-    yield eng
-
-    eng.dispose()
 
 
 @pytest.fixture(scope="function")
-def db_session(engine: Engine, dynamo_tables: Any) -> Generator[Session, None, None]:
-    """
-    Per-test session wrapped in an outer transaction that always rolls back.
-    `join_transaction_mode="create_savepoint"` lets test code call session.commit()
-    without ending the outer transaction — commits become SAVEPOINT releases.
-    """
-    connection = engine.connect()
-    transaction = connection.begin()
-
-    SessionLocal = sessionmaker(
-        bind=connection,
-        autocommit=False,
-        autoflush=False,
-        join_transaction_mode="create_savepoint",
-    )
-    session = SessionLocal()
-
-    try:
-        yield session
-    finally:
-        session.close()
-        if transaction.is_active:
-            transaction.rollback()
-        connection.close()
-
-
-_SELECT_PATTERN = re.compile(r"^\s*SELECT\b", re.IGNORECASE)
-
-
-@dataclass
-class QueryCounter:
-    """DATA-02 — counts SELECT statements inside a query_counter() context block.
-
-    Filters to SELECT only so that BEGIN / COMMIT / SAVEPOINT / RELEASE noise
-    from the SAVEPOINT-per-test fixture does not pollute the count.
-    """
-
-    count: int = 0
-    statements: list[str] = field(default_factory=list)
-
-    def record(self, statement: str) -> None:
-        if _SELECT_PATTERN.match(statement):
-            self.count += 1
-            self.statements.append(statement)
+def db_session(dynamo_tables: Any) -> TestDatabase:
+    return TestDatabase()
 
 
 @pytest.fixture
-def query_counter(engine: Engine):
-    """Return a context manager that counts SELECT statements emitted by `engine`.
-
-    Usage:
-        def test_something(client, query_counter):
-            with query_counter() as counter:
-                client.get(...)
-            assert counter.count == 2
-
-    Pitfall 3: event.remove MUST fire in the finally block; otherwise listeners
-    leak across tests and every subsequent counter observes prior queries.
+def client(db_session: TestDatabase, dynamo_tables: Any) -> Generator[TestClient, None, None]:
     """
-
-    @contextmanager
-    def _ctx():
-        counter = QueryCounter()
-
-        def _before(conn, cursor, statement, parameters, context, executemany):
-            counter.record(statement)
-
-        event.listen(engine, "before_cursor_execute", _before)
-        try:
-            yield counter
-        finally:
-            event.remove(engine, "before_cursor_execute", _before)
-
-    return _ctx
-
-
-def _postgres_url_for_worker() -> Optional[str]:
-    """DATA-04 D-02: derive a per-worker Postgres URL from POSTGRES_TEST_URL.
-
-    pytest-xdist sets PYTEST_XDIST_WORKER=gw0, gw1, ... We suffix the database
-    name so that workers do not collide (Pitfall 8). Returns None when
-    POSTGRES_TEST_URL is unset — fixture will pytest.skip().
-    """
-    base = os.environ.get("POSTGRES_TEST_URL")
-    if not base:
-        return None
-    worker = os.environ.get("PYTEST_XDIST_WORKER", "master")
-    parsed = urlparse(base)
-    new_path = f"{parsed.path.rstrip('/')}_{worker}"
-    return urlunparse(parsed._replace(path=new_path))
-
-
-@pytest.fixture(scope="session")
-def postgres_engine():
-    """Session-scoped Postgres engine for @pytest.mark.postgres tests.
-
-    CONTRACT (WARN 8): Tests using this fixture MUST filter their queries by a
-    per-test unique key (e.g., ``shared_gtin = f"G{worker}{uuid.uuid4().hex[:12]}"``)
-    and MUST NOT scan full tables. Cross-test data pollution is NOT cleaned up
-    between tests within the session-scoped engine; isolation comes from the
-    per-test unique key.
-
-    Skips cleanly when POSTGRES_TEST_URL is unset — matches the default
-    local-dev contract of SQLite-only tests.
-    """
-    url = _postgres_url_for_worker()
-    if not url:
-        pytest.skip("POSTGRES_TEST_URL not set; skipping postgres-backed tests")
-    from app.db.base import Base
-
-    eng = create_engine(url, pool_pre_ping=True)
-    Base.metadata.create_all(bind=eng)
-    yield eng
-    Base.metadata.drop_all(bind=eng)
-    eng.dispose()
-
-
-@pytest.fixture
-def postgres_session(postgres_engine):
-    """Function-scoped Postgres session with BEGIN + ROLLBACK per test (WARN 8 alternative).
-
-    Use when your test cannot structure its seed around a per-test unique key.
-    Slower but fully isolated across tests.
-
-    WARNING: Transaction-rollback isolation defeats pessimistic-lock semantics —
-    the concurrency tests (test_part_linker_concurrency.py) MUST use
-    ``postgres_engine`` directly with per-worker/per-test unique keys, NOT this
-    fixture. ROLLBACK would undo the very lock acquisition this plan is
-    validating.
-    """
-    SessionLocal = sessionmaker(bind=postgres_engine, autocommit=False, autoflush=False)
-    conn = postgres_engine.connect()
-    trans = conn.begin()
-    session = SessionLocal(bind=conn)
-    try:
-        yield session
-    finally:
-        session.close()
-        trans.rollback()
-        conn.close()
-
-
-@pytest.fixture
-def client(db_session: Session, dynamo_tables: Any) -> Generator[TestClient, None, None]:
-    """
-    TestClient bound to the current test's db_session.
+    TestClient backed by the current test's mocked DynamoDB tables.
 
     Intentionally NOT used as a context manager — that would trigger app lifespan,
-    which runs init_car_generations() (6500+ rows) and crawler/service-account seeding
-    on every test. Tests that need that seed data must invoke the init functions
-    explicitly (see test_init_cars_display_name.py for the pattern).
+    which runs init_car_generations() (6500+ rows) on every test. Tests that need
+    that seed data must invoke the init functions explicitly (see
+    test_init_cars_display_name.py for the pattern).
     """
-
-    def override_get_db() -> Generator[Session, None, None]:
-        try:
-            yield db_session
-        finally:
-            pass  # session lifecycle is owned by the db_session fixture
-
-    fastapi_app.dependency_overrides[get_db] = override_get_db
-    try:
-        yield TestClient(fastapi_app)
-    finally:
-        fastapi_app.dependency_overrides.pop(get_db, None)
+    yield TestClient(fastapi_app)
 
 
 @pytest.fixture(scope="function")
-def test_user(db_session: Session, dynamo_tables: Any) -> User:
+def test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create a test user for testing."""
     user = User(
         username=f"test_user_{os.getpid()}_{id(db_session)}",  # Make unique per worker
@@ -268,7 +88,7 @@ def test_user(db_session: Session, dynamo_tables: Any) -> User:
 
 
 @pytest.fixture(scope="function")
-def premium_test_user(db_session: Session, dynamo_tables: Any) -> User:
+def premium_test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create a test user with premium subscription (unlimited build lists)."""
     user = User(
         username=f"premium_user_{os.getpid()}_{id(db_session)}",
@@ -286,7 +106,7 @@ def premium_test_user(db_session: Session, dynamo_tables: Any) -> User:
 
 
 @pytest.fixture(scope="function")
-def test_category(db_session: Session, dynamo_tables: Any) -> Category:
+def test_category(db_session: TestDatabase, dynamo_tables: Any) -> Category:
     """Create a test category for testing."""
     category = Category(
         name=f"test_category_{os.getpid()}_{id(db_session)}",  # Make unique per worker
@@ -299,7 +119,7 @@ def test_category(db_session: Session, dynamo_tables: Any) -> Category:
 
 
 @pytest.fixture(scope="function")
-def test_part_manufacturer(db_session: Session, dynamo_tables: Any) -> PartManufacturer:
+def test_part_manufacturer(db_session: TestDatabase, dynamo_tables: Any) -> PartManufacturer:
     """Create a test part_manufacturer for testing."""
     part_manufacturer = PartManufacturer(
         name=f"test_part_manufacturer_{os.getpid()}_{id(db_session)}",  # Make unique per worker
@@ -310,7 +130,7 @@ def test_part_manufacturer(db_session: Session, dynamo_tables: Any) -> PartManuf
 
 
 @pytest.fixture(scope="function")
-def test_admin_user(db_session: Session, dynamo_tables: Any) -> User:
+def test_admin_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create an admin user for testing."""
     user = User(
         username=f"admin_user_{os.getpid()}_{id(db_session)}",  # Make unique per worker
@@ -325,7 +145,7 @@ def test_admin_user(db_session: Session, dynamo_tables: Any) -> User:
 
 
 @pytest.fixture(scope="function")
-def test_superuser_user(db_session: Session, dynamo_tables: Any) -> User:
+def test_superuser_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create a superuser for testing."""
     user = User(
         username=f"superuser_{os.getpid()}_{id(db_session)}",  # Make unique per worker
@@ -371,7 +191,7 @@ def save_catalog(entity: Any, car_ids: Optional[list[UUID]] = None) -> Any:
 
 
 # Test utilities
-def get_default_category_id(db_session: Session) -> UUID:
+def get_default_category_id(db_session: TestDatabase) -> UUID:
     """Get the ID of the 'other' category for testing."""
     categories = CategoryRepository()
     category = categories.get_by_name("other")
@@ -487,7 +307,7 @@ def _create_car_generation(
 
 
 def create_car_in_db(
-    db: Session,
+    db: Any,
     make: str = "Honda",
     model: str = "Civic",
     generation_name: str = "10th Gen",
@@ -515,7 +335,7 @@ def create_car_in_db(
 
 
 def create_car_orm_in_db(
-    db: Session,
+    db: Any,
     make: str = "Honda",
     model: str = "Civic",
     generation_name: str = "10th Gen",

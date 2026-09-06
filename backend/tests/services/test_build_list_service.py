@@ -1,9 +1,8 @@
 """Tests for build list service."""
 
 import os
+from typing import Any
 from uuid import uuid4
-
-from sqlalchemy.orm import Session
 
 from app.api.services.build_list_service import BuildListService
 from app.db.dynamo.build_lists import BuildList, BuildListRepository
@@ -20,7 +19,7 @@ def get_unique_name(base_name: str) -> str:
 class TestBuildListService:
     """Test cases for build list service."""
 
-    def test_get_build_lists_by_car(self, db_session: Session, test_user: User) -> None:
+    def test_get_build_lists_by_car(self, db_session: Any, test_user: User) -> None:
         """Test getting build lists by car ID."""
         car_id = uuid4()
         repository = BuildListRepository()
@@ -50,7 +49,7 @@ class TestBuildListService:
         assert isinstance(result, list)
         assert len(result) == 2
 
-    def test_get_build_lists_by_user(self, db_session: Session, test_user: User) -> None:
+    def test_get_build_lists_by_user(self, db_session: Any, test_user: User) -> None:
         """Test getting build lists by user ID."""
         BuildListRepository().create(
             BuildList(
@@ -67,7 +66,7 @@ class TestBuildListService:
         assert isinstance(result, list)
         assert len(result) >= 1
 
-    def test_count_by_user(self, db_session: Session, test_user: User) -> None:
+    def test_count_by_user(self, db_session: Any, test_user: User) -> None:
         """Test counting build lists by user."""
         # Get initial count
         service = BuildListService()

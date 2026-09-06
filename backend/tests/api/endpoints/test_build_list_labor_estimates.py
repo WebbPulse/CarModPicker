@@ -1,9 +1,9 @@
 """End-to-end tests for build list labor estimate endpoints."""
 
 import os
+from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.dynamo.users import User, UserRepository
@@ -22,7 +22,7 @@ def _auth(token: str) -> dict[str, str]:
 def _create_build_list(
     client: TestClient,
     headers: dict[str, str],
-    db_session: Session,
+    db_session: Any,
     suffix: str = "",
 ) -> dict:
     # Distinct generation_name per call so the (car_model_id, slug) unique constraint
@@ -40,7 +40,7 @@ def _create_build_list(
 
 
 class TestBuildListLaborEstimatesCRUD:
-    def test_create_list_update_delete(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_create_list_update_delete(self, client: TestClient, test_user: User, db_session: Any) -> None:
         token = login_user(client, test_user.username)
         headers = _auth(token)
         bl = _create_build_list(client, headers, db_session)
@@ -103,7 +103,7 @@ class TestBuildListLaborEstimatesCRUD:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         owner_token = login_user(client, test_user.username)
         bl = _create_build_list(client, _auth(owner_token), db_session)
@@ -142,9 +142,7 @@ class TestBuildListLaborEstimatesCRUD:
         )
         assert forbidden_del.status_code == 403
 
-    def test_anonymous_cannot_mutate_but_can_list(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_anonymous_cannot_mutate_but_can_list(self, client: TestClient, test_user: User, db_session: Any) -> None:
         token = login_user(client, test_user.username)
         bl = _create_build_list(client, _auth(token), db_session)
 
@@ -160,7 +158,7 @@ class TestBuildListLaborEstimatesCRUD:
 
 class TestBuildListLaborEstimatePhase:
     def test_phase_must_belong_to_same_build_list(
-        self, client: TestClient, premium_test_user: User, db_session: Session
+        self, client: TestClient, premium_test_user: User, db_session: Any
     ) -> None:
         # Premium user so the free-tier build list cap doesn't block creating two.
         token = login_user(client, premium_test_user.username)
@@ -196,9 +194,7 @@ class TestBuildListLaborEstimatePhase:
         )
         assert bad_upd.status_code == 400
 
-    def test_phase_delete_nulls_labor_estimate_link(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_phase_delete_nulls_labor_estimate_link(self, client: TestClient, test_user: User, db_session: Any) -> None:
         token = login_user(client, test_user.username)
         headers = _auth(token)
         bl = _create_build_list(client, headers, db_session)
@@ -227,7 +223,7 @@ class TestBuildListLaborEstimatePhase:
 
 
 class TestBuildListLaborEstimateCostRollup:
-    def test_with_votes_includes_labor_in_total(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_with_votes_includes_labor_in_total(self, client: TestClient, test_user: User, db_session: Any) -> None:
         token = login_user(client, test_user.username)
         headers = _auth(token)
         bl = _create_build_list(client, headers, db_session)

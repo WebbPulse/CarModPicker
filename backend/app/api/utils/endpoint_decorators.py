@@ -231,7 +231,7 @@ def validate_pagination_params(skip: int, limit: int) -> tuple[int, int]:
     and not worry about HTTP 400s on fuzzy client input.
 
     WR-01 (Phase 7): a second ``validate_pagination_params`` exists in
-    ``app.api.utils.common_operations`` that **raises HTTPException(400)**
+    (historically) a second variant that **raised HTTPException(400)**
     instead of clamping. The two variants share a name but have
     incompatible contracts — do NOT "consolidate" them without
     re-auditing every call site. ``common_operations`` is consumed by
@@ -255,63 +255,6 @@ def validate_pagination_params(skip: int, limit: int) -> tuple[int, int]:
         limit = 1000
 
     return skip, limit
-
-
-def ownership_verification(
-    entity_name: str,
-    entity_id_param: str = "entity_id",
-    user_id_field: str = "user_id",
-    not_found_detail: Optional[str] = None,
-    forbidden_detail: Optional[str] = None,
-) -> Callable[..., Any]:
-    """
-    Decorator for verifying entity ownership.
-
-    Args:
-        entity_name: Name of the entity for error messages
-        entity_id_param: Name of the entity ID parameter
-        user_id_field: Name of the user ID field in the entity model
-        not_found_detail: Custom not found error detail
-        forbidden_detail: Custom forbidden error detail
-
-    Returns:
-        Decorator function
-    """
-
-    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
-        @wraps(func)
-        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            # Extract parameters from kwargs with proper typing
-            entity_id = kwargs.get(entity_id_param)
-            db_value = kwargs.get("db")
-            user_value = kwargs.get("current_user")
-
-            if not all([entity_id, db_value, user_value]):
-                raise ValueError(f"Missing required parameters for ownership verification: {entity_name}")
-
-            from sqlalchemy import select
-            from sqlalchemy.orm import Session
-
-            from app.db.dynamo.users import User as DBUser
-
-            db = cast(Session, db_value)
-            current_user = cast(DBUser, user_value)
-            model_class = func.__annotations__["return"]
-            entity = db.scalars(select(model_class).where(getattr(model_class, "id") == entity_id)).first()
-
-            if not entity:
-                detail = not_found_detail or f"{entity_name.title()} not found"
-                ResponsePatterns.raise_not_found(entity_name, int(entity_id) if isinstance(entity_id, int) else 0)
-
-            if getattr(entity, user_id_field) != current_user.id:
-                detail = forbidden_detail or f"Not authorized to access this {entity_name}"
-                ResponsePatterns.raise_forbidden(detail)
-
-            return await func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 def admin_only(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:

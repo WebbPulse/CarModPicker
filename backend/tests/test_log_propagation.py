@@ -3,7 +3,7 @@ non-default request_id + user_id. Fails CI if a future dev adds a handler that
 drops RequestContextFilter coverage or uses print() instead of logger.
 
 Decision refs: 02-CONTEXT.md D-44 (audit, not redesign), D-45 (regression guard),
-D-46 (bg_log_context), D-47 (CLI context), D-48 (sqlalchemy propagation).
+D-46 (bg_log_context), D-47 (CLI context).
 
 Landmine: pytest caplog does NOT inherit root-logger filters — the
 `caplog_with_context` fixture (conftest.py) attaches RequestContextFilter
@@ -161,34 +161,3 @@ def test_cli_log_context(caplog_with_context) -> None:
     rec = next(r for r in caplog_with_context.records if "cli startup" in r.getMessage())
     assert rec.request_id == "cli:12345"
     assert rec.user_id == "cli"
-
-
-def test_log_propagation_sqlalchemy(
-    client: TestClient,
-    test_user: User,
-    caplog_with_context,
-) -> None:
-    """SQL query log records during a request carry the request's request_id
-    (D-48: third-party loggers propagate via root logger filter)."""
-    # Login OUTSIDE the capture window so only authenticated-request records
-    # are evaluated.
-    token = login_user(client, test_user.username)
-
-    sa_logger = logging.getLogger("sqlalchemy.engine")
-    prior_level = sa_logger.level
-    sa_logger.setLevel(logging.INFO)
-    caplog_with_context.set_level(logging.INFO)
-    caplog_with_context.clear()
-    try:
-        resp = client.get(
-            "/api/users/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200, resp.text
-    finally:
-        sa_logger.setLevel(prior_level)
-    sa_records = [r for r in caplog_with_context.records if r.name.startswith("sqlalchemy")]
-    if not sa_records:
-        pytest.skip("sqlalchemy did not emit INFO log records in test env")
-    for rec in sa_records:
-        assert getattr(rec, "request_id", "-") != "-", f"sqlalchemy log missing request_id: {rec.getMessage()}"

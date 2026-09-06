@@ -85,19 +85,17 @@ class TestInitKwargs:
         # directly rather than raising, but this future-proofs the suppression.
         assert "slowapi.errors.RateLimitExceeded" in ignore
 
-    def test_all_four_integrations_loaded(self, active_init: MagicMock) -> None:
+    def test_all_three_integrations_loaded(self, active_init: MagicMock) -> None:
         """Landmine 2: StarletteIntegration MUST be explicit — it is NOT auto-enabled
         by FastApiIntegration despite what some older docs claim."""
         from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.logging import LoggingIntegration
-        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
         from sentry_sdk.integrations.starlette import StarletteIntegration
 
         integrations = active_init.call_args.kwargs["integrations"]
         types = {type(i) for i in integrations}
         assert StarletteIntegration in types
         assert FastApiIntegration in types
-        assert SqlalchemyIntegration in types
         assert LoggingIntegration in types
 
 

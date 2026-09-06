@@ -2,10 +2,9 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import Depends, FastAPI, Query, Response
+from fastapi import FastAPI, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 
 from .api.endpoints import (
     app_settings,
@@ -43,7 +42,7 @@ from .core.init_cars import init_car_generations
 from .core.log_context import RequestContextFilter
 from .core.logging import LOG_FORMAT, make_formatter
 from .core.sentry import init_sentry
-from .db.session import SessionLocal, check_db_ready, get_db
+from .db.dynamo.client import check_db_ready
 
 # Configure logging for the entire application (single format, colorized levels)
 logging.basicConfig(
@@ -74,14 +73,10 @@ init_sentry(server_name="apprunner-backend")
 
 
 def run_startup_tasks() -> None:
-    db = SessionLocal()
     try:
-        try:
-            init_car_generations()
-        except Exception:
-            logger.exception("Failed to initialize car generations on startup")
-    finally:
-        db.close()
+        init_car_generations()
+    except Exception:
+        logger.exception("Failed to initialize car generations on startup")
 
 
 @asynccontextmanager
@@ -322,11 +317,11 @@ def health_check() -> dict[str, Any]:
 @app.get("/ready", response_model=None)
 def readiness_check() -> dict[str, Any] | JSONResponse:
     """
-    Readiness check: returns 200 when DB is reachable, 503 otherwise.
+    Readiness check: returns 200 when DynamoDB is reachable, 503 otherwise.
 
     Use this so load balancers or the frontend can wait until the backend
-    (and DB) have finished spooling before sending traffic. During serverless
-    cold start, poll /ready until 200, then call other endpoints.
+    can reach its tables before sending traffic. During a cold start, poll
+    /ready until 200, then call other endpoints.
     """
     if check_db_ready():
         return {"status": "ready", "database": "up"}
@@ -350,9 +345,9 @@ _SITEMAP_CACHE = "public, max-age=3600"
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
-def sitemap_index(db: Session = Depends(get_db)) -> Response:
+def sitemap_index() -> Response:
     return Response(
-        content=sitemap_service.generate_sitemap_index(db),
+        content=sitemap_service.generate_sitemap_index(),
         media_type="application/xml",
         headers={"Cache-Control": _SITEMAP_CACHE},
     )
@@ -362,9 +357,8 @@ def sitemap_index(db: Session = Depends(get_db)) -> Response:
 def sitemap_child(
     name: str,
     page: int = Query(1, ge=1),
-    db: Session = Depends(get_db),
 ) -> Response:
-    xml = sitemap_service.generate_child_sitemap(db, name, page)
+    xml = sitemap_service.generate_child_sitemap(name, page)
     if xml is None:
         return Response(
             content="Not found",

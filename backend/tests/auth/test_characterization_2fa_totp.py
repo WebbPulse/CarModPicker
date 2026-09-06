@@ -10,10 +10,10 @@ Per D-19: HTTP status + key presence + DB state change (totp_enabled flipped to 
 """
 
 import os
+from typing import Any
 
 import pyotp
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -26,7 +26,7 @@ def _uniq(base: str) -> str:
     return f"{base}_{worker}_{os.getpid()}"
 
 
-def test_totp_enroll_and_challenge(client: TestClient, db_session: Session) -> None:
+def test_totp_enroll_and_challenge(client: TestClient, db_session: Any) -> None:
     """Flow 3: TOTP enrollment (setup + verify) and subsequent 2FA login challenge."""
     username = _uniq("totp_char")
     password = "test_password_123!"

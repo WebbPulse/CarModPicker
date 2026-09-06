@@ -2,8 +2,7 @@
 
 import logging
 import os
-
-from sqlalchemy.orm import Session
+from typing import Any
 
 from app.api.schemas.vote import EntityType, VoteCreate, VoteType
 from app.api.services.vote_service import VoteService
@@ -24,7 +23,7 @@ def get_unique_name(base_name: str) -> str:
 class TestVoteService:
     """Test cases for vote service."""
 
-    def test_vote_on_car(self, db_session: Session, test_user: User) -> None:
+    def test_vote_on_car(self, db_session: Any, test_user: User) -> None:
         """Test voting on a car."""
         from tests.conftest import create_car_orm_in_db
 
@@ -48,7 +47,7 @@ class TestVoteService:
         assert vote.user_id == test_user.id
         assert vote.vote_type == "upvote"
 
-    def test_vote_on_build_list(self, db_session: Session, test_user: User) -> None:
+    def test_vote_on_build_list(self, db_session: Any, test_user: User) -> None:
         """Test voting on a build list."""
         # Create a build list
         build_list = BuildListRepository().create(
@@ -58,7 +57,6 @@ class TestVoteService:
                 user_id=test_user.id,
             )
         )
-        db_session.commit()
 
         # Vote on build list
         service = VoteService()
@@ -71,7 +69,7 @@ class TestVoteService:
         assert vote.user_id == test_user.id
         assert vote.vote_type == "upvote"
 
-    def test_vote_on_part(self, db_session: Session, test_user: User) -> None:
+    def test_vote_on_part(self, db_session: Any, test_user: User) -> None:
         """Test voting on a global part."""
         # Create a global part
         from app.db.dynamo.catalog import Category, CategoryRepository
@@ -106,7 +104,7 @@ class TestVoteService:
         assert vote.user_id == test_user.id
         assert vote.vote_type == "downvote"
 
-    def test_vote_update_existing(self, db_session: Session, test_user: User) -> None:
+    def test_vote_update_existing(self, db_session: Any, test_user: User) -> None:
         """Test updating an existing vote."""
         # Create a build list
         build_list = BuildListRepository().create(
@@ -116,7 +114,6 @@ class TestVoteService:
                 user_id=test_user.id,
             )
         )
-        db_session.commit()
 
         # Create initial vote
         service = VoteService()
@@ -131,7 +128,7 @@ class TestVoteService:
         assert vote2.id == vote1.id  # Same vote, updated
         assert vote2.vote_type == "downvote"
 
-    def test_remove_vote(self, db_session: Session, test_user: User) -> None:
+    def test_remove_vote(self, db_session: Any, test_user: User) -> None:
         """Test removing a vote."""
         # Create a build list
         build_list = BuildListRepository().create(
@@ -141,7 +138,6 @@ class TestVoteService:
                 user_id=test_user.id,
             )
         )
-        db_session.commit()
 
         # Create vote
         service = VoteService()
@@ -158,7 +154,7 @@ class TestVoteService:
         db_vote = VoteRepository().get(vote.id)
         assert db_vote is None
 
-    def test_remove_vote_not_exists(self, db_session: Session, test_user: User) -> None:
+    def test_remove_vote_not_exists(self, db_session: Any, test_user: User) -> None:
         """Test removing a vote that doesn't exist."""
         # Create a build list
         build_list = BuildListRepository().create(
@@ -168,7 +164,6 @@ class TestVoteService:
                 user_id=test_user.id,
             )
         )
-        db_session.commit()
 
         # Try to remove non-existent vote
         service = VoteService()
@@ -177,7 +172,7 @@ class TestVoteService:
 
         assert result is False
 
-    def test_get_vote_summary(self, db_session: Session, test_user: User) -> None:
+    def test_get_vote_summary(self, db_session: Any, test_user: User) -> None:
         """Test getting vote summary."""
         # Create a build list
         build_list = BuildListRepository().create(
@@ -187,7 +182,6 @@ class TestVoteService:
                 user_id=test_user.id,
             )
         )
-        db_session.commit()
 
         # Create votes from multiple users
         from app.api.dependencies.auth import get_password_hash
@@ -231,7 +225,7 @@ class TestVoteService:
         assert summary.total_votes == 3
         assert summary.vote_score == 1  # 2 - 1
 
-    def test_get_vote_summary_with_user_vote(self, db_session: Session, test_user: User) -> None:
+    def test_get_vote_summary_with_user_vote(self, db_session: Any, test_user: User) -> None:
         """Test getting vote summary with user's vote."""
         # Create a build list
         build_list = BuildListRepository().create(
@@ -241,7 +235,6 @@ class TestVoteService:
                 user_id=test_user.id,
             )
         )
-        db_session.commit()
 
         # Create vote
         service = VoteService()
@@ -254,7 +247,7 @@ class TestVoteService:
 
         assert summary.user_vote == "upvote"
 
-    def test_get_vote_summary_no_user_vote(self, db_session: Session, test_user: User) -> None:
+    def test_get_vote_summary_no_user_vote(self, db_session: Any, test_user: User) -> None:
         """Test getting vote summary when user hasn't voted."""
         # Create a build list
         build_list = BuildListRepository().create(
@@ -264,7 +257,6 @@ class TestVoteService:
                 user_id=test_user.id,
             )
         )
-        db_session.commit()
 
         # Get vote summary without user_id
         service = VoteService()
@@ -272,7 +264,7 @@ class TestVoteService:
 
         assert summary.user_vote is None
 
-    def test_get_flagged_entities(self, db_session: Session, test_user: User) -> None:
+    def test_get_flagged_entities(self, db_session: Any, test_user: User) -> None:
         """Test getting flagged entities."""
         # Create multiple build lists with votes
         from app.api.dependencies.auth import get_password_hash
@@ -295,7 +287,6 @@ class TestVoteService:
                 user_id=test_user.id,
             )
         )
-        db_session.commit()
 
         service = VoteService()
         logger = logging.getLogger(__name__)

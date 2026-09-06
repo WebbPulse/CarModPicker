@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any
 import boto3
 
 from app.core.config import settings
-from app.db.dynamo.tables import TableSpec
+from app.db.dynamo.tables import USERS, TableSpec
 
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb.client import DynamoDBClient
@@ -51,3 +51,12 @@ def table_name(spec: TableSpec) -> str:
 
 def get_table(spec: TableSpec) -> "Table":
     return get_resource().Table(table_name(spec))
+
+
+def check_db_ready() -> bool:
+    """Return True if DynamoDB is reachable (for /ready)."""
+    try:
+        get_client().describe_table(TableName=table_name(USERS))
+        return True
+    except Exception:
+        return False

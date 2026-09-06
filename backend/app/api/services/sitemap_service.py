@@ -24,8 +24,6 @@ from __future__ import annotations
 from datetime import datetime
 from html import escape as _html_escape
 
-from sqlalchemy.orm import Session
-
 from app.api.dependencies.repositories import get_repositories
 from app.core.config import settings
 from app.db.dynamo.models import TimestampedDynamoModel
@@ -145,7 +143,7 @@ def page_count(total: int) -> int:
 # --- Public API ----------------------------------------------------------
 
 
-def generate_sitemap_index(db: Session) -> str:
+def generate_sitemap_index() -> str:
     """Sitemap index referencing every child sitemap page."""
     api = _api_base_url()
     now = _w3c_datetime(datetime.now().astimezone())
@@ -206,7 +204,7 @@ def _dynamo_sitemap(
     return _urlset(elements)
 
 
-def generate_child_sitemap(db: Session, name: str, page: int) -> str | None:
+def generate_child_sitemap(name: str, page: int) -> str | None:
     """Render child sitemap ``name`` page ``page`` (1-based).
 
     Returns None for an unknown name so the route can 404."""

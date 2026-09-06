@@ -16,9 +16,9 @@ the pattern in tests/api/endpoints/test_auth.py::test_reset_password_confirm_suc
 
 import os
 from datetime import timedelta
+from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import create_access_token, get_password_hash, verify_password
 from app.core.config import settings
@@ -31,7 +31,7 @@ def _uniq(base: str) -> str:
     return f"{base}_{worker}_{os.getpid()}"
 
 
-def test_password_reset_request_and_confirm(client: TestClient, db_session: Session) -> None:
+def test_password_reset_request_and_confirm(client: TestClient, db_session: Any) -> None:
     """Flow 7: password reset token confirmed → password changed; old password rejected."""
     username = _uniq("pw_reset_char")
     old_password = "old_password_123!"
