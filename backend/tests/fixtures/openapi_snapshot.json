@@ -9064,59 +9064,6 @@
       }
     },
     "/api/build-lists/{build_list_id}": {
-      "delete": {
-        "description": "Delete a build list with its parts, phases, labor estimates and build log.",
-        "operationId": "delete_build_list_api_build_lists__build_list_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "build_list_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Build List Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BuildListRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "403": {
-            "description": "Not authorized"
-          },
-          "404": {
-            "description": "Build list not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Delete Build List",
-        "tags": [
-          "build-lists"
-        ]
-      },
       "get": {
         "description": "Retrieve a build list by ID.\nPublic read access - anyone can view build lists.\nOnly owners can edit or delete.",
         "operationId": "read_build_list_api_build_lists__build_list_id__get",
@@ -9666,6 +9613,58 @@
       }
     },
     "/api/build-lists/{entity_id}": {
+      "delete": {
+        "operationId": "delete_entity_api_build_lists__entity_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildListRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Build List not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Entity",
+        "tags": [
+          "build-lists"
+        ]
+      },
       "put": {
         "operationId": "update_entity_api_build_lists__entity_id__put",
         "parameters": [

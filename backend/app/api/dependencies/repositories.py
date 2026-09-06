@@ -6,6 +6,7 @@ from app.db.dynamo.build_lists import (
     BuildListPhaseRepository,
     BuildListRepository,
 )
+from app.db.dynamo.build_logs import BuildLogPostRepository, BuildLogRepository
 from app.db.dynamo.catalog import (
     CarGenerationRepository,
     CarMakeRepository,
@@ -40,6 +41,8 @@ class Repositories:
     build_list_parts: BuildListPartRepository
     build_list_phases: BuildListPhaseRepository
     build_list_labor_estimates: BuildListLaborEstimateRepository
+    build_logs: BuildLogRepository
+    build_log_posts: BuildLogPostRepository
 
 
 _repositories = Repositories(
@@ -60,6 +63,8 @@ _repositories = Repositories(
     build_list_parts=BuildListPartRepository(),
     build_list_phases=BuildListPhaseRepository(),
     build_list_labor_estimates=BuildListLaborEstimateRepository(),
+    build_logs=BuildLogRepository(),
+    build_log_posts=BuildLogPostRepository(),
 )
 
 

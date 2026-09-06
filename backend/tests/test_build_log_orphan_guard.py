@@ -1,21 +1,19 @@
-"""DATA-08 invariant: every build_list has a build_log row (eager-create).
+"""DATA-08 invariant: every build list has a build log (eager-create).
 
-Phase 4 plan 04-02 task 3. Exercises the eager-create path in
-backend/app/api/services/build_list_service.py and the post-backfill
-invariant asserted by D-27: no build list exists without a build log.
+Exercises the eager-create path in app/api/services/build_list_service.py and
+the invariant asserted by D-27: no build list exists without a build log.
 """
 
 from __future__ import annotations
 
 import logging
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.schemas.build_list import BuildListCreate
 from app.api.services.build_list_service import BuildListService
 from app.db.dynamo.build_lists import BuildListRepository
+from app.db.dynamo.build_logs import BuildLogRepository
 from app.db.dynamo.users import User
 from tests.conftest import create_car_orm_in_db
 
@@ -38,9 +36,10 @@ def test_new_build_list_has_eager_build_log(db_session: Session, test_user: User
     payload = BuildListCreate(name="test-eager-create", description="seed", car_id=car.id)
     bl = svc.create(payload, test_user, db=db_session, logger=logger)
 
-    # Invariant: the just-created BuildList has a BuildLog row.
-    bl_row = db_session.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == bl.id)).first()
-    assert bl_row is not None, f"BuildList {bl.id} has no eager BuildLog row"
+    # Invariant: the just-created BuildList has a BuildLog.
+    build_log = BuildLogRepository().for_build_list(bl.id)
+    assert build_log is not None, f"BuildList {bl.id} has no eager BuildLog"
+    assert build_log.title == "Build Log: test-eager-create"
 
 
 def test_no_orphan_build_lists(db_session: Session, premium_test_user: User) -> None:
@@ -68,6 +67,6 @@ def test_no_orphan_build_lists(db_session: Session, premium_test_user: User) -> 
             logger=logger,
         )
 
-    logged_ids = set(db_session.scalars(select(DBBuildLog.build_list_id)).all())
+    logged_ids = {log.build_list_id for log in BuildLogRepository().scan_all()}
     orphans = [bl.id for bl in BuildListRepository().scan_all() if bl.id not in logged_ids]
     assert orphans == [], f"{len(orphans)} build lists lack a build_log: {orphans}"

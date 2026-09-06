@@ -907,8 +907,10 @@ class TestBuildLogs:
         self, client: TestClient, test_user: DBUser, db_session: Session
     ) -> None:
         """Test that deleting a build list cascades to delete build log and all posts."""
-        from app.api.models.build_log import BuildLog as DBBuildLog
-        from app.api.models.build_log import BuildLogPost as DBBuildLogPost
+        from app.db.dynamo.build_logs import BuildLogPostRepository, BuildLogRepository
+
+        build_logs = BuildLogRepository()
+        build_log_posts = BuildLogPostRepository()
 
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -938,23 +940,21 @@ class TestBuildLogs:
             post_ids.append(response.json()["id"])
 
         # Verify build log and posts exist
-        build_log = db_session.query(DBBuildLog).filter(DBBuildLog.build_list_id == UUID(build_list_id)).first()
+        build_log = build_logs.for_build_list(UUID(build_list_id))
         assert build_log is not None
-        posts = db_session.query(DBBuildLogPost).filter(DBBuildLogPost.build_log_id == build_log.id).all()
-        assert len(posts) == 3
+        assert len(build_log_posts.all_for_build_log(build_log.id)) == 3
 
         # Delete the build list
         response = client.delete(f"{settings.API_STR}/build-lists/{build_list_id}", headers=headers)
         assert response.status_code == 200
 
         # Verify build log is deleted (cascade)
-        db_session.expire_all()
-        build_log = db_session.query(DBBuildLog).filter(DBBuildLog.build_list_id == UUID(build_list_id)).first()
-        assert build_log is None, "Build log should be deleted when build list is deleted"
+        assert build_logs.for_build_list(UUID(build_list_id)) is None, "Build log should be deleted with its list"
 
         # Verify all posts are deleted (cascade)
-        posts = db_session.query(DBBuildLogPost).filter(DBBuildLogPost.id.in_([UUID(p) for p in post_ids])).all()
-        assert len(posts) == 0, "All posts should be deleted when build list is deleted"
+        assert all(
+            build_log_posts.get(UUID(p)) is None for p in post_ids
+        ), "All posts should be deleted when build list is deleted"
 
     def test_access_build_log_after_build_list_deletion(
         self, client: TestClient, test_user: DBUser, db_session: Session

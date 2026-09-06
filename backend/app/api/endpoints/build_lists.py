@@ -245,25 +245,7 @@ async def create_build_list(
     return BuildListRead.model_validate(build_list)
 
 
-@router.delete(
-    "/{build_list_id}",
-    response_model=BuildListRead,
-    responses={
-        403: {"description": "Not authorized"},
-        404: {"description": "Build list not found"},
-    },
-)
-async def delete_build_list(
-    build_list_id: UUID,
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-    current_user: DBUser = Depends(get_current_user),
-) -> BuildListRead:
-    """Delete a build list with its parts, phases, labor estimates and build log."""
-    build_list = build_list_service.delete(build_list_id, current_user, db=deps["db"])
-    return BuildListRead.model_validate(build_list)
-
-
-# Public read access (update stays owner-only via the base router)
+# Public read access (update/delete stay owner-only via the base router)
 @router.get(
     "/{build_list_id}",
     response_model=BuildListRead,
@@ -698,9 +680,9 @@ async def set_primary_image_for_build_list(
     return BuildListRead.model_validate(updated)
 
 
-# Base router: list and update. Count, create, get and delete have custom
-# handlers above (count must precede /{entity_id}; create and delete need the
-# SQL session for the build log; get is public).
+# Base router: list, update, delete. Count, create and get have custom handlers
+# above (count must precede /{entity_id}; create needs the SQL session for the
+# premium kill switch; get is public).
 base_router = BaseDynamoEndpointRouter(
     build_list_service,
     router,
@@ -708,5 +690,5 @@ base_router = BaseDynamoEndpointRouter(
     read_schema=BuildListRead,
     update_schema=BuildListUpdate,
     allow_public_read=False,
-    disable_endpoints=["count", "create", "get", "delete"],
+    disable_endpoints=["count", "create", "get"],
 )
