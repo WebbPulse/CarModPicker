@@ -41,7 +41,7 @@ from app.api.services.part_price_aggregation_service import (
     apply_retailer_filter,
     parse_window,
 )
-from app.api.services.part_service import PartListFilters, PartService, purge_sql_rows_for_parts
+from app.api.services.part_service import PartListFilters, PartService, purge_related_rows_for_parts
 from app.api.utils.authorization import require_part_edit_permission
 from app.api.utils.base_dynamo_endpoint_router import BaseDynamoEndpointRouter
 from app.api.utils.common_patterns import PublicEndpointDeps, get_standard_public_endpoint_dependencies
@@ -238,7 +238,7 @@ async def create_part(
     current_user: DBUser = Depends(get_current_user),
 ) -> PartRead:
     """Create a user-contributed part, optionally with a retailer listing and price."""
-    part = part_service.create_part(deps["db"], data, current_user, deps["logger"])
+    part = part_service.create_part(data, current_user, deps["logger"])
     return PartRead.model_validate(part)
 
 
@@ -279,13 +279,11 @@ async def create_or_update_part_listing(
             error_code="PART_ID_MISMATCH",
         )
     listing = create_or_update_listing_and_price(
-        deps["db"],
         part_id,
         data.retailer_id,
         product_url=data.product_url,
         price_cents=data.price_cents,
     )
-    deps["db"].commit()
     return listing_with_retailer(listing, retailer)
 
 
@@ -584,7 +582,7 @@ async def delete_part(
 ) -> PartRead:
     """Delete a part. Only the creator or an admin can delete it."""
     part = part_service.delete(part_id, current_user)
-    purge_sql_rows_for_parts(deps["db"], [part.id])
+    purge_related_rows_for_parts([part.id])
     return PartRead.model_validate(part)
 
 

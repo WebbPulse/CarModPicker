@@ -15,12 +15,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.api.dependencies.repositories import get_repositories
-from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
-from app.db.dynamo.users import UserRepository
+from app.db.dynamo.models import utc_now
+from app.db.dynamo.part_price_alerts import PartPriceAlert
 
 logger = logging.getLogger(__name__)
 
@@ -30,98 +27,75 @@ logger = logging.getLogger(__name__)
 ALERT_COOLDOWN = timedelta(hours=24)
 
 
-def create_or_update_alert(
-    db: Session,
-    user_id: UUID,
-    part_id: UUID,
-    threshold_cents: int,
-) -> DBPartPriceAlert:
+def create_or_update_alert(user_id: UUID, part_id: UUID, threshold_cents: int) -> PartPriceAlert:
     """Subscribe-or-update upsert keyed on (user_id, part_id).
 
     Behavior:
-    - existing row, active=True  → update threshold_cents
-    - existing row, active=False → reactivate (active=True) + update threshold_cents
-    - no existing row            → insert a new active alert
+    - existing alert, active=True  → update threshold_cents
+    - existing alert, active=False → reactivate (active=True) + update threshold_cents
+    - no existing alert            → create a new active alert
 
-    Idempotent for callers: re-subscribing the same user+part never raises a
-    UNIQUE-violation; the row is mutated in-place.
+    Idempotent for callers: re-subscribing the same user+part mutates the
+    existing item in place.
     """
-    existing: Optional[DBPartPriceAlert] = db.scalars(
-        select(DBPartPriceAlert).where(
-            DBPartPriceAlert.user_id == user_id,
-            DBPartPriceAlert.part_id == part_id,
-        )
-    ).first()
-
+    alerts = get_repositories().part_price_alerts
+    existing = alerts.get_for_user_part(user_id, part_id)
     if existing is not None:
-        existing.threshold_cents = threshold_cents
-        if not existing.active:
-            existing.active = True
-        db.add(existing)
-        db.flush()
-        db.refresh(existing)
-        return existing
-
-    alert = DBPartPriceAlert(
-        user_id=user_id,
-        part_id=part_id,
-        threshold_cents=threshold_cents,
-        active=True,
-    )
-    db.add(alert)
-    db.flush()
-    db.refresh(alert)
-    return alert
+        return alerts.update(existing.id, threshold_cents=threshold_cents, active=True, updated_at=utc_now())
+    return alerts.create(PartPriceAlert(user_id=user_id, part_id=part_id, threshold_cents=threshold_cents))
 
 
-def list_active_alerts_for_user(db: Session, user_id: UUID) -> list[DBPartPriceAlert]:
+def list_active_alerts_for_user(user_id: UUID) -> list[PartPriceAlert]:
     """Return every active alert (active=True) belonging to the user, newest-first."""
-    return list(
-        db.scalars(
-            select(DBPartPriceAlert)
-            .where(
-                DBPartPriceAlert.user_id == user_id,
-                DBPartPriceAlert.active.is_(True),
-            )
-            .order_by(DBPartPriceAlert.created_at.desc())
-        ).all()
-    )
+    return get_repositories().part_price_alerts.list_active_by_user(user_id)
 
 
-def get_alert_for_owner(db: Session, alert_id: UUID, user_id: UUID) -> Optional[DBPartPriceAlert]:
+def get_alert_for_owner(alert_id: UUID, user_id: UUID) -> Optional[PartPriceAlert]:
     """Return the alert if it exists AND belongs to user_id; None otherwise.
 
     Used by PATCH/DELETE endpoints to enforce per-user ownership without
     leaking existence (404 on both not-found and wrong-owner).
     """
-    return db.scalars(
-        select(DBPartPriceAlert).where(
-            DBPartPriceAlert.id == alert_id,
-            DBPartPriceAlert.user_id == user_id,
-        )
-    ).first()
+    alert = get_repositories().part_price_alerts.get(alert_id)
+    if alert is None or alert.user_id != user_id:
+        return None
+    return alert
 
 
-def deactivate_alert(db: Session, alert_id: UUID, user_id: UUID) -> bool:
+def update_alert(
+    alert: PartPriceAlert, *, threshold_cents: Optional[int] = None, active: Optional[bool] = None
+) -> PartPriceAlert:
+    """Apply the provided threshold/active changes to an alert the caller already owns."""
+    changes: dict[str, object] = {}
+    if threshold_cents is not None:
+        changes["threshold_cents"] = threshold_cents
+    if active is not None:
+        changes["active"] = active
+    if not changes:
+        return alert
+    return get_repositories().part_price_alerts.update(alert.id, updated_at=utc_now(), **changes)
+
+
+def deactivate_alert(alert_id: UUID, user_id: UUID) -> bool:
     """Soft-delete: set active=False on the alert if it belongs to user_id and is active.
 
-    Returns True if a row was found-active-and-owned and deactivated; False if the
+    Returns True if an alert was found-active-and-owned and deactivated; False if the
     alert doesn't exist, belongs to another user, or is already inactive. Endpoints
     map False → 404 (uniform 'not currently active for this user' meaning).
     """
-    alert = db.scalars(
-        select(DBPartPriceAlert).where(
-            DBPartPriceAlert.id == alert_id,
-            DBPartPriceAlert.user_id == user_id,
-            DBPartPriceAlert.active.is_(True),
-        )
-    ).first()
-    if alert is None:
+    alert = get_alert_for_owner(alert_id, user_id)
+    if alert is None or not alert.active:
         return False
-    alert.active = False
-    db.add(alert)
-    db.flush()
+    update_alert(alert, active=False)
     return True
+
+
+def deactivate_by_id(alert_id: UUID) -> Optional[PartPriceAlert]:
+    """Deactivate an alert regardless of owner (one-click unsubscribe). None when missing."""
+    alert = get_repositories().part_price_alerts.get(alert_id)
+    if alert is None:
+        return None
+    return update_alert(alert, active=False)
 
 
 def _ensure_aware(ts: datetime) -> datetime:
@@ -133,7 +107,6 @@ def _ensure_aware(ts: datetime) -> datetime:
 
 
 def evaluate_alerts_for_listing(
-    db: Session,
     part_id: UUID,
     retailer_id: UUID,
     price_cents: int,
@@ -148,14 +121,13 @@ def evaluate_alerts_for_listing(
     - 24h cooldown: an alert that fired within ``ALERT_COOLDOWN`` of ``observed_at``
       is suppressed (logged ``verdict=suppressed_cooldown``) without touching
       ``last_fired_at`` so the user-facing window is honest.
-    - Exception-safe per-alert iteration: a bad row (raises during email send,
-      template build, or DB update) is logged at WARNING with ``alert_id`` and
-      iteration continues. One bad alert MUST NOT poison the price-write
-      transaction or block other alerts on the same part from firing.
+    - Exception-safe per-alert iteration: a bad alert (raises during email send,
+      template build, or the write) is logged at WARNING with ``alert_id`` and
+      iteration continues. One bad alert MUST NOT block other alerts on the
+      same part from firing.
     - SES failure (``send_price_drop_alert_email`` returns False) is treated as
       non-firing — ``last_fired_at`` stays unchanged so the next observation
-      retries. Email-success path sets ``last_fired_at = observed_at`` and
-      flushes (the outer transaction owns commit).
+      retries. Email-success path sets ``last_fired_at = observed_at``.
     - Logging: one ``price_alert_evaluated`` INFO log per evaluated alert with
       verdict ∈ {fired, suppressed_cooldown, skip_above_threshold}, and one
       ``price_alert_email_sent`` INFO log per attempted send (success or False).
@@ -170,26 +142,17 @@ def evaluate_alerts_for_listing(
 
     observed_at = _ensure_aware(observed_at)
 
-    candidate_alerts = list(
-        db.scalars(
-            select(DBPartPriceAlert).where(
-                DBPartPriceAlert.part_id == part_id,
-                DBPartPriceAlert.active.is_(True),
-                DBPartPriceAlert.threshold_cents >= price_cents,
-            )
-        ).all()
-    )
-
+    repos = get_repositories()
+    candidate_alerts = repos.part_price_alerts.active_at_or_below(part_id, price_cents)
     if not candidate_alerts:
         return
 
     # Resolve part + retailer once; both are referenced by every email body.
-    repos = get_repositories()
     part = repos.parts.get(str(part_id))
     retailer = repos.retailers.get(str(retailer_id))
     if part is None or retailer is None:
         # Defensive — the chokepoint guarantees both exist, but evaluate should
-        # never crash a price-write transaction.
+        # never crash a price write.
         logger.warning(
             "price_alert_evaluator_missing_entity: part_id=%s retailer_id=%s " "part_present=%s retailer_present=%s",
             part_id,
@@ -216,7 +179,7 @@ def evaluate_alerts_for_listing(
                 )
                 continue
 
-            user = UserRepository().get(alert.user_id)
+            user = repos.users.get(alert.user_id)
             if user is None:
                 # Alert points at a deleted user — skip and log; do not crash.
                 logger.warning(
@@ -235,14 +198,9 @@ def evaluate_alerts_for_listing(
             )
 
             if success:
-                alert.last_fired_at = observed_at
-                db.add(alert)
-                db.flush()
-                verdict = "fired"
-            else:
-                # Idempotent retry: leave last_fired_at as-is so the next
-                # observation re-attempts.
-                verdict = "fired"
+                repos.part_price_alerts.update(alert.id, last_fired_at=observed_at, updated_at=utc_now())
+            # On failure leave last_fired_at as-is so the next observation re-attempts.
+            verdict = "fired"
 
             elapsed_ms = int((time.monotonic() - start) * 1000)
             logger.info(
@@ -256,7 +214,7 @@ def evaluate_alerts_for_listing(
                 elapsed_ms,
             )
         except Exception as exc:
-            # Per-alert iteration must NEVER poison the price-write transaction.
+            # Per-alert iteration must NEVER poison the price write.
             # Log with alert_id (UUID — safe) and continue.
             logger.warning(
                 "price_alert_evaluator_exception: alert_id=%s error=%s",

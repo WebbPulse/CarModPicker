@@ -17,9 +17,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import ALGORITHM, create_access_token
-from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.core.config import settings
 from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.part_price_alerts import PartPriceAlertRepository
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 from tests.api.endpoints.test_users import create_and_login_user, get_auth_headers
@@ -162,7 +162,7 @@ def test_resubscribe_updates_threshold_idempotent(client: TestClient, db_session
     assert body["active"] is True
 
     # Confirm only one row exists at the DB layer.
-    rows = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.part_id == part.id).all()
+    rows = PartPriceAlertRepository().list_by_part(part.id)
     assert len(rows) == 1
 
 
@@ -339,7 +339,7 @@ def test_delete_sets_active_false(client: TestClient, db_session: Session) -> No
     assert delete_resp.status_code == 204, delete_resp.text
 
     # Soft-delete: row still exists, but active=False.
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None, "soft-delete should keep the row in the DB"
     assert row.active is False
 
@@ -360,7 +360,7 @@ def test_delete_by_non_owner_returns_404(client: TestClient, db_session: Session
     assert delete_resp.status_code == 404, delete_resp.text
 
     # Confirm alice's alert is still active — bob's failed call did not flip it.
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None
     assert row.active is True
 
@@ -409,7 +409,7 @@ def test_unsubscribe_with_valid_token_redirects_and_deactivates(client: TestClie
     assert "status=success" in location
     assert "Unsubscribed" in location
 
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None
     assert row.active is False
 
@@ -437,7 +437,7 @@ def test_unsubscribe_with_wrong_purpose_redirects_to_error(client: TestClient, d
     assert "status=error" in location
 
     # Alert must still be active.
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None
     assert row.active is True
 
@@ -467,7 +467,7 @@ def test_unsubscribe_with_expired_token_redirects_to_error(client: TestClient, d
     location = response.headers.get("location", "")
     assert "status=error" in location
 
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None
     assert row.active is True
 

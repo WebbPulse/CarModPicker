@@ -25,12 +25,13 @@ from typing import Any
 import pytest
 from sqlalchemy.orm import Session
 
-from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.services.part_listing_service import create_or_update_listing_and_price
 from app.api.services.part_price_alert_service import evaluate_alerts_for_listing
 from app.db.dynamo.catalog import Part as DBPart
 from app.db.dynamo.catalog import PartListingRepository
 from app.db.dynamo.catalog import Retailer as DBRetailer
+from app.db.dynamo.part_price_alerts import PartPriceAlert as DBPartPriceAlert
+from app.db.dynamo.part_price_alerts import PartPriceAlertRepository
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import get_default_category_id, save_catalog
 
@@ -80,17 +81,19 @@ def _make_alert(
     last_fired_at: datetime | None = None,
     active: bool = True,
 ) -> DBPartPriceAlert:
-    alert = DBPartPriceAlert(
-        user_id=user.id,
-        part_id=part.id,
-        threshold_cents=threshold_cents,
-        active=active,
-        last_fired_at=last_fired_at,
+    return PartPriceAlertRepository().create(
+        DBPartPriceAlert(
+            user_id=user.id,
+            part_id=part.id,
+            threshold_cents=threshold_cents,
+            active=active,
+            last_fired_at=last_fired_at,
+        )
     )
-    db.add(alert)
-    db.flush()
-    db.refresh(alert)
-    return alert
+
+
+def _reload(alert: DBPartPriceAlert) -> DBPartPriceAlert:
+    return PartPriceAlertRepository().get_or_raise(alert.id)
 
 
 def _stub_email_send(*, return_value: bool = True) -> tuple[Any, list[dict[str, Any]]]:
@@ -132,7 +135,6 @@ def test_below_threshold_fires_email_and_updates_last_fired_at(
 
     observed_at = datetime.now(UTC)
     evaluate_alerts_for_listing(
-        db_session,
         part_id=part.id,
         retailer_id=retailer.id,
         price_cents=8_000,
@@ -143,7 +145,7 @@ def test_below_threshold_fires_email_and_updates_last_fired_at(
     assert calls[0]["alert_id"] == alert.id
     assert calls[0]["price_cents"] == 8_000
 
-    db_session.refresh(alert)
+    alert = _reload(alert)
     assert alert.last_fired_at is not None
     # last_fired_at is exactly observed_at (the evaluator sets it directly).
     assert alert.last_fired_at == observed_at or alert.last_fired_at.replace(tzinfo=UTC) == observed_at
@@ -159,7 +161,6 @@ def test_above_threshold_skips(db_session: Session, monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
-        db_session,
         part_id=part.id,
         retailer_id=retailer.id,
         price_cents=10_000,  # well above threshold
@@ -167,7 +168,7 @@ def test_above_threshold_skips(db_session: Session, monkeypatch: pytest.MonkeyPa
     )
 
     assert calls == [], "above-threshold observation must not fire"
-    db_session.refresh(alert)
+    alert = _reload(alert)
     assert alert.last_fired_at is None
 
 
@@ -182,7 +183,6 @@ def test_at_threshold_fires(db_session: Session, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
-        db_session,
         part_id=part.id,
         retailer_id=retailer.id,
         price_cents=7_500,
@@ -206,7 +206,6 @@ def test_24h_cooldown_suppresses_second_fire(db_session: Session, monkeypatch: p
     monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
-        db_session,
         part_id=part.id,
         retailer_id=retailer.id,
         price_cents=8_000,
@@ -229,7 +228,6 @@ def test_cooldown_reset_after_25h_fires_again(db_session: Session, monkeypatch: 
 
     new_observed = datetime.now(UTC)
     evaluate_alerts_for_listing(
-        db_session,
         part_id=part.id,
         retailer_id=retailer.id,
         price_cents=8_000,
@@ -237,7 +235,7 @@ def test_cooldown_reset_after_25h_fires_again(db_session: Session, monkeypatch: 
     )
 
     assert len(calls) == 1, "alert past 24h cooldown must re-fire"
-    db_session.refresh(alert)
+    alert = _reload(alert)
     assert alert.last_fired_at == new_observed or (
         alert.last_fired_at is not None and alert.last_fired_at.replace(tzinfo=UTC) == new_observed
     )
@@ -261,7 +259,6 @@ def test_alert_on_one_part_does_not_fire_on_another_part(db_session: Session, mo
     # Observation on part_b at a price that WOULD fire alice's alert
     # if cross-part leakage happened.
     evaluate_alerts_for_listing(
-        db_session,
         part_id=part_b.id,
         retailer_id=retailer.id,
         price_cents=1_000,
@@ -285,7 +282,6 @@ def test_send_failure_leaves_last_fired_at_unchanged(db_session: Session, monkey
     monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
-        db_session,
         part_id=part.id,
         retailer_id=retailer.id,
         price_cents=8_000,
@@ -293,7 +289,7 @@ def test_send_failure_leaves_last_fired_at_unchanged(db_session: Session, monkey
     )
 
     assert len(calls) == 1, "evaluator must attempt the send"
-    db_session.refresh(alert)
+    alert = _reload(alert)
     assert alert.last_fired_at is None, "SES failure must leave last_fired_at None so the next observation retries"
 
 
@@ -319,7 +315,6 @@ def test_exception_in_one_alert_does_not_block_another(db_session: Session, monk
 
     # Should not raise — exceptions in per-alert iteration are swallowed/logged.
     evaluate_alerts_for_listing(
-        db_session,
         part_id=part.id,
         retailer_id=retailer.id,
         price_cents=8_500,
@@ -330,9 +325,9 @@ def test_exception_in_one_alert_does_not_block_another(db_session: Session, monk
     assert calls[0]["alert_id"] == good_alert.id
 
     # Bad alert was never marked as fired (exception path).
-    db_session.refresh(bad_alert)
+    bad_alert = _reload(bad_alert)
     assert bad_alert.last_fired_at is None
-    db_session.refresh(good_alert)
+    good_alert = _reload(good_alert)
     assert good_alert.last_fired_at is not None
 
 
@@ -349,7 +344,6 @@ def test_inactive_alert_is_skipped(db_session: Session, monkeypatch: pytest.Monk
     monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
-        db_session,
         part_id=part.id,
         retailer_id=retailer.id,
         price_cents=8_000,
@@ -379,7 +373,6 @@ def test_create_or_update_listing_and_price_invokes_evaluator(
     monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
 
     create_or_update_listing_and_price(
-        db_session,
         part_id=part.id,
         retailer_id=retailer.id,
         product_url="https://example.com/p/1",

@@ -14967,7 +14967,7 @@
     },
     "/api/users/me/profile-picture": {
       "delete": {
-        "description": "Delete the current user's profile picture.\n\nThis endpoint removes the profile picture from storage and clears\nthe user's image_urls field.\n\nArgs:\n    current_user: Authenticated user (from JWT token)\n    db: Database session\n    logger: Logger instance\n\nReturns:\n    UserRead: Updated user object with profile picture removed\n\nRaises:\n    HTTPException: If deletion fails",
+        "description": "Delete the current user's profile picture.\n\nThis endpoint removes the profile picture from storage and clears\nthe user's image_urls field.\n\nArgs:\n    current_user: Authenticated user (from JWT token)\n    logger: Logger instance\n\nReturns:\n    UserRead: Updated user object with profile picture removed\n\nRaises:\n    HTTPException: If deletion fails",
         "operationId": "delete_profile_picture_api_users_me_profile_picture_delete",
         "responses": {
           "200": {
@@ -14992,7 +14992,7 @@
         ]
       },
       "post": {
-        "description": "Upload a profile picture for the current user.\n\nThis endpoint uploads the image to storage and automatically updates\nthe user's image_urls field. If the user already has a profile picture,\nthe old one will be deleted from storage.\n\nArgs:\n    file: Image file to upload\n    current_user: Authenticated user (from JWT token)\n    db: Database session\n    logger: Logger instance\n\nReturns:\n    UserRead: Updated user object with new profile picture URL\n\nRaises:\n    HTTPException: If upload fails or validation fails",
+        "description": "Upload a profile picture for the current user.\n\nThis endpoint uploads the image to storage and automatically updates\nthe user's image_urls field. If the user already has a profile picture,\nthe old one will be deleted from storage.\n\nArgs:\n    file: Image file to upload\n    current_user: Authenticated user (from JWT token)\n    logger: Logger instance\n\nReturns:\n    UserRead: Updated user object with new profile picture URL\n\nRaises:\n    HTTPException: If upload fails or validation fails",
         "operationId": "upload_profile_picture_api_users_me_profile_picture_post",
         "requestBody": {
           "content": {

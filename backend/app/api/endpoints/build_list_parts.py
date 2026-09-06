@@ -314,7 +314,6 @@ async def create_part_and_add_to_build_list(
     repos: Repositories = Depends(get_repositories),
 ) -> BuildListPartReadWithPart:
     """Create a new part and automatically add it to the specified build list."""
-    db = deps["db"]
     logger = deps["logger"]
 
     build_list = _require_build_list(repos, build_list_id)
@@ -361,7 +360,6 @@ async def create_part_and_add_to_build_list(
         if wants_listing:
             assert request.retailer_id is not None
             create_or_update_listing_and_price(
-                db,
                 existing_part.id,
                 request.retailer_id,
                 product_url=request.product_url,
@@ -397,7 +395,7 @@ async def create_part_and_add_to_build_list(
         retailer_id=request.retailer_id,
         price_cents=request.price_cents,
     )
-    db_part = part_service.create_part(db, part_create, current_user, logger)
+    db_part = part_service.create_part(part_create, current_user, logger)
 
     created = _add_part_to_build_list(
         repos,
