@@ -22,6 +22,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 docker-compose up -d
 docker-compose down
 python scripts/create_dynamo_tables.py   # create the app's tables in DynamoDB Local (idempotent)
+python scripts/backfill_from_postgres.py --dry-run   # one-off Postgres -> DynamoDB copy (needs psycopg2-binary + DATABASE_URL)
 
 # Table definitions live in app/db/dynamo/tables.py; regenerate the Terraform copy after editing
 python scripts/export_dynamo_tables.py

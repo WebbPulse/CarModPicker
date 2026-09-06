@@ -60,7 +60,7 @@ Switching `reduced` → `full` changes `frontend_url` and `api_url`, so `VITE_AP
 Production runs both stacks until the Lambda path is proven:
 
 1. Apply with defaults. The legacy stack is untouched (every gated resource has a `moved` block so nothing is recreated); DynamoDB, Lambda, the HTTP API and `api.carmodpicker.com` on API Gateway are created alongside it. DNS still points at App Runner.
-2. Deploy the backend so the Lambda holds real code (the Terraform-managed zip is a 503 placeholder), then migrate data.
+2. Deploy the backend so the Lambda holds real code (the Terraform-managed zip is a 503 placeholder), then copy the data with `backend/scripts/backfill_from_postgres.py` (`--dry-run` first, then a real run with `--verify`; it is idempotent, so it can be re-run right before the DNS flip to pick up late writes).
 3. Set `api_target = lambda`. The Route53 `api` record flips from the App Runner CNAME to the HTTP API alias. Set it back to `legacy` to roll back.
 4. Set `legacy_stack_enabled = false` to destroy VPC, RDS, ECR and App Runner. `api_target` can be unset at the same time: with the legacy stack off it defaults to `lambda`. Unset `APP_RUNNER_SERVICE_ARN` on the `production` GitHub Environment at the same time so the deploy workflow stops building images.
 
