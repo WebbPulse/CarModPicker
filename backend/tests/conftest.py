@@ -52,6 +52,7 @@ from app.db.dynamo.catalog import (  # noqa: E402
 from app.db.dynamo.users import User, UserRepository  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
+from tests.sql_stub import StubRecord  # noqa: E402, F401  (registers the stand-in table on Base)
 
 
 @pytest.fixture(scope="session")

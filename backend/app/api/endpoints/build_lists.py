@@ -222,7 +222,7 @@ async def create_build_list(
     current_user: DBUser = Depends(get_current_user),
 ) -> BuildListRead:
     """Create a build list. Free accounts are capped at one."""
-    build_list = build_list_service.create(data, current_user, db=deps["db"], logger=deps["logger"])
+    build_list = build_list_service.create(data, current_user, logger=deps["logger"])
     return BuildListRead.model_validate(build_list)
 
 
@@ -511,14 +511,12 @@ async def copy_build_list(
     Creates a new build list owned by the current user with all parts from the original.
     All authenticated users can copy any build list.
     """
-    db = deps["db"]
     logger = deps["logger"]
 
     # Verify the build list exists (any authenticated user can copy any build list)
     _require_build_list(repos, build_list_id)
 
     new_build_list = build_list_service.copy_build_list(
-        db=db,
         build_list_id=build_list_id,
         current_user=current_user,
         logger=logger,

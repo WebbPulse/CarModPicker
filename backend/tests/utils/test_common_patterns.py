@@ -6,13 +6,13 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from uuid6 import uuid7
 
-from app.api.models.bug_report import BugReport as Report
 from app.api.utils.common_patterns import (
     get_entity_or_404,
     validate_pagination_params,
     verify_entity_ownership,
 )
 from app.db.dynamo.users import User, UserRepository
+from tests.sql_stub import StubRecord as Report
 
 
 def _make_report(db_session: Session, user_id: UUID) -> Report:

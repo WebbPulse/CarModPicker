@@ -34,7 +34,7 @@ def test_new_build_list_has_eager_build_log(db_session: Session, test_user: User
 
     svc = BuildListService()
     payload = BuildListCreate(name="test-eager-create", description="seed", car_id=car.id)
-    bl = svc.create(payload, test_user, db=db_session, logger=logger)
+    bl = svc.create(payload, test_user, logger=logger)
 
     # Invariant: the just-created BuildList has a BuildLog.
     build_log = BuildLogRepository().for_build_list(bl.id)
@@ -63,7 +63,6 @@ def test_no_orphan_build_lists(db_session: Session, premium_test_user: User) -> 
         svc.create(
             BuildListCreate(name=f"seed-orphan-test-{i}", description=None, car_id=car.id),
             premium_test_user,
-            db=db_session,
             logger=logger,
         )
 
