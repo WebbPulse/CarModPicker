@@ -32,7 +32,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
-from uuid import UUID
+from uuid import UUID, uuid5
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -95,6 +95,9 @@ SKIPPED_TABLES: tuple[str, ...] = (
     "crawler_schedule_adapters",
     "background_jobs",
 )
+
+# Namespace for the ids of build logs this script creates for lists that never had one.
+BUILD_LOG_NAMESPACE = UUID("6f0a1c2e-3b4d-4e5f-8a9b-0c1d2e3f4a5b")
 
 
 class BackfillError(RuntimeError):
@@ -205,12 +208,21 @@ def _part_derived_attributes(rows: Rows) -> dict[UUID, dict[str, Any]]:
 
 
 def _missing_build_logs(rows: Rows, existing: Iterable[DynamoModel]) -> list[BuildLog]:
-    """Every build list owns exactly one build log; create the ones Postgres lacks."""
-    covered = {getattr(log, "build_list_id") for log in existing}
+    """Every build list owns exactly one build log; create the ones Postgres lacks.
+
+    Postgres hands ids back as strings while the models carry UUIDs, so compare
+    them as strings. The synthetic log id is derived from the build list id so a
+    rerun rewrites the same item instead of adding another one.
+    """
+    covered = {str(getattr(log, "build_list_id")) for log in existing}
     return [
-        BuildLog(build_list_id=row["id"], title=f"Build Log: {row['name']}")
+        BuildLog(
+            id=uuid5(BUILD_LOG_NAMESPACE, str(row["id"])),
+            build_list_id=row["id"],
+            title=f"Build Log: {row['name']}",
+        )
         for row in rows.get("build_lists", [])
-        if row["id"] not in covered
+        if str(row["id"]) not in covered
     ]
 
 
