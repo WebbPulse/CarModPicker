@@ -67,6 +67,7 @@ venv/
 env/
 ENV/
 .venv/
+.venv
 
 # Testing and coverage
 coverage.xml
