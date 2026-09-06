@@ -63,10 +63,6 @@ jobs:
           # Ignore ecdsa CVE-2024-23342: Not exploitable in this codebase as we use HS256 (HMAC) algorithm, not ECDSA-based algorithms
           pip-audit -r requirements.txt --ignore-vuln CVE-2024-23342
 
-      - name: Check migrations for unannotated destructive operations
-        run: |
-          python backend/scripts/check_migrations.py
-
       - name: Run tests with coverage
         env:
           SECRET_KEY: test-secret-key-for-ci

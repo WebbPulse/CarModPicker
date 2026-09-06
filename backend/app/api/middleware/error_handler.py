@@ -11,21 +11,11 @@ from typing import Any, Awaitable, Callable, Dict, List
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import JSONResponse, Response
-from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
 
 logger = logging.getLogger(__name__)
-
-
-def _is_db_connection_error(exc: BaseException) -> bool:
-    """True if the exception indicates DB unreachable (cold start, network, etc.)."""
-    if isinstance(exc, (OperationalError, InterfaceError)):
-        return True
-    if isinstance(exc, DBAPIError) and exc.orig is not None:
-        return _is_db_connection_error(exc.orig)
-    return False
 
 
 async def error_handler_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
@@ -146,25 +136,7 @@ def handle_validation_error(exc: RequestValidationError) -> JSONResponse:
 
 
 def handle_unexpected_error(exc: Exception) -> JSONResponse:
-    """
-    Handle unexpected errors and convert to standardized format.
-
-    DB connection errors (e.g. during serverless/DB cold start) are returned
-    as 503 so clients know to retry.
-    """
-    if _is_db_connection_error(exc):
-        logger.warning("Database connection error (returning 503): %s", exc)
-        error_data = {
-            "success": False,
-            "message": "Service temporarily unavailable; database is starting. Please retry.",
-            "error_code": "SERVICE_UNAVAILABLE",
-        }
-        return JSONResponse(
-            content=error_data,
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            headers={"Retry-After": "2"},
-        )
-
+    """Handle unexpected errors and convert to standardized format."""
     error_data: Dict[str, str | bool] = {
         "success": False,
         "message": "Internal server error",

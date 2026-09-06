@@ -9,9 +9,9 @@ and adapted to the SAFE-06 characterization shape.
 """
 
 import os
+from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -24,7 +24,7 @@ def _uniq(base: str) -> str:
     return f"{base}_{worker}_{os.getpid()}"
 
 
-def test_login_happy_path(client: TestClient, db_session: Session) -> None:
+def test_login_happy_path(client: TestClient, db_session: Any) -> None:
     """Flow 2: email/password login returns access_token + user details."""
     username = _uniq("login_char")
     password = "test_password_123!"

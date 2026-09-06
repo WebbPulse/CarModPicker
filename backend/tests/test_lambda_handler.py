@@ -1,7 +1,7 @@
 import json
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -79,13 +79,3 @@ def test_lifespan_honors_run_startup_tasks(monkeypatch: pytest.MonkeyPatch, run_
         with TestClient(main_module.app):
             pass
     assert startup.called is run_startup_tasks
-
-
-def test_run_startup_tasks_closes_session() -> None:
-    session = MagicMock()
-    with (
-        patch.object(main_module, "SessionLocal", return_value=session),
-        patch.object(main_module, "init_car_generations", return_value=None),
-    ):
-        main_module.run_startup_tasks()
-    session.close.assert_called_once()

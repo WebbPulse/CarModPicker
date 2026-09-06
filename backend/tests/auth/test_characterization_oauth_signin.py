@@ -26,10 +26,10 @@ pytest-recording default cassette layout:
 
 import os
 import pathlib
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.dynamo.users import User as DBUser
@@ -51,7 +51,7 @@ def _uniq(base: str) -> str:
 
 
 @pytest.mark.vcr
-def test_google_oauth_signin(client: TestClient, db_session: Session) -> None:
+def test_google_oauth_signin(client: TestClient, db_session: Any) -> None:
     """Flow 5: first-time Google sign-in creates a user and returns tokens.
 
     The id_token and nonce below must match the values captured in the cassette.

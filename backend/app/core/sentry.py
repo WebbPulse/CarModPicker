@@ -63,7 +63,6 @@ import os
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
-from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 # Starlette integration REQUIRED even with FastApi — NOT auto-enabled (Landmine 2)
 from sentry_sdk.integrations.starlette import StarletteIntegration
@@ -141,7 +140,6 @@ def init_sentry(*, server_name: str) -> None:
         integrations=[
             StarletteIntegration(transaction_style="endpoint"),
             FastApiIntegration(transaction_style="endpoint"),
-            SqlalchemyIntegration(),
             LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
         ],
         before_send=_before_send,

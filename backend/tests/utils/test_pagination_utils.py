@@ -1,82 +1,80 @@
 """Tests for pagination utility functions."""
 
-from uuid import UUID
-
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from uuid6 import uuid7
-
-from app.api.utils.pagination_utils import (
-    apply_search_filter,
-    apply_sorting,
-    create_paginated_response,
-    get_total_count,
-    paginate_query,
-)
-from tests.sql_stub import StubRecord as Report
+from app.api.utils.pagination_utils import create_paginated_response, get_pagination_params
 
 
-def _seed_reports(db_session: Session, user_id: UUID, descriptions: list[str]) -> None:
-    """Persist Reports as a stand-in SQL table with an owner and a searchable text column."""
-    db_session.add_all(Report(user_id=user_id, title="Test", description=description) for description in descriptions)
-    db_session.commit()
+class TestPaginationParams:
+    """Test pagination parameter handling."""
+
+    def test_get_pagination_params_default(self) -> None:
+        skip, limit = get_pagination_params(skip=0, limit=100)
+        assert skip == 0
+        assert limit == 100
+
+    def test_get_pagination_params_custom(self) -> None:
+        skip, limit = get_pagination_params(skip=10, limit=50)
+        assert skip == 10
+        assert limit == 50
+
+    def test_get_pagination_params_boundary(self) -> None:
+        skip, limit = get_pagination_params(skip=0, limit=1000)
+        assert skip == 0
+        assert limit == 1000
+
+    def test_get_pagination_params_clamps_out_of_range(self) -> None:
+        skip, limit = get_pagination_params(skip=-5, limit=5000)
+        assert skip == 0
+        assert limit == 1000
 
 
-class TestPaginationUtils:
-    """Test cases for pagination utility functions."""
+class TestPaginatedResponse:
+    """Test paginated response creation."""
 
-    def test_paginate_query(self, db_session: Session) -> None:
-        """Test paginating a query."""
-        user_id = uuid7()
-        _seed_reports(db_session, user_id, [f"Test Report {i}" for i in range(5)])
+    def test_create_paginated_response_first_page(self) -> None:
+        data = [{"id": i} for i in range(10)]
+        response = create_paginated_response(data=data, total=25, skip=0, limit=10, entity_name="items")
 
-        stmt = select(Report).where(Report.user_id == user_id)
-        result = paginate_query(db_session, stmt, skip=1, limit=2)
+        assert len(response["data"]) == 10
+        assert response["total"] == 25
+        assert response["pagination"]["current_page"] == 1
+        assert response["pagination"]["total_pages"] == 3
+        assert response["pagination"]["total_items"] == 25
+        assert response["pagination"]["items_per_page"] == 10
+        assert response["pagination"]["has_next"] is True
+        assert response["pagination"]["has_previous"] is False
 
-        assert len(result) == 2
+    def test_create_paginated_response_middle_page(self) -> None:
+        data = [{"id": i} for i in range(10, 20)]
+        response = create_paginated_response(data=data, total=30, skip=10, limit=10, entity_name="items")
 
-    def test_get_total_count(self, db_session: Session) -> None:
-        """Test getting total count of a query."""
-        user_id = uuid7()
-        _seed_reports(db_session, user_id, [f"Test Report {i}" for i in range(3)])
+        assert response["pagination"]["current_page"] == 2
+        assert response["pagination"]["total_pages"] == 3
+        assert response["pagination"]["has_next"] is True
+        assert response["pagination"]["has_previous"] is True
 
-        stmt = select(Report).where(Report.user_id == user_id)
-        count = get_total_count(db_session, stmt)
+    def test_create_paginated_response_last_page(self) -> None:
+        data = [{"id": i} for i in range(20, 25)]
+        response = create_paginated_response(data=data, total=25, skip=20, limit=10, entity_name="items")
 
-        assert count == 3
+        assert len(response["data"]) == 5
+        assert response["pagination"]["current_page"] == 3
+        assert response["pagination"]["total_pages"] == 3
+        assert response["pagination"]["has_next"] is False
+        assert response["pagination"]["has_previous"] is True
 
-    def test_create_paginated_response(self) -> None:
-        """Test creating a paginated response."""
-        data = [{"id": 1}, {"id": 2}, {"id": 3}]
-        result = create_paginated_response(data, total=10, skip=0, limit=3)
+    def test_create_paginated_response_single_page(self) -> None:
+        data = [{"id": i} for i in range(5)]
+        response = create_paginated_response(data=data, total=5, skip=0, limit=10, entity_name="items")
 
-        assert "data" in result
-        assert "pagination" in result
-        assert result["pagination"]["current_page"] == 1
-        assert result["pagination"]["total_pages"] == 4
-        assert result["pagination"]["total_items"] == 10
-        assert result["pagination"]["has_next"] is True
-        assert result["pagination"]["has_previous"] is False
+        assert response["pagination"]["current_page"] == 1
+        assert response["pagination"]["total_pages"] == 1
+        assert response["pagination"]["has_next"] is False
+        assert response["pagination"]["has_previous"] is False
 
-    def test_apply_search_filter(self, db_session: Session) -> None:
-        """Test applying search filter to a query."""
-        user_id = uuid7()
-        _seed_reports(db_session, user_id, ["Test Report", "Another Report"])
+    def test_create_paginated_response_empty(self) -> None:
+        data: list[dict[str, int]] = []
+        response = create_paginated_response(data=data, total=0, skip=0, limit=10, entity_name="items")
 
-        stmt = select(Report).where(Report.user_id == user_id)
-        filtered_stmt = apply_search_filter(stmt, search="Test", search_fields=["description"])
-
-        results = list(db_session.scalars(filtered_stmt).all())
-        assert len(results) == 1
-        assert all("Test" in (report.description or "") for report in results)
-
-    def test_apply_sorting(self, db_session: Session) -> None:
-        """Test applying sorting to a query."""
-        user_id = uuid7()
-        _seed_reports(db_session, user_id, ["B Report", "A Report"])
-
-        stmt = select(Report).where(Report.user_id == user_id)
-        sorted_stmt = apply_sorting(stmt, sort_by="description", sort_order="asc", allowed_sort_fields=["description"])
-
-        results = list(db_session.scalars(sorted_stmt).all())
-        assert [report.description for report in results] == ["A Report", "B Report"]
+        assert len(response["data"]) == 0
+        assert response["pagination"]["total_items"] == 0
+        assert response["pagination"]["total_pages"] == 0

@@ -15525,7 +15525,7 @@
     },
     "/ready": {
       "get": {
-        "description": "Readiness check: returns 200 when DB is reachable, 503 otherwise.\n\nUse this so load balancers or the frontend can wait until the backend\n(and DB) have finished spooling before sending traffic. During serverless\ncold start, poll /ready until 200, then call other endpoints.",
+        "description": "Readiness check: returns 200 when DynamoDB is reachable, 503 otherwise.\n\nUse this so load balancers or the frontend can wait until the backend\ncan reach its tables before sending traffic. During a cold start, poll\n/ready until 200, then call other endpoints.",
         "operationId": "readiness_check_ready_get",
         "responses": {
           "200": {

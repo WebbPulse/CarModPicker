@@ -2,7 +2,6 @@ import os
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.dynamo.catalog import Category, PartManufacturer
@@ -556,7 +555,7 @@ class TestParts:
         assert "count" in updated_data
         assert updated_data["count"] == initial_count + 1
 
-    def test_count_parts_by_user_zero(self, client: TestClient, db_session: Session) -> None:
+    def test_count_parts_by_user_zero(self, client: TestClient, db_session: Any) -> None:
         """Test counting global parts for a user with no parts."""
         # Create a new user with no parts
         from app.api.dependencies.auth import get_password_hash

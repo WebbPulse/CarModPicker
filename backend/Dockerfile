@@ -31,14 +31,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /install /usr/local
 
 COPY app/         app/
-COPY alembic/     alembic/
-COPY alembic.ini  .
-COPY start.sh     /start.sh
-RUN chmod +x /start.sh
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-CMD ["/start.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -27,10 +27,10 @@ pytest-recording default cassette layout:
 
 import os
 import pathlib
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -59,7 +59,7 @@ def _uniq(base: str) -> str:
 
 
 @pytest.mark.vcr
-def test_google_oauth_link_existing_user(client: TestClient, db_session: Session) -> None:
+def test_google_oauth_link_existing_user(client: TestClient, db_session: Any) -> None:
     """Flow 6: link Google to an EXISTING email/password user.
 
     The Google link flow:

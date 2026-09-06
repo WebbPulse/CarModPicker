@@ -1,9 +1,7 @@
-import os
 from functools import lru_cache
-from typing import Any
 from urllib.parse import urlparse
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.secrets import load_app_secrets
@@ -14,19 +12,6 @@ class Settings(BaseSettings):
     API_STR: str = "/api"
     PROJECT_NAME: str = "CarModPicker"
     DEBUG: bool = False
-
-    # Database settings
-    DATABASE_URL: str = "sqlite:///./test.db"  # will load url from env but will fallback to this if not found
-
-    # DATABASE_URL is injected at runtime (Secrets Manager on App Runner, .env locally).
-    # This validator ensures the env value takes precedence over the Pydantic default.
-    @field_validator("DATABASE_URL", mode="before")
-    @classmethod
-    def assemble_db_connection(cls, v: Any) -> str:
-        db_url = os.getenv("DATABASE_URL")
-        if db_url:
-            return db_url
-        return str(v)
 
     # JWT Auth
     SECRET_KEY: str = Field(

@@ -16,10 +16,10 @@ authenticator, which we can't produce cheaply in a unit test. We mock the two
 import base64
 import os
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -32,7 +32,7 @@ def _unique(base: str) -> str:
     return f"{base}_{worker}_{os.getpid()}"
 
 
-def _create_user(db: Session, username: str, password: str = "testpassword") -> DBUser:
+def _create_user(db: Any, username: str, password: str = "testpassword") -> DBUser:
     user = DBUser(
         username=username,
         email=f"{username}@example.com",
@@ -68,7 +68,7 @@ def test_register_options_requires_auth(client: TestClient) -> None:
     assert resp.status_code == 401
 
 
-def test_register_options_returns_challenge_and_options(client: TestClient, db_session: Session) -> None:
+def test_register_options_returns_challenge_and_options(client: TestClient, db_session: Any) -> None:
     username = _unique("passkey_opts_user")
     _create_user(db_session, username)
     token = _login(client, username)
@@ -88,7 +88,7 @@ def test_register_options_returns_challenge_and_options(client: TestClient, db_s
     assert "challenge" in opts
 
 
-def test_register_verify_persists_credential(client: TestClient, db_session: Session) -> None:
+def test_register_verify_persists_credential(client: TestClient, db_session: Any) -> None:
     username = _unique("passkey_reg_verify")
     user = _create_user(db_session, username)
     token = _login(client, username)
@@ -144,7 +144,7 @@ def test_register_verify_persists_credential(client: TestClient, db_session: Ses
     assert stored.sign_count == 0
 
 
-def test_register_verify_rejects_wrong_purpose_token(client: TestClient, db_session: Session) -> None:
+def test_register_verify_rejects_wrong_purpose_token(client: TestClient, db_session: Any) -> None:
     """A login challenge token must not be usable for registration."""
     username = _unique("passkey_purpose_check")
     _create_user(db_session, username)
@@ -179,7 +179,7 @@ def test_login_options_discoverable_has_no_allow_credentials(client: TestClient)
     assert opts.get("allowCredentials") in (None, [])
 
 
-def test_login_verify_issues_token(client: TestClient, db_session: Session) -> None:
+def test_login_verify_issues_token(client: TestClient, db_session: Any) -> None:
     username = _unique("passkey_login_verify")
     user = _create_user(db_session, username)
 
@@ -236,7 +236,7 @@ def test_login_verify_issues_token(client: TestClient, db_session: Session) -> N
     assert cred.last_used_at is not None
 
 
-def test_login_verify_replay_rejected(client: TestClient, db_session: Session) -> None:
+def test_login_verify_replay_rejected(client: TestClient, db_session: Any) -> None:
     """If py_webauthn raises InvalidAuthenticationResponse (e.g. sign_count replay), we 401."""
     from webauthn.helpers.exceptions import InvalidAuthenticationResponse
 
@@ -298,7 +298,7 @@ def test_login_verify_unknown_credential(client: TestClient) -> None:
     assert resp.status_code == 401
 
 
-def test_list_rename_delete_flow(client: TestClient, db_session: Session) -> None:
+def test_list_rename_delete_flow(client: TestClient, db_session: Any) -> None:
     username = _unique("passkey_crud")
     user = _create_user(db_session, username)
     token = _login(client, username)
@@ -346,7 +346,7 @@ def test_list_rename_delete_flow(client: TestClient, db_session: Session) -> Non
     assert resp.json() == []
 
 
-def test_cannot_rename_other_users_credential(client: TestClient, db_session: Session) -> None:
+def test_cannot_rename_other_users_credential(client: TestClient, db_session: Any) -> None:
     owner = _create_user(db_session, _unique("passkey_owner"))
     other = _create_user(db_session, _unique("passkey_other"))
 
@@ -374,7 +374,7 @@ def test_list_credentials_requires_auth(client: TestClient) -> None:
     assert resp.status_code == 401
 
 
-def test_register_rejects_empty_nickname(client: TestClient, db_session: Session) -> None:
+def test_register_rejects_empty_nickname(client: TestClient, db_session: Any) -> None:
     username = _unique("passkey_empty_nick")
     _create_user(db_session, username)
     token = _login(client, username)
@@ -387,7 +387,7 @@ def test_register_rejects_empty_nickname(client: TestClient, db_session: Session
     assert resp.status_code == 400
 
 
-def test_login_verify_rejects_unverified_user(client: TestClient, db_session: Session) -> None:
+def test_login_verify_rejects_unverified_user(client: TestClient, db_session: Any) -> None:
     """An unverified user can't acquire a session via a passkey, even if signature verification
     would succeed. Matches the email_verified gate in get_current_user."""
     username = _unique("passkey_unverified")

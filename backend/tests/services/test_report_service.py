@@ -2,8 +2,7 @@
 
 import logging
 import os
-
-from sqlalchemy.orm import Session
+from typing import Any
 
 from app.api.schemas.report import EntityType, ReportCreate, ReportReason
 from app.api.services.report_service import ReportService
@@ -24,7 +23,7 @@ def get_unique_name(base_name: str) -> str:
 class TestReportService:
     """Test cases for report service."""
 
-    def test_create_report_build_list(self, db_session: Session, test_user: User) -> None:
+    def test_create_report_build_list(self, db_session: Any, test_user: User) -> None:
         """Test creating a report for a build list."""
         # Create another user and their build list
         from app.api.dependencies.auth import get_password_hash
@@ -46,7 +45,6 @@ class TestReportService:
                 user_id=other_user.id,
             )
         )
-        db_session.commit()
 
         # Create report
         service = ReportService()
@@ -60,7 +58,7 @@ class TestReportService:
         assert report.reason == "spam"
         assert report.status == "pending"
 
-    def test_create_report_part(self, db_session: Session, test_user: User) -> None:
+    def test_create_report_part(self, db_session: Any, test_user: User) -> None:
         """Test creating a report for a global part."""
         # Create another user and their global part
         from app.api.dependencies.auth import get_password_hash
@@ -121,7 +119,7 @@ class TestReportService:
         assert report.reason == "inappropriate_content"
         assert report.status == "pending"
 
-    def test_create_report_own_entity(self, db_session: Session, test_user: User) -> None:
+    def test_create_report_own_entity(self, db_session: Any, test_user: User) -> None:
         """Test that users cannot report their own entities."""
         # Create build list owned by test_user
         build_list = BuildListRepository().create(
@@ -131,7 +129,6 @@ class TestReportService:
                 user_id=test_user.id,
             )
         )
-        db_session.commit()
 
         # Try to create report
         service = ReportService()
@@ -147,7 +144,7 @@ class TestReportService:
             assert e.status_code == 400
             assert "cannot report your own" in e.detail.lower()
 
-    def test_create_report_duplicate(self, db_session: Session, test_user: User) -> None:
+    def test_create_report_duplicate(self, db_session: Any, test_user: User) -> None:
         """Test that users cannot create duplicate pending reports."""
         # Create another user and their build list
         from app.api.dependencies.auth import get_password_hash
@@ -169,7 +166,6 @@ class TestReportService:
                 user_id=other_user.id,
             )
         )
-        db_session.commit()
 
         # Create first report
         service = ReportService()
@@ -187,7 +183,7 @@ class TestReportService:
             assert e.status_code == 400
             assert "already reported" in e.detail.lower()
 
-    def test_get_reports_no_filters(self, db_session: Session, test_user: User) -> None:
+    def test_get_reports_no_filters(self, db_session: Any, test_user: User) -> None:
         """Test getting reports with no filters."""
         # Create reports
         from app.api.dependencies.auth import get_password_hash
@@ -209,7 +205,6 @@ class TestReportService:
                 user_id=other_user.id,
             )
         )
-        db_session.commit()
 
         # Create reports - create for different entities to avoid duplicate report error
         service = ReportService()
@@ -226,7 +221,6 @@ class TestReportService:
                 user_id=other_user.id,
             )
         )
-        db_session.commit()
         service.create_report(EntityType.BUILD_LIST, build_list2.id, test_user.id, report_data2, logger)
 
         # Get reports
@@ -234,7 +228,7 @@ class TestReportService:
         assert isinstance(reports, list)
         assert len(reports) >= 2
 
-    def test_get_reports_with_filters(self, db_session: Session, test_user: User) -> None:
+    def test_get_reports_with_filters(self, db_session: Any, test_user: User) -> None:
         """Test getting reports with filters."""
         # Create reports
         from app.api.dependencies.auth import get_password_hash
@@ -257,7 +251,6 @@ class TestReportService:
                 user_id=other_user.id,
             )
         )
-        db_session.commit()
 
         # Get or create a category
         category = next(iter(CategoryRepository().list_all()), None)
@@ -310,7 +303,7 @@ class TestReportService:
         assert isinstance(reports, list)
         assert all(r.status == "pending" for r in reports)
 
-    def test_update_report(self, db_session: Session, test_user: User) -> None:
+    def test_update_report(self, db_session: Any, test_user: User) -> None:
         """Test updating a report."""
         # Create report
         from app.api.dependencies.auth import get_password_hash
@@ -332,7 +325,6 @@ class TestReportService:
                 user_id=other_user.id,
             )
         )
-        db_session.commit()
 
         service = ReportService()
         logger = logging.getLogger(__name__)
@@ -353,7 +345,7 @@ class TestReportService:
         assert updated_report.reviewed_by == test_user.id
         assert updated_report.reviewed_at is not None
 
-    def test_delete_report(self, db_session: Session, test_user: User) -> None:
+    def test_delete_report(self, db_session: Any, test_user: User) -> None:
         """Test deleting a report."""
         # Create report
         from app.api.dependencies.auth import get_password_hash
@@ -375,7 +367,6 @@ class TestReportService:
                 user_id=other_user.id,
             )
         )
-        db_session.commit()
 
         service = ReportService()
         logger = logging.getLogger(__name__)
@@ -389,7 +380,7 @@ class TestReportService:
         result = ReportRepository().get(report.id)
         assert result is None
 
-    def test_get_reports_with_details(self, db_session: Session, test_user: User) -> None:
+    def test_get_reports_with_details(self, db_session: Any, test_user: User) -> None:
         """Test getting reports with details."""
         # Create report
         from app.api.dependencies.auth import get_password_hash
@@ -411,7 +402,6 @@ class TestReportService:
                 user_id=other_user.id,
             )
         )
-        db_session.commit()
 
         service = ReportService()
         logger = logging.getLogger(__name__)

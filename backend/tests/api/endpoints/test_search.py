@@ -2,7 +2,6 @@ import os
 from typing import Any, Dict
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
@@ -34,7 +33,7 @@ def get_auth_headers(token: str) -> Dict[str, str]:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[Dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
@@ -76,7 +75,7 @@ class TestSearch:
         assert "parts" in data
         assert "query" in data
 
-    def test_search_build_lists_by_name(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_search_build_lists_by_name(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test searching build lists by name."""
         # Create a car first (requires admin)
         car = create_car_in_db(db_session)
@@ -101,7 +100,7 @@ class TestSearch:
         assert len(data["build_lists"]["items"]) > 0
         assert any(build_list_name in bl["name"] for bl in data["build_lists"]["items"])
 
-    def test_search_build_lists_by_car_make(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_search_build_lists_by_car_make(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test searching build lists by associated car make."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session, "Honda", "Civic")
@@ -147,7 +146,7 @@ class TestSearch:
         assert len(data["users"]["items"]) > 0
 
     def test_search_parts_by_name(
-        self, client: TestClient, test_user: DBUser, test_category, test_part_manufacturer, db_session: Session
+        self, client: TestClient, test_user: DBUser, test_category, test_part_manufacturer, db_session: Any
     ) -> None:
         """Test searching global parts by name."""
         # Create a car first (requires admin)
@@ -176,7 +175,7 @@ class TestSearch:
         assert any(search_term.lower() in gp["name"].lower() for gp in data["parts"]["items"])
 
     def test_search_parts_by_part_manufacturer(
-        self, client: TestClient, test_user: DBUser, test_category, db_session: Session
+        self, client: TestClient, test_user: DBUser, test_category, db_session: Any
     ) -> None:
         """Search by manufacturer name surfaces parts for that manufacturer."""
         from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
@@ -231,7 +230,7 @@ class TestSearch:
         assert len(data["users"]["items"]) == 0
         assert len(data["parts"]["items"]) == 0
 
-    def test_search_case_insensitive(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_search_case_insensitive(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that search is case-insensitive."""
         # Create a car first (requires admin)
         car = create_car_in_db(db_session)
@@ -256,7 +255,7 @@ class TestSearch:
         # Should find results (case-insensitive)
         assert len(data["build_lists"]["items"]) > 0
 
-    def test_search_with_pagination(self, client: TestClient, premium_test_user: DBUser, db_session: Session) -> None:
+    def test_search_with_pagination(self, client: TestClient, premium_test_user: DBUser, db_session: Any) -> None:
         """Test search with pagination parameters."""
         # Create a car first (requires admin)
         car = create_car_in_db(db_session)
@@ -291,7 +290,7 @@ class TestSearch:
         first_ids = {bl["id"] for bl in data["build_lists"]["items"]}
         assert all(bl["id"] not in first_ids for bl in second["build_lists"]["items"])
 
-    def test_search_partial_match(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_search_partial_match(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that search supports partial matches."""
         # Create a car first (requires admin)
         car = create_car_in_db(db_session)
@@ -346,7 +345,7 @@ class TestSearch:
             assert "users" in data
             assert "parts" in data
 
-    def test_search_unicode_characters(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_search_unicode_characters(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test search with unicode and emoji characters."""
         # Create a car first (requires admin)
         car = create_car_in_db(db_session)
@@ -400,7 +399,7 @@ class TestSearch:
             assert "parts" in data
 
     def test_search_pagination_cursor_exhausts(
-        self, client: TestClient, premium_test_user: DBUser, db_session: Session
+        self, client: TestClient, premium_test_user: DBUser, db_session: Any
     ) -> None:
         """Following build list cursors ends with an empty next_cursor."""
         token = get_auth_token(client, premium_test_user.username)
@@ -457,7 +456,7 @@ class TestSearch:
         response = client.get(f"{settings.API_STR}/search/?q=test&build_lists_cursor=not-a-cursor&limit=10")
         assert response.status_code == 400
 
-    def test_search_case_insensitive_matching(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_search_case_insensitive_matching(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that search is case-insensitive."""
         # Create a build list with mixed case
         token = get_auth_token(client, test_user.username)

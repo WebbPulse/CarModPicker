@@ -5,7 +5,6 @@ from uuid import UUID
 
 from fastapi import status  # Add this import
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.dynamo.users import UserRepository
@@ -75,7 +74,7 @@ def get_auth_headers(token: str) -> Dict[str, str]:
 
 
 # --- Create User Tests ---
-def test_create_user_success(client: TestClient, db_session: Session) -> None:
+def test_create_user_success(client: TestClient, db_session: Any) -> None:
     username = "new_unique_user"
     email = "new_unique_user@example.com"
     password = "password123"
@@ -93,7 +92,7 @@ def test_create_user_success(client: TestClient, db_session: Session) -> None:
     assert "hashed_password" not in created_user
 
 
-def test_create_user_duplicate_username(client: TestClient, db_session: Session) -> None:
+def test_create_user_duplicate_username(client: TestClient, db_session: Any) -> None:
     user_info, _ = create_and_login_user(client, "duplicate_username_test")  # Creates and logs in first user
 
     duplicate_user_data = {
@@ -106,7 +105,7 @@ def test_create_user_duplicate_username(client: TestClient, db_session: Session)
     assert "username already registered" in response.json()["message"].lower()
 
 
-def test_create_user_duplicate_email(client: TestClient, db_session: Session) -> None:
+def test_create_user_duplicate_email(client: TestClient, db_session: Any) -> None:
     user_info, _ = create_and_login_user(client, "duplicate_email_test")  # Creates and logs in first user
 
     duplicate_user_data = {
@@ -137,7 +136,7 @@ def test_create_user_rejects_overlong_password(client: TestClient) -> None:
 
 
 # --- Read User (/me) Tests ---
-def test_read_users_me_success(client: TestClient, db_session: Session) -> None:
+def test_read_users_me_success(client: TestClient, db_session: Any) -> None:
     user_info, token = create_and_login_user(client, "me_test")  # Logs in, returns token
 
     headers = get_auth_headers(token)
@@ -149,13 +148,13 @@ def test_read_users_me_success(client: TestClient, db_session: Session) -> None:
     assert me_user["id"] == user_info["id"]
 
 
-def test_read_users_me_unauthenticated(client: TestClient, db_session: Session) -> None:
+def test_read_users_me_unauthenticated(client: TestClient, db_session: Any) -> None:
     response = client.get(f"{settings.API_STR}/users/me")
     assert response.status_code == 401  # Expect unauthorized
 
 
 # --- Read User (/{user_id}) Tests ---
-def test_read_user_by_id_success(client: TestClient, db_session: Session) -> None:
+def test_read_user_by_id_success(client: TestClient, db_session: Any) -> None:
     user_info, token = create_and_login_user(client, "read_by_id_test")
     user_id_to_read = user_info["id"]
 
@@ -168,7 +167,7 @@ def test_read_user_by_id_success(client: TestClient, db_session: Session) -> Non
     assert read_user["username"] == user_info["username"]
 
 
-def test_read_user_by_id_not_found(client: TestClient, db_session: Session) -> None:
+def test_read_user_by_id_not_found(client: TestClient, db_session: Any) -> None:
     # Need to be authenticated to read users
     _, token = create_and_login_user(client, "read_not_found_test")
     headers = get_auth_headers(token)
@@ -178,7 +177,7 @@ def test_read_user_by_id_not_found(client: TestClient, db_session: Session) -> N
 
 
 # --- Update User Tests ---
-def test_update_own_user_success(client: TestClient, db_session: Session) -> None:
+def test_update_own_user_success(client: TestClient, db_session: Any) -> None:
     user_info, token = create_and_login_user(client, "update_self")
     user_id = user_info["id"]
     current_password = "testpassword"  # Default password from create_and_login_user
@@ -195,7 +194,7 @@ def test_update_own_user_success(client: TestClient, db_session: Session) -> Non
     assert updated_user["username"] == user_info["username"]  # Username should be unchanged
 
 
-def test_update_own_user_change_password_success(client: TestClient, db_session: Session) -> None:
+def test_update_own_user_change_password_success(client: TestClient, db_session: Any) -> None:
     username_suffix = "change_pass"
     initial_password = "initialPassword123"
     new_password = "newStrongPassword456"
@@ -223,7 +222,7 @@ def test_update_own_user_change_password_success(client: TestClient, db_session:
     assert login_response_old.status_code == 401, "Login with old password should fail"
 
 
-def test_update_own_user_incorrect_current_password(client: TestClient, db_session: Session) -> None:
+def test_update_own_user_incorrect_current_password(client: TestClient, db_session: Any) -> None:
     user_info, token = create_and_login_user(client, "update_wrong_curr_pass")
     user_id = user_info["id"]
 
@@ -237,7 +236,7 @@ def test_update_own_user_incorrect_current_password(client: TestClient, db_sessi
     assert "incorrect current password" in response.json()["message"].lower()
 
 
-def test_update_other_user_forbidden(client: TestClient, db_session: Session) -> None:
+def test_update_other_user_forbidden(client: TestClient, db_session: Any) -> None:
     user_a_info, _ = create_and_login_user(client, "user_a_update_target")  # User A logged in
     user_a_id = user_a_info["id"]
 
@@ -257,7 +256,7 @@ def test_update_other_user_forbidden(client: TestClient, db_session: Session) ->
     assert response.json()["message"] == "Not authorized to update this user"
 
 
-def test_update_user_unauthenticated(client: TestClient, db_session: Session) -> None:
+def test_update_user_unauthenticated(client: TestClient, db_session: Any) -> None:
     user_info, _ = create_and_login_user(client, "update_unauth_target")
     user_id = user_info["id"]
     client.cookies.clear()  # Ensure unauthenticated
@@ -267,7 +266,7 @@ def test_update_user_unauthenticated(client: TestClient, db_session: Session) ->
     assert response.status_code == 401
 
 
-def test_update_user_not_found(client: TestClient, db_session: Session) -> None:
+def test_update_user_not_found(client: TestClient, db_session: Any) -> None:
     # Logs in a user, assume default password "testpassword"
     _, token = create_and_login_user(client, "updater_user_notfound")
     logged_in_user_password = "testpassword"
@@ -285,7 +284,7 @@ def test_update_user_not_found(client: TestClient, db_session: Session) -> None:
 
 
 # --- Delete User Tests ---
-def test_delete_own_user_success(client: TestClient, db_session: Session) -> None:
+def test_delete_own_user_success(client: TestClient, db_session: Any) -> None:
     user_info, token = create_and_login_user(client, "delete_self")
     user_id = user_info["id"]
     username = user_info["username"]
@@ -309,7 +308,7 @@ def test_delete_own_user_success(client: TestClient, db_session: Session) -> Non
     assert deleted_user_check is None, "User should no longer exist in database"
 
 
-def test_delete_other_user_forbidden(client: TestClient, db_session: Session) -> None:
+def test_delete_other_user_forbidden(client: TestClient, db_session: Any) -> None:
     user_a_info, _ = create_and_login_user(client, "user_a_delete_target")  # User A logged in
     user_a_id = user_a_info["id"]
 
@@ -321,7 +320,7 @@ def test_delete_other_user_forbidden(client: TestClient, db_session: Session) ->
     assert response.json()["message"] == "Not authorized to delete this user"
 
 
-def test_delete_user_unauthenticated(client: TestClient, db_session: Session) -> None:
+def test_delete_user_unauthenticated(client: TestClient, db_session: Any) -> None:
     user_info, _ = create_and_login_user(client, "delete_unauth_target")
     user_id = user_info["id"]
     client.cookies.clear()  # Ensure unauthenticated
@@ -330,7 +329,7 @@ def test_delete_user_unauthenticated(client: TestClient, db_session: Session) ->
     assert response.status_code == 401
 
 
-def test_delete_user_not_found(client: TestClient, db_session: Session) -> None:
+def test_delete_user_not_found(client: TestClient, db_session: Any) -> None:
     _, token = create_and_login_user(client, "deleter_user_notfound")  # Logs in a user
 
     headers = get_auth_headers(token)
@@ -339,7 +338,7 @@ def test_delete_user_not_found(client: TestClient, db_session: Session) -> None:
     assert response.json()["message"] == "Not authorized to delete this user"  # Changed detail
 
 
-def test_update_user_conflict_username(client: TestClient, db_session: Session) -> None:
+def test_update_user_conflict_username(client: TestClient, db_session: Any) -> None:
     user_a_info, _ = create_and_login_user(client, "conflict_username_A")
     # User B is now logged in, default password is "testpassword"
     user_b_info, token_b = create_and_login_user(client, "conflict_username_B")
@@ -354,7 +353,7 @@ def test_update_user_conflict_username(client: TestClient, db_session: Session) 
     assert "username already registered" in response.json()["message"].lower()
 
 
-def test_update_user_conflict_email(client: TestClient, db_session: Session) -> None:
+def test_update_user_conflict_email(client: TestClient, db_session: Any) -> None:
     user_a_info, _ = create_and_login_user(client, "conflict_email_A")
     # User B is now logged in, default password is "testpassword"
     user_b_info, token_b = create_and_login_user(client, "conflict_email_B")
@@ -372,7 +371,7 @@ def test_update_user_conflict_email(client: TestClient, db_session: Session) -> 
 # --- Profile Picture Tests ---
 
 
-def test_upload_profile_picture_success(client: TestClient, db_session: Session) -> None:
+def test_upload_profile_picture_success(client: TestClient, db_session: Any) -> None:
     """Test uploading a profile picture."""
     from PIL import Image
 
@@ -413,7 +412,7 @@ def test_upload_profile_picture_unauthorized(client: TestClient) -> None:
     assert response.status_code == 401
 
 
-def test_upload_profile_picture_invalid_file_type(client: TestClient, db_session: Session) -> None:
+def test_upload_profile_picture_invalid_file_type(client: TestClient, db_session: Any) -> None:
     """Test uploading a non-image file as profile picture."""
     user_info, token = create_and_login_user(client, "profile_pic_invalid")
     headers = get_auth_headers(token)
@@ -426,7 +425,7 @@ def test_upload_profile_picture_invalid_file_type(client: TestClient, db_session
     assert response.status_code in [400, 422, 500, 503], f"Unexpected status: {response.text}"
 
 
-def test_delete_profile_picture_success(client: TestClient, db_session: Session) -> None:
+def test_delete_profile_picture_success(client: TestClient, db_session: Any) -> None:
     """Test deleting a profile picture."""
     from PIL import Image
 
@@ -455,7 +454,7 @@ def test_delete_profile_picture_success(client: TestClient, db_session: Session)
             assert data.get("image_urls") is None or "image_urls" not in data
 
 
-def test_delete_profile_picture_not_found(client: TestClient, db_session: Session) -> None:
+def test_delete_profile_picture_not_found(client: TestClient, db_session: Any) -> None:
     """Test deleting a profile picture when none exists."""
     user_info, token = create_and_login_user(client, "profile_pic_no_pic")
     headers = get_auth_headers(token)
@@ -472,7 +471,7 @@ def test_delete_profile_picture_unauthorized(client: TestClient) -> None:
     assert response.status_code == 401
 
 
-def test_upload_profile_picture_replaces_old_one(client: TestClient, db_session: Session) -> None:
+def test_upload_profile_picture_replaces_old_one(client: TestClient, db_session: Any) -> None:
     """Test that uploading a new profile picture replaces the old one."""
     from PIL import Image
 
@@ -514,7 +513,7 @@ def test_upload_profile_picture_replaces_old_one(client: TestClient, db_session:
             assert "image_urls" in data2
 
 
-def test_delete_profile_picture_idempotency(client: TestClient, db_session: Session) -> None:
+def test_delete_profile_picture_idempotency(client: TestClient, db_session: Any) -> None:
     """Test that deleting profile picture twice is idempotent (second should return 404)."""
     from PIL import Image
 
@@ -541,7 +540,7 @@ def test_delete_profile_picture_idempotency(client: TestClient, db_session: Sess
         assert delete_response2.status_code == 404
 
 
-def test_upload_profile_picture_max_file_size(client: TestClient, db_session: Session) -> None:
+def test_upload_profile_picture_max_file_size(client: TestClient, db_session: Any) -> None:
     """Test profile picture upload with maximum file size (boundary testing)."""
     from PIL import Image
 
@@ -565,7 +564,7 @@ def test_upload_profile_picture_max_file_size(client: TestClient, db_session: Se
     assert response.status_code in [200, 400, 422, 500, 503], f"Unexpected status: {response.text}"
 
 
-def test_upload_profile_picture_min_file_size(client: TestClient, db_session: Session) -> None:
+def test_upload_profile_picture_min_file_size(client: TestClient, db_session: Any) -> None:
     """Test profile picture upload with minimum file size (very small images)."""
     from PIL import Image
 
@@ -586,7 +585,7 @@ def test_upload_profile_picture_min_file_size(client: TestClient, db_session: Se
     assert response.status_code in [200, 500, 503], f"Unexpected status: {response.text}"
 
 
-def test_upload_profile_picture_non_square(client: TestClient, db_session: Session) -> None:
+def test_upload_profile_picture_non_square(client: TestClient, db_session: Any) -> None:
     """Test profile picture upload with non-square image (verify auto-cropping/resizing to square)."""
     from PIL import Image
 
@@ -612,7 +611,7 @@ def test_upload_profile_picture_non_square(client: TestClient, db_session: Sessi
         assert "image_urls" in data
 
 
-def test_upload_profile_picture_concurrent_requests(client: TestClient, db_session: Session) -> None:
+def test_upload_profile_picture_concurrent_requests(client: TestClient, db_session: Any) -> None:
     """Test race condition - uploading two profile pictures simultaneously (should handle gracefully)."""
     import threading
 
@@ -657,7 +656,7 @@ def test_upload_profile_picture_concurrent_requests(client: TestClient, db_sessi
     assert any(code in [200, 500, 503] for code in status_codes), "At least one request should complete"
 
 
-def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_session: Session) -> None:
+def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_session: Any) -> None:
     """Test rollback behavior if storage service fails after DB update (should rollback DB change)."""
     from PIL import Image
 
@@ -690,7 +689,7 @@ def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_
         assert user_before.image_urls == initial_image_urls, "DB should be rolled back on storage failure"
 
 
-def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_session: Session) -> None:
+def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_session: Any) -> None:
     """Test graceful handling when storage deletion fails but DB update succeeds."""
     from PIL import Image
 

@@ -1,7 +1,6 @@
 from typing import Optional
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import get_repositories
 from app.db.dynamo.build_lists import BuildList as DBBuildList
@@ -29,7 +28,6 @@ def can_edit_part(user: DBUser, part: DBPart) -> bool:
 def can_edit_build_list_part(
     user: DBUser,
     build_list_part: DBBuildListPart,
-    db: Optional[Session] = None,
     build_list: Optional[DBBuildList] = None,
 ) -> bool:
     """Check if a user can edit a build list part."""
@@ -74,11 +72,10 @@ def require_part_edit_permission(user: DBUser, part: DBPart) -> None:
 def require_build_list_part_edit_permission(
     user: DBUser,
     build_list_part: DBBuildListPart,
-    db: Optional[Session] = None,
     build_list: Optional[DBBuildList] = None,
 ) -> None:
     """Raise HTTPException if user cannot edit the build list part."""
-    if not can_edit_build_list_part(user, build_list_part, db, build_list):
+    if not can_edit_build_list_part(user, build_list_part, build_list):
         raise HTTPException(
             status_code=403,
             detail=(
