@@ -8,7 +8,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.models.report import Report
+from app.api.models.bug_report import BugReport as Report
 
 
 def test_counter_records_selects(db_session: Session, query_counter) -> None:

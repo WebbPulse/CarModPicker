@@ -122,7 +122,7 @@ async def read_parts_with_votes(
         max_price_cents=max_price_cents,
     )
     page = part_service.list_with_votes(
-        deps["db"], filters, sort=sort, limit=params.limit, cursor=params.cursor, current_user=current_user
+        filters, sort=sort, limit=params.limit, cursor=params.cursor, current_user=current_user
     )
     deps["logger"].info(f"Retrieved {len(page.items)} parts (limit: {params.limit})")
     return page

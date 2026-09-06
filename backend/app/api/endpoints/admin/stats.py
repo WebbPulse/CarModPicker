@@ -6,14 +6,11 @@ import logging
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
-from app.api.models.report import Report as DBReport
-from app.api.models.vote import Vote as DBVote
 from app.api.utils.approximate_count import approximate_count
 from app.api.utils.endpoint_decorators import standard_responses
 from app.db.dynamo.users import User as DBUser
@@ -45,11 +42,8 @@ async def get_admin_table_counts(
     """
     _ = current_user
 
-    vote_rows = db.execute(select(DBVote.entity_type, func.count(DBVote.id)).group_by(DBVote.entity_type)).all()
-    votes_by_entity_type = {str(row[0]): int(row[1]) for row in vote_rows}
-
-    report_rows = db.execute(select(DBReport.entity_type, func.count(DBReport.id)).group_by(DBReport.entity_type)).all()
-    reports_by_entity_type = {str(row[0]): int(row[1]) for row in report_rows}
+    votes_by_entity_type = repos.votes.count_by_entity_type()
+    reports_by_entity_type = repos.reports.count_by_entity_type()
 
     return {
         "build_list_phases": len(repos.build_list_phases.scan_all()),

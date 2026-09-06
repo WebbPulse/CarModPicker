@@ -12,11 +12,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.vote import Vote as DBVote
 from app.api.schemas.build_list import (
     MAX_IMAGES_PER_BUILDLIST,
     BuildListAppendImages,
@@ -118,7 +116,6 @@ async def read_build_lists_with_votes(
     repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, Any]:
     """Get all build lists with vote data and optional filtering and search."""
-    db = deps["db"]
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
@@ -167,16 +164,7 @@ async def read_build_lists_with_votes(
     upvotes: Dict[UUID, int] = {}
     downvotes: Dict[UUID, int] = {}
     if candidates:
-        vote_rows = db.execute(
-            select(DBVote.entity_id, DBVote.vote_type, func.count(DBVote.id))
-            .where(DBVote.entity_type == "build_list", DBVote.entity_id.in_([bl.id for bl in candidates]))
-            .group_by(DBVote.entity_id, DBVote.vote_type)
-        ).all()
-        for entity_id, vote_type, count in vote_rows:
-            if vote_type == "upvote":
-                upvotes[entity_id] = count
-            elif vote_type == "downvote":
-                downvotes[entity_id] = count
+        upvotes, downvotes = repos.votes.tallies("build_list", [bl.id for bl in candidates])
 
     def net_votes(bl: BuildList) -> int:
         return upvotes.get(bl.id, 0) - downvotes.get(bl.id, 0)
@@ -200,14 +188,7 @@ async def read_build_lists_with_votes(
 
     user_votes: Dict[UUID, str] = {}
     if current_user:
-        user_vote_rows = db.execute(
-            select(DBVote.entity_id, DBVote.vote_type).where(
-                DBVote.entity_type == "build_list",
-                DBVote.entity_id.in_([bl.id for bl in build_lists]),
-                DBVote.user_id == current_user.id,
-            )
-        ).all()
-        user_votes = {entity_id: vote_type for entity_id, vote_type in user_vote_rows}
+        user_votes = repos.votes.user_votes("build_list", [bl.id for bl in build_lists], current_user.id)
 
     build_lists_data: List[BuildListReadWithVotes] = []
     for build_list in build_lists:

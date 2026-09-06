@@ -5,11 +5,11 @@ import os
 
 from sqlalchemy.orm import Session
 
-from app.api.models.report import Report
 from app.api.schemas.report import EntityType, ReportCreate, ReportReason
 from app.api.services.report_service import ReportService
 from app.db.dynamo.build_lists import BuildList, BuildListRepository
 from app.db.dynamo.catalog import Part
+from app.db.dynamo.moderation import ReportRepository
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import save_catalog
 
@@ -52,9 +52,7 @@ class TestReportService:
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.SPAM, description="This is spam")
-        report = service.create_report(
-            db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger
-        )
+        report = service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
 
         assert report.entity_type == "build_list"
         assert report.entity_id == build_list.id
@@ -115,7 +113,7 @@ class TestReportService:
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.INAPPROPRIATE_CONTENT, description="Inappropriate")
-        report = service.create_report(db_session, EntityType.PART, part.id, test_user.id, report_data, logger)
+        report = service.create_report(EntityType.PART, part.id, test_user.id, report_data, logger)
 
         assert report.entity_type == "part"
         assert report.entity_id == part.id
@@ -143,7 +141,7 @@ class TestReportService:
         from fastapi import HTTPException
 
         try:
-            service.create_report(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
+            service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
             assert False, "Should have raised HTTPException"
         except HTTPException as e:
             assert e.status_code == 400
@@ -177,13 +175,13 @@ class TestReportService:
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.SPAM)
-        service.create_report(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
+        service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
 
         # Try to create duplicate report
         from fastapi import HTTPException
 
         try:
-            service.create_report(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
+            service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
             assert False, "Should have raised HTTPException"
         except HTTPException as e:
             assert e.status_code == 400
@@ -218,7 +216,7 @@ class TestReportService:
         logger = logging.getLogger(__name__)
         report_data1 = ReportCreate(reason=ReportReason.SPAM)
         report_data2 = ReportCreate(reason=ReportReason.INAPPROPRIATE_CONTENT)
-        service.create_report(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data1, logger)
+        service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data1, logger)
 
         # Create a second build list for the second report to avoid duplicate report error
         build_list2 = BuildListRepository().create(
@@ -229,10 +227,10 @@ class TestReportService:
             )
         )
         db_session.commit()
-        service.create_report(db_session, EntityType.BUILD_LIST, build_list2.id, test_user.id, report_data2, logger)
+        service.create_report(EntityType.BUILD_LIST, build_list2.id, test_user.id, report_data2, logger)
 
         # Get reports
-        reports = service.get_reports(db_session)
+        reports = service.get_reports()
         assert isinstance(reports, list)
         assert len(reports) >= 2
 
@@ -299,16 +297,16 @@ class TestReportService:
         logger = logging.getLogger(__name__)
         report_data1 = ReportCreate(reason=ReportReason.SPAM)
         report_data2 = ReportCreate(reason=ReportReason.INAPPROPRIATE_CONTENT)
-        service.create_report(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data1, logger)
-        service.create_report(db_session, EntityType.PART, part.id, test_user.id, report_data2, logger)
+        service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data1, logger)
+        service.create_report(EntityType.PART, part.id, test_user.id, report_data2, logger)
 
         # Get reports filtered by entity type
-        reports = service.get_reports(db_session, entity_type=EntityType.BUILD_LIST)
+        reports = service.get_reports(entity_type=EntityType.BUILD_LIST)
         assert isinstance(reports, list)
         assert all(r.entity_type == "build_list" for r in reports)
 
         # Get reports filtered by status
-        reports = service.get_reports(db_session, status="pending")
+        reports = service.get_reports(status="pending")
         assert isinstance(reports, list)
         assert all(r.status == "pending" for r in reports)
 
@@ -339,13 +337,10 @@ class TestReportService:
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.SPAM)
-        report = service.create_report(
-            db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger
-        )
+        report = service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
 
         # Update report
         updated_report = service.update_report(
-            db_session,
             report.id,
             "reviewed",
             admin_notes="Reviewed and dismissed",
@@ -385,15 +380,13 @@ class TestReportService:
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.SPAM)
-        report = service.create_report(
-            db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger
-        )
+        report = service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
 
         # Delete report
-        service.delete_report(db_session, report.id, logger)
+        service.delete_report(report.id, logger)
 
         # Verify report is deleted
-        result = db_session.query(Report).filter(Report.id == report.id).first()
+        result = ReportRepository().get(report.id)
         assert result is None
 
     def test_get_reports_with_details(self, db_session: Session, test_user: User) -> None:
@@ -423,10 +416,10 @@ class TestReportService:
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.SPAM, description="Test report")
-        service.create_report(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
+        service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
 
         # Get reports with details
-        reports, total_count = service.get_reports_with_details(db_session)
+        reports, total_count = service.get_reports_with_details()
         assert isinstance(reports, list)
         assert total_count >= 1
         assert len(reports) >= 1

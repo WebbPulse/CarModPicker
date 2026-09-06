@@ -86,7 +86,7 @@ Browser / Chrome Extension
 - **`api/services/`** — Business logic layer called by endpoints.
 - **`api/dependencies/auth.py`** — FastAPI `Depends()` helpers: `get_current_user`, `get_optional_current_user`, `get_current_admin_user`, `get_current_superuser`.
 - **`api/middleware/`** — Rate limiting + content-length guard + error handlers.
-- **`api/utils/`** — Shared patterns: `BaseEndpointRouter` (generic CRUD router), `BaseCRUDService`, `EndpointRegistry` (standardized router registration), `base_vote_router`, `base_report_router`, pagination, authorization, subscription checks.
+- **`api/utils/`** — Shared patterns: `BaseEndpointRouter` (generic CRUD router), `BaseCRUDService`, `EndpointRegistry` (standardized router registration), pagination, authorization, subscription checks.
 - **`core/`** — Config, logging, email templates (React Email HTML, sent via SES), car/category seed data.
 - **`backend/app/core/sentry.py`** — Sentry SDK 2.x init helper. Env-gated (TESTING+APP_ENVIRONMENT+DSN). Scope processor reads request_id/user_id from log_context ContextVars.
 - **`alembic/versions/`** — Migration history (never edit manually).
@@ -101,7 +101,7 @@ Browser / Chrome Extension
 
 ### Backend patterns
 
-Most endpoints are built on `BaseEndpointRouter` (generic CRUD over `BaseCRUDService`) rather than hand-rolled route functions. When adding a new domain, follow this pattern instead of writing boilerplate. Votes and reports use `base_vote_router` / `base_report_router` — both are polymorphic and handle all entity types through a unified endpoint.
+Most endpoints are built on `BaseEndpointRouter` (generic CRUD over `BaseCRUDService`) rather than hand-rolled route functions. When adding a new domain, follow this pattern instead of writing boilerplate. Votes and reports are polymorphic over `entity_type` / `entity_id` and served by the unified `votes.py` / `reports.py` endpoints backed by `VoteService` / `ReportService` on DynamoDB.
 
 ### Frontend (`frontend/src/`)
 

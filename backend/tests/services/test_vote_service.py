@@ -5,11 +5,11 @@ import os
 
 from sqlalchemy.orm import Session
 
-from app.api.models.vote import Vote
 from app.api.schemas.vote import EntityType, VoteCreate, VoteType
 from app.api.services.vote_service import VoteService
 from app.db.dynamo.build_lists import BuildList, BuildListRepository
 from app.db.dynamo.catalog import Part
+from app.db.dynamo.moderation import VoteRepository
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import save_catalog
 
@@ -41,7 +41,7 @@ class TestVoteService:
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.UPVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.CAR_GENERATION, car.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(EntityType.CAR_GENERATION, car.id, test_user.id, vote_data, logger)
 
         assert vote.entity_type == "car_generation"
         assert vote.entity_id == car.id
@@ -64,7 +64,7 @@ class TestVoteService:
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.UPVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
 
         assert vote.entity_type == "build_list"
         assert vote.entity_id == build_list.id
@@ -99,7 +99,7 @@ class TestVoteService:
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.DOWNVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.PART, part.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(EntityType.PART, part.id, test_user.id, vote_data, logger)
 
         assert vote.entity_type == "part"
         assert vote.entity_id == part.id
@@ -122,15 +122,11 @@ class TestVoteService:
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data1 = VoteCreate(vote_type=VoteType.UPVOTE)
-        vote1 = service.vote_on_entity(
-            db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data1, logger
-        )
+        vote1 = service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data1, logger)
 
         # Update vote
         vote_data2 = VoteCreate(vote_type=VoteType.DOWNVOTE)
-        vote2 = service.vote_on_entity(
-            db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data2, logger
-        )
+        vote2 = service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data2, logger)
 
         assert vote2.id == vote1.id  # Same vote, updated
         assert vote2.vote_type == "downvote"
@@ -151,15 +147,15 @@ class TestVoteService:
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.UPVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
 
         # Remove vote
-        result = service.remove_vote(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, logger)
+        result = service.remove_vote(EntityType.BUILD_LIST, build_list.id, test_user.id, logger)
 
         assert result is True
 
         # Verify vote is removed
-        db_vote = db_session.query(Vote).filter(Vote.id == vote.id).first()
+        db_vote = VoteRepository().get(vote.id)
         assert db_vote is None
 
     def test_remove_vote_not_exists(self, db_session: Session, test_user: User) -> None:
@@ -177,7 +173,7 @@ class TestVoteService:
         # Try to remove non-existent vote
         service = VoteService()
         logger = logging.getLogger(__name__)
-        result = service.remove_vote(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, logger)
+        result = service.remove_vote(EntityType.BUILD_LIST, build_list.id, test_user.id, logger)
 
         assert result is False
 
@@ -218,15 +214,15 @@ class TestVoteService:
 
         # Create upvotes
         vote_data_up = VoteCreate(vote_type=VoteType.UPVOTE)
-        service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data_up, logger)
-        service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, user2.id, vote_data_up, logger)
+        service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data_up, logger)
+        service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, user2.id, vote_data_up, logger)
 
         # Create downvote
         vote_data_down = VoteCreate(vote_type=VoteType.DOWNVOTE)
-        service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, user3.id, vote_data_down, logger)
+        service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, user3.id, vote_data_down, logger)
 
         # Get vote summary
-        summary = service.get_vote_summary(db_session, EntityType.BUILD_LIST, build_list.id)
+        summary = service.get_vote_summary(EntityType.BUILD_LIST, build_list.id)
 
         assert summary.entity_id == build_list.id
         assert summary.entity_type == "build_list"
@@ -251,10 +247,10 @@ class TestVoteService:
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.UPVOTE)
-        service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
+        service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
 
         # Get vote summary with user_id
-        summary = service.get_vote_summary(db_session, EntityType.BUILD_LIST, build_list.id, user_id=test_user.id)
+        summary = service.get_vote_summary(EntityType.BUILD_LIST, build_list.id, user_id=test_user.id)
 
         assert summary.user_vote == "upvote"
 
@@ -272,7 +268,7 @@ class TestVoteService:
 
         # Get vote summary without user_id
         service = VoteService()
-        summary = service.get_vote_summary(db_session, EntityType.BUILD_LIST, build_list.id)
+        summary = service.get_vote_summary(EntityType.BUILD_LIST, build_list.id)
 
         assert summary.user_vote is None
 
@@ -322,16 +318,14 @@ class TestVoteService:
 
         # Add downvotes
         for i in range(5):
-            service.vote_on_entity(
-                db_session, EntityType.BUILD_LIST, build_list.id, users[i].id, vote_data_down, logger
-            )
+            service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, users[i].id, vote_data_down, logger)
 
         # Add upvotes
         for i in range(5, 7):
-            service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, users[i].id, vote_data_up, logger)
+            service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, users[i].id, vote_data_up, logger)
 
         # Get flagged entities
-        flagged = service.get_flagged_entities(db_session, EntityType.BUILD_LIST, limit=10)
+        flagged = service.get_flagged_entities(EntityType.BUILD_LIST, limit=10)
 
         assert isinstance(flagged, list)
         # The build list should be flagged due to high downvote ratio (5/7 > 0.3)
