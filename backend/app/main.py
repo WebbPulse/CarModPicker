@@ -2,10 +2,9 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import Depends, FastAPI, Query, Response
+from fastapi import FastAPI, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 
 from .api.endpoints import (
     app_settings,
@@ -29,7 +28,6 @@ from .api.endpoints import (
     votes,
 )
 from .api.endpoints.admin import db_ops as admin_db_ops
-from .api.endpoints.admin import jobs as admin_jobs
 from .api.endpoints.admin import stats as admin_stats
 from .api.endpoints.auth import core as auth_core
 from .api.endpoints.auth import oauth as auth_oauth
@@ -41,12 +39,10 @@ from .api.services import sitemap_service
 from .api.utils.endpoint_registry import EndpointRegistry
 from .core.config import settings
 from .core.init_cars import init_car_generations
-from .core.log_context import RequestContextFilter, bg_log_context
+from .core.log_context import RequestContextFilter
 from .core.logging import LOG_FORMAT, make_formatter
 from .core.sentry import init_sentry
-from .core.worker_identity import WORKER_INSTANCE_ID
-from .db.session import SessionLocal, check_db_ready, get_db
-from .services import job_service
+from .db.dynamo.client import check_db_ready
 
 # Configure logging for the entire application (single format, colorized levels)
 logging.basicConfig(
@@ -76,35 +72,17 @@ logger = logging.getLogger(__name__)
 init_sentry(server_name="apprunner-backend")
 
 
+def run_startup_tasks() -> None:
+    try:
+        init_car_generations()
+    except Exception:
+        logger.exception("Failed to initialize car generations on startup")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # type: ignore[type-arg]
-    db = SessionLocal()
-    try:
-        try:
-            init_car_generations(db)
-        except Exception:
-            logger.exception("Failed to initialize car generations on startup")
-        # A-01: wrap in bg_log_context so any log/exception emitted by
-        # job_service.sweep_orphan_jobs is tagged with
-        # request_id="bg:orphan-jobs-sweep:-" for CloudWatch grep.
-        with bg_log_context("orphan-jobs-sweep"):
-            try:
-                # Any background_jobs row still in "running" but owned by a previous
-                # worker_instance_id (or lacking one) can only exist because the prior
-                # process was killed mid-job — uvicorn --reload, SIGKILL, crash,
-                # redeploy. Mark those failed so the admin UI doesn't show phantom
-                # running jobs forever. ECS-backed jobs are skipped.
-                orphans = job_service.sweep_orphan_jobs(db, current_worker_instance_id=WORKER_INSTANCE_ID)
-                if orphans:
-                    logger.warning(
-                        "Marked %d stale background job(s) as failed on startup (ids=%s)",
-                        len(orphans),
-                        [str(o.id) for o in orphans],
-                    )
-            except Exception:
-                logger.exception("Orphan background-job sweep failed on startup")
-    finally:
-        db.close()
+    if settings.RUN_STARTUP_TASKS:
+        run_startup_tasks()
     yield
 
 
@@ -281,12 +259,12 @@ endpoint_registry.register_endpoint(
     description="Image upload and management operations using S3",
 )
 
-# Crawled pages HTML archival
+# Chrome extension page parsing
 endpoint_registry.register_endpoint(
     crawled_pages.router,
     prefix="/crawled-pages",
     tags=["crawled-pages"],
-    description="HTML archival for chrome-extension scraped pages",
+    description="Server-side parsing of chrome-extension submitted pages",
 )
 
 # Build logs endpoint
@@ -302,19 +280,13 @@ endpoint_registry.register_endpoint(
     admin_stats.router,
     prefix="/admin/stats",
     tags=["admin"],
-    description="Admin statistics (table counts, crawl bucket listing)",
-)
-endpoint_registry.register_endpoint(
-    admin_jobs.router,
-    prefix="/admin/jobs",
-    tags=["admin"],
-    description="Admin background jobs (list, detail, cancel)",
+    description="Admin statistics (table counts)",
 )
 endpoint_registry.register_endpoint(
     admin_db_ops.router,
     prefix="/admin/db-ops",
     tags=["admin"],
-    description="Admin database operations (migrations, init data, bulk delete)",
+    description="Admin database operations (init data, bulk delete)",
 )
 # Global app settings (public read, admin write)
 endpoint_registry.register_endpoint(
@@ -345,11 +317,11 @@ def health_check() -> dict[str, Any]:
 @app.get("/ready", response_model=None)
 def readiness_check() -> dict[str, Any] | JSONResponse:
     """
-    Readiness check: returns 200 when DB is reachable, 503 otherwise.
+    Readiness check: returns 200 when DynamoDB is reachable, 503 otherwise.
 
     Use this so load balancers or the frontend can wait until the backend
-    (and DB) have finished spooling before sending traffic. During serverless
-    cold start, poll /ready until 200, then call other endpoints.
+    can reach its tables before sending traffic. During a cold start, poll
+    /ready until 200, then call other endpoints.
     """
     if check_db_ready():
         return {"status": "ready", "database": "up"}
@@ -373,9 +345,9 @@ _SITEMAP_CACHE = "public, max-age=3600"
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
-def sitemap_index(db: Session = Depends(get_db)) -> Response:
+def sitemap_index() -> Response:
     return Response(
-        content=sitemap_service.generate_sitemap_index(db),
+        content=sitemap_service.generate_sitemap_index(),
         media_type="application/xml",
         headers={"Cache-Control": _SITEMAP_CACHE},
     )
@@ -385,9 +357,8 @@ def sitemap_index(db: Session = Depends(get_db)) -> Response:
 def sitemap_child(
     name: str,
     page: int = Query(1, ge=1),
-    db: Session = Depends(get_db),
 ) -> Response:
-    xml = sitemap_service.generate_child_sitemap(db, name, page)
+    xml = sitemap_service.generate_child_sitemap(name, page)
     if xml is None:
         return Response(
             content="Not found",

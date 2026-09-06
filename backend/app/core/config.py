@@ -1,9 +1,10 @@
-import os
 from functools import lru_cache
-from typing import Any
+from urllib.parse import urlparse
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.secrets import load_app_secrets
 
 
 class Settings(BaseSettings):
@@ -11,19 +12,6 @@ class Settings(BaseSettings):
     API_STR: str = "/api"
     PROJECT_NAME: str = "CarModPicker"
     DEBUG: bool = False
-
-    # Database settings
-    DATABASE_URL: str = "sqlite:///./test.db"  # will load url from env but will fallback to this if not found
-
-    # DATABASE_URL is injected at runtime (Secrets Manager on App Runner, .env locally).
-    # This validator ensures the env value takes precedence over the Pydantic default.
-    @field_validator("DATABASE_URL", mode="before")
-    @classmethod
-    def assemble_db_connection(cls, v: Any) -> str:
-        db_url = os.getenv("DATABASE_URL")
-        if db_url:
-            return db_url
-        return str(v)
 
     # JWT Auth
     SECRET_KEY: str = Field(
@@ -53,12 +41,21 @@ class Settings(BaseSettings):
     def google_oauth_enabled(self) -> bool:
         return bool(self.GOOGLE_CLIENT_ID)
 
-    # WebAuthn / passkeys — RP ID and origins are derived from APP_ENVIRONMENT.
+    FRONTEND_URL: str = Field(
+        default="",
+        description="Public origin of the user-facing SPA. Empty = per-environment default derived from APP_ENVIRONMENT.",
+    )
+
+    # WebAuthn / passkeys — RP ID and origins are derived from FRONTEND_URL when
+    # it is set, otherwise from APP_ENVIRONMENT.
     # RP ID is the registrable domain users see; origins are the frontend URLs
     # that will call navigator.credentials.*. Passkeys registered on one
     # environment cannot be used on another (different RP IDs).
     @property
     def webauthn_rp_id(self) -> str:
+        hostname = urlparse(self.FRONTEND_URL).hostname if self.FRONTEND_URL else None
+        if hostname:
+            return hostname
         if not self.is_production:
             return "localhost"
         if self.APP_ENVIRONMENT.lower() == "staging":
@@ -71,6 +68,15 @@ class Settings(BaseSettings):
 
     @property
     def webauthn_origins_list(self) -> list[str]:
+        if self.FRONTEND_URL:
+            parsed = urlparse(self.frontend_base_url)
+            origin = f"{parsed.scheme}://{parsed.netloc}"
+            labels = (parsed.hostname or "").split(".")
+            if len(labels) == 2:
+                return [origin, f"{parsed.scheme}://www.{parsed.netloc}"]
+            if len(labels) == 3 and labels[0] == "www":
+                return [origin, f"{parsed.scheme}://{parsed.netloc[4:]}"]
+            return [origin]
         if not self.is_production:
             return ["http://localhost:4000", "http://localhost:8000"]
         if self.APP_ENVIRONMENT.lower() == "staging":
@@ -83,9 +89,12 @@ class Settings(BaseSettings):
     @property
     def frontend_base_url(self) -> str:
         """Public origin of the user-facing SPA, used to build absolute URLs
-        (e.g. sitemap <loc> entries). The backend and frontend live on
-        separate domains, so this is derived from APP_ENVIRONMENT rather than
-        the request host. No trailing slash."""
+        (e.g. sitemap <loc> entries, email links). The backend and frontend
+        live on separate domains, so this comes from FRONTEND_URL when set and
+        otherwise from APP_ENVIRONMENT rather than the request host. No
+        trailing slash."""
+        if self.FRONTEND_URL:
+            return self.FRONTEND_URL.strip().rstrip("/")
         if not self.is_production:
             return "http://localhost:4000"
         if self.APP_ENVIRONMENT.lower() == "staging":
@@ -154,6 +163,28 @@ class Settings(BaseSettings):
     # Runtime environment settings
     PORT: int = 8000
     APP_ENVIRONMENT: str = "development"  # Set to "production" on App Runner via Terraform
+    RUN_STARTUP_TASKS: bool = Field(
+        default=True,
+        description="Run lifespan startup work (car generation seed, orphan job sweep). Lambda sets this false.",
+    )
+
+    # DynamoDB settings
+    DYNAMODB_TABLE_PREFIX: str = Field(
+        default="",
+        description="Prefix for every DynamoDB table name. Empty = carmodpicker-<APP_ENVIRONMENT>.",
+    )
+    DYNAMODB_ENDPOINT_URL: str = Field(
+        default="",
+        description="DynamoDB endpoint override (DynamoDB Local). Empty = native AWS endpoint.",
+    )
+    DYNAMODB_SEARCH_SCAN_PAGE_LIMIT: int = Field(
+        default=50,
+        description="Maximum number of DynamoDB scan pages a single catalog search may read before it stops.",
+    )
+
+    @property
+    def dynamodb_table_prefix(self) -> str:
+        return self.DYNAMODB_TABLE_PREFIX or f"carmodpicker-{self.APP_ENVIRONMENT.lower()}"
 
     # Security settings
     @property
@@ -209,19 +240,10 @@ class Settings(BaseSettings):
         default="",
         description="S3 bucket name for user image uploads. Also accepts S3_BUCKET_NAME.",
     )
-    CRAWL_BUCKET: str = Field(
-        default="",
-        description="S3 bucket name for crawler HTML snapshots. Separate from user images.",
-    )
-    # Chrome extension POST /crawled-pages/{scrape,html}: max UTF-8 byte length of the `html` field (reject with 413).
+    # Chrome extension POST /crawled-pages/scrape: max UTF-8 byte length of the `html` field (reject with 413).
     CRAWLED_PAGE_MAX_HTML_BYTES: int = Field(
         default=8 * 1024 * 1024,
         description="Maximum UTF-8 size in bytes for extension-submitted page HTML.",
-    )
-    # When Content-Length is set, reject POST bodies larger than max HTML + this slack (JSON wrapper, url field).
-    CRAWLED_PAGE_UPLOAD_CONTENT_LENGTH_SLACK_BYTES: int = Field(
-        default=64 * 1024,
-        description="Extra bytes allowed on Content-Length vs CRAWLED_PAGE_MAX_HTML_BYTES for JSON framing.",
     )
     S3_BUCKET_NAME: str = Field(
         default="",
@@ -234,6 +256,10 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = Field(
         default="",
         description="AWS secret access key. Leave empty on App Runner to use the instance IAM role.",
+    )
+    AWS_SESSION_TOKEN: str = Field(
+        default="",
+        description="AWS session token. Lambda sets this alongside the key pair; required whenever the credentials are temporary.",
     )
     AWS_REGION: str = Field(
         default="auto",
@@ -285,6 +311,8 @@ def get_settings() -> Settings:
     """
     return Settings()
 
+
+load_app_secrets()
 
 # Create settings instance for normal usage
 settings = get_settings()

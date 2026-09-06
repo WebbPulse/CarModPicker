@@ -8,16 +8,16 @@ sitemaps are valid XML, pagination is bounded, and unknown names 404.
 from __future__ import annotations
 
 import uuid
+from typing import Any
 from xml.etree import ElementTree as ET
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.part import Part as DBPart
-from app.api.models.user import User
 from app.api.services import sitemap_service
-from tests.conftest import get_default_category_id
+from app.db.dynamo.build_lists import BuildList, BuildListRepository
+from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.users import User
+from tests.conftest import get_default_category_id, save_catalog
 
 SM_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
 
@@ -29,22 +29,21 @@ def _locs(xml: str) -> list[str]:
 
 
 def _make_part(
-    db: Session,
+    db: Any,
     user: User,
     *,
     canonical_part_id: uuid.UUID | None = None,
     name: str = "Sitemap Part",
 ) -> DBPart:
-    part = DBPart(
-        name=name,
-        category_id=get_default_category_id(db),
-        user_id=user.id,
-        is_universal=True,
-        canonical_part_id=canonical_part_id,
+    return save_catalog(
+        DBPart(
+            name=name,
+            category_id=get_default_category_id(db),
+            user_id=user.id,
+            is_universal=True,
+            canonical_part_id=canonical_part_id,
+        )
     )
-    db.add(part)
-    db.flush()
-    return part
 
 
 def test_sitemap_index_lists_child_sitemaps(client: TestClient) -> None:
@@ -74,7 +73,7 @@ def test_static_sitemap_is_valid_and_has_landing_pages(
     assert not any("/admin" in loc or "/profile" in loc for loc in locs)
 
 
-def test_parts_sitemap_lists_canonical_only(client: TestClient, db_session: Session, test_user: User) -> None:
+def test_parts_sitemap_lists_canonical_only(client: TestClient, db_session: Any, test_user: User) -> None:
     canonical = _make_part(db_session, test_user, name="Canonical")
     duplicate = _make_part(
         db_session,
@@ -82,7 +81,6 @@ def test_parts_sitemap_lists_canonical_only(client: TestClient, db_session: Sess
         name="Duplicate",
         canonical_part_id=canonical.id,
     )
-    db_session.commit()
 
     resp = client.get("/sitemap-parts.xml")
     assert resp.status_code == 200
@@ -96,10 +94,8 @@ def test_parts_sitemap_lists_canonical_only(client: TestClient, db_session: Sess
     assert root.find(f"{SM_NS}url/{SM_NS}lastmod") is not None
 
 
-def test_build_lists_sitemap_lists_entries(client: TestClient, db_session: Session, test_user: User) -> None:
-    bl = DBBuildList(name="My Build", user_id=test_user.id)
-    db_session.add(bl)
-    db_session.commit()
+def test_build_lists_sitemap_lists_entries(client: TestClient, db_session: Any, test_user: User) -> None:
+    bl = BuildListRepository().create(BuildList(name="My Build", user_id=test_user.id))
 
     resp = client.get("/sitemap-build-lists.xml")
     assert resp.status_code == 200
@@ -129,12 +125,11 @@ def test_page_count_respects_url_cap() -> None:
     assert sitemap_service.page_count(cap * 3) == 3
 
 
-def test_pagination_offsets_results(client: TestClient, db_session: Session, test_user: User, monkeypatch) -> None:
+def test_pagination_offsets_results(client: TestClient, db_session: Any, test_user: User, monkeypatch) -> None:
     # Shrink the page size so two parts span two pages without bulk seeding.
     monkeypatch.setattr(sitemap_service, "URLS_PER_PAGE", 1)
     p1 = _make_part(db_session, test_user, name="P1")
     p2 = _make_part(db_session, test_user, name="P2")
-    db_session.commit()
 
     page1 = client.get("/sitemap-parts.xml")
     page2 = client.get("/sitemap-parts.xml", params={"page": 2})

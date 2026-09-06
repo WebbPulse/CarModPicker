@@ -1,43 +1,54 @@
 """
-Build list labor estimate endpoints: update and delete labor estimates by ID.
-List and create are under build_lists (GET/POST /build-lists/{id}/labor-estimates).
+Build list labor estimates endpoint on DynamoDB.
+
+Estimates are created and listed under /build-lists/{id}/labor-estimates;
+this router owns the per-estimate update and delete routes.
 """
 
+from typing import Dict, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.build_list_labor_estimate import BuildListLaborEstimate as DBBuildListLaborEstimate
-from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.build_list_labor_estimate import (
     BuildListLaborEstimateRead,
     BuildListLaborEstimateUpdate,
 )
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
-    get_entity_or_404,
     get_standard_public_endpoint_dependencies,
     verify_user_access_or_admin,
 )
 from app.api.utils.endpoint_decorators import standard_responses
+from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.build_lists import BuildList, BuildListLaborEstimate
+from app.db.dynamo.users import User as DBUser
 
 router = APIRouter()
 
 
-def _validate_phase_belongs_to_build_list(
-    db: Session,
-    phase_id: UUID | None,
-    build_list_id: UUID,
-) -> None:
-    """If a phase id is supplied, ensure it belongs to the given build list."""
+def _require_estimate(repos: Repositories, labor_estimate_id: UUID) -> BuildListLaborEstimate:
+    estimate = repos.build_list_labor_estimates.get(labor_estimate_id)
+    if estimate is None:
+        ResponsePatterns.raise_not_found("build list labor estimate", labor_estimate_id)
+    assert estimate is not None
+    return estimate
+
+
+def _require_build_list(repos: Repositories, build_list_id: UUID) -> BuildList:
+    build_list = repos.build_lists.get(build_list_id)
+    if build_list is None:
+        ResponsePatterns.raise_not_found("build list", build_list_id)
+    assert build_list is not None
+    return build_list
+
+
+def _validate_phase_belongs_to_build_list(repos: Repositories, phase_id: Optional[UUID], build_list_id: UUID) -> None:
     if phase_id is None:
         return
-    phase = db.get(DBBuildListPhase, phase_id)
+    phase = repos.build_list_phases.get(phase_id)
     if phase is None or phase.build_list_id != build_list_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -47,18 +58,12 @@ def _validate_phase_belongs_to_build_list(
 
 @router.get(
     "/count",
-    response_model=dict,
-    responses=standard_responses(success_description="Build list labor estimate count retrieved successfully"),
+    response_model=Dict[str, int],
+    responses=standard_responses(success_description="Count of build list labor estimates"),
 )
-async def count_build_list_labor_estimates(
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> dict:
-    """Total count of build list labor estimates (public read, same pattern as other /count endpoints)."""
-    db = deps["db"]
-    logger = deps["logger"]
-    count = db.scalar(select(func.count()).select_from(DBBuildListLaborEstimate)) or 0
-    logger.info(f"Retrieved build list labor estimates count: {count}")
-    return {"count": count}
+async def count_build_list_labor_estimates(repos: Repositories = Depends(get_repositories)) -> Dict[str, int]:
+    """Get total count of build list labor estimates."""
+    return {"count": len(repos.build_list_labor_estimates.scan_all())}
 
 
 @router.put(
@@ -75,28 +80,22 @@ async def update_build_list_labor_estimate(
     body: BuildListLaborEstimateUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> BuildListLaborEstimateRead:
-    """Update a build list labor estimate. Only build list owner or admin."""
-    db = deps["db"]
+    """Update a labor estimate. Only build list owner or admin."""
     logger = deps["logger"]
 
-    db_estimate = get_entity_or_404(db, DBBuildListLaborEstimate, labor_estimate_id, "build list labor estimate")
-    db_build_list = get_entity_or_404(db, DBBuildList, db_estimate.build_list_id, "build list")
-    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+    estimate = _require_estimate(repos, labor_estimate_id)
+    build_list = _require_build_list(repos, estimate.build_list_id)
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
 
     update_data = body.model_dump(exclude_unset=True)
     if "build_list_phase_id" in update_data:
-        _validate_phase_belongs_to_build_list(db, update_data["build_list_phase_id"], db_estimate.build_list_id)
+        _validate_phase_belongs_to_build_list(repos, update_data["build_list_phase_id"], estimate.build_list_id)
+    updated = repos.build_list_labor_estimates.update(estimate.id, **update_data) if update_data else estimate
 
-    for key, value in update_data.items():
-        setattr(db_estimate, key, value)
-
-    db.add(db_estimate)
-    db.commit()
-    db.refresh(db_estimate)
-
-    logger.info(f"Build list labor estimate {labor_estimate_id} updated by user {current_user.id}")
-    return BuildListLaborEstimateRead.model_validate(db_estimate)
+    logger.info(f"User {current_user.id} updated labor estimate {labor_estimate_id}")
+    return BuildListLaborEstimateRead.model_validate(updated)
 
 
 @router.delete(
@@ -112,18 +111,17 @@ async def delete_build_list_labor_estimate(
     labor_estimate_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> BuildListLaborEstimateRead:
-    """Delete a build list labor estimate. Only build list owner or admin."""
-    db = deps["db"]
+    """Delete a labor estimate. Only build list owner or admin."""
     logger = deps["logger"]
 
-    db_estimate = get_entity_or_404(db, DBBuildListLaborEstimate, labor_estimate_id, "build list labor estimate")
-    db_build_list = get_entity_or_404(db, DBBuildList, db_estimate.build_list_id, "build list")
-    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+    estimate = _require_estimate(repos, labor_estimate_id)
+    build_list = _require_build_list(repos, estimate.build_list_id)
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
 
-    deleted_data = BuildListLaborEstimateRead.model_validate(db_estimate)
-    db.delete(db_estimate)
-    db.commit()
+    deleted_data = BuildListLaborEstimateRead.model_validate(estimate)
+    repos.build_list_labor_estimates.delete(estimate.id)
 
-    logger.info(f"Build list labor estimate {labor_estimate_id} deleted by user {current_user.id}")
+    logger.info(f"User {current_user.id} deleted labor estimate {labor_estimate_id}")
     return deleted_data

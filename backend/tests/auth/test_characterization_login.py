@@ -9,13 +9,14 @@ and adapted to the SAFE-06 characterization shape.
 """
 
 import os
+from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 
 
 def _uniq(base: str) -> str:
@@ -23,7 +24,7 @@ def _uniq(base: str) -> str:
     return f"{base}_{worker}_{os.getpid()}"
 
 
-def test_login_happy_path(client: TestClient, db_session: Session) -> None:
+def test_login_happy_path(client: TestClient, db_session: Any) -> None:
     """Flow 2: email/password login returns access_token + user details."""
     username = _uniq("login_char")
     password = "test_password_123!"
@@ -31,16 +32,15 @@ def test_login_happy_path(client: TestClient, db_session: Session) -> None:
 
     # Create a verified user directly in DB (avoids needing to go through
     # the signup → verify-email flow here; that is covered by flow 1)
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        email_verified=True,
-        disabled=False,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
 
     # POST form-encoded credentials (OAuth2PasswordRequestForm)
     response = client.post(

@@ -2,14 +2,13 @@ import os
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.category import Category
-from app.api.models.part_manufacturer import PartManufacturer
-from app.api.models.user import User
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.catalog import Category, PartManufacturer
+from app.db.dynamo.users import User
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, create_car_in_db, login_user
 
 
@@ -26,7 +25,7 @@ def get_auth_headers(token: str) -> dict[str, str]:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
@@ -34,18 +33,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -65,7 +63,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test successfully adding a part to a build list."""
         # Login as test user and get token
@@ -130,7 +128,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test adding a part to a non-existent build list."""
         # Login as test user and get token
@@ -159,9 +157,7 @@ class TestBuildListParts:
         )
         assert response.status_code == 404
 
-    def test_add_part_to_build_list_part_not_found(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_add_part_to_build_list_part_not_found(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test adding a non-existent part to a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
@@ -198,7 +194,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test adding a part to a build list without providing quantity."""
         # Login as test user and get token
@@ -247,7 +243,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test adding a part to a build list with invalid quantity."""
         # Login as test user and get token
@@ -296,7 +292,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test adding a duplicate part to a build list."""
         # Login as test user and get token
@@ -353,7 +349,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test getting parts from a build list."""
         # Login as test user and get token
@@ -409,7 +405,7 @@ class TestBuildListParts:
         assert build_list_part["quantity"] == 2
         assert build_list_part["notes"] == "Test notes"
 
-    def test_get_build_list_parts_not_found(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_build_list_parts_not_found(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test getting parts from a non-existent build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
@@ -425,7 +421,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test getting parts from a build list without authentication (public read is allowed)."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -453,7 +449,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test updating a build list part."""
         # Login as test user and get token
@@ -547,7 +543,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test updating a build list part with invalid quantity."""
         # Login as test user and get token
@@ -611,7 +607,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test removing a part from a build list."""
         # Login as test user and get token
@@ -666,9 +662,7 @@ class TestBuildListParts:
         data = response.json()
         assert len(data) == 0
 
-    def test_remove_part_from_build_list_not_found(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_remove_part_from_build_list_not_found(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test removing a build list part that doesn't exist."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
@@ -690,7 +684,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test adding a part to a build list with extra fields in the request."""
         # Login as test user and get token
@@ -746,7 +740,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test adding a part to a build list with malformed JSON."""
         # Login as test user and get token
@@ -793,7 +787,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test adding a part to a build list with wrong content type."""
         # Login as test user and get token
@@ -845,7 +839,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test updating a build list part with extra fields in the request."""
         # Login as test user and get token
@@ -913,7 +907,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test updating a build list part with malformed JSON."""
         # Login as test user and get token
@@ -974,7 +968,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test updating a build list part with wrong content type."""
         # Login as test user and get token
@@ -1039,13 +1033,11 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test adding a part to a build list with a disabled user account."""
         # Disable the user and commit to database
-        test_user.disabled = True
-        db_session.commit()
-        db_session.refresh(test_user)
+        test_user = UserRepository().update(test_user.id, disabled=True)
 
         # Try to login as disabled user - this should fail
         from app.core.config import settings
@@ -1063,13 +1055,11 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test adding a part to a build list with an unverified email user account."""
         # Set email as unverified and commit to database
-        test_user.email_verified = False
-        db_session.commit()
-        db_session.refresh(test_user)
+        test_user = UserRepository().update(test_user.id, email_verified=False)
 
         # Login as test user (this should work since email verification is checked later)
         token = login_user(client, test_user.username)
@@ -1096,7 +1086,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test creating a global part and adding it to a build list in one operation."""
         # Login as test user and get token
@@ -1144,7 +1134,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test getting global parts from a build list with full part details."""
         # Login as test user and get token
@@ -1207,7 +1197,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test updating a global part in a build list by build_list_id and part_id."""
         # Login as test user and get token
@@ -1267,9 +1257,7 @@ class TestBuildListParts:
         assert data["quantity"] == 5
         assert data["notes"] == "Updated notes via global part endpoint"
 
-    def test_update_part_in_build_list_not_found(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_update_part_in_build_list_not_found(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test updating a non-existent global part in a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
@@ -1307,7 +1295,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test removing a global part from a build list by build_list_id and part_id."""
         # Login as test user and get token
@@ -1364,9 +1352,7 @@ class TestBuildListParts:
         data = response.json()
         assert len(data) == 0
 
-    def test_remove_part_from_build_list_not_found(
-        self, client: TestClient, test_user: User, db_session: Session
-    ) -> None:
+    def test_remove_part_from_build_list_not_found(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test removing a non-existent global part from a build list."""
         # Login as test user and get token
         token = login_user(client, test_user.username)
@@ -1398,7 +1384,7 @@ class TestBuildListParts:
         premium_test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test counting build lists containing a global part when it exists in multiple build lists."""
         # Use premium user so we can create multiple build lists
@@ -1472,7 +1458,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test counting build lists containing a global part when it exists but is not in any build lists."""
         # Login as test user and get token
@@ -1510,7 +1496,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test that counting build lists containing a global part works without authentication."""
         # Login as test user and get token to create data
@@ -1567,7 +1553,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test build list part update when build list is deleted (edge case - cascade behavior)."""
         token = login_user(client, test_user.username)
@@ -1631,7 +1617,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test build list part deletion when build list is deleted (edge case - cascade behavior)."""
         token = login_user(client, test_user.username)
@@ -1689,7 +1675,7 @@ class TestBuildListParts:
         test_user: User,
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test counting build list parts."""
         # Login as test user and get token

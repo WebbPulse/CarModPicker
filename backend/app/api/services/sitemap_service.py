@@ -24,13 +24,9 @@ from __future__ import annotations
 from datetime import datetime
 from html import escape as _html_escape
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car_generation import CarGeneration as DBCarGeneration
-from app.api.models.part import Part as DBPart
+from app.api.dependencies.repositories import get_repositories
 from app.core.config import settings
+from app.db.dynamo.models import TimestampedDynamoModel
 
 # Sitemaps protocol hard cap is 50,000 URLs per file; stay well under it so a
 # single page is always a valid sitemap even with metadata overhead.
@@ -120,24 +116,20 @@ def _urlset(url_elements: list[str]) -> str:
 # --- Per-type counting + row queries -------------------------------------
 
 
-def _parts_query():
+def _canonical_parts() -> list[TimestampedDynamoModel]:
     # Only canonical parts: a non-null canonical_part_id means this row is a
     # duplicate whose surface page redirects to the canonical, so indexing it
     # would create duplicate-content URLs.
-    return select(DBPart).where(DBPart.canonical_part_id.is_(None))
+    return list(get_repositories().parts.list_canonical())
 
 
-def _build_lists_query():
+def _build_lists() -> list[TimestampedDynamoModel]:
     # Every build list is publicly readable by id (no privacy flag exists).
-    return select(DBBuildList)
+    return list(get_repositories().build_lists.scan_all())
 
 
-def _cars_query():
-    return select(DBCarGeneration)
-
-
-def _count(db: Session, base_stmt) -> int:
-    return db.scalar(select(func.count()).select_from(base_stmt.subquery())) or 0
+def _car_generations() -> list[TimestampedDynamoModel]:
+    return list(get_repositories().car_generations.list_all())
 
 
 def page_count(total: int) -> int:
@@ -151,7 +143,7 @@ def page_count(total: int) -> int:
 # --- Public API ----------------------------------------------------------
 
 
-def generate_sitemap_index(db: Session) -> str:
+def generate_sitemap_index() -> str:
     """Sitemap index referencing every child sitemap page."""
     api = _api_base_url()
     now = _w3c_datetime(datetime.now().astimezone())
@@ -167,9 +159,9 @@ def generate_sitemap_index(db: Session) -> str:
             )
 
     add(SITEMAP_STATIC, 1)
-    add(SITEMAP_PARTS, page_count(_count(db, _parts_query())))
-    add(SITEMAP_CARS, page_count(_count(db, _cars_query())))
-    add(SITEMAP_BUILD_LISTS, page_count(_count(db, _build_lists_query())))
+    add(SITEMAP_PARTS, page_count(len(_canonical_parts())))
+    add(SITEMAP_CARS, page_count(len(_car_generations())))
+    add(SITEMAP_BUILD_LISTS, page_count(len(_build_lists())))
 
     body = "\n".join(sitemaps)
     return (
@@ -189,38 +181,30 @@ def generate_static_sitemap() -> str:
     return _urlset(elements)
 
 
-def _entity_sitemap(
-    db: Session,
-    base_stmt,
-    id_attr: str,
+def _dynamo_sitemap(
+    rows: list[TimestampedDynamoModel],
     url_prefix: str,
     page: int,
     *,
     changefreq: str,
     priority: str,
 ) -> str:
-    """Build one page of a child sitemap for a DB-backed entity type.
-
-    Ordered by id so pagination is stable across requests."""
     base = _base_url()
     offset = (page - 1) * URLS_PER_PAGE
-    model = base_stmt.column_descriptions[0]["entity"]
-    stmt = base_stmt.order_by(model.id).offset(offset).limit(URLS_PER_PAGE)
-    elements: list[str] = []
-    for row in db.scalars(stmt).all():
-        loc = f"{base}{url_prefix}/{getattr(row, id_attr)}"
-        elements.append(
-            _url_element(
-                loc,
-                lastmod=getattr(row, "updated_at", None),
-                changefreq=changefreq,
-                priority=priority,
-            )
+    ordered = sorted(rows, key=lambda row: str(row.id))[offset : offset + URLS_PER_PAGE]
+    elements = [
+        _url_element(
+            f"{base}{url_prefix}/{row.id}",
+            lastmod=row.updated_at,
+            changefreq=changefreq,
+            priority=priority,
         )
+        for row in ordered
+    ]
     return _urlset(elements)
 
 
-def generate_child_sitemap(db: Session, name: str, page: int) -> str | None:
+def generate_child_sitemap(name: str, page: int) -> str | None:
     """Render child sitemap ``name`` page ``page`` (1-based).
 
     Returns None for an unknown name so the route can 404."""
@@ -229,33 +213,9 @@ def generate_child_sitemap(db: Session, name: str, page: int) -> str | None:
     if name == SITEMAP_STATIC:
         return generate_static_sitemap()
     if name == SITEMAP_PARTS:
-        return _entity_sitemap(
-            db,
-            _parts_query(),
-            "id",
-            "/parts",
-            page,
-            changefreq="weekly",
-            priority="0.7",
-        )
+        return _dynamo_sitemap(_canonical_parts(), "/parts", page, changefreq="weekly", priority="0.7")
     if name == SITEMAP_CARS:
-        return _entity_sitemap(
-            db,
-            _cars_query(),
-            "id",
-            "/car-generations",
-            page,
-            changefreq="monthly",
-            priority="0.6",
-        )
+        return _dynamo_sitemap(_car_generations(), "/car-generations", page, changefreq="monthly", priority="0.6")
     if name == SITEMAP_BUILD_LISTS:
-        return _entity_sitemap(
-            db,
-            _build_lists_query(),
-            "id",
-            "/build-lists",
-            page,
-            changefreq="weekly",
-            priority="0.6",
-        )
+        return _dynamo_sitemap(_build_lists(), "/build-lists", page, changefreq="weekly", priority="0.6")
     return None

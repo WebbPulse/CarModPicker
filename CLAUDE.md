@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CarModPicker is a full-stack web application for managing car modifications. Users can track their cars, create build lists with parts, browse a global parts catalog, and log their builds in forum-style threads. A companion Chrome extension scrapes parts from retailer pages.
 
-**Stack:** FastAPI (Python 3.13) backend + React 19 (TypeScript) frontend + PostgreSQL, deployed on AWS (App Runner + RDS). Infrastructure managed with Terraform (`terraform/`).
+**Stack:** FastAPI (Python 3.13) backend + React 19 (TypeScript) frontend, deployed on AWS as Lambda + HTTP API + DynamoDB (the legacy App Runner + RDS PostgreSQL stack still runs in production until cutover). Infrastructure managed with Terraform (`terraform/`).
 
 ---
 
@@ -18,24 +18,22 @@ CarModPicker is a full-stack web application for managing car modifications. Use
 # Start dev server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Database (requires Docker)
-docker-compose up -d      # start PostgreSQL
-docker-compose down       # stop
+# Local services (requires Docker): DynamoDB Local on :8001, MinIO on :9000
+docker-compose up -d
+docker-compose down
+python scripts/create_dynamo_tables.py   # create the app's tables in DynamoDB Local (idempotent)
+python scripts/backfill_from_postgres.py --dry-run   # one-off Postgres -> DynamoDB copy (needs psycopg2-binary + DATABASE_URL)
 
-# Migrations — always use autogenerate, never write manually
-alembic revision --autogenerate -m "description"
-alembic upgrade head
+# Table definitions live in app/db/dynamo/tables.py; regenerate the Terraform copy after editing
+python scripts/export_dynamo_tables.py
 
 # Tests — always run with -n auto for parallel execution
-# Tests use SQLite in-memory (not PostgreSQL) — no DB setup required
+# Tests run against moto's in-memory DynamoDB — no services required
 pytest -n auto
 pytest -n auto --cov=app --cov-report=term-missing
 pytest -n auto path/to/test_file.py       # single file
 pytest -n auto -k "test_name"             # single test
 # Rate limiting is disabled in tests by default; set ENABLE_RATE_LIMITING=true to test it
-
-# Populate local DB with sample data
-python ../scripts/populate_sample_data.py   # run from backend/
 
 # Linting / formatting
 black --config pyproject.toml .
@@ -73,23 +71,22 @@ npm run watch   # auto-rebuild on change (then reload in chrome://extensions/)
 ```
 Browser / Chrome Extension
     → React frontend (port 4000, dev proxy /api → 8000)
-    → FastAPI backend (port 8000, prefix /api)
-    → PostgreSQL (Docker locally, RDS PostgreSQL 16 in prod)
+    → FastAPI backend (port 8000, prefix /api; Lambda + HTTP API in AWS)
+    → DynamoDB (DynamoDB Local in Docker locally, DynamoDB in AWS)
 ```
 
 ### Backend (`backend/app/`)
 
 - **`main.py`** — App factory: registers all routers via `EndpointRegistry`, adds CORS, rate-limiting, and error-handler middleware.
 - **`api/endpoints/`** — One file per domain (`auth`, `users`, `car_generations`, `parts`, `build_lists`, `build_list_parts`, `build_list_phases`, `build_logs`, `votes`, `reports`, `images`, `search`, `admin`, `crawled_pages`, `part_manufacturers`, `categories`, `retailers`, `bug_reports`).
-- **`api/models/`** — SQLAlchemy 2.0 ORM models (22+ tables).
+- **`db/dynamo/`** — DynamoDB layer: `tables.py` (every table and GSI, one `TableSpec` each), `repository.py` (generic `DynamoRepository[TModel]`), and one module per domain (`users`, `catalog`, `build_lists`, `build_logs`, `moderation`, ...) holding the Pydantic item models and their repositories. `api/dependencies/repositories.py` bundles them into the `Repositories` dependency.
 - **`api/schemas/`** — Pydantic v2 request/response schemas.
 - **`api/services/`** — Business logic layer called by endpoints.
 - **`api/dependencies/auth.py`** — FastAPI `Depends()` helpers: `get_current_user`, `get_optional_current_user`, `get_current_admin_user`, `get_current_superuser`.
 - **`api/middleware/`** — Rate limiting + content-length guard + error handlers.
-- **`api/utils/`** — Shared patterns: `BaseEndpointRouter` (generic CRUD router), `BaseCRUDService`, `EndpointRegistry` (standardized router registration), `base_vote_router`, `base_report_router`, pagination, authorization, subscription checks.
+- **`api/utils/`** — Shared patterns: `BaseDynamoEndpointRouter` (generic CRUD router over `BaseDynamoCRUDService`), `EndpointRegistry` (standardized router registration), pagination, authorization, subscription checks.
 - **`core/`** — Config, logging, email templates (React Email HTML, sent via SES), car/category seed data.
 - **`backend/app/core/sentry.py`** — Sentry SDK 2.x init helper. Env-gated (TESTING+APP_ENVIRONMENT+DSN). Scope processor reads request_id/user_id from log_context ContextVars.
-- **`alembic/versions/`** — Migration history (never edit manually).
 
 **Auth:** JWT (HS256, configurable expiry 15 min–7 days per user preference) + bcrypt passwords + optional TOTP 2FA. Requires email verification before login is allowed. Email sent via AWS SES with IAM role auth.
 
@@ -97,11 +94,11 @@ Browser / Chrome Extension
 
 **Special endpoints:**
 - `GET /health` — liveness check (always 200)
-- `GET /ready` — readiness check (503 until DB is reachable; used during App Runner cold start)
+- `GET /ready` — readiness check (503 until DynamoDB answers a `DescribeTable` on the users table)
 
 ### Backend patterns
 
-Most endpoints are built on `BaseEndpointRouter` (generic CRUD over `BaseCRUDService`) rather than hand-rolled route functions. When adding a new domain, follow this pattern instead of writing boilerplate. Votes and reports use `base_vote_router` / `base_report_router` — both are polymorphic and handle all entity types through a unified endpoint.
+Endpoints read and write through repositories from `app/db/dynamo/`, injected via `get_repositories()`. Simple domains use `BaseDynamoEndpointRouter` (generic CRUD over `BaseDynamoCRUDService`) rather than hand-rolled route functions; when adding a new domain, add a `TableSpec`, an item model plus repository, and follow that pattern. Votes and reports are polymorphic over `entity_type` / `entity_id` and served by the unified `votes.py` / `reports.py` endpoints backed by `VoteService` / `ReportService` on DynamoDB.
 
 ### Frontend (`frontend/src/`)
 
@@ -138,44 +135,54 @@ feature/* ──PR──▶ staging ──PR──▶ main
 
 ### Workflows
 
-Six workflows in `.github/workflows/`, three CI and three deploy, each scoped by path. All six are `main`-only today.
+Six workflows in `.github/workflows/`, three CI and three deploy, each scoped by path.
 
-| Workflow | Trigger today | Paths |
+| Workflow | Trigger | Paths |
 |---|---|---|
 | `backend-ci.yml` | `pull_request` → `main` | `backend/**` |
 | `frontend-ci.yml` | `pull_request` → `main` | `frontend/**` |
 | `chrome-extension-ci.yml` | `pull_request` → `main` | `chrome-extension/**` |
-| `backend-deploy.yml` | `push` → `main` | `backend/**` |
-| `frontend-deploy.yml` | `push` → `main` | `frontend/**` |
+| `backend-deploy.yml` | `push` → `main`, `staging` | `backend/**` |
+| `frontend-deploy.yml` | `push` → `main`, `staging` | `frontend/**` |
 | `chrome-extension-deploy.yml` | `push` → `main` | `chrome-extension/**` |
 
 The three deploy workflows are fully independent — a backend merge never rebuilds the frontend.
 
-**What has to change when `staging` exists.** The three CI workflows need `staging` added to `pull_request: branches:`, or PRs into `staging` run no checks at all. `backend-deploy.yml` and `frontend-deploy.yml` need `staging` added to `push: branches:` and their hardcoded `environment: production` selected from the branch instead. Both also hardcode `TFC_WORKSPACE_ID: ws-oh1VvpTBPxmcrSYD`, and `frontend-deploy.yml` hardcodes `VITE_API_URL: https://api.carmodpicker.com` — both must become per-environment before a staging push is safe.
+`backend-deploy.yml` and `frontend-deploy.yml` pick their GitHub Environment from the branch (`main` → `production`, otherwise `staging`) and read every deploy-time value from that Environment. The backend deploy builds a Lambda zip (`requirements-lambda.txt` resolved for manylinux x86_64 / Python 3.13, plus `app/`), uploads it to the artifacts bucket keyed by commit SHA, waits for HCP Terraform to go idle, then runs `update-function-code` and `publish-version`. The Docker/ECR/App Runner steps still run only while `APP_RUNNER_SERVICE_ARN` is set on the Environment.
+
+**Still to change:** the three CI workflows only run on PRs into `main`; PRs into `staging` run no checks until `staging` is added to their `pull_request: branches:`.
 
 **`chrome-extension-deploy.yml` stays `main`-only.** It publishes to the Chrome Web Store, not to AWS: patch-bump `manifest.json`, tag `chrome-extension-vX.Y.Z`, cut a GitHub Release, upload and publish the zip via the CWS API. A browser extension has no staging-account equivalent and there is no staging store listing, so a `staging` trigger would have nothing to deploy to. It is also the one sanctioned exception to "never commit directly to `main`" — it pushes its own version bump with `git push origin HEAD:main`.
 
 ### Environment-scoped variables
 
-Deploy variables are **environment-scoped**: `AWS_DEPLOY_ROLE_ARN`, `APP_RUNNER_SERVICE_ARN`, `CLOUDFRONT_DISTRIBUTION_ID`, `ECR_REPOSITORY_NAME` and `FRONTEND_S3_BUCKET` live on the `production` GitHub Environment, not the repository, so a `staging` push cannot silently pick up the production role. The workflows already declare `environment:`; a staging deploy needs a `staging` GitHub Environment (only `production` exists) with the same variables defined for the staging account.
+Deploy variables are **environment-scoped**: they live on the `production` and `staging` GitHub Environments, not the repository, so a `staging` push cannot silently pick up the production role. Nothing deploy-related is hardcoded in the workflows any more — the workspace id and the API URL are Environment variables too. Values come from the matching workspace's Terraform outputs (`terraform/README.md` maps each variable to its output). `VITE_API_URL` is `api_url`, which follows the served domain (`https://api.carmodpicker.com`, `https://api.staging.carmodpicker.com` once staging runs profile `full`), so it has to be re-copied when a profile flips; `frontend_url`, `domain_name`, `route53_zone_id` and `route53_zone_name_servers` are the other hostname-bearing outputs.
 
 | Workflow | Variables | Secrets |
 |---|---|---|
-| `backend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY_NAME`, `APP_RUNNER_SERVICE_ARN` | `TFC_API_TOKEN` |
-| `frontend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `FRONTEND_S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `CWS_EXTENSION_ID` | `TFC_API_TOKEN` |
+| `backend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `TFC_WORKSPACE_ID`, `LAMBDA_FUNCTION_NAME`, `LAMBDA_ARTIFACTS_BUCKET`; production only: `ECR_REPOSITORY_NAME`, `APP_RUNNER_SERVICE_ARN` | `TFC_API_TOKEN` |
+| `frontend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `TFC_WORKSPACE_ID`, `FRONTEND_S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_URL`, `CWS_EXTENSION_ID` | `TFC_API_TOKEN` |
 | `chrome-extension-deploy.yml` | `CWS_CLIENT_ID`, `CWS_EXTENSION_ID` | `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` |
 
-The backend and frontend deploys poll the HCP Terraform runs API with `TFC_API_TOKEN` and wait for the workspace to reach a terminal state before touching App Runner or S3 — that poll is what prevents the App Runner `OPERATION_IN_PROGRESS` error when Terraform is mid-apply. A staging deploy must poll the staging workspace, not `ws-oh1VvpTBPxmcrSYD`.
+The backend and frontend deploys poll the HCP Terraform runs API with `TFC_API_TOKEN` and wait for the workspace named by `TFC_WORKSPACE_ID` to reach a terminal state before touching Lambda, App Runner or S3 — that poll is what stops a code update racing an in-flight configuration change. Production polls `ws-oh1VvpTBPxmcrSYD`; staging polls `CarModPicker-staging`.
 
 ### A staging branch does not imply staging infrastructure
 
-`terraform/` is a single HCP workspace, `CarModPicker`, pinned in the `cloud` block in `versions.tf`. `var.environment` already validates `production | staging` and feeds `local.prefix`, but no staging workspace exists yet and `apprunner.tf` still hardcodes `APP_ENVIRONMENT = "production"`. Declare CarModPicker's staging profile (`none` / `reduced` / `full`) before assuming there is anything in 748861776298 to deploy to. Staging is never auto-provisioned to mirror production.
+`terraform/` is one root module applied by two HCP workspaces: `CarModPicker` (production, bound to `main`, pinned in the `cloud` block in `versions.tf`) and `CarModPicker-staging` (bound to `staging`, `environment = staging`). `var.environment` feeds `local.prefix`, `local.domain_name` and every environment-dependent decision.
+
+The intended staging profile is `full`: the same stack as production minus the legacy pieces, served as `staging.carmodpicker.com` / `www.staging.carmodpicker.com` / `api.staging.carmodpicker.com`. The staging account owns the `staging.carmodpicker.com` hosted zone, and the same apply writes its `NS` delegation into the `carmodpicker.com` zone in the production account through the `aws.parent_dns` provider alias, which assumes `route53_write_role_arn` (scoped to that one record) and targets `parent_route53_zone_id`. WebbPulse-Platform pushes both variables to the workspace; SES uses the domain identity exactly as production does. `reduced` is the fallback while those variables are absent: no custom domain, frontend on the CloudFront hostname, API on the `execute-api` endpoint, SES on a mailbox identity. `none` is rejected. Staging can never build the legacy stack: `local.legacy_stack` is hard-wired to `environment == "production"`, so RDS and App Runner do not exist in 748861776298 whatever `legacy_stack_enabled` says. Staging is never auto-provisioned to mirror production.
+
+### The Lambda migration stack
+
+Production runs App Runner + RDS and Lambda + DynamoDB side by side until cutover. Three variables on the production workspace steer it: `legacy_stack_enabled` (default on; every legacy resource carries a `moved` block, so turning it on is a no-op and turning it off is a destroy), `api_target` (unset defaults to `legacy` while the legacy stack is enabled and `lambda` once it is off; `legacy` keeps `api.carmodpicker.com` on App Runner, `lambda` flips the Route53 record to the HTTP API), and `custom_domain_enabled`. The full sequence is in `terraform/README.md` under "Production cutover".
+
+The Lambda's code is not Terraform's: the function is created from a placeholder zip with `ignore_changes` on the package, and `backend-deploy.yml` owns every update after that. Its secrets come from the `<prefix>/app` JSON secret, read at import by `backend/app/core/secrets.py` when `APP_SECRETS_ARN` is set. DynamoDB tables are declared once, in `backend/app/db/dynamo/tables.py`; `backend/scripts/export_dynamo_tables.py` renders them to `terraform/dynamodb_tables.json` and `tests/db/test_dynamo_tables_json_up_to_date.py` fails when the two drift.
 
 ---
 
 ## Key Conventions
 
-- **Alembic migrations:** Always use `alembic revision --autogenerate`. Never write migration files by hand.
-- **pytest:** Always pass `-n auto` for parallel execution. Tests use SQLite in-memory — no Postgres required.
-- **New CRUD endpoints:** Extend `BaseEndpointRouter` + `BaseCRUDService`; register with `EndpointRegistry` in `main.py`.
+- **Tables:** Declare every table and index in `backend/app/db/dynamo/tables.py`, then run `python scripts/export_dynamo_tables.py` so `terraform/dynamodb_tables.json` matches (a test fails when they drift). There are no migrations; schema changes are additive attributes on Pydantic item models.
+- **pytest:** Always pass `-n auto` for parallel execution. Tests use moto's in-memory DynamoDB — no services required.
+- **New CRUD endpoints:** Extend `BaseDynamoEndpointRouter` + `BaseDynamoCRUDService`; register with `EndpointRegistry` in `main.py`.
 - The backend CORS config explicitly allows `chrome-extension://` origins and `null` (for service workers).

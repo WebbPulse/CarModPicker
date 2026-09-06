@@ -2,9 +2,9 @@
 Pure read service that aggregates `PartPriceHistory` over a time window.
 
 Two public functions:
-- `aggregate_single_part(db, part_id, window)` — full per-retailer breakdown +
+- `aggregate_single_part(part_id, window)` — full per-retailer breakdown +
   listing-level history for one part (resolved across its canonical link group).
-- `aggregate_batch(db, part_ids, window)` — min/max/last/trend per requested
+- `aggregate_batch(part_ids, window)` — min/max/last/trend per requested
   part_id, dedup'd by canonical link group, in a fixed number of round-trips
   regardless of batch size.
 
@@ -15,18 +15,12 @@ The service does NOT enforce a batch cap — that lives at the endpoint layer
 from __future__ import annotations
 
 import statistics
-from collections.abc import Sequence
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import Row, func, select
-from sqlalchemy.orm import Session
-
-from app.api.models.part import Part as DBPart
-from app.api.models.part_listing import PartListing as DBPartListing
-from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
-from app.api.models.retailer import Retailer as DBRetailer
+from app.api.dependencies.repositories import get_repositories
 from app.api.schemas.part_price_history import (
     PartPriceHistoryReadWithRetailer,
     PriceHistoryBatchSummaryItem,
@@ -35,6 +29,7 @@ from app.api.schemas.part_price_history import (
     PriceTrend,
     RetailerPriceBreakdown,
 )
+from app.db.dynamo.catalog import PartPriceHistory, Retailer
 
 _VALID_WINDOWS = {"7d", "30d", "90d", "180d", "1y", "all"}
 ALLOWED_WINDOWS: list[str] = sorted(_VALID_WINDOWS)
@@ -121,16 +116,38 @@ def _compute_trend(prices_chronological: list[int]) -> PriceTrend:
 # --- Single-part aggregation -------------------------------------------------
 
 
+def _history_rows(
+    part_ids: Iterable[UUID],
+    *,
+    since: Optional[datetime],
+) -> tuple[list[tuple[PartPriceHistory, UUID]], dict[UUID, Retailer]]:
+    repos = get_repositories()
+    listings = repos.part_listings.list_by_parts(part_ids)
+    retailers = repos.retailers.get_many(listing.retailer_id for listing in listings)
+    rows: list[tuple[PartPriceHistory, UUID]] = []
+    for listing in listings:
+        for entry in repos.part_price_history.list_by_listing(listing.id, since=since):
+            rows.append((entry, listing.retailer_id))
+    rows.sort(key=lambda row: (row[0].observed_at, str(row[0].id)), reverse=True)
+    return rows, retailers
+
+
+def _with_retailer(entry: PartPriceHistory, retailer: Retailer) -> PartPriceHistoryReadWithRetailer:
+    return PartPriceHistoryReadWithRetailer(
+        id=entry.id,
+        part_listing_id=entry.part_listing_id,
+        price_cents=entry.price_cents,
+        observed_at=entry.observed_at,
+        retailer_id=retailer.id,
+        retailer_name=retailer.name,
+    )
+
+
 def aggregate_single_part(
-    db: Session,
     part_id: UUID,
     window: str,
 ) -> PriceHistorySinglePartResponse:
     """Aggregate price history for one part over the given window.
-
-    Resolves the canonical link group via `link_group_part_ids` so that
-    duplicates' listings count toward the canonical's history, mirroring the
-    existing `/{part_id}/price-history` and `/{part_id}/best-listing` semantics.
 
     Empty-history cases return a well-formed empty payload (status 200 from the
     endpoint layer); 404 is the endpoint's call when the part itself is missing.
@@ -138,58 +155,19 @@ def aggregate_single_part(
     since = parse_window(window)
     group_ids = [part_id]
 
-    # 1) Pull every history row in window, joined to listing + retailer.
-    stmt = (
-        select(DBPartPriceHistory, DBPartListing, DBRetailer)
-        .join(DBPartListing, DBPartPriceHistory.part_listing_id == DBPartListing.id)
-        .join(DBRetailer, DBPartListing.retailer_id == DBRetailer.id)
-        .where(DBPartListing.part_id.in_(group_ids))
-    )
-    if since is not None:
-        stmt = stmt.where(DBPartPriceHistory.observed_at >= since)
-    stmt = stmt.order_by(DBPartPriceHistory.observed_at.desc())
-    rows = db.execute(stmt).all()
+    all_rows, retailers = _history_rows(group_ids, since=None)
+    rows = [(h, rid) for h, rid in all_rows if rid in retailers and (since is None or h.observed_at >= since)]
 
-    history: list[PartPriceHistoryReadWithRetailer] = [
-        PartPriceHistoryReadWithRetailer(
-            id=h.id,
-            part_listing_id=h.part_listing_id,
-            price_cents=h.price_cents,
-            observed_at=h.observed_at,
-            retailer_id=r.id,
-            retailer_name=r.name,
-        )
-        for h, _l, r in rows
-    ]
+    history: list[PartPriceHistoryReadWithRetailer] = [_with_retailer(h, retailers[rid]) for h, rid in rows]
 
-    # Most-recent observation per retailer from BEFORE the window — lets clients
-    # anchor a carry-over point on the chart's y-axis so sparse windows don't
-    # show stranded points. Pull rows DESC and keep the first per retailer.
     pre_window_anchors: list[PartPriceHistoryReadWithRetailer] = []
     if since is not None:
-        anchor_stmt = (
-            select(DBPartPriceHistory, DBPartListing, DBRetailer)
-            .join(DBPartListing, DBPartPriceHistory.part_listing_id == DBPartListing.id)
-            .join(DBRetailer, DBPartListing.retailer_id == DBRetailer.id)
-            .where(DBPartListing.part_id.in_(group_ids))
-            .where(DBPartPriceHistory.observed_at < since)
-            .order_by(DBPartPriceHistory.observed_at.desc())
-        )
         seen_retailers: set[UUID] = set()
-        for h, _l, r in db.execute(anchor_stmt).all():
-            if r.id in seen_retailers:
+        for h, rid in all_rows:
+            if rid not in retailers or h.observed_at >= since or rid in seen_retailers:
                 continue
-            seen_retailers.add(r.id)
-            pre_window_anchors.append(
-                PartPriceHistoryReadWithRetailer(
-                    id=h.id,
-                    part_listing_id=h.part_listing_id,
-                    price_cents=h.price_cents,
-                    observed_at=h.observed_at,
-                    retailer_id=r.id,
-                    retailer_name=r.name,
-                )
-            )
+            seen_retailers.add(rid)
+            pre_window_anchors.append(_with_retailer(h, retailers[rid]))
 
     if not rows:
         return PriceHistorySinglePartResponse(
@@ -200,11 +178,9 @@ def aggregate_single_part(
             window=window,
         )
 
-    # Cross-retailer summary.
-    all_prices = [h.price_cents for h, _l, _r in rows]
-    # rows are observed_at DESC; reverse for chronological order to compute slope.
+    all_prices = [h.price_cents for h, _rid in rows]
     chrono = list(reversed(all_prices))
-    most_recent_h, _ml, _mr = rows[0]
+    most_recent_h = rows[0][0]
     summary = PriceHistorySummary(
         min_cents=min(all_prices),
         max_cents=max(all_prices),
@@ -214,21 +190,18 @@ def aggregate_single_part(
         observation_count=len(all_prices),
     )
 
-    # Per-retailer breakdown.
-    by_retailer: dict[UUID, list[tuple[DBPartPriceHistory, DBRetailer]]] = {}
-    for h, _l, r in rows:
-        by_retailer.setdefault(r.id, []).append((h, r))
+    by_retailer: dict[UUID, list[PartPriceHistory]] = {}
+    for h, rid in rows:
+        by_retailer.setdefault(rid, []).append(h)
 
     retailer_breakdowns: list[RetailerPriceBreakdown] = []
     for retailer_id, entries in by_retailer.items():
-        retailer = entries[0][1]
-        prices = [h.price_cents for h, _r in entries]
-        # entries inherit the outer DESC order; entries[0] is most recent.
-        most_recent = entries[0][0]
+        prices = [h.price_cents for h in entries]
+        most_recent = entries[0]
         retailer_breakdowns.append(
             RetailerPriceBreakdown(
                 retailer_id=retailer_id,
-                retailer_name=retailer.name,
+                retailer_name=retailers[retailer_id].name,
                 min_cents=min(prices),
                 max_cents=max(prices),
                 last_cents=most_recent.price_cents,
@@ -237,7 +210,6 @@ def aggregate_single_part(
             )
         )
 
-    # Stable ordering: retailer_name ASC.
     retailer_breakdowns.sort(key=lambda b: b.retailer_name)
 
     return PriceHistorySinglePartResponse(
@@ -299,7 +271,6 @@ def apply_retailer_filter(
 
 
 def aggregate_batch(
-    db: Session,
     part_ids: list[UUID],
     window: str,
 ) -> dict[UUID, PriceHistoryBatchSummaryItem]:
@@ -307,109 +278,49 @@ def aggregate_batch(
 
     Always returns one entry per requested part_id — empty parts get the
     well-formed empty shape so the frontend can iterate without holes. Resolves
-    canonical link groups in bulk and runs grouped aggregation queries to keep
-    cost independent of batch size.
+    canonical link groups so a request for both a canonical and its duplicate
+    does not double-count.
     """
     since = parse_window(window)
 
     if not part_ids:
         return {}
 
-    # 1) Resolve every requested part_id to its canonical group in one pass.
-    # We need: for each requested part_id, the canonical_id; for each canonical_id,
-    # the full list of part_ids in that group (so a request for both A and its
-    # duplicate B doesn't double-count).
-    rows_self = db.execute(select(DBPart.id, DBPart.canonical_part_id).where(DBPart.id.in_(part_ids))).all()
-    canonical_for_requested: dict[UUID, UUID] = {}
-    requested_known: set[UUID] = set()
-    for pid, canon in rows_self:
-        requested_known.add(pid)
-        canonical_for_requested[pid] = canon if canon is not None else pid
-
-    canonical_ids = set(canonical_for_requested.values())
-    # Pull every sibling that points at any of these canonicals so listings
-    # in the link group can be aggregated under the canonical id.
-    sibling_rows: Sequence[Row[tuple[UUID, UUID | None]]] = []
-    if canonical_ids:
-        sibling_rows = db.execute(
-            select(DBPart.id, DBPart.canonical_part_id).where(DBPart.canonical_part_id.in_(canonical_ids))
-        ).all()
-    # Map every part-row in any group → its canonical id.
-    part_to_canonical: dict[UUID, UUID] = {}
-    for canon in canonical_ids:
-        part_to_canonical[canon] = canon  # canonical maps to self
-    for sib_id, sib_canon in sibling_rows:
-        if sib_canon is not None:
-            part_to_canonical[sib_id] = sib_canon
-
-    # 2) Grouped min/max/count per canonical_id (single SELECT).
-    canonical_id_expr = func.coalesce(DBPart.canonical_part_id, DBPart.id)
-    minmax_stmt = (
-        select(
-            canonical_id_expr.label("canonical_id"),
-            func.min(DBPartPriceHistory.price_cents).label("min_cents"),
-            func.max(DBPartPriceHistory.price_cents).label("max_cents"),
-            func.count(DBPartPriceHistory.id).label("cnt"),
-        )
-        .join(DBPartListing, DBPartListing.id == DBPartPriceHistory.part_listing_id)
-        .join(DBPart, DBPart.id == DBPartListing.part_id)
-        .where(canonical_id_expr.in_(canonical_ids))
-        .group_by(canonical_id_expr)
-    )
-    if since is not None:
-        minmax_stmt = minmax_stmt.where(DBPartPriceHistory.observed_at >= since)
-    minmax_rows = db.execute(minmax_stmt).all() if canonical_ids else []
-    minmax_by_canonical: dict[UUID, tuple[Optional[int], Optional[int], int]] = {
-        row.canonical_id: (row.min_cents, row.max_cents, int(row.cnt or 0)) for row in minmax_rows
+    repos = get_repositories()
+    requested = repos.parts.get_many(part_ids)
+    canonical_for_requested: dict[UUID, UUID] = {
+        pid: (part.canonical_part_id or pid) for pid, part in requested.items()
     }
+    canonical_ids = set(canonical_for_requested.values())
 
-    # 3) Pull all in-window observations (price + observed_at) per canonical so we
-    # can compute `last_cents`/`last_observed_at` and the trend slope without an
-    # N+1 fan-out. One SELECT bounded by `canonical_id_expr.in_(canonical_ids)`.
-    obs_rows: Sequence[Row[tuple[UUID, int, datetime]]] = []
-    if canonical_ids:
-        obs_stmt = (
-            select(
-                canonical_id_expr.label("canonical_id"),
-                DBPartPriceHistory.price_cents,
-                DBPartPriceHistory.observed_at,
-            )
-            .join(DBPartListing, DBPartListing.id == DBPartPriceHistory.part_listing_id)
-            .join(DBPart, DBPart.id == DBPartListing.part_id)
-            .where(canonical_id_expr.in_(canonical_ids))
-        )
-        if since is not None:
-            obs_stmt = obs_stmt.where(DBPartPriceHistory.observed_at >= since)
-        obs_stmt = obs_stmt.order_by(DBPartPriceHistory.observed_at.asc())
-        obs_rows = db.execute(obs_stmt).all()
+    group_members: dict[UUID, list[UUID]] = {}
+    for canon in canonical_ids:
+        members = [canon]
+        members.extend(sibling.id for sibling in repos.parts.list_link_group(canon))
+        group_members[canon] = list(dict.fromkeys(members))
 
     obs_by_canonical: dict[UUID, list[tuple[int, datetime]]] = {}
-    for canon_id, price, observed_at in obs_rows:
-        obs_by_canonical.setdefault(canon_id, []).append((price, observed_at))
+    for canon, members in group_members.items():
+        rows, _retailers = _history_rows(members, since=since)
+        obs_by_canonical[canon] = [(h.price_cents, h.observed_at) for h, _rid in reversed(rows)]
 
-    # 4) Build the per-requested-part response. Multiple requested IDs that share
-    # a canonical group resolve to the SAME aggregated value (no double-count).
     result: dict[UUID, PriceHistoryBatchSummaryItem] = {}
     for pid in part_ids:
-        if pid not in requested_known:
-            # Unknown part — return empty-summary entry (don't 404 here).
+        if pid not in requested:
             result[pid] = _empty_batch_item()
             continue
-        canon_id = canonical_for_requested[pid]
-        minmax = minmax_by_canonical.get(canon_id)
-        observations = obs_by_canonical.get(canon_id, [])
-        if not observations or minmax is None or minmax[2] == 0:
+        observations = obs_by_canonical.get(canonical_for_requested[pid], [])
+        if not observations:
             result[pid] = _empty_batch_item()
             continue
-        min_cents, max_cents, count = minmax
         prices_chrono = [p for p, _ts in observations]
         last_price, last_ts = observations[-1]
         result[pid] = PriceHistoryBatchSummaryItem(
-            min_cents=min_cents,
-            max_cents=max_cents,
+            min_cents=min(prices_chrono),
+            max_cents=max(prices_chrono),
             last_cents=last_price,
             last_observed_at=last_ts,
             trend=_compute_trend(prices_chrono),
-            observation_count=count,
+            observation_count=len(prices_chrono),
         )
     return result

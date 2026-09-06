@@ -5,13 +5,13 @@ from typing import Any
 from uuid import UUID
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import INVALID_UUID_STR, get_default_category_id
+from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
+from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -22,25 +22,24 @@ def get_unique_name(base_name: str) -> str:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"part_manufacturer_admin_{username_suffix}"
     email = f"part_manufacturer_admin_{username_suffix}@example.com"
     password = "testpassword"
 
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
@@ -49,9 +48,7 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-def create_and_login_user(
-    client: TestClient, username_suffix: str, db_session: Session | None = None
-) -> tuple[UUID, str]:
+def create_and_login_user(client: TestClient, username_suffix: str, db_session: Any | None = None) -> tuple[UUID, str]:
     """Create a user and log them in. Returns (user_id, token).
     If db_session is provided, verify email in DB so user can create global parts.
     """
@@ -70,10 +67,9 @@ def create_and_login_user(
         response.raise_for_status()
 
     if db_session is not None:
-        user = db_session.query(DBUser).filter(DBUser.username == username).first()
+        user = UserRepository().get_by_username(username)
         if user:
-            user.email_verified = True
-            db_session.commit()
+            UserRepository().update(user.id, email_verified=True)
 
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
@@ -102,7 +98,7 @@ def create_part_manufacturer_via_api(
 class TestPartManufacturers:
     """Test cases for part_manufacturer endpoints."""
 
-    def test_get_part_manufacturers_success(self, client: TestClient, db_session: Session) -> None:
+    def test_get_part_manufacturers_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting all active part_manufacturers (public)."""
         response = client.get(f"{settings.API_STR}/part-manufacturers/")
         assert response.status_code == 200
@@ -113,7 +109,7 @@ class TestPartManufacturers:
             assert "name" in b
             assert b.get("is_active", True) is True
 
-    def test_get_part_manufacturers_active_only_param(self, client: TestClient, db_session: Session) -> None:
+    def test_get_part_manufacturers_active_only_param(self, client: TestClient, db_session: Any) -> None:
         """Test get part_manufacturers with active_only=false returns all part_manufacturers."""
         _, token = create_and_login_user(client, "part_manufacturers_all")
         create_part_manufacturer_via_api(client, token, get_unique_name("inactive_part_manufacturer"))
@@ -123,9 +119,7 @@ class TestPartManufacturers:
             description="Inactive",
             is_active=False,
         )
-        db_session.add(inactive)
-        db_session.commit()
-        db_session.refresh(inactive)
+        inactive = save_catalog(inactive)
 
         response = client.get(f"{settings.API_STR}/part-manufacturers/?active_only=false")
         assert response.status_code == 200
@@ -133,7 +127,7 @@ class TestPartManufacturers:
         names = [b["name"] for b in part_manufacturers]
         assert inactive.name in names
 
-    def test_get_part_manufacturer_success(self, client: TestClient, db_session: Session) -> None:
+    def test_get_part_manufacturer_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting a specific part_manufacturer (public)."""
         _, token = create_and_login_user(client, "get_one")
         created = create_part_manufacturer_via_api(client, token, get_unique_name("get_one"))
@@ -152,17 +146,17 @@ class TestPartManufacturers:
         msg = response.json().get("message", response.json().get("detail", ""))
         assert "part manufacturer" in msg.lower() and "not found" in msg.lower()
 
-    def test_search_part_manufacturers_success(self, client: TestClient, db_session: Session) -> None:
+    def test_search_part_manufacturers_success(self, client: TestClient, db_session: Any) -> None:
         """Test searching part_manufacturers by name (public)."""
         _, token = create_and_login_user(client, "search")
         create_part_manufacturer_via_api(client, token, get_unique_name("AcmeParts"), "Acme parts")
 
         response = client.get(
             f"{settings.API_STR}/part-manufacturers/search",
-            params={"q": "Acme", "skip": 0, "limit": 10},
+            params={"q": "Acme", "limit": 10},
         )
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["items"]
         assert isinstance(data, list)
 
     def test_search_part_manufacturers_missing_q(self, client: TestClient) -> None:
@@ -170,7 +164,7 @@ class TestPartManufacturers:
         response = client.get(f"{settings.API_STR}/part-manufacturers/search", params={"skip": 0, "limit": 10})
         assert response.status_code == 422
 
-    def test_create_part_manufacturer_success(self, client: TestClient, db_session: Session) -> None:
+    def test_create_part_manufacturer_success(self, client: TestClient, db_session: Any) -> None:
         """Test creating a part_manufacturer as authenticated user (non-admin)."""
         _, token = create_and_login_user(client, "create")
         headers = {"Authorization": f"Bearer {token}"}
@@ -188,7 +182,7 @@ class TestPartManufacturers:
         assert "created_at" in data
         assert "updated_at" in data
 
-    def test_create_part_manufacturer_duplicate_returns_existing(self, client: TestClient, db_session: Session) -> None:
+    def test_create_part_manufacturer_duplicate_returns_existing(self, client: TestClient, db_session: Any) -> None:
         """Test creating a part_manufacturer with existing name returns existing part_manufacturer (case-insensitive)."""
         _, token = create_and_login_user(client, "dup")
         name = get_unique_name("DupPartManufacturer")
@@ -206,7 +200,7 @@ class TestPartManufacturers:
         response = client.post(f"{settings.API_STR}/part-manufacturers/", json=payload)
         assert response.status_code == 401
 
-    def test_update_part_manufacturer_success(self, client: TestClient, db_session: Session) -> None:
+    def test_update_part_manufacturer_success(self, client: TestClient, db_session: Any) -> None:
         """Test updating a part_manufacturer (admin only)."""
         _, user_token = create_and_login_user(client, "update_creator")
         created = create_part_manufacturer_via_api(client, user_token, get_unique_name("ToUpdate"))
@@ -228,7 +222,7 @@ class TestPartManufacturers:
         assert data["name"] == update_data["name"]
         assert data["description"] == update_data["description"]
 
-    def test_update_part_manufacturer_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+    def test_update_part_manufacturer_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
         """Non-admin who is NOT the creator can't update a UGC manufacturer."""
         _, creator_token = create_and_login_user(client, "update_forbidden_creator")
         created = create_part_manufacturer_via_api(client, creator_token, get_unique_name("NoUpdate"))
@@ -243,18 +237,14 @@ class TestPartManufacturers:
         )
         assert response.status_code == 403
 
-    def test_update_part_manufacturer_curated_forbidden_non_admin(
-        self, client: TestClient, db_session: Session
-    ) -> None:
+    def test_update_part_manufacturer_curated_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
         """Non-admin can't edit catalog manufacturers — edits are admin-only."""
         curated = DBPartManufacturer(
             name=get_unique_name("CuratedNoEdit"),
             description="Curated",
             is_active=True,
         )
-        db_session.add(curated)
-        db_session.commit()
-        db_session.refresh(curated)
+        curated = save_catalog(curated)
 
         _, token = create_and_login_user(client, "update_curated_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
@@ -265,7 +255,7 @@ class TestPartManufacturers:
         )
         assert response.status_code == 403
 
-    def test_update_part_manufacturer_not_found(self, client: TestClient, db_session: Session) -> None:
+    def test_update_part_manufacturer_not_found(self, client: TestClient, db_session: Any) -> None:
         """Test updating a non-existent part_manufacturer."""
         _, token = create_and_login_admin_user(client, db_session, "update_nf")
         headers = {"Authorization": f"Bearer {token}"}
@@ -276,7 +266,7 @@ class TestPartManufacturers:
         )
         assert response.status_code == 404
 
-    def test_delete_part_manufacturer_success(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_part_manufacturer_success(self, client: TestClient, db_session: Any) -> None:
         """Test deleting a part_manufacturer (admin only)."""
         _, user_token = create_and_login_user(client, "delete_creator")
         created = create_part_manufacturer_via_api(client, user_token, get_unique_name("ToDelete"))
@@ -292,7 +282,7 @@ class TestPartManufacturers:
         get_resp = client.get(f"{settings.API_STR}/part-manufacturers/{created['id']}")
         assert get_resp.status_code == 404
 
-    def test_delete_part_manufacturer_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_part_manufacturer_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
         """Non-admin who is NOT the creator can't delete a UGC manufacturer."""
         _, creator_token = create_and_login_user(client, "delete_forbidden_creator")
         created = create_part_manufacturer_via_api(client, creator_token, get_unique_name("NoDelete"))
@@ -303,14 +293,14 @@ class TestPartManufacturers:
         response = client.delete(f"{settings.API_STR}/part-manufacturers/{created['id']}", headers=headers)
         assert response.status_code == 403
 
-    def test_delete_part_manufacturer_not_found(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_part_manufacturer_not_found(self, client: TestClient, db_session: Any) -> None:
         """Test deleting a non-existent part_manufacturer."""
         _, token = create_and_login_admin_user(client, db_session, "delete_nf")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.delete(f"{settings.API_STR}/part-manufacturers/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
-    def test_delete_part_manufacturer_with_parts_fails(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_part_manufacturer_with_parts_fails(self, client: TestClient, db_session: Any) -> None:
         """Test deleting a part_manufacturer that has parts returns 409."""
         _, user_token = create_and_login_user(client, "delete_with_parts", db_session)
         created = create_part_manufacturer_via_api(client, user_token, get_unique_name("PartManufacturerWithParts"))
@@ -335,7 +325,7 @@ class TestPartManufacturers:
         detail = body.get("detail", body.get("message", ""))
         assert "associated parts" in detail.lower() or "cannot delete" in detail.lower()
 
-    def test_get_parts_by_part_manufacturer_success(self, client: TestClient, db_session: Session) -> None:
+    def test_get_parts_by_part_manufacturer_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting global parts by part_manufacturer (public)."""
         _, token = create_and_login_user(client, "parts_by_part_manufacturer", db_session)
         created = create_part_manufacturer_via_api(client, token, get_unique_name("PartManufacturerForParts"))
@@ -353,12 +343,12 @@ class TestPartManufacturers:
 
         response = client.get(f"{settings.API_STR}/part-manufacturers/{part_manufacturer_id}/parts")
         assert response.status_code == 200
-        parts = response.json()
+        parts = response.json()["items"]
         assert isinstance(parts, list)
         assert len(parts) >= 1
         assert all(p["part_manufacturer_id"] == part_manufacturer_id for p in parts)
 
-    def test_get_parts_by_part_manufacturer_pagination(self, client: TestClient, db_session: Session) -> None:
+    def test_get_parts_by_part_manufacturer_pagination(self, client: TestClient, db_session: Any) -> None:
         """Test pagination for parts by part_manufacturer."""
         _, token = create_and_login_user(client, "parts_pag", db_session)
         created = create_part_manufacturer_via_api(client, token, get_unique_name("PartManufacturerPag"))
@@ -377,13 +367,14 @@ class TestPartManufacturers:
 
         response = client.get(
             f"{settings.API_STR}/part-manufacturers/{part_manufacturer_id}/parts",
-            params={"skip": 1, "limit": 2},
+            params={"limit": 2},
         )
         assert response.status_code == 200
-        parts = response.json()
-        assert len(parts) <= 2
+        page = response.json()
+        assert len(page["items"]) == 2
+        assert page["has_next"] is True
 
-    def test_get_part_manufacturer_parts_count_success(self, client: TestClient, db_session: Session) -> None:
+    def test_get_part_manufacturer_parts_count_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting parts count for a part_manufacturer (public)."""
         _, token = create_and_login_user(client, "count_user", db_session)
         created = create_part_manufacturer_via_api(client, token, get_unique_name("PartManufacturerCount"))
@@ -416,7 +407,7 @@ class TestPartManufacturers:
         response = client.get(f"{settings.API_STR}/part-manufacturers/{INVALID_UUID_STR}/parts-count")
         assert response.status_code == 404
 
-    def test_count_part_manufacturers_success(self, client: TestClient, db_session: Session) -> None:
+    def test_count_part_manufacturers_success(self, client: TestClient, db_session: Any) -> None:
         """Test counting part_manufacturers (public)."""
         response = client.get(f"{settings.API_STR}/part-manufacturers/count")
         assert response.status_code == 200
@@ -444,7 +435,7 @@ class TestPartManufacturers:
 
     # --- name dedup + counts ---------------------------------------------
 
-    def test_create_pm_dedups_into_existing(self, client: TestClient, db_session: Session) -> None:
+    def test_create_pm_dedups_into_existing(self, client: TestClient, db_session: Any) -> None:
         """A user typing an existing brand name auto-links to that row (no dup).
 
         Manufacturers live in a single global namespace, deduped
@@ -455,16 +446,14 @@ class TestPartManufacturers:
             name=existing_name,
             is_active=True,
         )
-        db_session.add(existing)
-        db_session.commit()
-        db_session.refresh(existing)
+        existing = save_catalog(existing)
 
         _, token = create_and_login_user(client, "dedup_into_existing")
         # Use a case variant to also confirm case-insensitive match.
         result = create_part_manufacturer_via_api(client, token, existing_name.lower())
         assert result["id"] == str(existing.id)
 
-    def test_create_pm_dedups_into_own_prior_create(self, client: TestClient, db_session: Session) -> None:
+    def test_create_pm_dedups_into_own_prior_create(self, client: TestClient, db_session: Any) -> None:
         """A user POSTing the same name twice gets the same row back."""
         _, token = create_and_login_user(client, "dedup_self")
         name = get_unique_name("FooCo")
@@ -472,7 +461,7 @@ class TestPartManufacturers:
         second = create_part_manufacturer_via_api(client, token, name)
         assert first["id"] == second["id"]
 
-    def test_two_users_same_name_dedup_to_one_row(self, client: TestClient, db_session: Session) -> None:
+    def test_two_users_same_name_dedup_to_one_row(self, client: TestClient, db_session: Any) -> None:
         """Manufacturers are globally unique by case-insensitive name: two
         users POSTing the same name resolve to a single shared row."""
         name = get_unique_name("BarCo")
@@ -483,7 +472,7 @@ class TestPartManufacturers:
         b = create_part_manufacturer_via_api(client, token_b, name)
         assert a["id"] == b["id"]
 
-    def test_get_pm_still_returns_200(self, client: TestClient, db_session: Session) -> None:
+    def test_get_pm_still_returns_200(self, client: TestClient, db_session: Any) -> None:
         """No read boundary: a manufacturer row is fetchable by id by anyone."""
         _, creator_token = create_and_login_user(client, "pm_readable_creator")
         created = create_part_manufacturer_via_api(client, creator_token, get_unique_name("PmReadable"))
@@ -495,7 +484,7 @@ class TestPartManufacturers:
         data = response.json()
         assert data["id"] == created["id"]
 
-    def test_get_pm_parts_returns_only_owner_parts(self, client: TestClient, db_session: Session) -> None:
+    def test_get_pm_parts_returns_only_owner_parts(self, client: TestClient, db_session: Any) -> None:
         """GET /{id}/parts returns only the creator's parts."""
         creator_id, creator_token = create_and_login_user(client, "pm_parts_creator", db_session)
         pm = create_part_manufacturer_via_api(client, creator_token, get_unique_name("PmParts"))
@@ -515,10 +504,10 @@ class TestPartManufacturers:
 
         response = client.get(f"{settings.API_STR}/part-manufacturers/{pm['id']}/parts")
         assert response.status_code == 200
-        parts = response.json()
+        parts = response.json()["items"]
         assert all(p["user_id"] == str(creator_id) for p in parts)
 
-    def test_creator_cannot_update_own_manufacturer(self, client: TestClient, db_session: Session) -> None:
+    def test_creator_cannot_update_own_manufacturer(self, client: TestClient, db_session: Any) -> None:
         """Edits are admin-only: a non-admin creator can't update their own row."""
         _, token = create_and_login_user(client, "creator_cannot_update")
         created = create_part_manufacturer_via_api(client, token, get_unique_name("MyEditable"))
@@ -530,7 +519,7 @@ class TestPartManufacturers:
         )
         assert response.status_code == 403
 
-    def test_counts_by_source(self, client: TestClient, db_session: Session) -> None:
+    def test_counts_by_source(self, client: TestClient, db_session: Any) -> None:
         """The counts/by-source endpoint returns only a total."""
         before = client.get(f"{settings.API_STR}/part-manufacturers/counts/by-source").json()
         assert set(before.keys()) == {"total"}

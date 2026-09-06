@@ -3,10 +3,6 @@
 from fastapi import HTTPException
 from uuid6 import uuid7
 
-from app.api.models.build_list import BuildList
-from app.api.models.build_list_part import BuildListPart
-from app.api.models.part import Part
-from app.api.models.user import User
 from app.api.utils.authorization import (
     can_delete_build_list_part,
     can_delete_part,
@@ -17,6 +13,9 @@ from app.api.utils.authorization import (
     require_part_delete_permission,
     require_part_edit_permission,
 )
+from app.db.dynamo.build_lists import BuildList, BuildListPart
+from app.db.dynamo.catalog import Part
+from app.db.dynamo.users import User, UserRepository
 
 
 class TestAuthorization:
@@ -25,6 +24,7 @@ class TestAuthorization:
     def test_can_delete_part_owner(self, test_user: User) -> None:
         """Test that owner can delete their global part."""
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,
@@ -46,6 +46,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,  # Owned by different user
@@ -67,6 +68,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,  # Owned by different user
@@ -76,6 +78,7 @@ class TestAuthorization:
     def test_can_edit_part_owner(self, test_user: User) -> None:
         """Test that owner can edit their global part."""
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,
@@ -97,6 +100,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,
@@ -106,8 +110,8 @@ class TestAuthorization:
     def test_can_delete_build_list_part_owner(self, test_user: User) -> None:
         """Test that user who added the part can delete it."""
         build_list_part = BuildListPart(
-            build_list_id=1,
-            part_id=1,
+            build_list_id=uuid7(),
+            part_id=uuid7(),
             added_by=test_user.id,
         )
         assert can_delete_build_list_part(test_user, build_list_part) is True
@@ -127,8 +131,8 @@ class TestAuthorization:
         )
 
         build_list_part = BuildListPart(
-            build_list_id=1,
-            part_id=1,
+            build_list_id=uuid7(),
+            part_id=uuid7(),
             added_by=test_user.id,  # Added by different user
         )
         assert can_delete_build_list_part(admin_user, build_list_part) is True
@@ -136,46 +140,42 @@ class TestAuthorization:
     def test_can_edit_build_list_part_added_by(self, test_user: User) -> None:
         """Test that user who added the part can edit it."""
         build_list_part = BuildListPart(
-            build_list_id=1,
-            part_id=1,
+            build_list_id=uuid7(),
+            part_id=uuid7(),
             added_by=test_user.id,
         )
         assert can_edit_build_list_part(test_user, build_list_part) is True
 
-    def test_can_edit_build_list_part_build_list_owner(self, test_user: User, db_session) -> None:
+    def test_can_edit_build_list_part_build_list_owner(self, test_user: User) -> None:
         """Test that build list owner can edit parts in their build list."""
         from app.api.dependencies.auth import get_password_hash
 
-        other_user = User(
-            username="other_user2",
-            email="other2@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        other_user = UserRepository().create_user(
+            User(
+                username="other_user2",
+                email="other2@example.com",
+                hashed_password=get_password_hash("password"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(other_user)
-        db_session.commit()
 
         build_list = BuildList(
             name="Test Build List",
             description="Test",
             user_id=test_user.id,
         )
-        db_session.add(build_list)
-        db_session.commit()
 
         build_list_part = BuildListPart(
             build_list_id=build_list.id,
             part_id=uuid7(),
             added_by=other_user.id,  # Added by different user
         )
-        db_session.add(build_list_part)
-        db_session.commit()
 
         # Build list owner should be able to edit
-        assert can_edit_build_list_part(test_user, build_list_part, db=db_session, build_list=build_list) is True
+        assert can_edit_build_list_part(test_user, build_list_part, build_list=build_list) is True
 
     def test_require_part_delete_permission_raises(self, test_user: User) -> None:
         """Test that require_part_delete_permission raises when unauthorized."""
@@ -192,6 +192,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,
@@ -218,6 +219,7 @@ class TestAuthorization:
         )
 
         part = Part(
+            category_id=uuid7(),
             name="Test Part",
             description="Test",
             user_id=test_user.id,

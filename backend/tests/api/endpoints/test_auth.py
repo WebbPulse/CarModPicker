@@ -1,13 +1,14 @@
 import os
+from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 # Helper to create a user directly in the DB for testing login
 # This is an alternative to calling the /users/ endpoint if you want to bypass API validation for setup
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser  # For direct DB manipulation if needed
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser  # For direct DB manipulation if needed
+from app.db.dynamo.users import UserRepository
 
 
 def get_unique_username(base_name: str) -> str:
@@ -17,7 +18,7 @@ def get_unique_username(base_name: str) -> str:
     return f"{base_name}_{worker_id}_{pid}"
 
 
-def create_test_user_direct_db(db: Session, username: str, email: str, password: str, disabled: bool = False) -> DBUser:
+def create_test_user_direct_db(db: Any, username: str, email: str, password: str, disabled: bool = False) -> DBUser:
     hashed_password = get_password_hash(password)
     db_user = DBUser(
         username=username,
@@ -25,10 +26,7 @@ def create_test_user_direct_db(db: Session, username: str, email: str, password:
         hashed_password=hashed_password,
         disabled=disabled,
     )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    return UserRepository().create_user(db_user)
 
 
 def test_login_for_access_token_success(client: TestClient) -> None:
@@ -81,7 +79,7 @@ def test_login_for_access_token_incorrect_username(client: TestClient) -> None:
     assert "access_token" not in response.cookies
 
 
-def test_login_for_access_token_incorrect_password(client: TestClient, db_session: Session) -> None:
+def test_login_for_access_token_incorrect_password(client: TestClient, db_session: Any) -> None:
     username = get_unique_username("auth_test_user_wrong_pass")  # Ensure unique username
     password = "correct_password"
     email = f"{username}@example.com"
@@ -100,7 +98,7 @@ def test_login_for_access_token_incorrect_password(client: TestClient, db_sessio
     assert "access_token" not in response.cookies
 
 
-def test_login_for_access_token_disabled_user(client: TestClient, db_session: Session) -> None:
+def test_login_for_access_token_disabled_user(client: TestClient, db_session: Any) -> None:
     username = get_unique_username("disabled_user")  # Ensure unique username
     password = "password123"
     email = f"{username}@example.com"
@@ -142,7 +140,7 @@ def test_login_for_access_token_disabled_user(client: TestClient, db_session: Se
 # --- Email Verification Tests ---
 
 
-def test_verify_email_send_success(client: TestClient, db_session: Session) -> None:
+def test_verify_email_send_success(client: TestClient, db_session: Any) -> None:
     """Test sending email verification link."""
     username = get_unique_username("verify_email_user")
     password = "password123"
@@ -170,7 +168,7 @@ def test_verify_email_send_success(client: TestClient, db_session: Session) -> N
         assert "already verified" in response.json()["message"].lower()
 
 
-def test_verify_email_user_not_found(client: TestClient, db_session: Session) -> None:
+def test_verify_email_user_not_found(client: TestClient, db_session: Any) -> None:
     """Test email verification with non-existent user."""
     response = client.post(
         f"{settings.API_STR}/auth/verify-email",
@@ -180,21 +178,21 @@ def test_verify_email_user_not_found(client: TestClient, db_session: Session) ->
     assert response.json()["message"] == "User not found"
 
 
-def test_verify_email_already_verified(client: TestClient, db_session: Session) -> None:
+def test_verify_email_already_verified(client: TestClient, db_session: Any) -> None:
     """Test email verification when email is already verified."""
     username = get_unique_username("already_verified_user")
     password = "password123"
     email = f"{username}@example.com"
 
     # Create user and manually verify
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        email_verified=True,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            email_verified=True,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
 
     # Try to request verification again
     response = client.post(f"{settings.API_STR}/auth/verify-email", json={"email": email})
@@ -202,7 +200,7 @@ def test_verify_email_already_verified(client: TestClient, db_session: Session) 
     assert "already verified" in response.json()["message"].lower()
 
 
-def test_verify_email_confirm_success(client: TestClient, db_session: Session) -> None:
+def test_verify_email_confirm_success(client: TestClient, db_session: Any) -> None:
     """Test email verification confirmation with valid token."""
     from datetime import timedelta
 
@@ -213,15 +211,14 @@ def test_verify_email_confirm_success(client: TestClient, db_session: Session) -
     email = f"{username}@example.com"
 
     # Create unverified user
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        email_verified=False,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            email_verified=False,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
 
     # Create a valid token
     token = create_access_token(data={"sub": email, "purpose": "verify_email"}, expires_delta=timedelta(hours=1))
@@ -235,11 +232,11 @@ def test_verify_email_confirm_success(client: TestClient, db_session: Session) -
     assert "status=success" in response.headers["location"]
 
     # Verify user is now verified
-    db_session.refresh(user)
+    user = UserRepository().get_or_raise(user.id)
     assert user.email_verified is True
 
 
-def test_verify_email_confirm_invalid_token(client: TestClient, db_session: Session) -> None:
+def test_verify_email_confirm_invalid_token(client: TestClient, db_session: Any) -> None:
     """Test email verification confirmation with invalid token."""
     response = client.get(
         f"{settings.API_STR}/auth/verify-email/confirm?token=invalid_token",
@@ -249,7 +246,7 @@ def test_verify_email_confirm_invalid_token(client: TestClient, db_session: Sess
     assert "status=error" in response.headers["location"]
 
 
-def test_verify_email_confirm_wrong_purpose(client: TestClient, db_session: Session) -> None:
+def test_verify_email_confirm_wrong_purpose(client: TestClient, db_session: Any) -> None:
     """Test email verification confirmation with token that has wrong purpose."""
     from datetime import timedelta
 
@@ -274,21 +271,21 @@ def test_verify_email_confirm_wrong_purpose(client: TestClient, db_session: Sess
 # --- Password Reset Tests ---
 
 
-def test_reset_password_send_success(client: TestClient, db_session: Session) -> None:
+def test_reset_password_send_success(client: TestClient, db_session: Any) -> None:
     """Test sending password reset link."""
     username = get_unique_username("reset_password_user")
     password = "password123"
     email = f"{username}@example.com"
 
     # Create user
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        email_verified=True,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            email_verified=True,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
 
     # Request password reset
     response = client.post(f"{settings.API_STR}/auth/reset-password", json={"email": email})
@@ -299,7 +296,7 @@ def test_reset_password_send_success(client: TestClient, db_session: Session) ->
         assert "message" in response.json()
 
 
-def test_reset_password_nonexistent_email(client: TestClient, db_session: Session) -> None:
+def test_reset_password_nonexistent_email(client: TestClient, db_session: Any) -> None:
     """Test password reset with non-existent email (should not reveal existence)."""
     response = client.post(
         f"{settings.API_STR}/auth/reset-password",
@@ -311,7 +308,7 @@ def test_reset_password_nonexistent_email(client: TestClient, db_session: Sessio
     assert "message" in response.json()
 
 
-def test_reset_password_confirm_success(client: TestClient, db_session: Session) -> None:
+def test_reset_password_confirm_success(client: TestClient, db_session: Any) -> None:
     """Test password reset confirmation with valid token."""
     from datetime import timedelta
 
@@ -323,15 +320,14 @@ def test_reset_password_confirm_success(client: TestClient, db_session: Session)
     email = f"{username}@example.com"
 
     # Create user
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(old_password),
-        email_verified=True,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(old_password),
+            email_verified=True,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
 
     # Create valid reset token
     token = create_access_token(
@@ -348,12 +344,12 @@ def test_reset_password_confirm_success(client: TestClient, db_session: Session)
     assert response.json()["message"] == "Password reset successfully"
 
     # Verify password was changed
-    db_session.refresh(user)
+    user = UserRepository().get_or_raise(user.id)
     assert verify_password(new_password, user.hashed_password)
     assert not verify_password(old_password, user.hashed_password)
 
 
-def test_reset_password_confirm_invalid_token(client: TestClient, db_session: Session) -> None:
+def test_reset_password_confirm_invalid_token(client: TestClient, db_session: Any) -> None:
     """Test password reset confirmation with invalid token."""
     response = client.post(
         f"{settings.API_STR}/auth/reset-password/confirm",
@@ -372,7 +368,7 @@ def test_reset_password_confirm_rejects_short_password(client: TestClient) -> No
     assert response.status_code == 422, response.text
 
 
-def test_reset_password_confirm_wrong_purpose(client: TestClient, db_session: Session) -> None:
+def test_reset_password_confirm_wrong_purpose(client: TestClient, db_session: Any) -> None:
     """Test password reset confirmation with token that has wrong purpose."""
     from datetime import timedelta
 
@@ -397,7 +393,7 @@ def test_reset_password_confirm_wrong_purpose(client: TestClient, db_session: Se
 # --- Logout Tests ---
 
 
-def test_logout_success(client: TestClient, db_session: Session) -> None:
+def test_logout_success(client: TestClient, db_session: Any) -> None:
     """Test logout functionality (post-split: auth-gated per D-31/AUTH-03)."""
     username = get_unique_username("logout_user")
     password = "password123"
@@ -427,7 +423,7 @@ def test_logout_success(client: TestClient, db_session: Session) -> None:
     # The endpoint just confirms logout was successful
 
 
-def test_logout_without_login(client: TestClient, db_session: Session) -> None:
+def test_logout_without_login(client: TestClient, db_session: Any) -> None:
     """Post-split: /auth/logout is auth-gated; unauthenticated callers get 401."""
     client.cookies.clear()
 
@@ -438,7 +434,7 @@ def test_logout_without_login(client: TestClient, db_session: Session) -> None:
 # --- 2FA Tests ---
 
 
-def test_setup_2fa_success(client: TestClient, db_session: Session) -> None:
+def test_setup_2fa_success(client: TestClient, db_session: Any) -> None:
     """Test setting up 2FA."""
     username = get_unique_username("2fa_setup_user")
     password = "password123"
@@ -474,7 +470,7 @@ def test_setup_2fa_unauthorized(client: TestClient) -> None:
     assert response.status_code == 401
 
 
-def test_verify_2fa_success(client: TestClient, db_session: Session) -> None:
+def test_verify_2fa_success(client: TestClient, db_session: Any) -> None:
     """Test verifying and enabling 2FA."""
     import pyotp
 
@@ -512,13 +508,11 @@ def test_verify_2fa_success(client: TestClient, db_session: Session) -> None:
     assert "enabled" in data["message"].lower()
 
     # Verify user has 2FA enabled
-    from app.api.models.user import User
-
-    user = db_session.query(User).filter(User.username == username).first()
+    user = UserRepository().get_by_username(username)
     assert user.totp_enabled is True
 
 
-def test_verify_2fa_invalid_otp(client: TestClient, db_session: Session) -> None:
+def test_verify_2fa_invalid_otp(client: TestClient, db_session: Any) -> None:
     """Test verifying 2FA with invalid OTP."""
     username = get_unique_username("2fa_invalid_otp_user")
     password = "password123"
@@ -547,7 +541,7 @@ def test_verify_2fa_invalid_otp(client: TestClient, db_session: Session) -> None
     assert "invalid" in response.json()["message"].lower()
 
 
-def test_verify_2fa_without_setup(client: TestClient, db_session: Session) -> None:
+def test_verify_2fa_without_setup(client: TestClient, db_session: Any) -> None:
     """Test verifying 2FA without calling setup first."""
     username = get_unique_username("2fa_no_setup_user")
     password = "password123"
@@ -572,7 +566,7 @@ def test_verify_2fa_without_setup(client: TestClient, db_session: Session) -> No
     assert "setup" in response.json()["message"].lower()
 
 
-def test_login_with_2fa_enabled(client: TestClient, db_session: Session) -> None:
+def test_login_with_2fa_enabled(client: TestClient, db_session: Any) -> None:
     """Test login flow when 2FA is enabled."""
     import pyotp
 
@@ -620,7 +614,7 @@ def test_login_with_2fa_enabled(client: TestClient, db_session: Session) -> None
     assert "user" in data
 
 
-def test_login_with_2fa_invalid_otp(client: TestClient, db_session: Session) -> None:
+def test_login_with_2fa_invalid_otp(client: TestClient, db_session: Any) -> None:
     """Test login with 2FA using invalid OTP."""
     import pyotp
 
@@ -657,7 +651,7 @@ def test_login_with_2fa_invalid_otp(client: TestClient, db_session: Session) -> 
     assert "invalid" in response.json()["message"].lower()
 
 
-def test_disable_2fa_success(client: TestClient, db_session: Session) -> None:
+def test_disable_2fa_success(client: TestClient, db_session: Any) -> None:
     """Test disabling 2FA."""
     import pyotp
 
@@ -695,14 +689,12 @@ def test_disable_2fa_success(client: TestClient, db_session: Session) -> None:
     assert "disabled" in response.json()["message"].lower()
 
     # Verify user has 2FA disabled
-    from app.api.models.user import User
-
-    user = db_session.query(User).filter(User.username == username).first()
+    user = UserRepository().get_by_username(username)
     assert user.totp_enabled is False
     assert user.totp_secret is None
 
 
-def test_disable_2fa_invalid_password(client: TestClient, db_session: Session) -> None:
+def test_disable_2fa_invalid_password(client: TestClient, db_session: Any) -> None:
     """Test disabling 2FA with invalid password."""
     import pyotp
 
@@ -740,7 +732,7 @@ def test_disable_2fa_invalid_password(client: TestClient, db_session: Session) -
     assert "incorrect" in response.json()["message"].lower()
 
 
-def test_disable_2fa_not_enabled(client: TestClient, db_session: Session) -> None:
+def test_disable_2fa_not_enabled(client: TestClient, db_session: Any) -> None:
     """Test disabling 2FA when it's not enabled."""
     username = get_unique_username("2fa_disable_not_enabled_user")
     password = "password123"
@@ -765,7 +757,7 @@ def test_disable_2fa_not_enabled(client: TestClient, db_session: Session) -> Non
     assert "not enabled" in response.json()["message"].lower()
 
 
-def test_login_with_2fa_not_enabled(client: TestClient, db_session: Session) -> None:
+def test_login_with_2fa_not_enabled(client: TestClient, db_session: Any) -> None:
     """Test login with 2FA when 2FA is not enabled (should return 400)."""
     username = get_unique_username("2fa_login_not_enabled_user")
     password = "password123"
@@ -783,7 +775,7 @@ def test_login_with_2fa_not_enabled(client: TestClient, db_session: Session) -> 
     assert "not enabled" in response.json()["message"].lower()
 
 
-def test_login_with_2fa_invalid_password(client: TestClient, db_session: Session) -> None:
+def test_login_with_2fa_invalid_password(client: TestClient, db_session: Any) -> None:
     """Test login with 2FA using invalid password (after initial login attempt)."""
     import pyotp
 
@@ -829,7 +821,7 @@ def test_login_with_2fa_nonexistent_user(client: TestClient) -> None:
     assert "invalid" in response.json()["message"].lower()
 
 
-def test_login_with_2fa_missing_secret(client: TestClient, db_session: Session) -> None:
+def test_login_with_2fa_missing_secret(client: TestClient, db_session: Any) -> None:
     """Test login with 2FA when user has totp_enabled=True but no totp_secret (configuration error)."""
     import pyotp
 
@@ -843,12 +835,8 @@ def test_login_with_2fa_missing_secret(client: TestClient, db_session: Session) 
     assert create_response.status_code == 200
 
     # Manually set totp_enabled=True but leave totp_secret=None (simulating config error)
-    from app.api.models.user import User
-
-    user = db_session.query(User).filter(User.username == username).first()
-    user.totp_enabled = True
-    user.totp_secret = None
-    db_session.commit()
+    user = UserRepository().get_by_username(username)
+    UserRepository().update(user.id, totp_enabled=True, totp_secret=None)
 
     # Try to login with 2FA
     login_2fa_data = {"username": username, "password": password, "otp": "123456"}
@@ -858,7 +846,7 @@ def test_login_with_2fa_missing_secret(client: TestClient, db_session: Session) 
     assert response.json()["error_code"] == "INTERNAL_ERROR"
 
 
-def test_verify_2fa_otp_time_window(client: TestClient, db_session: Session) -> None:
+def test_verify_2fa_otp_time_window(client: TestClient, db_session: Any) -> None:
     """Test that 2FA verification only accepts OTPs within the valid time window."""
     import time
 
@@ -900,7 +888,7 @@ def test_verify_2fa_otp_time_window(client: TestClient, db_session: Session) -> 
     # the current OTP works (which validates the time window logic is in place)
 
 
-def test_setup_2fa_multiple_calls(client: TestClient, db_session: Session) -> None:
+def test_setup_2fa_multiple_calls(client: TestClient, db_session: Any) -> None:
     """Test that multiple setup calls generate new secrets each time."""
     username = get_unique_username("2fa_multiple_setup")
     password = "password123"
@@ -930,16 +918,13 @@ def test_setup_2fa_multiple_calls(client: TestClient, db_session: Session) -> No
     assert secret1 != secret2
 
     # Verify that 2FA is still not enabled (requires verify step)
-    from app.api.models.user import User as DBUser
-
-    db = db_session
-    user = db.query(DBUser).filter(DBUser.username == username).first()
+    user = UserRepository().get_by_username(username)
     assert user is not None
     assert user.totp_enabled is False
     assert user.totp_secret == secret2  # Latest secret should be stored
 
 
-def test_verify_2fa_after_already_enabled(client: TestClient, db_session: Session) -> None:
+def test_verify_2fa_after_already_enabled(client: TestClient, db_session: Any) -> None:
     """Test verifying 2FA when it's already enabled (should handle gracefully)."""
     username = get_unique_username("2fa_already_enabled")
     password = "password123"
@@ -984,7 +969,7 @@ def test_verify_2fa_after_already_enabled(client: TestClient, db_session: Sessio
     assert verify_response2.status_code in [200, 400, 422]
 
 
-def test_login_with_2fa_disabled_user(client: TestClient, db_session: Session) -> None:
+def test_login_with_2fa_disabled_user(client: TestClient, db_session: Any) -> None:
     """Test login with 2FA when user account is disabled."""
     username = get_unique_username("2fa_disabled")
     password = "password123"
@@ -1032,7 +1017,7 @@ def test_login_with_2fa_disabled_user(client: TestClient, db_session: Session) -
     assert login_response.status_code in [400, 401]
 
 
-def test_disable_2fa_when_already_disabled(client: TestClient, db_session: Session) -> None:
+def test_disable_2fa_when_already_disabled(client: TestClient, db_session: Any) -> None:
     """Test disabling 2FA when already disabled (idempotency)."""
     username = get_unique_username("2fa_disable_idempotent")
     password = "password123"
@@ -1058,7 +1043,7 @@ def test_disable_2fa_when_already_disabled(client: TestClient, db_session: Sessi
     assert "not enabled" in disable_response.json()["message"].lower()
 
 
-def test_2fa_setup_replaces_old_secret(client: TestClient, db_session: Session) -> None:
+def test_2fa_setup_replaces_old_secret(client: TestClient, db_session: Any) -> None:
     """Test that calling 2FA setup again replaces the old secret."""
     import pyotp
 
@@ -1103,7 +1088,7 @@ def test_2fa_setup_replaces_old_secret(client: TestClient, db_session: Session) 
     # since verification requires the secret to be in the database)
 
 
-def test_2fa_verify_otp_expired_beyond_window(client: TestClient, db_session: Session) -> None:
+def test_2fa_verify_otp_expired_beyond_window(client: TestClient, db_session: Any) -> None:
     """Test 2FA verify with OTP from 2 time windows ago (should fail)."""
     username = get_unique_username("2fa_verify_expired")
     password = "password123"
@@ -1145,7 +1130,7 @@ def test_2fa_verify_otp_expired_beyond_window(client: TestClient, db_session: Se
     assert verify_response.status_code in [401, 400], "Old OTP should be rejected"
 
 
-def test_2fa_setup_when_already_enabled(client: TestClient, db_session: Session) -> None:
+def test_2fa_setup_when_already_enabled(client: TestClient, db_session: Any) -> None:
     """Test 2FA setup behavior when 2FA is already enabled."""
     username = get_unique_username("2fa_setup_enabled")
     password = "password123"
@@ -1195,7 +1180,7 @@ def test_2fa_setup_when_already_enabled(client: TestClient, db_session: Session)
     assert login_2fa_response.status_code == 401, "Old secret should not work after new setup"
 
 
-def test_2fa_login_when_user_deleted(client: TestClient, db_session: Session) -> None:
+def test_2fa_login_when_user_deleted(client: TestClient, db_session: Any) -> None:
     """Test 2FA login when user account is deleted between setup and login attempt."""
     import pyotp
 
@@ -1243,7 +1228,7 @@ def test_2fa_login_when_user_deleted(client: TestClient, db_session: Session) ->
     assert "invalid" in login_2fa_response.json()["message"].lower()
 
 
-def test_2fa_verify_with_invalid_secret_format(client: TestClient, db_session: Session) -> None:
+def test_2fa_verify_with_invalid_secret_format(client: TestClient, db_session: Any) -> None:
     """Test 2FA verify with corrupted/malformed secret in database (edge case)."""
     username = get_unique_username("2fa_invalid_secret")
     password = "password123"
@@ -1262,11 +1247,8 @@ def test_2fa_verify_with_invalid_secret_format(client: TestClient, db_session: S
     headers = {"Authorization": f"Bearer {token}"}
 
     # Manually set an invalid secret format in database (simulating corruption)
-    from app.api.models.user import User as DBUser
-
-    user = db_session.query(DBUser).filter(DBUser.username == username).first()
-    user.totp_secret = "INVALID_SECRET_FORMAT_NOT_BASE32"  # Invalid base32 format
-    db_session.commit()
+    user = UserRepository().get_by_username(username)
+    UserRepository().update(user.id, totp_secret="INVALID_SECRET_FORMAT_NOT_BASE32")
 
     # Try to verify with OTP (should handle gracefully)
     verify_response = client.post(

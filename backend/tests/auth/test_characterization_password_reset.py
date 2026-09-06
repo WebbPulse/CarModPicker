@@ -16,13 +16,14 @@ the pattern in tests/api/endpoints/test_auth.py::test_reset_password_confirm_suc
 
 import os
 from datetime import timedelta
+from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import create_access_token, get_password_hash, verify_password
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 
 
 def _uniq(base: str) -> str:
@@ -30,7 +31,7 @@ def _uniq(base: str) -> str:
     return f"{base}_{worker}_{os.getpid()}"
 
 
-def test_password_reset_request_and_confirm(client: TestClient, db_session: Session) -> None:
+def test_password_reset_request_and_confirm(client: TestClient, db_session: Any) -> None:
     """Flow 7: password reset token confirmed → password changed; old password rejected."""
     username = _uniq("pw_reset_char")
     old_password = "old_password_123!"
@@ -38,16 +39,15 @@ def test_password_reset_request_and_confirm(client: TestClient, db_session: Sess
     email = f"{username}@example.com"
 
     # Create a verified user directly in DB
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(old_password),
-        email_verified=True,
-        disabled=False,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(old_password),
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
     original_hash = user.hashed_password
 
     # --- Generate reset token (same logic as auth.py reset_password endpoint) ---
@@ -68,7 +68,7 @@ def test_password_reset_request_and_confirm(client: TestClient, db_session: Sess
     assert confirm.json().get("message") == "Password reset successfully"
 
     # DB: hashed_password changed
-    db_session.refresh(user)
+    user = UserRepository().get_or_raise(user.id)
     assert user.hashed_password != original_hash
     assert verify_password(new_password, user.hashed_password)
 

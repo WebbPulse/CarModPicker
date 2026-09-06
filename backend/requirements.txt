@@ -15,11 +15,9 @@ starlette==1.6.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 uvicorn==0.52.4
+mangum==0.22.0
 
 # Database dependencies
-sqlalchemy==2.0.52
-psycopg2-binary==2.9.12
-alembic==1.19.1
 uuid6==2025.0.1
 
 # Authentication and security
@@ -48,7 +46,7 @@ curl_cffi==0.16.2
 
 # Image storage and processing
 boto3==1.43.83
-boto3-stubs[s3,sesv2]==1.43.83  # Type stubs for boto3 S3 and SES clients
+boto3-stubs[s3,sesv2,dynamodb]==1.43.83  # Type stubs for boto3 S3, SES, and DynamoDB clients
 Pillow==12.3.0
 
 # Observability (Phase 2 / OBS-01 + OBS-02)
@@ -60,8 +58,8 @@ sentry-sdk>=2.60.0,<3
 # ECS Fargate + App Runner (RESEARCH Landmine 4).
 aws-embedded-metrics>=3.5.0,<4
 
-# Testing: in-memory S3 mock (used with pytest fixtures; never runs in production)
-moto[s3]==5.2.3
+# Testing: in-memory S3 and DynamoDB mocks (used with pytest fixtures; never runs in production)
+moto[s3,dynamodb]==5.2.3
 
 # Testing dependencies
 pytest==9.1.1

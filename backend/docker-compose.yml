@@ -1,24 +1,19 @@
 # Development services
 # Run: docker compose up -d
-# Backend runs directly on host during development.
+# Backend runs directly on host during development. Tables live in DynamoDB
+# Local; create them with `python scripts/create_dynamo_tables.py`.
 
 services:
-  persistant_volume_db:
-    image: postgres:16
-    container_name: carmodpicker_persistant_volume_db
-    env_file:
-      - .env
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    container_name: carmodpicker_dynamodb
     ports:
-      - "5432:5432"
+      - "8001:8000"   # set DYNAMODB_ENDPOINT_URL=http://localhost:8001 in .env
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
     volumes:
-      - carmodpicker_data:/var/lib/postgresql/data
-    # Default postgres max_connections is 100 — too low for local archive
-    # rescrape, which can hold 128 sockets per process before the API server
-    # / psql sessions are even counted. 300 is comfortable headroom on a dev
-    # box and matches the local-dev DB pool ceiling in app/db/session.py.
-    command: ["postgres", "-c", "max_connections=300"]
+      - dynamodb_data:/home/dynamodblocal/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/ -o /dev/null || [ $$? -eq 22 ]"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,5 +53,5 @@ services:
       exit 0"
 
 volumes:
-  carmodpicker_data:
+  dynamodb_data:
   minio_data:

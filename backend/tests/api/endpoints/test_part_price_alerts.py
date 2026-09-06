@@ -14,15 +14,15 @@ from typing import Any, Dict, Tuple
 
 import jwt
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import ALGORITHM, create_access_token
-from app.api.models.part import Part as DBPart
-from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.part_price_alerts import PartPriceAlertRepository
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.api.endpoints.test_users import create_and_login_user, get_auth_headers
-from tests.conftest import INVALID_UUID_STR, get_default_category_id
+from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
 
 ALERTS_PATH = f"{settings.API_STR}/part-price-alerts"
 
@@ -30,7 +30,7 @@ ALERTS_PATH = f"{settings.API_STR}/part-price-alerts"
 # --- helpers ----------------------------------------------------------------
 
 
-def _make_part(db: Session, owner: DBUser, *, name: str = "Brake Disc") -> DBPart:
+def _make_part(db: Any, owner: DBUser, *, name: str = "Brake Disc") -> DBPart:
     """Build a minimal Part owned by `owner`. Mirrors the seeding pattern from
     test_parts_price_history.py — no listings or history needed for T02."""
     part = DBPart(
@@ -39,16 +39,14 @@ def _make_part(db: Session, owner: DBUser, *, name: str = "Brake Disc") -> DBPar
         user_id=owner.id,
         is_universal=True,
     )
-    db.add(part)
-    db.commit()
-    db.refresh(part)
+    part = save_catalog(part)
     return part
 
 
-def _create_user_part_pair(client: TestClient, db_session: Session, suffix: str) -> Tuple[Dict[str, Any], str, DBPart]:
+def _create_user_part_pair(client: TestClient, db_session: Any, suffix: str) -> Tuple[Dict[str, Any], str, DBPart]:
     """Convenience: register+login a user, return (user_dict, token, owned_part)."""
     user_info, token = create_and_login_user(client, suffix)
-    db_user = db_session.query(DBUser).filter(DBUser.username == user_info["username"]).first()
+    db_user = UserRepository().get_by_username(user_info["username"])
     assert db_user is not None
     part = _make_part(db_session, db_user, name=f"part_{suffix}")
     return user_info, token, part
@@ -57,11 +55,11 @@ def _create_user_part_pair(client: TestClient, db_session: Session, suffix: str)
 # --- anon path --------------------------------------------------------------
 
 
-def test_subscribe_requires_auth(client: TestClient, db_session: Session) -> None:
+def test_subscribe_requires_auth(client: TestClient, db_session: Any) -> None:
     """POST without a Bearer token must 401."""
     # Need a real part_id so we don't depend on validation-order quirks.
     user_info, _ = create_and_login_user(client, "alerts_anon_seed")
-    db_user = db_session.query(DBUser).filter(DBUser.username == user_info["username"]).first()
+    db_user = UserRepository().get_by_username(user_info["username"])
     assert db_user is not None
     part = _make_part(db_session, db_user)
 
@@ -93,7 +91,7 @@ def test_delete_requires_auth(client: TestClient) -> None:
 # --- subscribe (POST /) -----------------------------------------------------
 
 
-def test_subscribe_creates_new_alert(client: TestClient, db_session: Session) -> None:
+def test_subscribe_creates_new_alert(client: TestClient, db_session: Any) -> None:
     _, token, part = _create_user_part_pair(client, db_session, "alerts_create_new")
     headers = get_auth_headers(token)
 
@@ -112,7 +110,7 @@ def test_subscribe_creates_new_alert(client: TestClient, db_session: Session) ->
     assert "id" in body and "created_at" in body and "updated_at" in body
 
 
-def test_subscribe_unknown_part_returns_404(client: TestClient, db_session: Session) -> None:
+def test_subscribe_unknown_part_returns_404(client: TestClient, db_session: Any) -> None:
     _, token = create_and_login_user(client, "alerts_unknown_part")
     headers = get_auth_headers(token)
 
@@ -126,7 +124,7 @@ def test_subscribe_unknown_part_returns_404(client: TestClient, db_session: Sess
     assert body.get("error_code") == "NOT_FOUND"
 
 
-def test_subscribe_negative_threshold_returns_422(client: TestClient, db_session: Session) -> None:
+def test_subscribe_negative_threshold_returns_422(client: TestClient, db_session: Any) -> None:
     _, token, part = _create_user_part_pair(client, db_session, "alerts_neg_threshold")
     headers = get_auth_headers(token)
 
@@ -138,7 +136,7 @@ def test_subscribe_negative_threshold_returns_422(client: TestClient, db_session
     assert response.status_code == 422, response.text
 
 
-def test_resubscribe_updates_threshold_idempotent(client: TestClient, db_session: Session) -> None:
+def test_resubscribe_updates_threshold_idempotent(client: TestClient, db_session: Any) -> None:
     """Re-POSTing with the same (user, part) updates threshold instead of inserting."""
     _, token, part = _create_user_part_pair(client, db_session, "alerts_resubscribe")
     headers = get_auth_headers(token)
@@ -163,11 +161,11 @@ def test_resubscribe_updates_threshold_idempotent(client: TestClient, db_session
     assert body["active"] is True
 
     # Confirm only one row exists at the DB layer.
-    rows = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.part_id == part.id).all()
+    rows = PartPriceAlertRepository().list_by_part(part.id)
     assert len(rows) == 1
 
 
-def test_resubscribe_reactivates_soft_deleted_alert(client: TestClient, db_session: Session) -> None:
+def test_resubscribe_reactivates_soft_deleted_alert(client: TestClient, db_session: Any) -> None:
     """If a prior alert was soft-deleted (active=False), re-subscribing flips
     active back on and updates the threshold — same row, no duplicate."""
     _, token, part = _create_user_part_pair(client, db_session, "alerts_reactivate")
@@ -200,7 +198,7 @@ def test_resubscribe_reactivates_soft_deleted_alert(client: TestClient, db_sessi
 # --- list-mine (GET /me) ----------------------------------------------------
 
 
-def test_list_me_returns_only_current_users_alerts(client: TestClient, db_session: Session) -> None:
+def test_list_me_returns_only_current_users_alerts(client: TestClient, db_session: Any) -> None:
     """Cross-user isolation: alice's /me must NOT include bob's alerts."""
     alice_info, alice_token, alice_part = _create_user_part_pair(client, db_session, "alerts_isolation_alice")
     bob_info, bob_token, bob_part = _create_user_part_pair(client, db_session, "alerts_isolation_bob")
@@ -240,7 +238,7 @@ def test_list_me_returns_only_current_users_alerts(client: TestClient, db_sessio
     assert alice_alert_id not in bob_ids
 
 
-def test_list_me_excludes_inactive_alerts(client: TestClient, db_session: Session) -> None:
+def test_list_me_excludes_inactive_alerts(client: TestClient, db_session: Any) -> None:
     _, token, part = _create_user_part_pair(client, db_session, "alerts_list_excludes_inactive")
     headers = get_auth_headers(token)
 
@@ -261,7 +259,7 @@ def test_list_me_excludes_inactive_alerts(client: TestClient, db_session: Sessio
 # --- patch ------------------------------------------------------------------
 
 
-def test_patch_threshold_updates_value(client: TestClient, db_session: Session) -> None:
+def test_patch_threshold_updates_value(client: TestClient, db_session: Any) -> None:
     _, token, part = _create_user_part_pair(client, db_session, "alerts_patch_threshold")
     headers = get_auth_headers(token)
 
@@ -283,7 +281,7 @@ def test_patch_threshold_updates_value(client: TestClient, db_session: Session) 
     assert body["id"] == alert_id
 
 
-def test_patch_negative_threshold_returns_422(client: TestClient, db_session: Session) -> None:
+def test_patch_negative_threshold_returns_422(client: TestClient, db_session: Any) -> None:
     _, token, part = _create_user_part_pair(client, db_session, "alerts_patch_neg")
     headers = get_auth_headers(token)
 
@@ -302,7 +300,7 @@ def test_patch_negative_threshold_returns_422(client: TestClient, db_session: Se
     assert patch_resp.status_code == 422, patch_resp.text
 
 
-def test_patch_by_non_owner_returns_404(client: TestClient, db_session: Session) -> None:
+def test_patch_by_non_owner_returns_404(client: TestClient, db_session: Any) -> None:
     """Patching another user's alert must look identical to 'not found'."""
     _, alice_token, part = _create_user_part_pair(client, db_session, "alerts_patch_owner_alice")
     _, bob_token = create_and_login_user(client, "alerts_patch_owner_bob")
@@ -325,7 +323,7 @@ def test_patch_by_non_owner_returns_404(client: TestClient, db_session: Session)
 # --- delete -----------------------------------------------------------------
 
 
-def test_delete_sets_active_false(client: TestClient, db_session: Session) -> None:
+def test_delete_sets_active_false(client: TestClient, db_session: Any) -> None:
     _, token, part = _create_user_part_pair(client, db_session, "alerts_delete_soft")
     headers = get_auth_headers(token)
 
@@ -340,12 +338,12 @@ def test_delete_sets_active_false(client: TestClient, db_session: Session) -> No
     assert delete_resp.status_code == 204, delete_resp.text
 
     # Soft-delete: row still exists, but active=False.
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None, "soft-delete should keep the row in the DB"
     assert row.active is False
 
 
-def test_delete_by_non_owner_returns_404(client: TestClient, db_session: Session) -> None:
+def test_delete_by_non_owner_returns_404(client: TestClient, db_session: Any) -> None:
     """Bob trying to DELETE alice's alert must 404 (not 403, not 204)."""
     _, alice_token, part = _create_user_part_pair(client, db_session, "alerts_del_owner_alice")
     _, bob_token = create_and_login_user(client, "alerts_del_owner_bob")
@@ -361,12 +359,12 @@ def test_delete_by_non_owner_returns_404(client: TestClient, db_session: Session
     assert delete_resp.status_code == 404, delete_resp.text
 
     # Confirm alice's alert is still active — bob's failed call did not flip it.
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None
     assert row.active is True
 
 
-def test_delete_unknown_alert_returns_404(client: TestClient, db_session: Session) -> None:
+def test_delete_unknown_alert_returns_404(client: TestClient, db_session: Any) -> None:
     _, token = create_and_login_user(client, "alerts_del_unknown")
     headers = get_auth_headers(token)
     response = client.delete(f"{ALERTS_PATH}/{INVALID_UUID_STR}", headers=headers)
@@ -385,7 +383,7 @@ def _build_unsubscribe_token(alert_id: str, *, purpose: str = "price_alert_unsub
     )
 
 
-def test_unsubscribe_with_valid_token_redirects_and_deactivates(client: TestClient, db_session: Session) -> None:
+def test_unsubscribe_with_valid_token_redirects_and_deactivates(client: TestClient, db_session: Any) -> None:
     """Valid token → 302 to /account/alerts?status=success and alert.active=False."""
     _, token, part = _create_user_part_pair(client, db_session, "unsub_valid")
     headers = get_auth_headers(token)
@@ -410,12 +408,12 @@ def test_unsubscribe_with_valid_token_redirects_and_deactivates(client: TestClie
     assert "status=success" in location
     assert "Unsubscribed" in location
 
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None
     assert row.active is False
 
 
-def test_unsubscribe_with_wrong_purpose_redirects_to_error(client: TestClient, db_session: Session) -> None:
+def test_unsubscribe_with_wrong_purpose_redirects_to_error(client: TestClient, db_session: Any) -> None:
     """Token with purpose != 'price_alert_unsubscribe' must not unsubscribe."""
     _, token, part = _create_user_part_pair(client, db_session, "unsub_bad_purpose")
     headers = get_auth_headers(token)
@@ -438,12 +436,12 @@ def test_unsubscribe_with_wrong_purpose_redirects_to_error(client: TestClient, d
     assert "status=error" in location
 
     # Alert must still be active.
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None
     assert row.active is True
 
 
-def test_unsubscribe_with_expired_token_redirects_to_error(client: TestClient, db_session: Session) -> None:
+def test_unsubscribe_with_expired_token_redirects_to_error(client: TestClient, db_session: Any) -> None:
     """Expired token → 302 to error redirect; alert untouched."""
     _, token, part = _create_user_part_pair(client, db_session, "unsub_expired")
     headers = get_auth_headers(token)
@@ -468,12 +466,12 @@ def test_unsubscribe_with_expired_token_redirects_to_error(client: TestClient, d
     location = response.headers.get("location", "")
     assert "status=error" in location
 
-    row = db_session.query(DBPartPriceAlert).filter(DBPartPriceAlert.id == uuid.UUID(alert_id)).first()
+    row = PartPriceAlertRepository().get(uuid.UUID(alert_id))
     assert row is not None
     assert row.active is True
 
 
-def test_unsubscribe_with_garbage_token_redirects_to_error(client: TestClient, db_session: Session) -> None:
+def test_unsubscribe_with_garbage_token_redirects_to_error(client: TestClient, db_session: Any) -> None:
     """Random non-JWT garbage → 302 to error redirect (does not 500)."""
     response = client.get(
         f"{ALERTS_PATH}/unsubscribe",
@@ -484,7 +482,7 @@ def test_unsubscribe_with_garbage_token_redirects_to_error(client: TestClient, d
     assert "status=error" in response.headers.get("location", "")
 
 
-def test_unsubscribe_with_non_uuid_sub_redirects_to_error(client: TestClient, db_session: Session) -> None:
+def test_unsubscribe_with_non_uuid_sub_redirects_to_error(client: TestClient, db_session: Any) -> None:
     """JWT with a `sub` that isn't a UUID → error redirect, no 500."""
     bad_token = create_access_token(
         data={"sub": "not-a-uuid", "purpose": "price_alert_unsubscribe"},
@@ -499,7 +497,7 @@ def test_unsubscribe_with_non_uuid_sub_redirects_to_error(client: TestClient, db
     assert "status=error" in response.headers.get("location", "")
 
 
-def test_unsubscribe_unknown_alert_id_redirects_to_error(client: TestClient, db_session: Session) -> None:
+def test_unsubscribe_unknown_alert_id_redirects_to_error(client: TestClient, db_session: Any) -> None:
     """Well-formed token referencing a nonexistent alert → error redirect."""
     fake_token = _build_unsubscribe_token(INVALID_UUID_STR)
     response = client.get(

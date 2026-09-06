@@ -1,0 +1,826 @@
+{
+  "app_settings": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "N"
+      }
+    ],
+    "global_secondary_indexes": [],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "bug_reports": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "user_id",
+        "type": "S"
+      },
+      {
+        "name": "created_at",
+        "type": "S"
+      },
+      {
+        "name": "status",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "user_id",
+        "name": "user_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      },
+      {
+        "hash_key": "status",
+        "name": "status-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "build_list_labor_estimates": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "build_list_id",
+        "type": "S"
+      },
+      {
+        "name": "sort_order",
+        "type": "N"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "build_list_id",
+        "name": "build_list_id-sort_order-index",
+        "projection_type": "ALL",
+        "range_key": "sort_order"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "build_list_parts": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "build_list_id",
+        "type": "S"
+      },
+      {
+        "name": "added_at",
+        "type": "S"
+      },
+      {
+        "name": "part_id",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "build_list_id",
+        "name": "build_list_id-added_at-index",
+        "projection_type": "ALL",
+        "range_key": "added_at"
+      },
+      {
+        "hash_key": "part_id",
+        "name": "part_id-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "build_list_phases": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "build_list_id",
+        "type": "S"
+      },
+      {
+        "name": "sort_order",
+        "type": "N"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "build_list_id",
+        "name": "build_list_id-sort_order-index",
+        "projection_type": "ALL",
+        "range_key": "sort_order"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "build_lists": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "user_id",
+        "type": "S"
+      },
+      {
+        "name": "created_at",
+        "type": "S"
+      },
+      {
+        "name": "car_id",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "user_id",
+        "name": "user_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      },
+      {
+        "hash_key": "car_id",
+        "name": "car_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "build_log_posts": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "build_log_id",
+        "type": "S"
+      },
+      {
+        "name": "created_at",
+        "type": "S"
+      },
+      {
+        "name": "user_id",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "build_log_id",
+        "name": "build_log_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      },
+      {
+        "hash_key": "user_id",
+        "name": "user_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "build_logs": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "build_list_id",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "build_list_id",
+        "name": "build_list_id-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "car_generations": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "car_model_id",
+        "type": "S"
+      },
+      {
+        "name": "slug",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "car_model_id",
+        "name": "car_model_id-slug-index",
+        "projection_type": "ALL",
+        "range_key": "slug"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "car_makes": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "name_lower",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "name_lower",
+        "name": "name_lower-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "car_models": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "car_make_id",
+        "type": "S"
+      },
+      {
+        "name": "slug",
+        "type": "S"
+      },
+      {
+        "name": "name_lower",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "car_make_id",
+        "name": "car_make_id-slug-index",
+        "projection_type": "ALL",
+        "range_key": "slug"
+      },
+      {
+        "hash_key": "car_make_id",
+        "name": "car_make_id-name_lower-index",
+        "projection_type": "ALL",
+        "range_key": "name_lower"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "categories": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "name_lower",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "name_lower",
+        "name": "name_lower-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "image_source_mappings": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "source_url",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "source_url",
+        "name": "source_url-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "oauth_accounts": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "provider_account_key",
+        "type": "S"
+      },
+      {
+        "name": "user_id",
+        "type": "S"
+      },
+      {
+        "name": "provider",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "provider_account_key",
+        "name": "provider_account_key-index",
+        "projection_type": "ALL",
+        "range_key": null
+      },
+      {
+        "hash_key": "user_id",
+        "name": "user_id-provider-index",
+        "projection_type": "ALL",
+        "range_key": "provider"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "part_cars": {
+    "attributes": [
+      {
+        "name": "part_id",
+        "type": "S"
+      },
+      {
+        "name": "car_id",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "car_id",
+        "name": "car_id-part_id-index",
+        "projection_type": "ALL",
+        "range_key": "part_id"
+      }
+    ],
+    "hash_key": "part_id",
+    "range_key": "car_id",
+    "ttl_attribute": null
+  },
+  "part_listings": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "part_id",
+        "type": "S"
+      },
+      {
+        "name": "retailer_id",
+        "type": "S"
+      },
+      {
+        "name": "product_url",
+        "type": "S"
+      },
+      {
+        "name": "updated_at",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "part_id",
+        "name": "part_id-retailer_id-index",
+        "projection_type": "ALL",
+        "range_key": "retailer_id"
+      },
+      {
+        "hash_key": "product_url",
+        "name": "product_url-index",
+        "projection_type": "ALL",
+        "range_key": null
+      },
+      {
+        "hash_key": "retailer_id",
+        "name": "retailer_id-updated_at-index",
+        "projection_type": "ALL",
+        "range_key": "updated_at"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "part_manufacturers": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "name_lower",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "name_lower",
+        "name": "name_lower-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "part_price_alerts": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "user_id",
+        "type": "S"
+      },
+      {
+        "name": "part_id",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "user_id",
+        "name": "user_id-part_id-index",
+        "projection_type": "ALL",
+        "range_key": "part_id"
+      },
+      {
+        "hash_key": "part_id",
+        "name": "part_id-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "part_price_history": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "part_listing_id",
+        "type": "S"
+      },
+      {
+        "name": "observed_at",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "part_listing_id",
+        "name": "part_listing_id-observed_at-index",
+        "projection_type": "ALL",
+        "range_key": "observed_at"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "parts": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "category_id",
+        "type": "S"
+      },
+      {
+        "name": "created_at",
+        "type": "S"
+      },
+      {
+        "name": "part_manufacturer_id",
+        "type": "S"
+      },
+      {
+        "name": "part_number_normalized",
+        "type": "S"
+      },
+      {
+        "name": "user_id",
+        "type": "S"
+      },
+      {
+        "name": "canonical_id",
+        "type": "S"
+      },
+      {
+        "name": "gtin",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "category_id",
+        "name": "category_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      },
+      {
+        "hash_key": "part_manufacturer_id",
+        "name": "part_manufacturer_id-part_number_normalized-index",
+        "projection_type": "ALL",
+        "range_key": "part_number_normalized"
+      },
+      {
+        "hash_key": "part_manufacturer_id",
+        "name": "part_manufacturer_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      },
+      {
+        "hash_key": "user_id",
+        "name": "user_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      },
+      {
+        "hash_key": "canonical_id",
+        "name": "canonical_id-index",
+        "projection_type": "ALL",
+        "range_key": null
+      },
+      {
+        "hash_key": "gtin",
+        "name": "gtin-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "reports": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "entity_key",
+        "type": "S"
+      },
+      {
+        "name": "user_id",
+        "type": "S"
+      },
+      {
+        "name": "created_at",
+        "type": "S"
+      },
+      {
+        "name": "status",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "entity_key",
+        "name": "entity_key-user_id-index",
+        "projection_type": "ALL",
+        "range_key": "user_id"
+      },
+      {
+        "hash_key": "user_id",
+        "name": "user_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      },
+      {
+        "hash_key": "status",
+        "name": "status-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "retailers": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "name_lower",
+        "type": "S"
+      },
+      {
+        "name": "domain",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "name_lower",
+        "name": "name_lower-index",
+        "projection_type": "ALL",
+        "range_key": null
+      },
+      {
+        "hash_key": "domain",
+        "name": "domain-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "users": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "username_lower",
+        "type": "S"
+      },
+      {
+        "name": "email_lower",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "username_lower",
+        "name": "username_lower-index",
+        "projection_type": "ALL",
+        "range_key": null
+      },
+      {
+        "hash_key": "email_lower",
+        "name": "email_lower-index",
+        "projection_type": "ALL",
+        "range_key": null
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "votes": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "entity_key",
+        "type": "S"
+      },
+      {
+        "name": "user_id",
+        "type": "S"
+      },
+      {
+        "name": "created_at",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "entity_key",
+        "name": "entity_key-user_id-index",
+        "projection_type": "ALL",
+        "range_key": "user_id"
+      },
+      {
+        "hash_key": "user_id",
+        "name": "user_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  },
+  "webauthn_credentials": {
+    "attributes": [
+      {
+        "name": "id",
+        "type": "S"
+      },
+      {
+        "name": "credential_id",
+        "type": "S"
+      },
+      {
+        "name": "user_id",
+        "type": "S"
+      },
+      {
+        "name": "created_at",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [
+      {
+        "hash_key": "credential_id",
+        "name": "credential_id-index",
+        "projection_type": "ALL",
+        "range_key": null
+      },
+      {
+        "hash_key": "user_id",
+        "name": "user_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      }
+    ],
+    "hash_key": "id",
+    "range_key": null,
+    "ttl_attribute": null
+  }
+}

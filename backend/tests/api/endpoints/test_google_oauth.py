@@ -15,20 +15,19 @@ is covered, since that's the invariant that prevents users from locking themselv
 """
 
 import os
-from typing import Generator
+from typing import Any, Generator
 from unittest.mock import patch
 
 import pyotp
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.oauth_account import OAuthAccount
-from app.api.models.user import User as DBUser
-from app.api.models.webauthn_credential import WebAuthnCredential
 from app.api.utils.google_oauth import GoogleIdentity
 from app.core.config import settings
+from app.db.dynamo.users import OAuthAccount, OAuthAccountRepository
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository, WebAuthnCredential, WebAuthnCredentialRepository
 
 GOOGLE_PATH = f"{settings.API_STR}/auth/oauth/google"
 LINK_PATH = f"{settings.API_STR}/auth/oauth/google/link"
@@ -44,7 +43,7 @@ def _unique(base: str) -> str:
 
 
 def _create_user(
-    db: Session,
+    db: Any,
     username: str,
     *,
     password: str = "testpassword",
@@ -60,10 +59,7 @@ def _create_user(
         totp_secret=totp_secret,
         totp_enabled=bool(totp_secret),
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+    return UserRepository().create_user(user)
 
 
 def _login(client: TestClient, username: str, password: str = "testpassword") -> str:
@@ -106,7 +102,7 @@ def test_google_sign_in_rejects_unverified_email(client: TestClient, google_conf
 
 
 def test_google_sign_in_no_match_returns_signup_token(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     email = f"{_unique('newgoogle')}@example.com"
     identity = _identity("g-sub-new", email)
@@ -121,7 +117,7 @@ def test_google_sign_in_no_match_returns_signup_token(
 
 
 def test_google_sign_in_email_match_returns_link_token(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     username = _unique("emailmatch")
     user = _create_user(db_session, username)
@@ -136,13 +132,12 @@ def test_google_sign_in_email_match_returns_link_token(
     assert body["link_token"]
 
 
-def test_google_sign_in_existing_link_logs_in(client: TestClient, db_session: Session, google_configured: None) -> None:
+def test_google_sign_in_existing_link_logs_in(client: TestClient, db_session: Any, google_configured: None) -> None:
     username = _unique("alreadylinked")
     user = _create_user(db_session, username)
-    db_session.add(
+    OAuthAccountRepository().create_link(
         OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-existing", email=user.email)
     )
-    db_session.commit()
     identity = _identity("g-sub-existing", user.email)
     with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
@@ -154,13 +149,14 @@ def test_google_sign_in_existing_link_logs_in(client: TestClient, db_session: Se
 
 
 def test_google_sign_in_existing_link_with_totp_returns_otp_token(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     username = _unique("totpgoogle")
     secret = pyotp.random_base32()
     user = _create_user(db_session, username, totp_secret=secret)
-    db_session.add(OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-totp", email=user.email))
-    db_session.commit()
+    OAuthAccountRepository().create_link(
+        OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-totp", email=user.email)
+    )
 
     identity = _identity("g-sub-totp", user.email)
     with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
@@ -182,7 +178,7 @@ def test_google_sign_in_existing_link_with_totp_returns_otp_token(
 
 
 def test_google_link_succeeds_with_correct_password(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     username = _unique("linkme")
     user = _create_user(db_session, username, password="rightpw")
@@ -195,16 +191,12 @@ def test_google_link_succeeds_with_correct_password(
     assert resp.status_code == 200, resp.text
     assert resp.json()["user"]["username"] == username
     # OAuth row was created
-    row = (
-        db_session.query(OAuthAccount)
-        .filter(OAuthAccount.user_id == user.id, OAuthAccount.provider == "google")
-        .first()
-    )
+    row = OAuthAccountRepository().get_for_user_provider(user.id, "google")
     assert row is not None
     assert row.provider_account_id == "g-sub-link"
 
 
-def test_google_link_rejects_wrong_password(client: TestClient, db_session: Session, google_configured: None) -> None:
+def test_google_link_rejects_wrong_password(client: TestClient, db_session: Any, google_configured: None) -> None:
     username = _unique("linkmebad")
     user = _create_user(db_session, username, password="rightpw")
     identity = _identity("g-sub-linkbad", user.email)
@@ -216,7 +208,7 @@ def test_google_link_rejects_wrong_password(client: TestClient, db_session: Sess
 
 
 def test_google_link_requires_otp_when_2fa_enabled(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     username = _unique("link2fa")
     secret = pyotp.random_base32()
@@ -244,7 +236,7 @@ def test_google_link_requires_otp_when_2fa_enabled(
 
 
 def test_google_signup_creates_user_with_no_password(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     email = f"{_unique('signupg')}@example.com"
     identity = _identity("g-sub-signup", email)
@@ -259,18 +251,14 @@ def test_google_signup_creates_user_with_no_password(
     assert body["user"]["email"] == email
     assert body["user"]["email_verified"] is True
 
-    user = db_session.query(DBUser).filter(DBUser.username == chosen).first()
+    user = UserRepository().get_by_username(chosen)
     assert user is not None
     assert user.hashed_password is None
-    link = (
-        db_session.query(OAuthAccount)
-        .filter(OAuthAccount.user_id == user.id, OAuthAccount.provider_account_id == "g-sub-signup")
-        .first()
-    )
+    link = OAuthAccountRepository().get_by_provider_account("google", "g-sub-signup")
     assert link is not None
 
 
-def test_google_signup_rejects_taken_username(client: TestClient, db_session: Session, google_configured: None) -> None:
+def test_google_signup_rejects_taken_username(client: TestClient, db_session: Any, google_configured: None) -> None:
     taken = _unique("takenname")
     _create_user(db_session, taken)
 
@@ -288,9 +276,7 @@ def test_oauth_2fa_rejects_invalid_token(client: TestClient, google_configured: 
     assert resp.status_code == 400
 
 
-def test_google_connect_links_authenticated_user(
-    client: TestClient, db_session: Session, google_configured: None
-) -> None:
+def test_google_connect_links_authenticated_user(client: TestClient, db_session: Any, google_configured: None) -> None:
     username = _unique("connectme")
     user = _create_user(db_session, username)
     token = _login(client, username)
@@ -310,7 +296,7 @@ def test_google_connect_links_authenticated_user(
 
 
 def test_google_connect_refuses_when_email_belongs_to_other_user(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     me = _create_user(db_session, _unique("connectme_a"))
     other = _create_user(db_session, _unique("connectme_b"))
@@ -326,14 +312,13 @@ def test_google_connect_refuses_when_email_belongs_to_other_user(
 
 
 def test_google_connect_refuses_if_already_linked_to_other_user(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     me = _create_user(db_session, _unique("conn_me"))
     other = _create_user(db_session, _unique("conn_other"))
-    db_session.add(
+    OAuthAccountRepository().create_link(
         OAuthAccount(user_id=other.id, provider="google", provider_account_id="g-sub-stolen", email=other.email)
     )
-    db_session.commit()
     token = _login(client, me.username)
 
     identity = _identity("g-sub-stolen", f"{me.username}-g@example.com")
@@ -343,13 +328,12 @@ def test_google_connect_refuses_if_already_linked_to_other_user(
 
 
 def test_google_connect_refuses_when_user_already_has_google(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     user = _create_user(db_session, _unique("dup"))
-    db_session.add(
+    OAuthAccountRepository().create_link(
         OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-existing", email=user.email)
     )
-    db_session.commit()
     token = _login(client, user.username)
 
     identity = _identity("g-sub-second", f"{user.username}-second@example.com")
@@ -359,38 +343,35 @@ def test_google_connect_refuses_when_user_already_has_google(
 
 
 def test_delete_oauth_account_succeeds_when_password_exists(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     user = _create_user(db_session, _unique("delok"))
-    link = OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-delok", email=user.email)
-    db_session.add(link)
-    db_session.commit()
-    db_session.refresh(link)
+    link = OAuthAccountRepository().create_link(
+        OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-delok", email=user.email)
+    )
     token = _login(client, user.username)
 
     resp = client.delete(f"{OAUTH_LIST_PATH}/{link.id}", headers=_auth(token))
     assert resp.status_code == 200
-    assert db_session.query(OAuthAccount).filter(OAuthAccount.id == link.id).first() is None
+    assert OAuthAccountRepository().get(link.id) is None
 
 
 def test_delete_oauth_account_refuses_when_only_login_method(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     # OAuth-only user: no password, no passkeys, only one OAuth link → can't delete it.
     username = _unique("oauthonly")
-    user = DBUser(
-        username=username,
-        email=f"{username}@example.com",
-        hashed_password=None,
-        email_verified=True,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=f"{username}@example.com",
+            hashed_password=None,
+            email_verified=True,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-    link = OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-only", email=user.email)
-    db_session.add(link)
-    db_session.commit()
-    db_session.refresh(link)
+    link = OAuthAccountRepository().create_link(
+        OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-only", email=user.email)
+    )
 
     # Login this user via the OAuth path (no password) — use the Google sub already linked.
     identity = _identity("g-sub-only", user.email)
@@ -400,22 +381,22 @@ def test_delete_oauth_account_refuses_when_only_login_method(
 
     resp = client.delete(f"{OAUTH_LIST_PATH}/{link.id}", headers=_auth(token))
     assert resp.status_code == 400
-    assert db_session.query(OAuthAccount).filter(OAuthAccount.id == link.id).first() is not None
+    assert OAuthAccountRepository().get(link.id) is not None
 
 
 def test_delete_oauth_account_allows_when_passkey_present(
-    client: TestClient, db_session: Session, google_configured: None
+    client: TestClient, db_session: Any, google_configured: None
 ) -> None:
     # OAuth-only user with a passkey — passkey is a valid alternative login, so deleting the
     # only OAuth account is allowed (they can still sign in with the passkey).
     username = _unique("oauthpasskey")
-    user = DBUser(username=username, email=f"{username}@example.com", hashed_password=None, email_verified=True)
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-    link = OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-pk", email=user.email)
-    db_session.add(link)
-    db_session.add(
+    user = UserRepository().create_user(
+        DBUser(username=username, email=f"{username}@example.com", hashed_password=None, email_verified=True)
+    )
+    link = OAuthAccountRepository().create_link(
+        OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-pk", email=user.email)
+    )
+    WebAuthnCredentialRepository().create_credential(
         WebAuthnCredential(
             user_id=user.id,
             credential_id=b"fake-cred-id",
@@ -424,8 +405,6 @@ def test_delete_oauth_account_allows_when_passkey_present(
             nickname="laptop",
         )
     )
-    db_session.commit()
-    db_session.refresh(link)
 
     identity = _identity("g-sub-pk", user.email)
     with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):

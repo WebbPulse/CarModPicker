@@ -7,16 +7,13 @@ from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     get_current_admin_user,
     get_current_user,
     get_optional_current_user,
 )
-from app.api.models.user import User as DBUser
-from app.api.models.vote import Vote as DBVote
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.vote import (
     EntityType,
     FlaggedEntitySummary,
@@ -25,13 +22,9 @@ from app.api.schemas.vote import (
     VoteSummary,
 )
 from app.api.services.vote_service import VoteService
-from app.api.utils.common_patterns import (
-    PublicEndpointDeps,
-    get_standard_public_endpoint_dependencies,
-)
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
-from app.db.session import get_db
+from app.db.dynamo.users import User as DBUser
 
 logger = logging.getLogger(__name__)
 
@@ -50,16 +43,11 @@ vote_service = VoteService()
     ),
 )
 async def count_votes(
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, int]:
     """Get total count of votes."""
-    # WR-05: use the module-level logger (app.api.endpoints.votes). Previously
-    # ``deps["logger"]`` shadowed it with common_patterns' logger and tagged log
-    # records with the wrong module name (breaks QUAL-07 / log-routing filters).
-    db = deps["db"]
-
     try:
-        count = db.scalar(select(func.count()).select_from(DBVote)) or 0
+        count = repos.votes.count()
         logger.info(f"Retrieved votes count: {count}")
         return {"count": count}
     except Exception as e:
@@ -81,12 +69,10 @@ async def vote_on_entity(
     entity_type: EntityType,
     entity_id: UUID,
     vote_data: VoteCreate,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ) -> VoteRead:
     """Vote on an entity (car, build list, or global part)."""
     vote = vote_service.vote_on_entity(
-        db=db,
         entity_type=entity_type,
         entity_id=entity_id,
         user_id=current_user.id,
@@ -106,12 +92,10 @@ async def vote_on_entity(
 async def remove_vote(
     entity_type: EntityType,
     entity_id: UUID,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ) -> dict[str, str]:
     """Remove a vote from an entity."""
     removed = vote_service.remove_vote(
-        db=db,
         entity_type=entity_type,
         entity_id=entity_id,
         user_id=current_user.id,
@@ -138,16 +122,11 @@ async def remove_vote(
 async def get_vote_summary(
     entity_type: EntityType,
     entity_id: UUID,
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> VoteSummary:
     """Get vote summary for an entity (public endpoint, authentication optional)."""
-    db = deps["db"]
-    logger = deps["logger"]
-
     user_id = current_user.id if current_user else None
     return vote_service.get_vote_summary(
-        db=db,
         entity_type=entity_type,
         entity_id=entity_id,
         user_id=user_id,
@@ -167,15 +146,10 @@ async def get_vote_summary(
 async def get_flagged_entities(
     entity_type: EntityType,
     limit: int = Query(50, ge=1, le=100, description="Maximum number of flagged entities to return"),
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> List[FlaggedEntitySummary]:
     """Get flagged entities (those with high downvote ratios or reports). Admin only."""
-    db = deps["db"]
-    logger = deps["logger"]
-
     return vote_service.get_flagged_entities(
-        db=db,
         entity_type=entity_type,
         limit=limit,
         logger=logger,

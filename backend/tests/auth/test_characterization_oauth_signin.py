@@ -26,13 +26,14 @@ pytest-recording default cassette layout:
 
 import os
 import pathlib
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 
 # pytest-recording stores cassettes at: <test_dir>/cassettes/<module_basename>/<test_name>.yaml
 _CASSETTE = pathlib.Path(__file__).parent / "cassettes" / pathlib.Path(__file__).stem / "test_google_oauth_signin.yaml"
@@ -50,7 +51,7 @@ def _uniq(base: str) -> str:
 
 
 @pytest.mark.vcr
-def test_google_oauth_signin(client: TestClient, db_session: Session) -> None:
+def test_google_oauth_signin(client: TestClient, db_session: Any) -> None:
     """Flow 5: first-time Google sign-in creates a user and returns tokens.
 
     The id_token and nonce below must match the values captured in the cassette.
@@ -81,6 +82,6 @@ def test_google_oauth_signin(client: TestClient, db_session: Session) -> None:
     assert "access_token" in body
 
     # DB state: user now exists with email_verified=True (OAuth email is trusted)
-    user = db_session.query(DBUser).filter(DBUser.email == email_from_cassette).first()
+    user = UserRepository().get_by_email(email_from_cassette)
     assert user is not None
     assert user.email_verified is True

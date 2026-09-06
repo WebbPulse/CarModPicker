@@ -2,12 +2,10 @@ import os
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
-from app.api.models.category import Category
-from app.api.models.part_manufacturer import PartManufacturer
-from app.api.models.user import User
 from app.core.config import settings
+from app.db.dynamo.catalog import Category, PartManufacturer
+from app.db.dynamo.users import User, UserRepository
 from tests.conftest import INVALID_UUID_STR
 
 
@@ -98,7 +96,7 @@ class TestParts:
         response = client.get(f"{settings.API_STR}/parts/", headers=headers)
         assert response.status_code == 200
 
-        data: list[Any] = response.json()
+        data: list[Any] = response.json()["items"]
         assert isinstance(data, list)
         assert len(data) >= 1
 
@@ -121,10 +119,12 @@ class TestParts:
             assert response.status_code == 200
 
         # Test pagination
-        response = client.get(f"{settings.API_STR}/parts/?skip=0&limit=2", headers=headers)
+        response = client.get(f"{settings.API_STR}/parts/?limit=2", headers=headers)
         assert response.status_code == 200
         data = response.json()
-        assert len(data) <= 2
+        assert len(data["items"]) == 2
+        assert data["has_next"] is True
+        assert data["next_cursor"]
 
     def test_get_parts_with_category_filter(
         self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
@@ -145,7 +145,7 @@ class TestParts:
         # Filter by category
         response = client.get(f"{settings.API_STR}/parts/?category_id={test_category.id}", headers=headers)
         assert response.status_code == 200
-        data: list[Any] = response.json()
+        data: list[Any] = response.json()["items"]
         assert isinstance(data, list)
         part: Any
         for part in data:
@@ -171,7 +171,7 @@ class TestParts:
         # Search by name
         response = client.get(f"{settings.API_STR}/parts/?search={unique_name}", headers=headers)
         assert response.status_code == 200
-        data: list[Any] = response.json()
+        data: list[Any] = response.json()["items"]
         assert isinstance(data, list)
         assert len(data) >= 1
         assert any(unique_name in part["name"] for part in data)  # type: ignore[misc]
@@ -323,9 +323,9 @@ class TestParts:
         assert response.status_code == 200
         result: dict[str, Any] = response.json()
         assert isinstance(result, dict)
-        assert "data" in result
-        assert "pagination" in result
-        data: list[Any] = result["data"]
+        assert "items" in result
+        assert "has_next" in result
+        data: list[Any] = result["items"]
         assert isinstance(data, list)
         if len(data) > 0:
             part: Any = data[0]
@@ -366,7 +366,7 @@ class TestParts:
         # Without filter: both parts can appear
         response = client.get(f"{settings.API_STR}/parts/with-votes", headers=headers)
         assert response.status_code == 200
-        all_data = response.json()["data"]
+        all_data = response.json()["items"]
         all_ids = {p["id"] for p in all_data}
         assert universal_id in all_ids
         assert non_universal_id in all_ids
@@ -375,7 +375,7 @@ class TestParts:
         response = client.get(f"{settings.API_STR}/parts/with-votes?universal=true", headers=headers)
         assert response.status_code == 200
         result = response.json()
-        universal_only = result["data"]
+        universal_only = result["items"]
         universal_only_ids = {p["id"] for p in universal_only}
         assert universal_id in universal_only_ids
         assert non_universal_id not in universal_only_ids
@@ -435,7 +435,7 @@ class TestParts:
         response = client.get(f"{settings.API_STR}/parts/category/{test_category.id}")
         assert response.status_code == 200
 
-        data = response.json()
+        data = response.json()["items"]
         assert isinstance(data, list)
         # Should return at least the parts we created
         assert len(data) >= len(created_parts)
@@ -468,18 +468,22 @@ class TestParts:
             assert response.status_code == 200
 
         # Get first page
-        response = client.get(f"{settings.API_STR}/parts/category/{test_category.id}?skip=0&limit=2")
+        response = client.get(f"{settings.API_STR}/parts/category/{test_category.id}?limit=2")
         assert response.status_code == 200
-        first_page = response.json()
+        first_body = response.json()
+        first_page = first_body["items"]
         assert isinstance(first_page, list)
-        assert len(first_page) <= 2
+        assert len(first_page) == 2
+        assert first_body["has_next"] is True
 
         # Get second page
-        response = client.get(f"{settings.API_STR}/parts/category/{test_category.id}?skip=2&limit=2")
+        response = client.get(
+            f"{settings.API_STR}/parts/category/{test_category.id}?limit=2&cursor={first_body['next_cursor']}"
+        )
         assert response.status_code == 200
-        second_page = response.json()
+        second_page = response.json()["items"]
         assert isinstance(second_page, list)
-        assert len(second_page) <= 2
+        assert len(second_page) == 2
 
         # Verify no overlap
         first_page_ids = {part["id"] for part in first_page}
@@ -491,7 +495,7 @@ class TestParts:
         # Try to get parts for non-existent category (public endpoint, no auth required)
         response = client.get(f"{settings.API_STR}/parts/category/{INVALID_UUID_STR}")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["items"]
         assert isinstance(data, list)
         assert len(data) == 0
 
@@ -515,7 +519,7 @@ class TestParts:
         # Get global parts by category without authentication (public endpoint)
         response = client.get(f"{settings.API_STR}/parts/category/{test_category.id}")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["items"]
         assert isinstance(data, list)
 
     def test_count_parts_by_user_success(
@@ -551,24 +555,23 @@ class TestParts:
         assert "count" in updated_data
         assert updated_data["count"] == initial_count + 1
 
-    def test_count_parts_by_user_zero(self, client: TestClient, db_session: Session) -> None:
+    def test_count_parts_by_user_zero(self, client: TestClient, db_session: Any) -> None:
         """Test counting global parts for a user with no parts."""
         # Create a new user with no parts
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        new_user = DBUser(
-            username=f"new_user_{os.getpid()}_{id(db_session)}",
-            email=f"new_user_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        new_user = UserRepository().create_user(
+            DBUser(
+                username=f"new_user_{os.getpid()}_{id(db_session)}",
+                email=f"new_user_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(new_user)
-        db_session.commit()
-        db_session.refresh(new_user)
 
         # Count global parts for this user (should be 0)
         response = client.get(f"{settings.API_STR}/parts/user/{new_user.id}/count")

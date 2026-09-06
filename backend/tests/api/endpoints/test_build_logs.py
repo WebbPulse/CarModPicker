@@ -3,11 +3,11 @@ from typing import Any, Dict
 from uuid import UUID
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, create_car_in_db
 
 
@@ -34,7 +34,7 @@ def get_auth_headers(token: str) -> Dict[str, str]:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[Dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
@@ -42,18 +42,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -67,7 +66,7 @@ def create_and_login_admin_user(
 class TestBuildLogs:
     """Test cases for build logs endpoints."""
 
-    def test_count_build_log_posts_success(self, client: TestClient, db_session: Session) -> None:
+    def test_count_build_log_posts_success(self, client: TestClient, db_session: Any) -> None:
         """Test counting build log posts."""
         response = client.get(f"{settings.API_STR}/build-logs/posts/count")
         assert response.status_code == 200
@@ -77,7 +76,7 @@ class TestBuildLogs:
         assert data["count"] >= 0
 
     def test_get_build_log_by_build_list_public_access(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test getting build log by build list ID (public read access)."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -107,9 +106,7 @@ class TestBuildLogs:
         assert "pagination" in data
         assert isinstance(data["posts"], list)
 
-    def test_get_build_log_auto_creates_build_log(
-        self, client: TestClient, test_user: DBUser, db_session: Session
-    ) -> None:
+    def test_get_build_log_auto_creates_build_log(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that accessing a build log auto-creates it if it doesn't exist."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -133,7 +130,7 @@ class TestBuildLogs:
         assert data["build_list_id"] == build_list_id
         assert "Build Log:" in data["title"]
 
-    def test_get_build_log_with_pagination(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_get_build_log_with_pagination(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test getting build log with pagination."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -173,7 +170,7 @@ class TestBuildLogs:
         response = client.get(f"{settings.API_STR}/build-logs/build-list/{INVALID_UUID_STR}")
         assert response.status_code == 404
 
-    def test_create_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_create_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test creating a build log post."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -205,7 +202,7 @@ class TestBuildLogs:
         assert data["author_username"] == test_user.username
 
     def test_create_build_log_post_auto_creates_build_log(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that creating a post auto-creates the build log if it doesn't exist."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -252,9 +249,7 @@ class TestBuildLogs:
         )
         assert response.status_code == 404
 
-    def test_create_build_log_post_empty_content(
-        self, client: TestClient, test_user: DBUser, db_session: Session
-    ) -> None:
+    def test_create_build_log_post_empty_content(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test creating a post with empty content."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -280,7 +275,7 @@ class TestBuildLogs:
         )
         assert response.status_code == 422  # Validation error
 
-    def test_update_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_update_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test updating a build log post."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -314,9 +309,7 @@ class TestBuildLogs:
         data = response.json()
         assert data["content"] == update_data["content"]
 
-    def test_update_build_log_post_unauthorized(
-        self, client: TestClient, test_user: DBUser, db_session: Session
-    ) -> None:
+    def test_update_build_log_post_unauthorized(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test updating another user's post (should fail)."""
         # Create two users
         user1_token = get_auth_token(client, test_user.username)
@@ -324,16 +317,15 @@ class TestBuildLogs:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
         user2_token = get_auth_token(client, username2)
         user2_headers = get_auth_headers(user2_token)
 
@@ -366,7 +358,7 @@ class TestBuildLogs:
         assert response.status_code == 403
 
     def test_update_build_log_post_build_list_owner_can_update(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that build list owner can update any post in their build log."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -374,16 +366,15 @@ class TestBuildLogs:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
         user2_token = get_auth_token(client, username2)
         user2_headers = get_auth_headers(user2_token)
 
@@ -424,7 +415,7 @@ class TestBuildLogs:
         )
         assert response.status_code == 404
 
-    def test_delete_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Session) -> None:
+    def test_delete_build_log_post_success(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test deleting a build log post."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -463,7 +454,7 @@ class TestBuildLogs:
         assert len(data["posts"]) == 0
 
     def test_delete_build_log_post_build_list_owner_can_delete(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that build list owner can delete any post in their build log."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -471,16 +462,15 @@ class TestBuildLogs:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
         user2_token = get_auth_token(client, username2)
         user2_headers = get_auth_headers(user2_token)
 
@@ -510,25 +500,22 @@ class TestBuildLogs:
         response = client.delete(f"{settings.API_STR}/build-logs/posts/{post_id}", headers=headers)
         assert response.status_code == 200
 
-    def test_delete_build_log_post_unauthorized(
-        self, client: TestClient, test_user: DBUser, db_session: Session
-    ) -> None:
+    def test_delete_build_log_post_unauthorized(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test deleting another user's post (should fail)."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
 
         # Test user creates a build list
         token = get_auth_token(client, test_user.username)
@@ -592,7 +579,7 @@ class TestBuildLogs:
         assert response.status_code == 404
 
     def test_delete_build_log_post_admin_can_delete(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that admin can delete any build log post."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -627,9 +614,7 @@ class TestBuildLogs:
         assert response.status_code == 200
         assert response.json()["message"] == "Build log post deleted successfully"
 
-    def test_update_build_log_post_empty_content(
-        self, client: TestClient, test_user: DBUser, db_session: Session
-    ) -> None:
+    def test_update_build_log_post_empty_content(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test updating a build log post with empty content."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -662,7 +647,7 @@ class TestBuildLogs:
         assert response.status_code == 422  # Validation error
 
     def test_get_build_log_pagination_boundary_cases(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test build log pagination with boundary cases."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -713,7 +698,7 @@ class TestBuildLogs:
         assert data["pagination"]["total_items"] == 3
 
     def test_update_build_log_post_with_null_content(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test updating a build log post with null content (partial update - should preserve existing content)."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -751,7 +736,7 @@ class TestBuildLogs:
         assert data["content"] == original_content
 
     def test_build_log_post_author_image_url_when_author_deleted(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test build log post retrieval when author user is deleted (orphaned post scenario)."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -759,16 +744,15 @@ class TestBuildLogs:
 
         # Create second user
         username2 = get_unique_name("user2")
-        user2 = DBUser(
-            username=username2,
-            email=f"{username2}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            DBUser(
+                username=username2,
+                email=f"{username2}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
-        db_session.refresh(user2)
         user2_token = get_auth_token(client, username2)
         user2_headers = get_auth_headers(user2_token)
 
@@ -794,9 +778,7 @@ class TestBuildLogs:
         assert response.status_code == 201
         post_id = response.json()["id"]
 
-        # Delete user2
-        db_session.delete(user2)
-        db_session.commit()
+        UserRepository().delete_user(user2)
 
         # Retrieve the build log - should handle deleted author gracefully
         response = client.get(f"{settings.API_STR}/build-logs/build-list/{build_list_id}")
@@ -808,7 +790,7 @@ class TestBuildLogs:
         assert data["posts"][0]["author_image_url"] is None
 
     def test_build_log_post_author_image_url_when_no_profile_picture(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test build log post when author has no profile picture."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -827,9 +809,7 @@ class TestBuildLogs:
         build_list_id = response.json()["id"]
 
         # Ensure test_user has no profile picture
-        test_user.image_urls = None
-        db_session.add(test_user)
-        db_session.commit()
+        test_user = UserRepository().update(test_user.id, image_urls=None)
 
         # Create a post
         post_data = {"content": "Test post"}
@@ -844,7 +824,7 @@ class TestBuildLogs:
         assert data["author_image_url"] is None
 
     def test_build_log_post_creation_with_very_long_content(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test build log post creation with very long content (boundary testing)."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -876,7 +856,7 @@ class TestBuildLogs:
         assert len(data["content"]) == 10000
 
     def test_build_log_post_update_with_whitespace_only_content(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test updating build log post with whitespace-only content."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -913,11 +893,13 @@ class TestBuildLogs:
         # post_id is used in the assertion above, so it's not unused
 
     def test_build_list_deletion_cascades_to_build_log_and_posts(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that deleting a build list cascades to delete build log and all posts."""
-        from app.api.models.build_log import BuildLog as DBBuildLog
-        from app.api.models.build_log import BuildLogPost as DBBuildLogPost
+        from app.db.dynamo.build_logs import BuildLogPostRepository, BuildLogRepository
+
+        build_logs = BuildLogRepository()
+        build_log_posts = BuildLogPostRepository()
 
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session)
@@ -947,26 +929,24 @@ class TestBuildLogs:
             post_ids.append(response.json()["id"])
 
         # Verify build log and posts exist
-        build_log = db_session.query(DBBuildLog).filter(DBBuildLog.build_list_id == UUID(build_list_id)).first()
+        build_log = build_logs.for_build_list(UUID(build_list_id))
         assert build_log is not None
-        posts = db_session.query(DBBuildLogPost).filter(DBBuildLogPost.build_log_id == build_log.id).all()
-        assert len(posts) == 3
+        assert len(build_log_posts.all_for_build_log(build_log.id)) == 3
 
         # Delete the build list
         response = client.delete(f"{settings.API_STR}/build-lists/{build_list_id}", headers=headers)
         assert response.status_code == 200
 
         # Verify build log is deleted (cascade)
-        db_session.expire_all()
-        build_log = db_session.query(DBBuildLog).filter(DBBuildLog.build_list_id == UUID(build_list_id)).first()
-        assert build_log is None, "Build log should be deleted when build list is deleted"
+        assert build_logs.for_build_list(UUID(build_list_id)) is None, "Build log should be deleted with its list"
 
         # Verify all posts are deleted (cascade)
-        posts = db_session.query(DBBuildLogPost).filter(DBBuildLogPost.id.in_([UUID(p) for p in post_ids])).all()
-        assert len(posts) == 0, "All posts should be deleted when build list is deleted"
+        assert all(
+            build_log_posts.get(UUID(p)) is None for p in post_ids
+        ), "All posts should be deleted when build list is deleted"
 
     def test_access_build_log_after_build_list_deletion(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that accessing build log returns 404 when build list is deleted."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -1002,7 +982,7 @@ class TestBuildLogs:
         assert response.status_code == 404
 
     def test_update_post_after_build_list_deletion(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that updating a post fails with 404 when build list is deleted."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -1040,7 +1020,7 @@ class TestBuildLogs:
         assert response.status_code == 404
 
     def test_delete_post_after_build_list_deletion(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that deleting a post fails with 404 when build list is deleted."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -1077,7 +1057,7 @@ class TestBuildLogs:
         assert response.status_code == 404
 
     def test_create_post_after_build_list_deletion(
-        self, client: TestClient, test_user: DBUser, db_session: Session
+        self, client: TestClient, test_user: DBUser, db_session: Any
     ) -> None:
         """Test that creating a post fails with 404 when build list is deleted."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
@@ -1109,7 +1089,7 @@ class TestBuildLogs:
         assert response.status_code == 404
 
     def test_multiple_posts_same_author_different_build_logs(
-        self, client: TestClient, premium_test_user: DBUser, db_session: Session
+        self, client: TestClient, premium_test_user: DBUser, db_session: Any
     ) -> None:
         """Test that author info is correctly populated for posts across different build logs."""
         # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)

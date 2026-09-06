@@ -27,11 +27,12 @@ Not synced — safe for admin curation:
 """
 
 import logging
+from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.core.car_generations_data import get_all_car_generations
+from app.db.dynamo.catalog import CarGeneration, CarMake, CarModel
+from app.db.dynamo.users import UniqueAttributeTaken
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,27 @@ def _str_or_none(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def init_car_generations(db: Session) -> None:
+def _int_or_none(value: object) -> int | None:
+    return int(value) if isinstance(value, (int, str)) and str(value).strip() else None
+
+
+def _get_or_create_make(repos: Repositories, name: str, cache: dict[str, CarMake]) -> CarMake:
+    cached = cache.get(name.lower())
+    if cached is not None:
+        return cached
+    make = repos.car_makes.get_by_name(name)
+    if make is None:
+        try:
+            make = repos.car_makes.create_unique(CarMake(name=name))
+        except UniqueAttributeTaken:
+            make = repos.car_makes.get_by_name(name)
+            if make is None:
+                raise
+    cache[name.lower()] = make
+    return make
+
+
+def init_car_generations() -> None:
     """
     Initialize car generations in the database from car_generations_data (source of truth).
 
@@ -56,9 +77,7 @@ def init_car_generations(db: Session) -> None:
     - On an existing CarGeneration, sync the fields in _CAR_GENERATION_SYNC_FIELDS.
     - Otherwise create the row with slug derived from the name (or pinned via source).
     """
-    from app.api.models.car_generation import CarGeneration
-    from app.api.models.car_make import CarMake
-    from app.api.models.car_model import CarModel
+    repos = get_repositories()
 
     logger.info("Initializing car generations...")
 
@@ -67,6 +86,9 @@ def init_car_generations(db: Session) -> None:
     gen_updated = 0
     model_created = 0
     model_updated = 0
+    make_cache: dict[str, CarMake] = {}
+    model_cache: dict[tuple[UUID, str], CarModel] = {}
+    generation_cache: dict[UUID, dict[str, CarGeneration]] = {}
 
     for gen_data in all_generations:
         car_make_name = _str_or_none(gen_data["make"]) or ""
@@ -76,66 +98,53 @@ def init_car_generations(db: Session) -> None:
         generation_name = _str_or_none(gen_data["generation_name"]) or ""
         generation_slug = _str_or_none(gen_data["generation_slug"]) or ""
 
-        # Get or create CarMake (still by name — makes are identity-stable and few).
-        car_make = db.scalars(select(CarMake).where(CarMake.name == car_make_name)).first()
-        if car_make is None:
-            car_make = CarMake(name=car_make_name)
-            db.add(car_make)
-            db.flush()
+        car_make = _get_or_create_make(repos, car_make_name, make_cache)
 
-        # Get or create CarModel by (make_id, slug). Name/display_name are synced fields.
-        car_model = db.scalars(
-            select(CarModel).where(CarModel.car_make_id == car_make.id, CarModel.slug == model_slug)
-        ).first()
+        model_key = (car_make.id, model_slug)
+        car_model = model_cache.get(model_key)
         if car_model is None:
-            car_model = CarModel(
-                car_make_id=car_make.id,
-                slug=model_slug,
-                name=car_model_name,
-                display_name=model_display_name,
+            car_model = repos.car_models.get_by_make_and_slug(car_make.id, model_slug)
+        if car_model is None:
+            car_model = repos.car_models.create_unique(
+                CarModel(
+                    car_make_id=car_make.id,
+                    slug=model_slug,
+                    name=car_model_name,
+                    display_name=model_display_name,
+                )
             )
-            db.add(car_model)
-            db.flush()
             model_created += 1
-        else:
-            changed = False
-            if car_model.name != car_model_name:
-                car_model.name = car_model_name
-                changed = True
-            if car_model.display_name != model_display_name:
-                car_model.display_name = model_display_name
-                changed = True
-            if changed:
-                model_updated += 1
+        elif car_model.name != car_model_name or car_model.display_name != model_display_name:
+            car_model = repos.car_models.update_unique(car_model, name=car_model_name, display_name=model_display_name)
+            model_updated += 1
+        model_cache[model_key] = car_model
 
-        # Get or create CarGeneration by (model_id, slug).
-        existing = db.scalars(
-            select(CarGeneration).where(
-                CarGeneration.car_model_id == car_model.id,
-                CarGeneration.slug == generation_slug,
-            )
-        ).first()
+        by_slug = generation_cache.get(car_model.id)
+        if by_slug is None:
+            by_slug = {gen.slug: gen for gen in repos.car_generations.list_by_model(car_model.id)}
+            generation_cache[car_model.id] = by_slug
+        existing = by_slug.get(generation_slug)
 
         if existing:
-            for key in _CAR_GENERATION_SYNC_FIELDS:
-                if key in gen_data:
-                    setattr(existing, key, gen_data[key])
+            changes = {key: gen_data[key] for key in _CAR_GENERATION_SYNC_FIELDS if key in gen_data}
+            if any(getattr(existing, key) != value for key, value in changes.items()):
+                by_slug[generation_slug] = repos.car_generations.update_unique(existing, **changes)
             gen_updated += 1
         else:
-            gen = CarGeneration(
-                car_model_id=car_model.id,
-                slug=generation_slug,
-                generation_name=generation_name,
-                display_name=_str_or_none(gen_data.get("display_name")),
-                start_year=gen_data["start_year"],
-                end_year=gen_data.get("end_year"),
-                description=_str_or_none(gen_data.get("description")),
+            gen = repos.car_generations.create_unique(
+                CarGeneration(
+                    car_model_id=car_model.id,
+                    slug=generation_slug,
+                    generation_name=generation_name,
+                    display_name=_str_or_none(gen_data.get("display_name")),
+                    start_year=int(str(gen_data["start_year"])),
+                    end_year=_int_or_none(gen_data.get("end_year")),
+                    description=_str_or_none(gen_data.get("description")),
+                )
             )
-            db.add(gen)
+            by_slug[generation_slug] = gen
             gen_created += 1
 
-    if gen_created or gen_updated or model_created or model_updated:
-        db.commit()
     if model_created:
         logger.info(f"Created {model_created} new car model(s)")
     if model_updated:

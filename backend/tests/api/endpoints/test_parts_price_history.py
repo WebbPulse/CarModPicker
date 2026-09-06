@@ -10,16 +10,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
-from app.api.models.part import Part as DBPart
-from app.api.models.part_listing import PartListing as DBPartListing
-from app.api.models.part_price_history import PartPriceHistory as DBPartPriceHistory
-from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User
-from tests.conftest import INVALID_UUID_STR, get_default_category_id
+from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.catalog import PartListing as DBPartListing
+from app.db.dynamo.catalog import PartPriceHistory as DBPartPriceHistory
+from app.db.dynamo.catalog import Retailer as DBRetailer
+from app.db.dynamo.users import User
+from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
 
 PRICE_HISTORY_PATH = "/api/parts/{part_id}/price-history"
 BATCH_PRICE_HISTORY_PATH = "/api/parts/price-history"
@@ -28,20 +28,19 @@ BATCH_PRICE_HISTORY_PATH = "/api/parts/price-history"
 # --- helpers (mirror tests/services/test_part_price_aggregation_service.py) --
 
 
-def _make_retailer(db: Session, slug: str) -> DBRetailer:
+def _make_retailer(db: Any, slug: str) -> DBRetailer:
     retailer = DBRetailer(
         name=f"retailer_{slug}_{uuid.uuid4().hex[:8]}",
         domain=f"{slug}-{uuid.uuid4().hex[:8]}.example.com",
         base_url=f"https://{slug}.example.com",
         is_active=True,
     )
-    db.add(retailer)
-    db.flush()
+    retailer = save_catalog(retailer)
     return retailer
 
 
 def _make_part(
-    db: Session,
+    db: Any,
     user: User,
     *,
     canonical_part_id: uuid.UUID | None = None,
@@ -54,24 +53,22 @@ def _make_part(
         is_universal=True,
         canonical_part_id=canonical_part_id,
     )
-    db.add(part)
-    db.flush()
+    part = save_catalog(part)
     return part
 
 
-def _make_listing(db: Session, part: DBPart, retailer: DBRetailer) -> DBPartListing:
+def _make_listing(db: Any, part: DBPart, retailer: DBRetailer) -> DBPartListing:
     listing = DBPartListing(
         part_id=part.id,
         retailer_id=retailer.id,
         product_url=f"https://{retailer.domain}/p/{uuid.uuid4().hex[:8]}",
     )
-    db.add(listing)
-    db.flush()
+    listing = save_catalog(listing)
     return listing
 
 
 def _add_history(
-    db: Session,
+    db: Any,
     listing: DBPartListing,
     *,
     price_cents: int,
@@ -82,8 +79,7 @@ def _add_history(
         price_cents=price_cents,
         observed_at=observed_at,
     )
-    db.add(row)
-    db.flush()
+    row = save_catalog(row)
     return row
 
 
@@ -91,7 +87,7 @@ def _add_history(
 
 
 def test_get_price_history_default_window_returns_summary_object(
-    client: TestClient, db_session: Session, test_user: User
+    client: TestClient, db_session: Any, test_user: User
 ) -> None:
     retailer = _make_retailer(db_session, "default-window")
     part = _make_part(db_session, test_user, name="Default Window Part")
@@ -100,7 +96,6 @@ def test_get_price_history_default_window_returns_summary_object(
     now = datetime.now(UTC)
     for i, price in enumerate([1000, 1100, 1200, 1300, 1400]):
         _add_history(db_session, listing, price_cents=price, observed_at=now - timedelta(days=10 + i))
-    db_session.commit()
 
     response = client.get(PRICE_HISTORY_PATH.format(part_id=part.id))
     assert response.status_code == 200
@@ -113,7 +108,7 @@ def test_get_price_history_default_window_returns_summary_object(
     assert len(body["retailers"]) == 1
 
 
-def test_get_price_history_window_30d_filters_old(client: TestClient, db_session: Session, test_user: User) -> None:
+def test_get_price_history_window_30d_filters_old(client: TestClient, db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "win30")
     part = _make_part(db_session, test_user, name="Window 30 Part")
     listing = _make_listing(db_session, part, retailer)
@@ -124,7 +119,6 @@ def test_get_price_history_window_30d_filters_old(client: TestClient, db_session
         _add_history(db_session, listing, price_cents=1000 + i, observed_at=now - timedelta(days=days))
     for i, days in enumerate([45, 90]):
         _add_history(db_session, listing, price_cents=2000 + i, observed_at=now - timedelta(days=days))
-    db_session.commit()
 
     response = client.get(PRICE_HISTORY_PATH.format(part_id=part.id), params={"window": "30d"})
     assert response.status_code == 200
@@ -134,9 +128,7 @@ def test_get_price_history_window_30d_filters_old(client: TestClient, db_session
     assert body["window"] == "30d"
 
 
-def test_get_price_history_window_all_includes_everything(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
+def test_get_price_history_window_all_includes_everything(client: TestClient, db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "win-all")
     part = _make_part(db_session, test_user, name="Window All Part")
     listing = _make_listing(db_session, part, retailer)
@@ -145,7 +137,6 @@ def test_get_price_history_window_all_includes_everything(
     # 4 rows spanning ~2 years.
     for days in [10, 200, 500, 700]:
         _add_history(db_session, listing, price_cents=1000 + days, observed_at=now - timedelta(days=days))
-    db_session.commit()
 
     response = client.get(PRICE_HISTORY_PATH.format(part_id=part.id), params={"window": "all"})
     assert response.status_code == 200
@@ -155,9 +146,8 @@ def test_get_price_history_window_all_includes_everything(
     assert body["window"] == "all"
 
 
-def test_get_price_history_invalid_window_returns_422(client: TestClient, db_session: Session, test_user: User) -> None:
+def test_get_price_history_invalid_window_returns_422(client: TestClient, db_session: Any, test_user: User) -> None:
     part = _make_part(db_session, test_user, name="Bad Window Part")
-    db_session.commit()
 
     response = client.get(PRICE_HISTORY_PATH.format(part_id=part.id), params={"window": "99x"})
     assert response.status_code == 422
@@ -171,7 +161,7 @@ def test_get_price_history_invalid_window_returns_422(client: TestClient, db_ses
 
 
 def test_get_price_history_retailer_filter_narrows_summary(
-    client: TestClient, db_session: Session, test_user: User
+    client: TestClient, db_session: Any, test_user: User
 ) -> None:
     retailer_a = _make_retailer(db_session, "filt-a")
     retailer_b = _make_retailer(db_session, "filt-b")
@@ -185,7 +175,6 @@ def test_get_price_history_retailer_filter_narrows_summary(
         _add_history(db_session, listing_a, price_cents=price, observed_at=now - timedelta(days=20 - i))
     for i, price in enumerate([1500, 1800, 2000]):
         _add_history(db_session, listing_b, price_cents=price, observed_at=now - timedelta(days=15 - i))
-    db_session.commit()
 
     response = client.get(
         PRICE_HISTORY_PATH.format(part_id=part.id),
@@ -211,7 +200,7 @@ def test_get_price_history_part_not_found_returns_404(client: TestClient) -> Non
 # --- POST /api/parts/price-history (T03) -------------------------------------
 
 
-def test_post_batch_price_history_basic(client: TestClient, db_session: Session, test_user: User) -> None:
+def test_post_batch_price_history_basic(client: TestClient, db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "batch-basic")
     parts = []
     now = datetime.now(UTC)
@@ -221,7 +210,6 @@ def test_post_batch_price_history_basic(client: TestClient, db_session: Session,
         for j, price in enumerate([1000 + idx * 100, 1100 + idx * 100, 1200 + idx * 100]):
             _add_history(db_session, listing, price_cents=price, observed_at=now - timedelta(days=5 + j))
         parts.append(part)
-    db_session.commit()
 
     response = client.post(
         BATCH_PRICE_HISTORY_PATH,
@@ -240,9 +228,7 @@ def test_post_batch_price_history_basic(client: TestClient, db_session: Session,
         assert item["max_cents"] is not None
 
 
-def test_post_batch_price_history_includes_empty_entries(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
+def test_post_batch_price_history_includes_empty_entries(client: TestClient, db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "batch-empty")
     now = datetime.now(UTC)
     part_with = _make_part(db_session, test_user, name="HasHistory")
@@ -253,7 +239,6 @@ def test_post_batch_price_history_includes_empty_entries(
     listing_other = _make_listing(db_session, part_other, retailer)
     _add_history(db_session, listing_other, price_cents=1500, observed_at=now - timedelta(days=2))
     part_empty = _make_part(db_session, test_user, name="NoHistory")
-    db_session.commit()
 
     response = client.post(
         BATCH_PRICE_HISTORY_PATH,
@@ -272,12 +257,11 @@ def test_post_batch_price_history_includes_empty_entries(
     assert empty_item["trend"] == "flat"
 
 
-def test_post_batch_price_history_window_default_90d(client: TestClient, db_session: Session, test_user: User) -> None:
+def test_post_batch_price_history_window_default_90d(client: TestClient, db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "batch-default-window")
     part = _make_part(db_session, test_user, name="Default Window Batch")
     listing = _make_listing(db_session, part, retailer)
     _add_history(db_session, listing, price_cents=999, observed_at=datetime.now(UTC) - timedelta(days=1))
-    db_session.commit()
 
     response = client.post(BATCH_PRICE_HISTORY_PATH, json={"part_ids": [str(part.id)]})
     assert response.status_code == 200
@@ -285,7 +269,7 @@ def test_post_batch_price_history_window_default_90d(client: TestClient, db_sess
     assert body["window"] == "90d"
 
 
-def test_post_batch_price_history_window_custom(client: TestClient, db_session: Session, test_user: User) -> None:
+def test_post_batch_price_history_window_custom(client: TestClient, db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "batch-custom-window")
     part = _make_part(db_session, test_user, name="Custom Window Batch")
     listing = _make_listing(db_session, part, retailer)
@@ -295,7 +279,6 @@ def test_post_batch_price_history_window_custom(client: TestClient, db_session: 
         _add_history(db_session, listing, price_cents=1000 + days, observed_at=now - timedelta(days=days))
     for days in [40, 60]:
         _add_history(db_session, listing, price_cents=2000 + days, observed_at=now - timedelta(days=days))
-    db_session.commit()
 
     response = client.post(
         BATCH_PRICE_HISTORY_PATH,
@@ -308,10 +291,9 @@ def test_post_batch_price_history_window_custom(client: TestClient, db_session: 
 
 
 def test_post_batch_price_history_invalid_window_returns_422(
-    client: TestClient, db_session: Session, test_user: User
+    client: TestClient, db_session: Any, test_user: User
 ) -> None:
     part = _make_part(db_session, test_user, name="Bad Window Batch")
-    db_session.commit()
 
     response = client.post(
         BATCH_PRICE_HISTORY_PATH,
@@ -361,9 +343,7 @@ def test_post_batch_price_history_unknown_ids_return_empty_entries(client: TestC
         assert entry["trend"] == "flat"
 
 
-def test_post_batch_price_history_aggregates_link_group(
-    client: TestClient, db_session: Session, test_user: User
-) -> None:
+def test_post_batch_price_history_aggregates_link_group(client: TestClient, db_session: Any, test_user: User) -> None:
     retailer_a = _make_retailer(db_session, "batch-lg-a")
     retailer_b = _make_retailer(db_session, "batch-lg-b")
     canonical = _make_part(db_session, test_user, name="Batch Canon")
@@ -376,7 +356,6 @@ def test_post_batch_price_history_aggregates_link_group(
     _add_history(db_session, listing_canon, price_cents=4800, observed_at=now - timedelta(days=5))
     _add_history(db_session, listing_dupe, price_cents=3000, observed_at=now - timedelta(days=8))
     _add_history(db_session, listing_dupe, price_cents=3200, observed_at=now - timedelta(days=2))
-    db_session.commit()
 
     response = client.post(
         BATCH_PRICE_HISTORY_PATH,
@@ -388,38 +367,3 @@ def test_post_batch_price_history_aggregates_link_group(
     assert item["observation_count"] == 4
     assert item["min_cents"] == 3000
     assert item["max_cents"] == 5000
-
-
-def test_post_batch_price_history_query_count(
-    client: TestClient, db_session: Session, test_user: User, query_counter
-) -> None:
-    retailer = _make_retailer(db_session, "batch-qcount")
-    parts = []
-    now = datetime.now(UTC)
-    for idx in range(50):
-        part = _make_part(db_session, test_user, name=f"QCount {idx}")
-        listing = _make_listing(db_session, part, retailer)
-        _add_history(db_session, listing, price_cents=1000 + idx, observed_at=now - timedelta(days=1))
-        parts.append(part)
-    db_session.commit()
-    # Materialize ids BEFORE entering query_counter — accessing `p.id` after a
-    # commit re-fetches each Part (and lazy-loads relationships) which would
-    # pollute the count with N test-fixture queries unrelated to the endpoint.
-    part_ids = [str(p.id) for p in parts]
-
-    with query_counter() as counter:
-        response = client.post(
-            BATCH_PRICE_HISTORY_PATH,
-            json={"part_ids": part_ids},
-        )
-    assert response.status_code == 200
-    # Service guarantees a fixed number of round-trips regardless of batch size:
-    # 1) self-lookup, 2) sibling-lookup, 3) min/max/count aggregation,
-    # 4) observations pull. The endpoint adds a SAVEPOINT/SELECT or two from the
-    # FastAPI dependency surface; the contract is "no N+1" — anything close to N
-    # would balloon past the budget. ≤ 6 SELECTs per batch is the bar D-04 sets.
-    assert (
-        counter.count <= 6
-    ), f"expected ≤ 6 SELECTs for a 50-id batch, got {counter.count}.\n" f"Statements:\n" + "\n".join(
-        counter.statements
-    )

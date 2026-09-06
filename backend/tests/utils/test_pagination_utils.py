@@ -1,160 +1,80 @@
 """Tests for pagination utility functions."""
 
-from sqlalchemy import select
-
-from app.api.models.build_list import BuildList
-from app.api.utils.pagination_utils import (
-    apply_search_filter,
-    apply_sorting,
-    create_paginated_response,
-    get_total_count,
-    paginate_query,
-)
+from app.api.utils.pagination_utils import create_paginated_response, get_pagination_params
 
 
-class TestPaginationUtils:
-    """Test cases for pagination utility functions."""
+class TestPaginationParams:
+    """Test pagination parameter handling."""
 
-    def test_paginate_query(self, db_session) -> None:
-        """Test paginating a query."""
-        # Create some build lists
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User
+    def test_get_pagination_params_default(self) -> None:
+        skip, limit = get_pagination_params(skip=0, limit=100)
+        assert skip == 0
+        assert limit == 100
 
-        user = User(
-            username="test_user_pagination",
-            email="test_pagination@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
-        )
-        db_session.add(user)
-        db_session.commit()
+    def test_get_pagination_params_custom(self) -> None:
+        skip, limit = get_pagination_params(skip=10, limit=50)
+        assert skip == 10
+        assert limit == 50
 
-        for i in range(5):
-            build_list = BuildList(
-                name=f"Test Build List {i}",
-                description="Test",
-                user_id=user.id,
-            )
-            db_session.add(build_list)
-        db_session.commit()
+    def test_get_pagination_params_boundary(self) -> None:
+        skip, limit = get_pagination_params(skip=0, limit=1000)
+        assert skip == 0
+        assert limit == 1000
 
-        stmt = select(BuildList)
-        result = paginate_query(db_session, stmt, skip=1, limit=2)
+    def test_get_pagination_params_clamps_out_of_range(self) -> None:
+        skip, limit = get_pagination_params(skip=-5, limit=5000)
+        assert skip == 0
+        assert limit == 1000
 
-        assert len(result) == 2
 
-    def test_get_total_count(self, db_session) -> None:
-        """Test getting total count of a query."""
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User
+class TestPaginatedResponse:
+    """Test paginated response creation."""
 
-        user = User(
-            username="test_user_count",
-            email="test_count@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
-        )
-        db_session.add(user)
-        db_session.commit()
+    def test_create_paginated_response_first_page(self) -> None:
+        data = [{"id": i} for i in range(10)]
+        response = create_paginated_response(data=data, total=25, skip=0, limit=10, entity_name="items")
 
-        for i in range(3):
-            build_list = BuildList(
-                name=f"Test Build List {i}",
-                description="Test",
-                user_id=user.id,
-            )
-            db_session.add(build_list)
-        db_session.commit()
+        assert len(response["data"]) == 10
+        assert response["total"] == 25
+        assert response["pagination"]["current_page"] == 1
+        assert response["pagination"]["total_pages"] == 3
+        assert response["pagination"]["total_items"] == 25
+        assert response["pagination"]["items_per_page"] == 10
+        assert response["pagination"]["has_next"] is True
+        assert response["pagination"]["has_previous"] is False
 
-        stmt = select(BuildList).where(BuildList.user_id == user.id)
-        count = get_total_count(db_session, stmt)
+    def test_create_paginated_response_middle_page(self) -> None:
+        data = [{"id": i} for i in range(10, 20)]
+        response = create_paginated_response(data=data, total=30, skip=10, limit=10, entity_name="items")
 
-        assert count >= 3
+        assert response["pagination"]["current_page"] == 2
+        assert response["pagination"]["total_pages"] == 3
+        assert response["pagination"]["has_next"] is True
+        assert response["pagination"]["has_previous"] is True
 
-    def test_create_paginated_response(self) -> None:
-        """Test creating a paginated response."""
-        data = [{"id": 1}, {"id": 2}, {"id": 3}]
-        result = create_paginated_response(data, total=10, skip=0, limit=3)
+    def test_create_paginated_response_last_page(self) -> None:
+        data = [{"id": i} for i in range(20, 25)]
+        response = create_paginated_response(data=data, total=25, skip=20, limit=10, entity_name="items")
 
-        assert "data" in result
-        assert "pagination" in result
-        assert result["pagination"]["current_page"] == 1
-        assert result["pagination"]["total_pages"] == 4
-        assert result["pagination"]["total_items"] == 10
-        assert result["pagination"]["has_next"] is True
-        assert result["pagination"]["has_previous"] is False
+        assert len(response["data"]) == 5
+        assert response["pagination"]["current_page"] == 3
+        assert response["pagination"]["total_pages"] == 3
+        assert response["pagination"]["has_next"] is False
+        assert response["pagination"]["has_previous"] is True
 
-    def test_apply_search_filter(self, db_session) -> None:
-        """Test applying search filter to a query."""
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User
+    def test_create_paginated_response_single_page(self) -> None:
+        data = [{"id": i} for i in range(5)]
+        response = create_paginated_response(data=data, total=5, skip=0, limit=10, entity_name="items")
 
-        user = User(
-            username="test_user_search",
-            email="test_search@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
-        )
-        db_session.add(user)
-        db_session.commit()
+        assert response["pagination"]["current_page"] == 1
+        assert response["pagination"]["total_pages"] == 1
+        assert response["pagination"]["has_next"] is False
+        assert response["pagination"]["has_previous"] is False
 
-        build_list1 = BuildList(
-            name="Test Build List",
-            description="Test",
-            user_id=user.id,
-        )
-        build_list2 = BuildList(
-            name="Another List",
-            description="Test",
-            user_id=user.id,
-        )
-        db_session.add_all([build_list1, build_list2])
-        db_session.commit()
+    def test_create_paginated_response_empty(self) -> None:
+        data: list[dict[str, int]] = []
+        response = create_paginated_response(data=data, total=0, skip=0, limit=10, entity_name="items")
 
-        stmt = select(BuildList).where(BuildList.user_id == user.id)
-        filtered_stmt = apply_search_filter(stmt, search="Test", search_fields=["name"])
-
-        results = list(db_session.scalars(filtered_stmt).all())
-        assert len(results) >= 1
-        assert any("Test" in bl.name for bl in results)
-
-    def test_apply_sorting(self, db_session) -> None:
-        """Test applying sorting to a query."""
-        from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User
-
-        user = User(
-            username="test_user_sort",
-            email="test_sort@example.com",
-            hashed_password=get_password_hash("password"),
-            email_verified=True,
-            disabled=False,
-        )
-        db_session.add(user)
-        db_session.commit()
-
-        build_list1 = BuildList(
-            name="A Build List",
-            description="Test",
-            user_id=user.id,
-        )
-        build_list2 = BuildList(
-            name="B Build List",
-            description="Test",
-            user_id=user.id,
-        )
-        db_session.add_all([build_list1, build_list2])
-        db_session.commit()
-
-        stmt = select(BuildList).where(BuildList.user_id == user.id)
-        sorted_stmt = apply_sorting(stmt, sort_by="name", sort_order="asc", allowed_sort_fields=["name"])
-
-        results = list(db_session.scalars(sorted_stmt).all())
-        assert len(results) >= 2
-        # Results should be sorted by name ascending
-        names = [bl.name for bl in results]
-        assert names == sorted(names)
+        assert len(response["data"]) == 0
+        assert response["pagination"]["total_items"] == 0
+        assert response["pagination"]["total_pages"] == 0

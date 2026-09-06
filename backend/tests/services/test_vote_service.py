@@ -2,15 +2,15 @@
 
 import logging
 import os
+from typing import Any
 
-from sqlalchemy.orm import Session
-
-from app.api.models.build_list import BuildList
-from app.api.models.part import Part
-from app.api.models.user import User
-from app.api.models.vote import Vote
 from app.api.schemas.vote import EntityType, VoteCreate, VoteType
 from app.api.services.vote_service import VoteService
+from app.db.dynamo.build_lists import BuildList, BuildListRepository
+from app.db.dynamo.catalog import Part
+from app.db.dynamo.moderation import VoteRepository
+from app.db.dynamo.users import User, UserRepository
+from tests.conftest import save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -23,7 +23,7 @@ def get_unique_name(base_name: str) -> str:
 class TestVoteService:
     """Test cases for vote service."""
 
-    def test_vote_on_car(self, db_session: Session, test_user: User) -> None:
+    def test_vote_on_car(self, db_session: Any, test_user: User) -> None:
         """Test voting on a car."""
         from tests.conftest import create_car_orm_in_db
 
@@ -40,41 +40,41 @@ class TestVoteService:
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.UPVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.CAR_GENERATION, car.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(EntityType.CAR_GENERATION, car.id, test_user.id, vote_data, logger)
 
         assert vote.entity_type == "car_generation"
         assert vote.entity_id == car.id
         assert vote.user_id == test_user.id
         assert vote.vote_type == "upvote"
 
-    def test_vote_on_build_list(self, db_session: Session, test_user: User) -> None:
+    def test_vote_on_build_list(self, db_session: Any, test_user: User) -> None:
         """Test voting on a build list."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
-        db_session.commit()
 
         # Vote on build list
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.UPVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
 
         assert vote.entity_type == "build_list"
         assert vote.entity_id == build_list.id
         assert vote.user_id == test_user.id
         assert vote.vote_type == "upvote"
 
-    def test_vote_on_part(self, db_session: Session, test_user: User) -> None:
+    def test_vote_on_part(self, db_session: Any, test_user: User) -> None:
         """Test voting on a global part."""
         # Create a global part
-        from app.api.models.category import Category
+        from app.db.dynamo.catalog import Category, CategoryRepository
 
-        category = db_session.query(Category).first()
+        category = next(iter(CategoryRepository().list_all()), None)
         if not category:
             category = Category(
                 name="test_category",
@@ -83,8 +83,7 @@ class TestVoteService:
                 is_active=True,
                 sort_order=1,
             )
-            db_session.add(category)
-            db_session.commit()
+            category = save_catalog(category)
 
         part = Part(
             name=get_unique_name("test_part"),
@@ -92,102 +91,97 @@ class TestVoteService:
             user_id=test_user.id,
             category_id=category.id,
         )
-        db_session.add(part)
-        db_session.commit()
+        part = save_catalog(part)
 
         # Vote on global part
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.DOWNVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.PART, part.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(EntityType.PART, part.id, test_user.id, vote_data, logger)
 
         assert vote.entity_type == "part"
         assert vote.entity_id == part.id
         assert vote.user_id == test_user.id
         assert vote.vote_type == "downvote"
 
-    def test_vote_update_existing(self, db_session: Session, test_user: User) -> None:
+    def test_vote_update_existing(self, db_session: Any, test_user: User) -> None:
         """Test updating an existing vote."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list2"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list2"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
-        db_session.commit()
 
         # Create initial vote
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data1 = VoteCreate(vote_type=VoteType.UPVOTE)
-        vote1 = service.vote_on_entity(
-            db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data1, logger
-        )
+        vote1 = service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data1, logger)
 
         # Update vote
         vote_data2 = VoteCreate(vote_type=VoteType.DOWNVOTE)
-        vote2 = service.vote_on_entity(
-            db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data2, logger
-        )
+        vote2 = service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data2, logger)
 
         assert vote2.id == vote1.id  # Same vote, updated
         assert vote2.vote_type == "downvote"
 
-    def test_remove_vote(self, db_session: Session, test_user: User) -> None:
+    def test_remove_vote(self, db_session: Any, test_user: User) -> None:
         """Test removing a vote."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list3"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list3"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
-        db_session.commit()
 
         # Create vote
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.UPVOTE)
-        vote = service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
+        vote = service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
 
         # Remove vote
-        result = service.remove_vote(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, logger)
+        result = service.remove_vote(EntityType.BUILD_LIST, build_list.id, test_user.id, logger)
 
         assert result is True
 
         # Verify vote is removed
-        db_vote = db_session.query(Vote).filter(Vote.id == vote.id).first()
+        db_vote = VoteRepository().get(vote.id)
         assert db_vote is None
 
-    def test_remove_vote_not_exists(self, db_session: Session, test_user: User) -> None:
+    def test_remove_vote_not_exists(self, db_session: Any, test_user: User) -> None:
         """Test removing a vote that doesn't exist."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list4"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list4"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
-        db_session.commit()
 
         # Try to remove non-existent vote
         service = VoteService()
         logger = logging.getLogger(__name__)
-        result = service.remove_vote(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, logger)
+        result = service.remove_vote(EntityType.BUILD_LIST, build_list.id, test_user.id, logger)
 
         assert result is False
 
-    def test_get_vote_summary(self, db_session: Session, test_user: User) -> None:
+    def test_get_vote_summary(self, db_session: Any, test_user: User) -> None:
         """Test getting vote summary."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list5"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list5"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
-        db_session.commit()
 
         # Create votes from multiple users
         from app.api.dependencies.auth import get_password_hash
@@ -206,23 +200,23 @@ class TestVoteService:
             email_verified=True,
             disabled=False,
         )
-        db_session.add_all([user2, user3])
-        db_session.commit()
+        user2 = UserRepository().create_user(user2)
+        user3 = UserRepository().create_user(user3)
 
         service = VoteService()
         logger = logging.getLogger(__name__)
 
         # Create upvotes
         vote_data_up = VoteCreate(vote_type=VoteType.UPVOTE)
-        service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data_up, logger)
-        service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, user2.id, vote_data_up, logger)
+        service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data_up, logger)
+        service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, user2.id, vote_data_up, logger)
 
         # Create downvote
         vote_data_down = VoteCreate(vote_type=VoteType.DOWNVOTE)
-        service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, user3.id, vote_data_down, logger)
+        service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, user3.id, vote_data_down, logger)
 
         # Get vote summary
-        summary = service.get_vote_summary(db_session, EntityType.BUILD_LIST, build_list.id)
+        summary = service.get_vote_summary(EntityType.BUILD_LIST, build_list.id)
 
         assert summary.entity_id == build_list.id
         assert summary.entity_type == "build_list"
@@ -231,68 +225,68 @@ class TestVoteService:
         assert summary.total_votes == 3
         assert summary.vote_score == 1  # 2 - 1
 
-    def test_get_vote_summary_with_user_vote(self, db_session: Session, test_user: User) -> None:
+    def test_get_vote_summary_with_user_vote(self, db_session: Any, test_user: User) -> None:
         """Test getting vote summary with user's vote."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list6"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list6"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
-        db_session.commit()
 
         # Create vote
         service = VoteService()
         logger = logging.getLogger(__name__)
         vote_data = VoteCreate(vote_type=VoteType.UPVOTE)
-        service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
+        service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, test_user.id, vote_data, logger)
 
         # Get vote summary with user_id
-        summary = service.get_vote_summary(db_session, EntityType.BUILD_LIST, build_list.id, user_id=test_user.id)
+        summary = service.get_vote_summary(EntityType.BUILD_LIST, build_list.id, user_id=test_user.id)
 
         assert summary.user_vote == "upvote"
 
-    def test_get_vote_summary_no_user_vote(self, db_session: Session, test_user: User) -> None:
+    def test_get_vote_summary_no_user_vote(self, db_session: Any, test_user: User) -> None:
         """Test getting vote summary when user hasn't voted."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list7"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list7"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
-        db_session.commit()
 
         # Get vote summary without user_id
         service = VoteService()
-        summary = service.get_vote_summary(db_session, EntityType.BUILD_LIST, build_list.id)
+        summary = service.get_vote_summary(EntityType.BUILD_LIST, build_list.id)
 
         assert summary.user_vote is None
 
-    def test_get_flagged_entities(self, db_session: Session, test_user: User) -> None:
+    def test_get_flagged_entities(self, db_session: Any, test_user: User) -> None:
         """Test getting flagged entities."""
         # Create multiple build lists with votes
         from app.api.dependencies.auth import get_password_hash
 
-        user2 = User(
-            username=get_unique_name("user4"),
-            email=f"{get_unique_name('user4')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
+        user2 = UserRepository().create_user(
+            User(
+                username=get_unique_name("user4"),
+                email=f"{get_unique_name('user4')}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(user2)
-        db_session.commit()
 
         # Create build list with many downvotes (should be flagged)
-        build_list = BuildList(
-            name=get_unique_name("flagged_build_list"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("flagged_build_list"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
-        db_session.commit()
 
         service = VoteService()
         logger = logging.getLogger(__name__)
@@ -311,22 +305,18 @@ class TestVoteService:
                 email_verified=True,
                 disabled=False,
             )
-            users.append(user)
-        db_session.add_all(users)
-        db_session.commit()
+            users.append(UserRepository().create_user(user))
 
         # Add downvotes
         for i in range(5):
-            service.vote_on_entity(
-                db_session, EntityType.BUILD_LIST, build_list.id, users[i].id, vote_data_down, logger
-            )
+            service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, users[i].id, vote_data_down, logger)
 
         # Add upvotes
         for i in range(5, 7):
-            service.vote_on_entity(db_session, EntityType.BUILD_LIST, build_list.id, users[i].id, vote_data_up, logger)
+            service.vote_on_entity(EntityType.BUILD_LIST, build_list.id, users[i].id, vote_data_up, logger)
 
         # Get flagged entities
-        flagged = service.get_flagged_entities(db_session, EntityType.BUILD_LIST, limit=10)
+        flagged = service.get_flagged_entities(EntityType.BUILD_LIST, limit=10)
 
         assert isinstance(flagged, list)
         # The build list should be flagged due to high downvote ratio (5/7 > 0.3)

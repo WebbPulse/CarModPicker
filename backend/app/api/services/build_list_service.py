@@ -1,356 +1,157 @@
 """
-Build list service that extends the base CRUD service.
+Build list service on DynamoDB.
+
+Build lists, their parts, phases, labor estimates and the build log thread
+auto-created alongside every list all live in DynamoDB.
 """
 
 import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import HTTPException
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
 
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.build_list_part import BuildListPart as DBBuildListPart
-from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
-from app.api.models.build_log import BuildLog as DBBuildLog
-from app.api.models.car_generation import CarGeneration as DBCar
-from app.api.models.user import User as DBUser
-from app.api.schemas.build_list import BuildListCreate, BuildListRead, BuildListUpdate
-from app.api.services.base_crud_service import BaseCRUDService
-from app.api.utils.common_operations import verify_entity_exists
+from app.api.dependencies.repositories import Repositories, get_repositories
+from app.api.schemas.build_list import BuildListCreate, BuildListUpdate
+from app.api.services.base_dynamo_crud_service import BaseDynamoCRUDService
 from app.api.utils.subscription_utils import is_user_premium
-from app.core.logging import get_logger
+from app.db.dynamo.build_lists import (
+    BuildList,
+    BuildListPart,
+    BuildListPhase,
+    delete_build_list_cascade,
+)
+from app.db.dynamo.build_logs import BuildLog, build_log_delete_actions
+from app.db.dynamo.users import User as DBUser
 
-logger = get_logger()
+FREE_TIER_BUILD_LIST_LIMIT = 1
+FREE_TIER_LIMIT_DETAIL = "Free accounts are limited to 1 build list. Upgrade to premium for unlimited build lists."
 
 
-class BuildListService(BaseCRUDService[DBBuildList, BuildListCreate, BuildListRead, BuildListUpdate]):
-    """Build list service that extends the base CRUD service."""
+class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildListUpdate]):
+    def __init__(self, repos: Optional[Repositories] = None) -> None:
+        self.repos = repos or get_repositories()
+        super().__init__(self.repos.build_lists, "build list")
 
-    def __init__(self) -> None:
-        super().__init__(
-            model=DBBuildList,
-            entity_name="build list",
+    # -- helpers -----------------------------------------------------------
+
+    def _verify_car_exists(self, car_id: UUID) -> None:
+        if self.repos.car_generations.get(str(car_id)) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Car not found")
+
+    def _enforce_free_tier_limit(self, current_user: DBUser) -> None:
+        if is_user_premium(current_user, check_kill_switch=True):
+            return
+        if self.count_by_user(current_user.id) >= FREE_TIER_BUILD_LIST_LIMIT:
+            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=FREE_TIER_LIMIT_DETAIL)
+
+    def _create_build_log(self, build_list: BuildList) -> BuildLog:
+        return self.repos.build_logs.create(
+            BuildLog(build_list_id=build_list.id, title=f"Build Log: {build_list.name}")
         )
+
+    # -- reads -------------------------------------------------------------
+
+    def get_build_lists_by_car(self, car_id: UUID, skip: int = 0, limit: int = 100) -> List[BuildList]:
+        items = self.repos.build_lists.query_all("car_id-created_at-index", car_id)
+        return items[skip : skip + limit]
+
+    def get_build_lists_by_user(self, user_id: UUID, skip: int = 0, limit: int = 100) -> List[BuildList]:
+        items = self.repos.build_lists.query_all("user_id-created_at-index", user_id)
+        return items[skip : skip + limit]
+
+    def count_by_user(self, user_id: UUID) -> int:
+        return len(self.repos.build_lists.query_all("user_id-created_at-index", user_id))
+
+    # -- writes ------------------------------------------------------------
 
     def create(
         self,
-        db: Session,
         data: BuildListCreate,
         current_user: DBUser,
-        logger: logging.Logger,
         additional_data: Optional[Dict[str, Any]] = None,
-    ) -> DBBuildList:
-        """
-        Create a new build list, ensuring the associated car exists.
+        *,
+        logger: Optional[logging.Logger] = None,
+    ) -> BuildList:
+        self._verify_car_exists(data.car_id)
+        self._enforce_free_tier_limit(current_user)
 
-        Args:
-            db: Database session
-            data: Build list creation data
-            current_user: Current authenticated user
-            logger: Logger instance
-            additional_data: Additional data to include
-
-        Returns:
-            The created build list
-
-        Raises:
-            HTTPException: If car not found, creation fails, or free user limit reached (402)
-        """
-        # Verify the car exists
-        verify_entity_exists(db, DBCar, data.car_id, "car")
-
-        # Enforce build list cap for free users (premium = unlimited).
-        # When the admin kill switch is on, is_user_premium returns True for everyone.
-        if not is_user_premium(current_user, db):
-            count = self.count_by_user(db, current_user.id, logger=logger)
-            if count >= 1:
-                raise HTTPException(
-                    status_code=402,
-                    detail="Free accounts are limited to 1 build list. Upgrade to premium for unlimited build lists.",
-                )
-
-        # Call parent create method
-        build_list = super().create(
-            db=db,
-            data=data,
-            current_user=current_user,
-            logger=logger,
-            additional_data=additional_data,
-        )
-
-        # Auto-create a build log thread for this build list
-        build_log = DBBuildLog(
-            build_list_id=build_list.id,
-            title=f"Build Log: {build_list.name}",
-        )
-        db.add(build_log)
-        db.flush()
-
-        logger.info(f"Auto-created build log thread {build_log.id} for build list {build_list.id}")
-
+        build_list = self.repository.create(self.build_entity(data, current_user, additional_data))
+        self._create_build_log(build_list)
+        if logger:
+            logger.info(f"User {current_user.id} created build list {build_list.id}")
         return build_list
 
-    def update(
-        self,
-        db: Session,
-        entity_id: UUID,
-        data: BuildListUpdate,
-        current_user: DBUser,
-        logger: logging.Logger,
-    ) -> DBBuildList:
-        """
-        Update a build list, ensuring the associated car exists if car_id is being updated.
+    def update(self, entity_id: UUID, data: BuildListUpdate, current_user: DBUser) -> BuildList:
+        changes = data.model_dump(exclude_unset=True)
+        if changes.get("car_id") is not None:
+            self._verify_car_exists(changes["car_id"])
+        return super().update(entity_id, data, current_user)
 
-        Args:
-            db: Database session
-            entity_id: ID of the build list to update
-            data: Build list update data
-            current_user: Current authenticated user
-            logger: Logger instance
-
-        Returns:
-            The updated build list
-
-        Raises:
-            HTTPException: If car not found or update fails
-        """
-        # If car_id is being updated, verify the car exists (if not None)
-        update_dict = data.model_dump(exclude_unset=True)
-        if "car_id" in update_dict and update_dict["car_id"] is not None:
-            verify_entity_exists(db, DBCar, update_dict["car_id"], "car")
-
-        # Call parent update method
-        return super().update(
-            db=db,
-            entity_id=entity_id,
-            data=data,
-            current_user=current_user,
-            logger=logger,
+    def delete(self, entity_id: UUID, current_user: DBUser) -> BuildList:
+        """Delete a build list with its parts, phases, labor estimates and build log thread."""
+        entity = self.get_by_id(entity_id, allow_public=True)
+        if not self.can_modify(entity, current_user):
+            raise self.forbidden("delete")
+        delete_build_list_cascade(
+            entity_id,
+            build_lists=self.repos.build_lists,
+            parts=self.repos.build_list_parts,
+            phases=self.repos.build_list_phases,
+            labor_estimates=self.repos.build_list_labor_estimates,
+            extra_actions=build_log_delete_actions(
+                entity_id, build_logs=self.repos.build_logs, posts=self.repos.build_log_posts
+            ),
         )
-
-    def delete(
-        self,
-        db: Session,
-        entity_id: UUID,
-        current_user: DBUser,
-        logger: logging.Logger,
-    ) -> Dict[str, str]:
-        """
-        Delete a build list and all its associated parts.
-
-        This method ensures that all build list parts are deleted before
-        deleting the build list itself to maintain data integrity.
-
-        Args:
-            db: Database session
-            entity_id: ID of the build list to delete
-            current_user: Current authenticated user
-            logger: Logger instance
-
-        Returns:
-            Success message
-
-        Raises:
-            HTTPException: If build list not found, access denied, or deletion fails
-        """
-        from app.api.utils.common_operations import delete_entity, verify_entity_ownership
-
-        # Verify ownership
-        build_list = verify_entity_ownership(db, DBBuildList, entity_id, current_user, self.entity_name)
-
-        # Delete all associated build list parts first
-        # This ensures proper cascade deletion and avoids foreign key constraint violations
-        build_list_parts = db.scalars(select(DBBuildListPart).where(DBBuildListPart.build_list_id == entity_id)).all()
-        for part in build_list_parts:
-            db.delete(part)
-
-        # Commit the deletion of parts before deleting the build list
-        db.flush()
-
-        # Now delete the build list itself
-        return delete_entity(
-            db=db,
-            entity=build_list,
-            user_id=current_user.id,
-            logger=logger,
-            entity_name=self.entity_name,
-        )
-
-    def get_build_lists_by_car(
-        self,
-        db: Session,
-        car_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        logger: Optional[logging.Logger] = None,
-    ) -> List[DBBuildList]:
-        """Get build lists by car ID with pagination."""
-        log = logger if logger is not None else get_logger()
-        build_lists = list(
-            db.scalars(select(DBBuildList).where(DBBuildList.car_id == car_id).offset(skip).limit(limit)).all()
-        )
-
-        log.info(f"Retrieved {len(build_lists)} build lists for car {car_id}")
-        return build_lists
-
-    def get_build_lists_by_user(
-        self,
-        db: Session,
-        user_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        logger: Optional[logging.Logger] = None,
-    ) -> List[DBBuildList]:
-        """Get build lists by user ID with pagination."""
-        log = logger if logger is not None else get_logger()
-        build_lists = list(
-            db.scalars(select(DBBuildList).where(DBBuildList.user_id == user_id).offset(skip).limit(limit)).all()
-        )
-
-        log.info(f"Retrieved {len(build_lists)} build lists for user {user_id}")
-        return build_lists
-
-    def count_by_user(
-        self,
-        db: Session,
-        user_id: UUID,
-        logger: Optional[logging.Logger] = None,
-    ) -> int:
-        """Count build lists owned by a specific user."""
-        log = logger if logger is not None else get_logger()
-        count = db.scalar(select(func.count()).select_from(DBBuildList).where(DBBuildList.user_id == user_id)) or 0
-        log.info(f"Counted {count} build lists for user {user_id}")
-        return count
+        return entity
 
     def copy_build_list(
         self,
-        db: Session,
         build_list_id: UUID,
         current_user: DBUser,
-        logger: logging.Logger,
+        logger: Optional[logging.Logger] = None,
         new_name: Optional[str] = None,
-    ) -> DBBuildList:
+    ) -> BuildList:
         """
-        Copy a build list and all its parts for the current user.
-
-        This method creates completely new, independent entities:
-        - A new BuildList entity with a new primary key
-        - New BuildListPart entities (one for each original part) with new primary keys
-        - Each new BuildListPart references the same Part (by part_id)
-          but is a separate entity in the database
-
-        This ensures that modifications or deletions to the original build list
-        or its parts do not affect the copied build list, as they are completely
-        independent entities in separate dependency chains.
-
-        Args:
-            db: Database session
-            build_list_id: ID of the build list to copy
-            current_user: Current authenticated user (will own the copy)
-            logger: Logger instance
-            new_name: Optional new name for the copied build list. If not provided,
-                     defaults to "Copy of {original_name}"
-
-        Returns:
-            The newly created build list copy
-
-        Raises:
-            HTTPException: If build list not found or copy fails
+        Copy a build list, its phases and its parts into a new list owned by
+        the current user. Purchased flags are not carried over.
         """
-        # Get the original build list
-        original_build_list = verify_entity_exists(db, DBBuildList, build_list_id, "build list")
+        original = self.get_by_id(build_list_id, allow_public=True)
+        self._enforce_free_tier_limit(current_user)
 
-        # IN-02: enforce the free-tier cap on the copy path too. `create` already
-        # checks this for direct creates, but `copy_build_list` previously bypassed
-        # it — a free user at the 1-list cap could keep pressing "copy" and grow
-        # their own list count unbounded. The admin kill switch still makes
-        # is_user_premium return True for everyone when enabled.
-        if not is_user_premium(current_user, db):
-            count = self.count_by_user(db, current_user.id, logger=logger)
-            if count >= 1:
-                raise HTTPException(
-                    status_code=402,
-                    detail="Free accounts are limited to 1 build list. Upgrade to premium for unlimited build lists.",
+        new_build_list = self.repository.create(
+            BuildList(
+                name=new_name or f"Copy of {original.name}",
+                description=original.description,
+                car_id=original.car_id,
+                image_urls=list(original.image_urls) if original.image_urls else None,
+                base_price_cents=original.base_price_cents,
+                user_id=current_user.id,
+            )
+        )
+        self._create_build_log(new_build_list)
+
+        phase_id_map: Dict[UUID, UUID] = {}
+        for phase in self.repos.build_list_phases.ordered_for_build_list(original.id):
+            new_phase = self.repos.build_list_phases.create(
+                BuildListPhase(build_list_id=new_build_list.id, name=phase.name, sort_order=phase.sort_order)
+            )
+            phase_id_map[phase.id] = new_phase.id
+
+        for part in self.repos.build_list_parts.all_for_build_list(original.id):
+            self.repos.build_list_parts.create(
+                BuildListPart(
+                    build_list_id=new_build_list.id,
+                    part_id=part.part_id,
+                    added_by=current_user.id,
+                    quantity=part.quantity,
+                    notes=part.notes,
+                    build_list_phase_id=(
+                        phase_id_map.get(part.build_list_phase_id) if part.build_list_phase_id else None
+                    ),
                 )
-
-        # Generate the new name
-        if new_name is None:
-            new_name = f"Copy of {original_build_list.name}"
-
-        # Create a NEW BuildList entity (new primary key, independent entity)
-        new_build_list = DBBuildList(
-            name=new_name,
-            description=original_build_list.description,
-            car_id=original_build_list.car_id,
-            image_urls=original_build_list.image_urls,
-            base_price_cents=original_build_list.base_price_cents,
-            user_id=current_user.id,
-        )
-        db.add(new_build_list)
-        db.flush()  # Get the ID without committing yet
-
-        # Auto-create a build log thread for the copied build list
-        build_log = DBBuildLog(
-            build_list_id=new_build_list.id,
-            title=f"Build Log: {new_build_list.name}",
-        )
-        db.add(build_log)
-        db.flush()
-
-        # Copy phases: create new phases for the new build list in sort_order
-        original_phases = list(
-            db.scalars(
-                select(DBBuildListPhase)
-                .where(DBBuildListPhase.build_list_id == build_list_id)
-                .order_by(DBBuildListPhase.sort_order, DBBuildListPhase.id)
-            ).all()
-        )
-        phase_id_mapping: Dict[UUID, UUID] = {}  # old_phase_id -> new_phase_id
-        for orig_phase in original_phases:
-            new_phase = DBBuildListPhase(
-                build_list_id=new_build_list.id,
-                name=orig_phase.name,
-                sort_order=orig_phase.sort_order,
             )
-            db.add(new_phase)
-            db.flush()
-            phase_id_mapping[orig_phase.id] = new_phase.id
 
-        # Get all build list parts from the original build list
-        original_parts = list(
-            db.scalars(select(DBBuildListPart).where(DBBuildListPart.build_list_id == build_list_id)).all()
-        )
-
-        # Create NEW BuildListPart entities for each original part
-        # Each new part is a completely separate entity with its own primary key
-        # They reference the same Part entities (by part_id) but are
-        # independent relationship entities, ensuring separate dependency chains
-        for original_part in original_parts:
-            new_phase_id = (
-                phase_id_mapping.get(original_part.build_list_phase_id)
-                if original_part.build_list_phase_id is not None
-                else None
-            )
-            # Create a new BuildListPart entity (new primary key, independent from original)
-            new_part = DBBuildListPart(
-                build_list_id=new_build_list.id,  # Points to the new build list
-                part_id=original_part.part_id,  # References same part (correct - we share parts)
-                added_by=current_user.id,  # New owner
-                quantity=original_part.quantity,  # Copy the quantity value
-                notes=original_part.notes,  # Copy the notes value
-                build_list_phase_id=new_phase_id,
-                # added_at will be set automatically by the model's default
-            )
-            db.add(new_part)
-
-        db.commit()
-        db.refresh(new_build_list)
-
-        logger.info(
-            f"User {current_user.id} copied build list {build_list_id} to new build list {new_build_list.id} "
-            f"with {len(original_parts)} new independent build list part entities"
-        )
-
+        if logger:
+            logger.info(f"User {current_user.id} copied build list {build_list_id} to {new_build_list.id}")
         return new_build_list

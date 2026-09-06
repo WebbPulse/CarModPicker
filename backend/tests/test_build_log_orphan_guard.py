@@ -1,29 +1,25 @@
-"""DATA-08 invariant: every build_list has a build_log row (eager-create).
+"""DATA-08 invariant: every build list has a build log (eager-create).
 
-Phase 4 plan 04-02 task 3. Exercises the eager-create path already present in
-backend/app/api/services/build_list_service.py:82-88 and the post-backfill
-invariant asserted by D-27: SELECT COUNT(*) FROM build_lists WHERE id NOT IN
-(SELECT build_list_id FROM build_logs) = 0.
+Exercises the eager-create path in app/api/services/build_list_service.py and
+the invariant asserted by D-27: no build list exists without a build log.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.build_log import BuildLog as DBBuildLog
-from app.api.models.user import User
 from app.api.schemas.build_list import BuildListCreate
 from app.api.services.build_list_service import BuildListService
+from app.db.dynamo.build_lists import BuildListRepository
+from app.db.dynamo.build_logs import BuildLogRepository
+from app.db.dynamo.users import User
 from tests.conftest import create_car_orm_in_db
 
 logger = logging.getLogger(__name__)
 
 
-def test_new_build_list_has_eager_build_log(db_session: Session, test_user: User) -> None:
+def test_new_build_list_has_eager_build_log(db_session: Any, test_user: User) -> None:
     """Seed a BuildList via the service; assert a BuildLog row exists (D-23)."""
     car = create_car_orm_in_db(
         db_session,
@@ -37,15 +33,15 @@ def test_new_build_list_has_eager_build_log(db_session: Session, test_user: User
 
     svc = BuildListService()
     payload = BuildListCreate(name="test-eager-create", description="seed", car_id=car.id)
-    bl = svc.create(db_session, payload, test_user, logger)
-    db_session.commit()
+    bl = svc.create(payload, test_user, logger=logger)
 
-    # Invariant: the just-created BuildList has a BuildLog row.
-    bl_row = db_session.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == bl.id)).first()
-    assert bl_row is not None, f"BuildList {bl.id} has no eager BuildLog row"
+    # Invariant: the just-created BuildList has a BuildLog.
+    build_log = BuildLogRepository().for_build_list(bl.id)
+    assert build_log is not None, f"BuildList {bl.id} has no eager BuildLog"
+    assert build_log.title == "Build Log: test-eager-create"
 
 
-def test_no_orphan_build_lists(db_session: Session, premium_test_user: User) -> None:
+def test_no_orphan_build_lists(db_session: Any, premium_test_user: User) -> None:
     """The DATA-08 invariant (D-27): no build_list lacks a build_log.
 
     Uses premium_test_user to bypass the free-tier single-build-list cap so we
@@ -64,14 +60,11 @@ def test_no_orphan_build_lists(db_session: Session, premium_test_user: User) -> 
     svc = BuildListService()
     for i in range(3):
         svc.create(
-            db_session,
             BuildListCreate(name=f"seed-orphan-test-{i}", description=None, car_id=car.id),
             premium_test_user,
-            logger,
+            logger=logger,
         )
-    db_session.commit()
 
-    orphan_count = db_session.scalar(
-        select(func.count()).select_from(DBBuildList).where(~DBBuildList.id.in_(select(DBBuildLog.build_list_id)))
-    )
-    assert orphan_count == 0, f"{orphan_count} build_list rows lack a build_log"
+    logged_ids = {log.build_list_id for log in BuildLogRepository().scan_all()}
+    orphans = [bl.id for bl in BuildListRepository().scan_all() if bl.id not in logged_ids]
+    assert orphans == [], f"{len(orphans)} build lists lack a build_log: {orphans}"

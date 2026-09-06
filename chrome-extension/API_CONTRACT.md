@@ -866,9 +866,9 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ## `POST /api/parts/`
 
-**Summary:** Create Entity
+**Summary:** Create Part
 
-**Description:** Create a new entity.
+**Description:** Create a user-contributed part, optionally with a retailer listing and price.
 
 **Request body (`application/json`):**
 
@@ -1173,9 +1173,9 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 }
 ```
 
-- `400` — Invalid part data
-- `402` — Subscription limit reached
-- `403` — Not authorized to create part
+- `400` — Bad request
+- `403` — Not authorized
+- `409` — Part already exists
 - `422` — Validation Error
 
 ```json
@@ -1593,27 +1593,49 @@ isn't minted twice — an existing match is returned instead.
 
 **Summary:** List Entities
 
-**Description:** List all entities with pagination and search.
-
 **Parameters:**
 
 | Name | In | Required | Schema |
 |------|----|----------|--------|
-| `skip` | query | no | integer |
 | `limit` | query | no | integer |
-| `search` | query | no | $ref |
+| `cursor` | query | no | $ref |
 
 **Responses:**
 
-- `200` — List of car_generations retrieved successfully
+- `200` — Car_Generation page retrieved successfully
 
 ```json
 {
-  "items": {
-    "$ref": "#/components/schemas/CarGenerationRead"
+  "properties": {
+    "has_next": {
+      "default": false,
+      "title": "Has Next",
+      "type": "boolean"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/components/schemas/CarGenerationRead"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Next Cursor"
+    }
   },
-  "title": "Response List Entities Api Car Generations  Get",
-  "type": "array"
+  "required": [
+    "items"
+  ],
+  "title": "CursorPage[CarGenerationRead]",
+  "type": "object"
 }
 ```
 
@@ -1701,7 +1723,6 @@ Args:
     entity_id: Optional ID of the entity (for updates)
     file: Image file to upload
     current_user: Authenticated user (from JWT token)
-    db: Database session
 
 Returns:
     dict: Contains 'file_key' (store this in your database) and 'presigned_url' (for immediate use)
@@ -1761,12 +1782,6 @@ Raises:
 
 **Summary:** Scrape Page From Extension
 
-**Description:** Accept full page HTML from the Chrome extension, archive it, and parse part attributes.
-
-Picks the registered site-specific adapter when the URL matches a known retailer;
-falls back to the generic parser for all other sites. Returns best-guess part
-attributes for the user to review before submitting.
-
 **Request body (`application/json`):**
 
 ```json
@@ -1796,21 +1811,10 @@ attributes for the user to review before submitting.
 
 ```json
 {
-  "description": "Parsed part attributes returned to the Chrome extension after server-side inference.",
   "properties": {
     "adapter_used": {
       "title": "Adapter Used",
       "type": "string"
-    },
-    "archive_skipped_duplicate": {
-      "default": false,
-      "title": "Archive Skipped Duplicate",
-      "type": "boolean"
-    },
-    "archived": {
-      "default": true,
-      "title": "Archived",
-      "type": "boolean"
     },
     "description": {
       "anyOf": [

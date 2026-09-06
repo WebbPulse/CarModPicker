@@ -7,12 +7,9 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
-from app.api.models.report import Report as DBReport
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.report import (
     EntityType,
     ReportCreate,
@@ -21,14 +18,10 @@ from app.api.schemas.report import (
     ReportWithDetails,
 )
 from app.api.services.report_service import ReportService
-from app.api.utils.common_patterns import (
-    PublicEndpointDeps,
-    create_paginated_response,
-    get_standard_public_endpoint_dependencies,
-)
+from app.api.utils.common_patterns import create_paginated_response
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
-from app.db.session import get_db
+from app.db.dynamo.users import User as DBUser
 
 logger = logging.getLogger(__name__)
 
@@ -47,16 +40,11 @@ report_service = ReportService()
     ),
 )
 async def count_reports(
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, int]:
     """Get total count of reports."""
-    # WR-05: use the module-level logger (app.api.endpoints.reports). Previously
-    # ``deps["logger"]`` shadowed it with common_patterns' logger and tagged log
-    # records with the wrong module name (breaks QUAL-07 / log-routing filters).
-    db = deps["db"]
-
     try:
-        count = db.scalar(select(func.count()).select_from(DBReport)) or 0
+        count = repos.reports.count()
         logger.info(f"Retrieved reports count: {count}")
         return {"count": count}
     except Exception as e:
@@ -78,12 +66,10 @@ async def report_entity(
     entity_type: EntityType,
     entity_id: UUID,
     report_data: ReportCreate,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ) -> ReportRead:
     """Report an entity (build list or global part) for admin review."""
     report = report_service.create_report(
-        db=db,
         entity_type=entity_type,
         entity_id=entity_id,
         user_id=current_user.id,
@@ -107,15 +93,10 @@ async def list_reports(
     status: Optional[str] = Query(None, description="Filter by status"),
     skip: int = Query(0, ge=0, description="Number of reports to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of reports to return"),
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> List[ReportRead]:
     """List reports with optional filtering. Admin only."""
-    db = deps["db"]
-    logger = deps["logger"]
-
     return report_service.get_reports(
-        db=db,
         entity_type=entity_type,
         status=status,
         skip=skip,
@@ -135,12 +116,10 @@ async def get_my_reports(
     status: Optional[str] = Query(None, description="Filter by status"),
     skip: int = Query(0, ge=0, description="Number of reports to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of reports to return"),
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ) -> List[ReportRead]:
     """Get all reports created by the current user."""
     return report_service.get_user_reports(
-        db=db,
         user_id=current_user.id,
         status=status,
         skip=skip,
@@ -162,15 +141,10 @@ async def list_reports_with_details(
     status: Optional[str] = Query(None, description="Filter by status"),
     skip: int = Query(0, ge=0, description="Number of reports to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of reports to return"),
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> Dict[str, Any]:
     """List reports with detailed information. Admin only."""
-    db = deps["db"]
-    logger = deps["logger"]
-
     reports, total_count = report_service.get_reports_with_details(
-        db=db,
         entity_type=entity_type,
         status=status,
         skip=skip,
@@ -200,12 +174,10 @@ async def list_reports_with_details(
 async def update_report(
     report_id: UUID,
     report_update: ReportUpdate,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> ReportRead:
     """Update a report (typically for admin review). Admin only."""
     report = report_service.update_report(
-        db=db,
         report_id=report_id,
         status=report_update.status.value,
         admin_notes=report_update.admin_notes,
@@ -226,12 +198,10 @@ async def update_report(
 )
 async def delete_report(
     report_id: UUID,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> dict[str, str]:
     """Delete a report (admin only)."""
     report_service.delete_report(
-        db=db,
         report_id=report_id,
         logger=logger,
     )
@@ -248,12 +218,10 @@ async def delete_report(
 )
 async def get_report(
     report_id: UUID,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ) -> ReportWithDetails:
     """Get a specific report with details. Users can access their own reports, admins can access any report."""
     report = report_service.get_report_by_id(
-        db=db,
         report_id=report_id,
         current_user_id=current_user.id,
         is_admin=current_user.is_admin,

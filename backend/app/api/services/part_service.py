@@ -1,0 +1,458 @@
+import logging
+from typing import Any, Callable, Dict, Iterable, List, Optional
+from uuid import UUID
+
+from fastapi import HTTPException, status
+
+from app.api.dependencies.repositories import Repositories, get_repositories
+from app.api.schemas.pagination import CursorPage
+from app.api.schemas.part import MAX_IMAGES_PER_PART, PartCreate, PartRead, PartReadWithVotes, PartUpdate
+from app.api.services.base_dynamo_crud_service import BaseDynamoCRUDService
+from app.api.services.page_parser import part_number_canonical
+from app.api.services.part_listing_service import (
+    create_or_update_listing_and_price,
+    delete_part_listings,
+    find_existing_part_for_create,
+    normalize_gtin,
+    normalize_part_number,
+)
+from app.api.utils.authorization import can_delete_part, require_part_edit_permission
+from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo import search
+from app.db.dynamo import search as search_module
+from app.db.dynamo.catalog import GTIN, MANUFACTURER_PART_NUMBER, Part
+from app.db.dynamo.users import UniqueAttributeTaken
+from app.db.dynamo.users import User as DBUser
+
+PART_SORTS = (
+    "votes_desc",
+    "votes_asc",
+    "lowest_price",
+    "highest_price",
+    "name_asc",
+    "name_desc",
+    "part_number_asc",
+    "part_number_desc",
+    "part_manufacturer_asc",
+    "part_manufacturer_desc",
+    "category_asc",
+    "category_desc",
+)
+
+
+class PartListFilters:
+    def __init__(
+        self,
+        *,
+        category_ids: Optional[List[UUID]] = None,
+        part_manufacturer_ids: Optional[List[UUID]] = None,
+        car_ids: Optional[List[UUID]] = None,
+        search: Optional[str] = None,
+        user_id: Optional[UUID] = None,
+        retailer_id: Optional[UUID] = None,
+        universal: Optional[bool] = None,
+        min_price_cents: Optional[int] = None,
+        max_price_cents: Optional[int] = None,
+    ) -> None:
+        self.category_ids = set(category_ids or [])
+        self.part_manufacturer_ids = set(part_manufacturer_ids or [])
+        self.car_ids = set(car_ids or [])
+        self.term = search_module.normalize_term(search)
+        self.user_id = user_id
+        self.retailer_id = retailer_id
+        self.universal = universal
+        self.min_price_cents = min_price_cents
+        self.max_price_cents = max_price_cents
+
+    def without_cars(self) -> "PartListFilters":
+        clone = PartListFilters.__new__(PartListFilters)
+        clone.__dict__.update(self.__dict__)
+        clone.car_ids = set()
+        clone.universal = None
+        return clone
+
+    @property
+    def has_scoping_filters(self) -> bool:
+        return bool(self.category_ids or self.part_manufacturer_ids or self.term)
+
+
+class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
+    def __init__(self, repos: Optional[Repositories] = None) -> None:
+        self.repos = repos or get_repositories()
+        super().__init__(repository=self.repos.parts, entity_name="part")
+
+    def _require(self, found: Optional[Any], entity_name: str) -> Any:
+        if found is None:
+            ResponsePatterns.raise_not_found(entity_name.title())
+        return found
+
+    def _validate_car_ids(self, car_ids: Iterable[UUID]) -> list[UUID]:
+        ids = list(dict.fromkeys(car_ids))
+        found = self.repos.car_generations.get_many(ids)
+        for car_id in ids:
+            if car_id not in found:
+                ResponsePatterns.raise_not_found("Car")
+        return ids
+
+    def _conflict_from_unique(self, exc: UniqueAttributeTaken, candidate: Part) -> HTTPException:
+        existing: Optional[Part] = None
+        if exc.attribute == GTIN and candidate.gtin:
+            existing = next(iter(self.repos.parts.list_by_gtin(candidate.gtin)), None)
+            message = "A part with this GTIN already exists."
+        elif (
+            exc.attribute == MANUFACTURER_PART_NUMBER
+            and candidate.part_manufacturer_id is not None
+            and candidate.part_number_normalized
+        ):
+            existing = next(
+                iter(
+                    self.repos.parts.list_by_manufacturer_part_number(
+                        candidate.part_manufacturer_id, candidate.part_number_normalized
+                    )
+                ),
+                None,
+            )
+            message = "A part with this manufacturer and part number already exists."
+        else:
+            message = "A part with these identifiers already exists."
+        detail: Dict[str, Any] = {
+            "error_code": "PART_ALREADY_EXISTS",
+            "reason": "duplicate_identifier",
+            "message": message,
+        }
+        if existing is not None:
+            detail["existing_part_id"] = str(existing.id)
+            detail["existing_part_name"] = existing.name
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+    def create_part(
+        self,
+        data: PartCreate,
+        current_user: DBUser,
+        logger: logging.Logger,
+        additional_data: Optional[Dict[str, Any]] = None,
+    ) -> Part:
+        if data.product_url and data.product_url.strip():
+            blocker = find_existing_part_for_create(creator_id=current_user.id, product_url=data.product_url)
+            if blocker is not None:
+                existing, reason = blocker
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "error_code": "PART_ALREADY_EXISTS",
+                        "reason": reason,
+                        "message": "You already have a part for this product.",
+                        "existing_part_id": str(existing.id),
+                        "existing_part_name": existing.name,
+                    },
+                )
+
+        payload = data.model_dump()
+        for key in ("retailer_id", "price_cents", "product_url", "price", "car_ids"):
+            payload.pop(key, None)
+        if additional_data:
+            payload.update(additional_data)
+        payload["user_id"] = current_user.id
+        if data.part_number:
+            payload["part_number"] = normalize_part_number(data.part_number)
+            payload["part_number_normalized"] = part_number_canonical(data.part_number)
+        if data.gtin:
+            payload["gtin"] = normalize_gtin(data.gtin) or payload.get("gtin")
+        if payload.get("image_urls") is not None:
+            payload["image_urls"] = payload["image_urls"][:MAX_IMAGES_PER_PART]
+
+        self._require(self.repos.categories.get(str(payload["category_id"])), "category")
+        if payload.get("part_manufacturer_id") is not None:
+            self._require(self.repos.part_manufacturers.get(str(payload["part_manufacturer_id"])), "part manufacturer")
+        wants_listing = bool(data.retailer_id and (data.product_url or data.price_cents is not None))
+        if wants_listing and data.retailer_id is not None:
+            self._require(self.repos.retailers.get(str(data.retailer_id)), "retailer")
+
+        car_ids = self._validate_car_ids(data.car_ids) if (not data.is_universal and data.car_ids) else []
+        payload["car_ids"] = car_ids
+        part = Part.model_validate(payload)
+        try:
+            self.repos.parts.create_unique(part, self.repos.part_cars.sync_actions(part.id, [], car_ids))
+        except UniqueAttributeTaken as exc:
+            raise self._conflict_from_unique(exc, part) from exc
+        logger.info(f"Created part {part.id} for user {current_user.id}")
+
+        if wants_listing and data.retailer_id is not None:
+            create_or_update_listing_and_price(
+                part.id,
+                data.retailer_id,
+                product_url=data.product_url,
+                price_cents=data.price_cents,
+            )
+            part = self.repos.parts.get(str(part.id)) or part
+        return part
+
+    def update(self, entity_id: UUID, data: PartUpdate, current_user: DBUser) -> Part:
+        entity = self.get_by_id(entity_id, allow_public=True)
+        require_part_edit_permission(current_user, entity)
+
+        changes = data.model_dump(exclude_unset=True)
+        car_ids = changes.pop("car_ids", None)
+        if changes.get("image_urls") is not None:
+            changes["image_urls"] = changes["image_urls"][:MAX_IMAGES_PER_PART]
+        if changes.get("gtin") is not None:
+            changes["gtin"] = normalize_gtin(changes["gtin"])
+        if "part_number" in changes:
+            raw = changes["part_number"]
+            changes["part_number"] = normalize_part_number(raw) if raw else None
+            changes["part_number_normalized"] = part_number_canonical(raw) if raw else None
+        if "category_id" in changes and changes["category_id"] is not None:
+            self._require(self.repos.categories.get(str(changes["category_id"])), "category")
+        if changes.get("part_manufacturer_id") is not None:
+            self._require(self.repos.part_manufacturers.get(str(changes["part_manufacturer_id"])), "part manufacturer")
+
+        is_universal_after = changes.get("is_universal", entity.is_universal)
+        next_car_ids = entity.car_ids
+        if car_ids is not None:
+            next_car_ids = self._validate_car_ids(car_ids) if (not is_universal_after and car_ids) else []
+        elif is_universal_after and not entity.is_universal:
+            next_car_ids = []
+        changes["car_ids"] = next_car_ids
+        changes["edit_count"] = entity.edit_count + 1
+
+        updated = entity.model_copy(update=changes)
+        try:
+            return self.repos.parts.save_unique(
+                entity, updated, self.repos.part_cars.sync_actions(entity.id, entity.car_ids, next_car_ids)
+            )
+        except UniqueAttributeTaken as exc:
+            raise self._conflict_from_unique(exc, updated) from exc
+
+    def apply_changes(self, entity: Part, **changes: Any) -> Part:
+        return self.repos.parts.save_unique(entity, entity.model_copy(update=changes))
+
+    def delete(self, entity_id: UUID, current_user: DBUser) -> Part:
+        entity = self.get_by_id(entity_id, allow_public=True)
+        if not can_delete_part(current_user, entity):
+            raise HTTPException(
+                status_code=403,
+                detail="Not authorized to delete this part. Only the creator or admin can delete parts.",
+            )
+        self.purge(entity)
+        return entity
+
+    def purge(self, entity: Part) -> None:
+        delete_part_listings(entity.id)
+        for duplicate in self.repos.parts.list_link_group(entity.id):
+            self._unlink_duplicate(duplicate)
+        unlink = [self.repos.part_cars.unlink_action(entity.id, car_id) for car_id in entity.car_ids]
+        self.repos.parts.delete_unique(entity, unlink)
+
+    def _unlink_duplicate(self, duplicate: Part) -> None:
+        restored = duplicate.model_copy(update={"canonical_part_id": None})
+        try:
+            self.repos.parts.save_unique(duplicate, restored)
+        except UniqueAttributeTaken:
+            restored.touch()
+            self.repos.parts.put(restored)
+
+    def count_by_user(self, user_id: UUID) -> int:
+        return self.repos.parts.count_by_user(user_id)
+
+    def candidates(self, filters: PartListFilters) -> list[Part]:
+        if filters.user_id is not None:
+            parts = self.repos.parts.list_by_user(filters.user_id)
+        elif filters.retailer_id is not None:
+            listings = self.repos.part_listings.list_by_retailer(filters.retailer_id)
+            parts = list(self.repos.parts.get_many(listing.part_id for listing in listings).values())
+        elif len(filters.category_ids) == 1:
+            parts = self.repos.parts.list_by_category(next(iter(filters.category_ids)))
+        elif len(filters.part_manufacturer_ids) == 1:
+            parts = self.repos.parts.list_by_manufacturer(next(iter(filters.part_manufacturer_ids)))
+        else:
+            parts = search.scan_matching(self.repos.parts, lambda part: self._matches(part, filters))
+        return [part for part in parts if self._matches(part, filters)]
+
+    def _matches(self, part: Part, filters: PartListFilters) -> bool:
+        if filters.user_id is not None:
+            if part.user_id != filters.user_id:
+                return False
+        elif part.canonical_part_id is not None:
+            return False
+        if filters.category_ids and part.category_id not in filters.category_ids:
+            return False
+        if filters.part_manufacturer_ids and part.part_manufacturer_id not in filters.part_manufacturer_ids:
+            return False
+        if filters.universal is True:
+            if not part.is_universal:
+                return False
+        elif filters.car_ids and not filters.car_ids.intersection(part.car_ids):
+            return False
+        if filters.term and not search.contains(filters.term, part.name, part.description):
+            return False
+        if filters.min_price_cents is not None and (
+            part.best_price_cents is None or part.best_price_cents < filters.min_price_cents
+        ):
+            return False
+        if filters.max_price_cents is not None and (
+            part.best_price_cents is None or part.best_price_cents > filters.max_price_cents
+        ):
+            return False
+        return True
+
+    def _sort_key(self, sort: Optional[str], parts: list[Part]) -> Callable[[Part], str]:
+        if sort == "lowest_price":
+            return lambda part: search.numeric_key(part.best_price_cents)
+        if sort == "highest_price":
+            return lambda part: search.numeric_key(part.best_price_cents, descending=True)
+        if sort == "votes_asc":
+            return lambda part: search.numeric_key(part.net_votes + search.NUMERIC_MAX // 2)
+        if sort == "name_asc":
+            return lambda part: search.text_key(part.name)
+        if sort == "name_desc":
+            return lambda part: search.text_key(part.name, descending=True)
+        if sort == "part_number_asc":
+            return lambda part: search.text_key(part.part_number)
+        if sort == "part_number_desc":
+            return lambda part: search.text_key(part.part_number, descending=True)
+        if sort in ("part_manufacturer_asc", "part_manufacturer_desc"):
+            manufacturers = self.repos.part_manufacturers.get_many(
+                part.part_manufacturer_id for part in parts if part.part_manufacturer_id is not None
+            )
+            descending = sort == "part_manufacturer_desc"
+
+            def manufacturer_key(part: Part) -> str:
+                manufacturer = manufacturers.get(part.part_manufacturer_id) if part.part_manufacturer_id else None
+                return search.text_key(manufacturer.name if manufacturer else None, descending=descending)
+
+            return manufacturer_key
+        if sort in ("category_asc", "category_desc"):
+            categories = self.repos.categories.get_many(part.category_id for part in parts)
+            descending = sort == "category_desc"
+
+            def category_key(part: Part) -> str:
+                category = categories.get(part.category_id)
+                label = (category.display_name or category.name) if category else None
+                return search.text_key(label, descending=descending)
+
+            return category_key
+        return lambda part: search.numeric_key(part.net_votes + search.NUMERIC_MAX // 2, descending=True)
+
+    def list_with_votes(
+        self,
+        filters: PartListFilters,
+        *,
+        sort: Optional[str],
+        limit: int,
+        cursor: Optional[str],
+        current_user: Optional[DBUser],
+    ) -> CursorPage[PartReadWithVotes]:
+        parts = self.candidates(filters)
+        page = search.paginate(
+            parts, limit=limit, cursor=cursor, sort_key=self._sort_key(sort, parts), transform=lambda p: p
+        )
+        return CursorPage(
+            items=self.with_votes(page.items, current_user),
+            next_cursor=page.next_cursor,
+            has_next=page.has_next,
+        )
+
+    def with_votes(self, parts: list[Part], current_user: Optional[DBUser]) -> list[PartReadWithVotes]:
+        if not parts:
+            return []
+        part_ids = [part.id for part in parts]
+        repos = get_repositories()
+        upvotes, downvotes = repos.votes.tallies("part", part_ids)
+        user_votes: Dict[UUID, str] = {}
+        if current_user:
+            user_votes = repos.votes.user_votes("part", part_ids, current_user.id)
+        result: list[PartReadWithVotes] = []
+        for part in parts:
+            part_dict = PartRead.model_validate(part).model_dump()
+            part_dict["upvotes"] = upvotes.get(part.id, 0)
+            part_dict["downvotes"] = downvotes.get(part.id, 0)
+            part_dict["total_votes"] = part_dict["upvotes"] + part_dict["downvotes"]
+            part_dict["user_vote"] = user_votes.get(part.id)
+            result.append(PartReadWithVotes(**part_dict))
+        return result
+
+    def filter_options(self, filters: PartListFilters) -> Dict[str, Any]:
+        parts = self.candidates(filters)
+        result: Dict[str, Any] = {
+            "category_ids": sorted({part.category_id for part in parts}, key=str),
+            "part_manufacturer_ids": sorted(
+                {part.part_manufacturer_id for part in parts if part.part_manufacturer_id is not None}, key=str
+            ),
+        }
+        if filters.has_scoping_filters:
+            unscoped = self.candidates(filters.without_cars())
+            car_ids = sorted({car_id for part in unscoped for car_id in part.car_ids}, key=str)
+            result["car_ids"] = car_ids
+            result["make_names"] = self._make_names(car_ids)
+        return result
+
+    def _make_names(self, car_ids: list[UUID]) -> list[str]:
+        if not car_ids:
+            return []
+        generations = self.repos.car_generations.get_many(car_ids)
+        models = self.repos.car_models.get_many(gen.car_model_id for gen in generations.values())
+        makes = self.repos.car_makes.get_many(model.car_make_id for model in models.values())
+        return sorted({make.name for make in makes.values() if make.name})
+
+    def page_by_category(self, category_id: UUID, *, limit: int, cursor: Optional[str]) -> CursorPage[PartRead]:
+        parts = [part for part in self.repos.parts.list_by_category(category_id) if part.canonical_part_id is None]
+        return search.paginate(
+            parts,
+            limit=limit,
+            cursor=cursor,
+            sort_key=lambda part: search.datetime_key(part.created_at, descending=True),
+            transform=PartRead.model_validate,
+        )
+
+    def list_page_read(self, *, limit: int, cursor: Optional[str], term: Optional[str] = None) -> CursorPage[PartRead]:
+        normalized = search.normalize_term(term)
+        parts = search.scan_matching(
+            self.repos.parts,
+            lambda part: part.canonical_part_id is None
+            and (not normalized or search.contains(normalized, part.name, part.description)),
+        )
+        return search.paginate(
+            parts,
+            limit=limit,
+            cursor=cursor,
+            sort_key=lambda part: search.datetime_key(part.created_at, descending=True),
+            transform=PartRead.model_validate,
+        )
+
+    def search_parts(self, term: str, *, limit: int, cursor: Optional[str]) -> CursorPage[PartRead]:
+        normalized = search.normalize_term(term)
+        manufacturer_ids = {
+            pm.id
+            for pm in self.repos.part_manufacturers.list_all()
+            if search.contains(normalized, pm.name, pm.description)
+        }
+        parts = search.scan_matching(
+            self.repos.parts,
+            lambda part: part.canonical_part_id is None
+            and (
+                search.contains(normalized, part.name, part.description, part.part_number)
+                or part.part_manufacturer_id in manufacturer_ids
+            ),
+        )
+        return search.paginate(
+            parts,
+            limit=limit,
+            cursor=cursor,
+            sort_key=lambda part: search.datetime_key(part.created_at, descending=True),
+            transform=PartRead.model_validate,
+        )
+
+
+def purge_related_rows_for_parts(part_ids: Iterable[UUID]) -> None:
+    """Remove votes, reports, build list usages and price alerts that reference the parts."""
+    ids = list(part_ids)
+    if not ids:
+        return
+    repos = get_repositories()
+    repos.votes.delete_for_entities("part", ids)
+    repos.reports.delete_for_entities("part", ids)
+    build_list_parts = repos.build_list_parts
+    usage_ids = [str(usage.id) for pid in ids for usage in build_list_parts.query_all("part_id-index", pid)]
+    if usage_ids:
+        build_list_parts.batch_delete(usage_ids)
+    repos.part_price_alerts.delete_for_parts(ids)

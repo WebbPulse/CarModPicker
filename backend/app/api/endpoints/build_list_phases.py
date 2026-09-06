@@ -1,44 +1,56 @@
 """
-Build list phase endpoints: update and delete phases by ID.
-List and create are under build_lists (GET/POST /build-lists/{id}/phases).
+Build list phases endpoint on DynamoDB.
+
+Phases are created and listed under /build-lists/{id}/phases; this router
+owns the per-phase update and delete routes.
 """
 
+from typing import Dict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select, update
 
 from app.api.dependencies.auth import get_current_user
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.build_list_part import BuildListPart as DBBuildListPart
-from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.build_list_phase import BuildListPhaseRead, BuildListPhaseUpdate
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
-    get_entity_or_404,
     get_standard_public_endpoint_dependencies,
     verify_user_access_or_admin,
 )
 from app.api.utils.endpoint_decorators import standard_responses
+from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.build_lists import BuildList, BuildListPhase
+from app.db.dynamo.repository import transact_write
+from app.db.dynamo.users import User as DBUser
 
 router = APIRouter()
 
 
+def _require_phase(repos: Repositories, phase_id: UUID) -> BuildListPhase:
+    phase = repos.build_list_phases.get(phase_id)
+    if phase is None:
+        ResponsePatterns.raise_not_found("build list phase", phase_id)
+    assert phase is not None
+    return phase
+
+
+def _require_build_list(repos: Repositories, build_list_id: UUID) -> BuildList:
+    build_list = repos.build_lists.get(build_list_id)
+    if build_list is None:
+        ResponsePatterns.raise_not_found("build list", build_list_id)
+    assert build_list is not None
+    return build_list
+
+
 @router.get(
     "/count",
-    response_model=dict,
-    responses=standard_responses(success_description="Build list phase count retrieved successfully"),
+    response_model=Dict[str, int],
+    responses=standard_responses(success_description="Count of build list phases"),
 )
-async def count_build_list_phases(
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> dict:
-    """Total count of build list phases (public read, same pattern as other /count endpoints)."""
-    db = deps["db"]
-    logger = deps["logger"]
-    count = db.scalar(select(func.count()).select_from(DBBuildListPhase)) or 0
-    logger.info(f"Retrieved build list phases count: {count}")
-    return {"count": count}
+async def count_build_list_phases(repos: Repositories = Depends(get_repositories)) -> Dict[str, int]:
+    """Get total count of build list phases."""
+    return {"count": len(repos.build_list_phases.scan_all())}
 
 
 @router.put(
@@ -55,25 +67,20 @@ async def update_build_list_phase(
     body: BuildListPhaseUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> BuildListPhaseRead:
-    """Update a build list phase. Only build list owner or admin."""
-    db = deps["db"]
+    """Update a phase. Only build list owner or admin."""
     logger = deps["logger"]
 
-    db_phase = get_entity_or_404(db, DBBuildListPhase, phase_id, "build list phase")
-    db_build_list = get_entity_or_404(db, DBBuildList, db_phase.build_list_id, "build list")
-    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+    phase = _require_phase(repos, phase_id)
+    build_list = _require_build_list(repos, phase.build_list_id)
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
 
     update_data = body.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_phase, key, value)
+    updated = repos.build_list_phases.update(phase.id, **update_data) if update_data else phase
 
-    db.add(db_phase)
-    db.commit()
-    db.refresh(db_phase)
-
-    logger.info(f"Build list phase {phase_id} updated by user {current_user.id}")
-    return BuildListPhaseRead.model_validate(db_phase)
+    logger.info(f"User {current_user.id} updated phase {phase_id}")
+    return BuildListPhaseRead.model_validate(updated)
 
 
 @router.delete(
@@ -89,23 +96,25 @@ async def delete_build_list_phase(
     phase_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> BuildListPhaseRead:
-    """Delete a build list phase. Parts in this phase are unassigned (build_list_phase_id set to NULL)."""
-    db = deps["db"]
+    """Delete a phase. Parts and labor estimates in it become ungrouped. Only build list owner or admin."""
     logger = deps["logger"]
 
-    db_phase = get_entity_or_404(db, DBBuildListPhase, phase_id, "build list phase")
-    db_build_list = get_entity_or_404(db, DBBuildList, db_phase.build_list_id, "build list")
-    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+    phase = _require_phase(repos, phase_id)
+    build_list = _require_build_list(repos, phase.build_list_id)
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
 
-    # Unassign parts from this phase
-    db.execute(
-        update(DBBuildListPart).where(DBBuildListPart.build_list_phase_id == phase_id).values(build_list_phase_id=None)
-    )
+    deleted_data = BuildListPhaseRead.model_validate(phase)
 
-    deleted_data = BuildListPhaseRead.model_validate(db_phase)
-    db.delete(db_phase)
-    db.commit()
+    # Mirror the SQL ON DELETE SET NULL: detach children, then drop the phase.
+    detach_actions = [
+        *repos.build_list_parts.clear_phase(phase.id, phase.build_list_id),
+        *repos.build_list_labor_estimates.clear_phase(phase.id, phase.build_list_id),
+    ]
+    for start in range(0, len(detach_actions), 100):
+        transact_write(detach_actions[start : start + 100])
+    repos.build_list_phases.delete(phase.id)
 
-    logger.info(f"Build list phase {phase_id} deleted by user {current_user.id}")
+    logger.info(f"User {current_user.id} deleted phase {phase_id}")
     return deleted_data

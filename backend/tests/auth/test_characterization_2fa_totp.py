@@ -10,14 +10,15 @@ Per D-19: HTTP status + key presence + DB state change (totp_enabled flipped to 
 """
 
 import os
+from typing import Any
 
 import pyotp
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 
 
 def _uniq(base: str) -> str:
@@ -25,23 +26,22 @@ def _uniq(base: str) -> str:
     return f"{base}_{worker}_{os.getpid()}"
 
 
-def test_totp_enroll_and_challenge(client: TestClient, db_session: Session) -> None:
+def test_totp_enroll_and_challenge(client: TestClient, db_session: Any) -> None:
     """Flow 3: TOTP enrollment (setup + verify) and subsequent 2FA login challenge."""
     username = _uniq("totp_char")
     password = "test_password_123!"
     email = f"{username}@example.com"
 
     # Create a verified user directly in DB
-    user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        email_verified=True,
-        disabled=False,
+    user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
 
     # --- Login to get Bearer token ---
     login_resp = client.post(
@@ -61,7 +61,7 @@ def test_totp_enroll_and_challenge(client: TestClient, db_session: Session) -> N
     secret = setup_body["secret"]
 
     # DB: secret stored, but totp_enabled still False
-    db_session.refresh(user)
+    user = UserRepository().get_or_raise(user.id)
     assert user.totp_secret == secret
     assert user.totp_enabled is False
 
@@ -77,7 +77,7 @@ def test_totp_enroll_and_challenge(client: TestClient, db_session: Session) -> N
     assert verify_body.get("success") is True
 
     # DB: totp_enabled flipped to True
-    db_session.refresh(user)
+    user = UserRepository().get_or_raise(user.id)
     assert user.totp_enabled is True
 
     # --- Step 3: Login now returns requires_2fa (not a token) ---

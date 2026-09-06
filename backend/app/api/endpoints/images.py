@@ -9,20 +9,17 @@ from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     get_current_admin_user,
     get_current_user,
     get_optional_current_user,
 )
-from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.services.storage_service import storage_service
 from app.api.utils.bucket_orphan_utils import get_all_referenced_file_keys
 from app.api.utils.image_url_utils import get_canonical_image_url
-from app.db.session import get_db
+from app.db.dynamo.users import User as DBUser
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +30,14 @@ router = APIRouter()
 async def get_image_by_source_url(
     source_url: str = Query(..., description="Original URL the image was downloaded from"),
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str]:
     """
     Check if we've already stored an image from this source URL (deduplication).
     Returns the existing file_key if found, so clients can skip re-uploading.
     """
     canonical = get_canonical_image_url(source_url)
-    mapping = db.scalars(select(DBImageSourceMapping).where(DBImageSourceMapping.source_url == canonical)).first()
+    mapping = repos.image_source_mappings.get_by_source_url(canonical)
     if not mapping:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No cached image for this source URL")
     return {"file_key": mapping.file_key}
@@ -55,7 +52,7 @@ async def upload_image(
     ),
     file: UploadFile = File(...),
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str]:
     """
     Upload an image file to S3 bucket.
@@ -69,7 +66,6 @@ async def upload_image(
         entity_id: Optional ID of the entity (for updates)
         file: Image file to upload
         current_user: Authenticated user (from JWT token)
-        db: Database session
 
     Returns:
         dict: Contains 'file_key' (store this in your database) and 'presigned_url' (for immediate use)
@@ -87,17 +83,14 @@ async def upload_image(
 
     # If entity_id is provided, verify the user owns the entity
     if entity_id:
-        from app.api.models.build_list import BuildList as DBBuildList
-        from app.api.models.part import Part as DBPart
-
         entity_owned = False
         if entity_type == "build_list":
-            entity = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
+            entity = repos.build_lists.get(entity_id)
             if entity and entity.user_id == current_user.id:
                 entity_owned = True
         elif entity_type == "part":
-            entity = db.scalars(select(DBPart).where(DBPart.id == entity_id)).first()
-            if entity and entity.user_id == current_user.id:
+            part = repos.parts.get(str(entity_id))
+            if part and part.user_id == current_user.id:
                 entity_owned = True
         elif entity_type == "user":
             # Users can only upload images for themselves
@@ -115,9 +108,7 @@ async def upload_image(
             # For build log posts, verify the user has access to the build list
             # If entity_id is provided, it should be the build_list_id
             if entity_id:
-                from app.api.models.build_list import BuildList as DBBuildList
-
-                build_list = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
+                build_list = repos.build_lists.get(entity_id)
                 if build_list:
                     # Any authenticated user can upload images for build log posts
                     # (build logs are public-readable, so images should be too)
@@ -141,7 +132,7 @@ async def upload_image(
         if entity_type == "part":
             from app.api.schemas.part import MAX_IMAGES_PER_PART
 
-            part = db.scalars(select(DBPart).where(DBPart.id == entity_id)).first()
+            part = repos.parts.get(str(entity_id))
             if part:
                 current_count = len(part.image_urls or [])
                 if current_count >= MAX_IMAGES_PER_PART:
@@ -154,9 +145,7 @@ async def upload_image(
         # Deduplication: if source_url provided and we already have it, return existing file_key
         if source_url and source_url.strip():
             canonical = get_canonical_image_url(source_url)
-            existing = db.scalars(
-                select(DBImageSourceMapping).where(DBImageSourceMapping.source_url == canonical)
-            ).first()
+            existing = repos.image_source_mappings.get_by_source_url(canonical)
             if existing:
                 presigned_url = storage_service.get_presigned_url(existing.file_key)
                 logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")
@@ -186,14 +175,8 @@ async def upload_image(
         if source_url and source_url.strip() and entity_type == "part":
             try:
                 canonical = get_canonical_image_url(source_url)
-                mapping = DBImageSourceMapping(
-                    source_url=canonical,
-                    file_key=file_key,
-                )
-                db.add(mapping)
-                db.commit()
+                repos.image_source_mappings.record(canonical, file_key)
             except Exception as e:
-                db.rollback()
                 logger.warning(f"Failed to store image source mapping: {e}")
 
         return {
@@ -218,7 +201,6 @@ async def get_presigned_url(
     file_key: str,
     expiration: Optional[int] = None,
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
-    db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """
     Generate a presigned URL for accessing an image in S3 bucket.
@@ -233,7 +215,6 @@ async def get_presigned_url(
         file_key: The file key stored in your database (from upload endpoint)
         expiration: Optional expiration time in seconds (default: 24 hours, max: 90 days)
         current_user: Optional authenticated user (for private images)
-        db: Database session
 
     Returns:
         dict: Contains 'presigned_url' for accessing the image
@@ -275,7 +256,6 @@ async def get_presigned_url(
 async def delete_image(
     file_key: str,
     current_user: DBUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """
     Delete an image from S3 bucket.
@@ -286,7 +266,6 @@ async def delete_image(
     Args:
         file_key: The file key to delete
         current_user: Authenticated user (from JWT token)
-        db: Database session
 
     Returns:
         dict: Success message
@@ -333,14 +312,12 @@ async def delete_image(
 @router.get("/admin/count")
 async def get_bucket_object_count(
     current_user: DBUser = Depends(get_current_admin_user),
-    db: Session = Depends(get_db),
 ) -> dict[str, int]:
     """
     Get the total count of objects in the S3 bucket (admin only).
 
     Args:
         current_user: Authenticated admin user (from JWT token)
-        db: Database session
 
     Returns:
         dict: Contains 'count' with the total number of bucket objects
@@ -389,7 +366,6 @@ async def get_bucket_object_count_by_entity_type(
 @router.get("/admin/orphaned")
 async def list_orphaned_bucket_objects(
     current_user: DBUser = Depends(get_current_admin_user),
-    db: Session = Depends(get_db),
 ) -> dict[str, int | list[str]]:
     """
     List bucket object keys that are not referenced by any entity (dry run).
@@ -397,7 +373,7 @@ async def list_orphaned_bucket_objects(
     No objects are deleted.
     """
     try:
-        referenced = get_all_referenced_file_keys(db)
+        referenced = get_all_referenced_file_keys()
         bucket_keys = storage_service.list_bucket_object_keys()
         orphaned = [k for k in bucket_keys if k not in referenced]
         logger.info(
@@ -423,7 +399,6 @@ async def list_orphaned_bucket_objects(
 @router.post("/admin/purge-orphaned")
 async def purge_orphaned_bucket_objects(
     current_user: DBUser = Depends(get_current_admin_user),
-    db: Session = Depends(get_db),
 ) -> dict[str, int | list[str]]:
     """
     Delete bucket objects that are not referenced by any entity (orphans).
@@ -432,7 +407,7 @@ async def purge_orphaned_bucket_objects(
     car (image_urls), build_list (image_urls), image_source_mapping (file_key).
     """
     try:
-        referenced = get_all_referenced_file_keys(db)
+        referenced = get_all_referenced_file_keys()
         bucket_keys = storage_service.list_bucket_object_keys()
         orphaned = [k for k in bucket_keys if k not in referenced]
 

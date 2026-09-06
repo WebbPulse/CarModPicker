@@ -1,11 +1,11 @@
 from typing import Any, List
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User as DBUser
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR
 
 
@@ -16,7 +16,7 @@ def get_auth_headers(token: str) -> dict[str, str]:
 
 # Helper function to create and login an admin user
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
@@ -24,18 +24,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in to get Bearer token
     login_data = {"username": username, "password": password}
@@ -48,7 +47,7 @@ def create_and_login_admin_user(
 
 # Helper function to create and login a superuser
 def create_and_login_superuser(
-    client: TestClient, db_session: Session, username_suffix: str = "superuser"
+    client: TestClient, db_session: Any, username_suffix: str = "superuser"
 ) -> tuple[dict[str, Any], str]:
     """Create a superuser and log them in. Returns (user_dict, token)."""
     username = f"superuser_test_{username_suffix}"
@@ -56,18 +55,17 @@ def create_and_login_superuser(
     password = "testpassword"
 
     # Create superuser directly in database
-    superuser = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=False,
-        is_superuser=True,
-        email_verified=True,
-        disabled=False,
+    superuser = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=False,
+            is_superuser=True,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(superuser)
-    db_session.commit()
-    db_session.refresh(superuser)
 
     # Log in to get Bearer token
     login_data = {"username": username, "password": password}
@@ -80,7 +78,7 @@ def create_and_login_superuser(
 
 # Helper function to create and login a regular user
 def create_and_login_regular_user(
-    client: TestClient, db_session: Session, username_suffix: str = "regular"
+    client: TestClient, db_session: Any, username_suffix: str = "regular"
 ) -> tuple[dict[str, Any], str]:
     """Create a regular user and log them in. Returns (user_dict, token)."""
     username = f"regular_test_{username_suffix}"
@@ -88,18 +86,17 @@ def create_and_login_regular_user(
     password = "testpassword"
 
     # Create regular user directly in database
-    regular_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=False,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    regular_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=False,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(regular_user)
-    db_session.commit()
-    db_session.refresh(regular_user)
 
     # Log in to get Bearer token
     login_data = {"username": username, "password": password}
@@ -113,7 +110,7 @@ def create_and_login_regular_user(
 class TestAdminUserManagement:
     """Test cases for admin user management endpoints."""
 
-    def test_get_all_users_without_authentication(self, client: TestClient, db_session: Session) -> None:
+    def test_get_all_users_without_authentication(self, client: TestClient, db_session: Any) -> None:
         """Test that getting all users without authentication fails."""
         response = client.get(f"{settings.API_STR}/users/admin/users")
         assert response.status_code == 401, "Should require authentication"
@@ -124,7 +121,7 @@ class TestAdminUserManagement:
             or "credentials" in response_data.get("message", "").lower()
         )
 
-    def test_get_all_users_with_regular_user(self, client: TestClient, db_session: Session) -> None:
+    def test_get_all_users_with_regular_user(self, client: TestClient, db_session: Any) -> None:
         """Test that regular users cannot get all users."""
         # Create and login regular user
         _, token = create_and_login_regular_user(client, db_session, "get_users")
@@ -134,7 +131,7 @@ class TestAdminUserManagement:
         assert response.status_code == 403, "Regular users should not be able to get all users"
         assert "Admin access required" in response.text
 
-    def test_get_all_users_with_admin_user(self, client: TestClient, db_session: Session) -> None:
+    def test_get_all_users_with_admin_user(self, client: TestClient, db_session: Any) -> None:
         """Test that admin users can get all users."""
         # Create some test users first
         user1 = DBUser(
@@ -155,8 +152,8 @@ class TestAdminUserManagement:
             email_verified=True,
             disabled=False,
         )
-        db_session.add_all([user1, user2])
-        db_session.commit()
+        user1 = UserRepository().create_user(user1)
+        user2 = UserRepository().create_user(user2)
 
         # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "get_users")
@@ -167,8 +164,8 @@ class TestAdminUserManagement:
 
         result = response.json()
         assert isinstance(result, dict)
-        assert "data" in result
-        users = result["data"]
+        assert "items" in result
+        users = result["items"]
         assert len(users) >= 3, "Should return at least 3 users (admin + 2 test users)"
 
         # Check that admin fields are included
@@ -176,7 +173,7 @@ class TestAdminUserManagement:
             assert "is_admin" in user
             assert "is_superuser" in user
 
-    def test_get_all_users_with_superuser(self, client: TestClient, db_session: Session) -> None:
+    def test_get_all_users_with_superuser(self, client: TestClient, db_session: Any) -> None:
         """Test that superusers can get all users."""
         # Create and login superuser
         _, token = create_and_login_superuser(client, db_session, "get_users")
@@ -187,11 +184,11 @@ class TestAdminUserManagement:
 
         result = response.json()
         assert isinstance(result, dict)
-        assert "data" in result
-        users = result["data"]
+        assert "items" in result
+        users = result["items"]
         assert len(users) >= 1, "Should return at least 1 user (superuser)"
 
-    def test_get_all_users_pagination(self, client: TestClient, db_session: Session) -> None:
+    def test_get_all_users_pagination(self, client: TestClient, db_session: Any) -> None:
         """Test pagination for admin get all users."""
         # Create multiple test users
         test_users: List[DBUser] = []
@@ -205,43 +202,44 @@ class TestAdminUserManagement:
                 email_verified=True,
                 disabled=False,
             )
-            test_users.append(user)
-
-        db_session.add_all(test_users)
-        db_session.commit()
+            test_users.append(UserRepository().create_user(user))
 
         # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "get_users_pagination")
         headers = get_auth_headers(token)
 
-        # Test first page (limit=2, skip=0)
-        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2&skip=0", headers=headers)
+        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2", headers=headers)
         assert response.status_code == 200, f"Admin should be able to get users: {response.text}"
 
         result_page1 = response.json()
         assert isinstance(result_page1, dict)
-        assert "data" in result_page1
-        users_page1 = result_page1["data"]
+        assert "items" in result_page1
+        users_page1 = result_page1["items"]
         assert len(users_page1) == 2
+        assert result_page1["has_next"] is True
+        assert result_page1["next_cursor"]
 
-        # Test second page (limit=2, skip=2)
-        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2&skip=2", headers=headers)
+        response = client.get(
+            f"{settings.API_STR}/users/admin/users?limit=2&cursor={result_page1['next_cursor']}", headers=headers
+        )
         assert response.status_code == 200, f"Admin should be able to get users: {response.text}"
 
         result_page2 = response.json()
         assert isinstance(result_page2, dict)
-        assert "data" in result_page2
-        users_page2 = result_page2["data"]
+        assert "items" in result_page2
+        users_page2 = result_page2["items"]
         assert len(users_page2) == 2
+        assert result_page2["has_next"] is True
 
-        # Test third page (limit=2, skip=4)
-        response = client.get(f"{settings.API_STR}/users/admin/users?limit=2&skip=4", headers=headers)
+        response = client.get(
+            f"{settings.API_STR}/users/admin/users?limit=2&cursor={result_page2['next_cursor']}", headers=headers
+        )
         assert response.status_code == 200, f"Admin should be able to get users: {response.text}"
 
         result_page3 = response.json()
         assert isinstance(result_page3, dict)
-        assert "data" in result_page3
-        users_page3 = result_page3["data"]
+        assert "items" in result_page3
+        users_page3 = result_page3["items"]
         assert len(users_page3) >= 1  # At least admin user
 
         # Verify no overlap between pages
@@ -258,21 +256,20 @@ class TestAdminUserManagement:
             assert "is_admin" in user
             assert "is_superuser" in user
 
-    def test_admin_update_user_without_authentication(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_update_user_without_authentication(self, client: TestClient, db_session: Any) -> None:
         """Test that updating a user without authentication fails."""
         # Create a test user
-        test_user = DBUser(
-            username="test_update_user",
-            email="test_update_user@example.com",
-            hashed_password=get_password_hash("password"),
-            is_admin=False,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username="test_update_user",
+                email="test_update_user@example.com",
+                hashed_password=get_password_hash("password"),
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         update_data = {
             "username": "updated_username",
@@ -282,21 +279,20 @@ class TestAdminUserManagement:
         response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data)
         assert response.status_code == 401, "Should require authentication"
 
-    def test_admin_update_user_with_regular_user(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_update_user_with_regular_user(self, client: TestClient, db_session: Any) -> None:
         """Test that regular users cannot update other users."""
         # Create a test user
-        test_user = DBUser(
-            username="test_update_user_regular",
-            email="test_update_user_regular@example.com",
-            hashed_password=get_password_hash("password"),
-            is_admin=False,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username="test_update_user_regular",
+                email="test_update_user_regular@example.com",
+                hashed_password=get_password_hash("password"),
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         # Create and login regular user
         _, token = create_and_login_regular_user(client, db_session, "update_user")
@@ -311,21 +307,20 @@ class TestAdminUserManagement:
         assert response.status_code == 403, "Regular users should not be able to update other users"
         assert "Admin access required" in response.text
 
-    def test_admin_update_user_with_admin_user(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_update_user_with_admin_user(self, client: TestClient, db_session: Any) -> None:
         """Test that admin users can update other users."""
         # Create a test user
-        test_user = DBUser(
-            username="test_update_user_admin",
-            email="test_update_user_admin@example.com",
-            hashed_password=get_password_hash("password"),
-            is_admin=False,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username="test_update_user_admin",
+                email="test_update_user_admin@example.com",
+                hashed_password=get_password_hash("password"),
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "update_user")
@@ -347,21 +342,20 @@ class TestAdminUserManagement:
         assert updated_user["is_admin"] == update_data["is_admin"]
         assert updated_user["email_verified"] == update_data["email_verified"]
 
-    def test_admin_update_user_with_superuser(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_update_user_with_superuser(self, client: TestClient, db_session: Any) -> None:
         """Test that superusers can update other users."""
         # Create a test user
-        test_user = DBUser(
-            username="test_update_user_superuser",
-            email="test_update_user_superuser@example.com",
-            hashed_password=get_password_hash("password"),
-            is_admin=False,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username="test_update_user_superuser",
+                email="test_update_user_superuser@example.com",
+                hashed_password=get_password_hash("password"),
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         # Create and login superuser
         _, token = create_and_login_superuser(client, db_session, "update_user")
@@ -381,21 +375,20 @@ class TestAdminUserManagement:
         assert updated_user["email"] == update_data["email"]
         assert updated_user["is_superuser"] == update_data["is_superuser"]
 
-    def test_admin_update_user_password(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_update_user_password(self, client: TestClient, db_session: Any) -> None:
         """Test that admin can update user password."""
         # Create a test user
-        test_user = DBUser(
-            username="test_update_password",
-            email="test_update_password@example.com",
-            hashed_password=get_password_hash("oldpassword"),
-            is_admin=False,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username="test_update_password",
+                email="test_update_password@example.com",
+                hashed_password=get_password_hash("oldpassword"),
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "update_password")
@@ -413,7 +406,7 @@ class TestAdminUserManagement:
         login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert login_response.status_code == 200, "Should be able to login with new password"
 
-    def test_admin_cannot_remove_own_admin_privileges(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_cannot_remove_own_admin_privileges(self, client: TestClient, db_session: Any) -> None:
         """Test that admin cannot remove their own admin privileges."""
         # Create and login admin user
         admin_user_dict, token = create_and_login_admin_user(client, db_session, "remove_privileges")
@@ -429,40 +422,38 @@ class TestAdminUserManagement:
         assert response.status_code == 400, "Admin should not be able to remove their own admin privileges"
         assert "Cannot remove your own admin privileges" in response.text
 
-    def test_admin_delete_user_without_authentication(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_delete_user_without_authentication(self, client: TestClient, db_session: Any) -> None:
         """Test that deleting a user without authentication fails."""
         # Create a test user
-        test_user = DBUser(
-            username="test_delete_user",
-            email="test_delete_user@example.com",
-            hashed_password=get_password_hash("password"),
-            is_admin=False,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username="test_delete_user",
+                email="test_delete_user@example.com",
+                hashed_password=get_password_hash("password"),
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         response = client.delete(f"{settings.API_STR}/users/admin/users/{test_user.id}")
         assert response.status_code == 401, "Should require authentication"
 
-    def test_admin_delete_user_with_regular_user(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_delete_user_with_regular_user(self, client: TestClient, db_session: Any) -> None:
         """Test that regular users cannot delete other users."""
         # Create a test user
-        test_user = DBUser(
-            username="test_delete_user_regular",
-            email="test_delete_user_regular@example.com",
-            hashed_password=get_password_hash("password"),
-            is_admin=False,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username="test_delete_user_regular",
+                email="test_delete_user_regular@example.com",
+                hashed_password=get_password_hash("password"),
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         # Create and login regular user
         _, token = create_and_login_regular_user(client, db_session, "delete_user")
@@ -472,21 +463,20 @@ class TestAdminUserManagement:
         assert response.status_code == 403, "Regular users should not be able to delete other users"
         assert "Admin access required" in response.text
 
-    def test_admin_delete_user_with_admin_user(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_delete_user_with_admin_user(self, client: TestClient, db_session: Any) -> None:
         """Test that admin users can delete other users."""
         # Create a test user
-        test_user = DBUser(
-            username="test_delete_user_admin",
-            email="test_delete_user_admin@example.com",
-            hashed_password=get_password_hash("password"),
-            is_admin=False,
-            is_superuser=False,
-            email_verified=True,
-            disabled=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username="test_delete_user_admin",
+                email="test_delete_user_admin@example.com",
+                hashed_password=get_password_hash("password"),
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "delete_user")
@@ -499,7 +489,7 @@ class TestAdminUserManagement:
         get_response = client.get(f"{settings.API_STR}/users/{test_user.id}", headers=headers)
         assert get_response.status_code == 404, "User should be deleted"
 
-    def test_admin_cannot_delete_themselves(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_cannot_delete_themselves(self, client: TestClient, db_session: Any) -> None:
         """Test that admin cannot delete themselves."""
         # Create and login admin user
         admin_user_dict, token = create_and_login_admin_user(client, db_session, "delete_self")
@@ -509,7 +499,7 @@ class TestAdminUserManagement:
         assert response.status_code == 400, "Admin should not be able to delete themselves"
         assert "Cannot delete your own account" in response.text
 
-    def test_admin_update_nonexistent_user(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_update_nonexistent_user(self, client: TestClient, db_session: Any) -> None:
         """Test that updating a nonexistent user fails."""
         # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "update_nonexistent")
@@ -525,7 +515,7 @@ class TestAdminUserManagement:
         assert response.status_code == 404, "Should return 404 for nonexistent user"
         assert "User" in response.json()["message"] and "not found" in response.json()["message"]
 
-    def test_admin_delete_nonexistent_user(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_delete_nonexistent_user(self, client: TestClient, db_session: Any) -> None:
         """Test that deleting a nonexistent user fails."""
         # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "delete_nonexistent")
@@ -535,7 +525,7 @@ class TestAdminUserManagement:
         assert response.status_code == 404, "Should return 404 for nonexistent user"
         assert "User" in response.json()["message"] and "not found" in response.json()["message"]
 
-    def test_admin_update_user_with_duplicate_username(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_update_user_with_duplicate_username(self, client: TestClient, db_session: Any) -> None:
         """Test that updating user with duplicate username fails."""
         # Create two test users
         user1 = DBUser(
@@ -556,10 +546,8 @@ class TestAdminUserManagement:
             email_verified=True,
             disabled=False,
         )
-        db_session.add_all([user1, user2])
-        db_session.commit()
-        db_session.refresh(user1)
-        db_session.refresh(user2)
+        user1 = UserRepository().create_user(user1)
+        user2 = UserRepository().create_user(user2)
 
         # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "duplicate_username")
@@ -574,7 +562,7 @@ class TestAdminUserManagement:
         assert response.status_code == 409, "Should return 409 Conflict for duplicate username"
         assert "already exists" in response.text
 
-    def test_admin_update_user_with_duplicate_email(self, client: TestClient, db_session: Session) -> None:
+    def test_admin_update_user_with_duplicate_email(self, client: TestClient, db_session: Any) -> None:
         """Test that updating user with duplicate email fails."""
         # Create two test users
         user1 = DBUser(
@@ -595,10 +583,8 @@ class TestAdminUserManagement:
             email_verified=True,
             disabled=False,
         )
-        db_session.add_all([user1, user2])
-        db_session.commit()
-        db_session.refresh(user1)
-        db_session.refresh(user2)
+        user1 = UserRepository().create_user(user1)
+        user2 = UserRepository().create_user(user2)
 
         # Create and login admin user
         _, token = create_and_login_admin_user(client, db_session, "duplicate_email")

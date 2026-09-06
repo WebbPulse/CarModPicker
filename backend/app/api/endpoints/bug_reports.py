@@ -7,12 +7,9 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_optional_current_user
-from app.api.models.bug_report import BugReport as DBBugReport
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.bug_report import (
     BugReportCreate,
     BugReportRead,
@@ -27,7 +24,7 @@ from app.api.utils.common_patterns import (
 )
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
-from app.db.session import get_db
+from app.db.dynamo.users import User as DBUser
 
 logger = logging.getLogger(__name__)
 
@@ -45,18 +42,12 @@ bug_report_service = BugReportService()
         success_description="Count of bug reports",
     ),
 )
-async def count_bug_reports(
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> Dict[str, int]:
+async def count_bug_reports(repos: Repositories = Depends(get_repositories)) -> Dict[str, int]:
     """Get total count of bug reports."""
     # WR-05: use the module-level logger (app.api.endpoints.bug_reports) so log
-    # records carry this module's name. Previously the function shadowed it with
-    # ``deps["logger"]``, which is the common_patterns module's logger and broke
-    # the QUAL-07 "logs carry their own module name" invariant.
-    db = deps["db"]
-
+    # records carry this module's name.
     try:
-        count = db.scalar(select(func.count()).select_from(DBBugReport)) or 0
+        count = repos.bug_reports.count()
         logger.info(f"Retrieved bug reports count: {count}")
         return {"count": count}
     except Exception as e:
@@ -74,13 +65,11 @@ async def count_bug_reports(
 )
 async def create_bug_report(
     bug_report_data: BugReportCreate,
-    db: Session = Depends(get_db),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> BugReportRead:
     """Create a new bug report. Can be created by authenticated or anonymous users."""
     user_id = current_user.id if current_user else None
     bug_report = bug_report_service.create_bug_report(
-        db=db,
         bug_report_data=bug_report_data,
         user_id=user_id,
         logger=logger,
@@ -106,11 +95,9 @@ async def list_bug_reports(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> List[BugReportRead]:
     """List bug reports with optional filtering. Admin only."""
-    db = deps["db"]
     logger = deps["logger"]
 
     return bug_report_service.get_bug_reports(
-        db=db,
         status=status,
         priority=priority,
         skip=skip,
@@ -136,11 +123,9 @@ async def list_bug_reports_with_details(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> Dict[str, Any]:
     """List bug reports with detailed information. Admin only."""
-    db = deps["db"]
     logger = deps["logger"]
 
     bug_reports, total_count = bug_report_service.get_bug_reports_with_details(
-        db=db,
         status=status,
         priority=priority,
         skip=skip,
@@ -170,12 +155,10 @@ async def list_bug_reports_with_details(
 async def update_bug_report(
     bug_report_id: UUID,
     bug_report_update: BugReportUpdate,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> BugReportRead:
     """Update a bug report (typically for admin review). Admin only."""
     bug_report = bug_report_service.update_bug_report(
-        db=db,
         bug_report_id=bug_report_id,
         bug_report_update=bug_report_update,
         logger=logger,
@@ -194,12 +177,10 @@ async def update_bug_report(
 )
 async def delete_bug_report(
     bug_report_id: UUID,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> dict[str, str]:
     """Delete a bug report (admin only)."""
     bug_report_service.delete_bug_report(
-        db=db,
         bug_report_id=bug_report_id,
         logger=logger,
     )
@@ -218,12 +199,10 @@ async def delete_bug_report(
 )
 async def get_bug_report(
     bug_report_id: UUID,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> BugReportWithDetails:
     """Get a specific bug report with details. Admin only."""
     bug_report = bug_report_service.get_bug_report_by_id(
-        db=db,
         bug_report_id=bug_report_id,
         logger=logger,
     )

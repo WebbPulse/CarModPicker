@@ -63,10 +63,6 @@ jobs:
           # Ignore ecdsa CVE-2024-23342: Not exploitable in this codebase as we use HS256 (HMAC) algorithm, not ECDSA-based algorithms
           pip-audit -r requirements.txt --ignore-vuln CVE-2024-23342
 
-      - name: Check migrations for unannotated destructive operations
-        run: |
-          python backend/scripts/check_migrations.py
-
       - name: Run tests with coverage
         env:
           SECRET_KEY: test-secret-key-for-ci
@@ -78,64 +74,3 @@ jobs:
         run: |
           cd backend
           python -m pytest -n auto --cov=app --cov-report=xml --cov-report=term-missing
-
-  postgres-tests:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: cmp_test
-          POSTGRES_PASSWORD: cmp_test
-          POSTGRES_DB: cmp_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-          cache: "pip"
-      - name: Install dependencies
-        run: |
-          cd backend
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest-cov pytest-xdist
-      - name: Create per-worker databases (with retry for flaky Postgres startup)
-        env:
-          PGPASSWORD: cmp_test
-        run: |
-          # INFO 12: retry psql CREATE DATABASE up to 5 times with 2s backoff;
-          # services:postgres healthcheck should catch most readiness issues but
-          # CREATE DATABASE can still race on first-boot parameter-group writes.
-          for i in 0 1 2 3; do
-            for attempt in 1 2 3 4 5; do
-              if psql -h localhost -U cmp_test -d cmp_test -c "CREATE DATABASE cmp_test_gw${i};"; then
-                break
-              fi
-              echo "psql CREATE DATABASE cmp_test_gw${i} failed on attempt $attempt; retrying in 2s..."
-              sleep 2
-              if [ $attempt -eq 5 ]; then
-                echo "Exhausted retries creating cmp_test_gw${i}" >&2
-                exit 1
-              fi
-            done
-          done
-      - name: Run Postgres-backed tests only
-        env:
-          POSTGRES_TEST_URL: postgresql://cmp_test:cmp_test@localhost:5432/cmp_test
-          SECRET_KEY: test-secret-key-for-ci
-          ACCESS_TOKEN_EXPIRE_MINUTES: 30
-          ALLOWED_ORIGINS: http://localhost:3000,http://localhost:4000
-          DEBUG: true
-          API_STR: /api
-          EMAIL_FROM: test@example.com
-        run: |
-          cd backend
-          pytest -n 4 -m postgres --dist=loadfile --no-cov

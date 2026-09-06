@@ -4,10 +4,9 @@ import os
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
-from app.api.models.user import User
 from app.core.config import settings
+from app.db.dynamo.users import User, UserRepository
 
 
 def get_unique_name(base_name: str) -> str:
@@ -18,29 +17,28 @@ def get_unique_name(base_name: str) -> str:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     from app.api.dependencies.auth import get_password_hash
-    from app.api.models.user import User as DBUser
+    from app.db.dynamo.users import User as DBUser
 
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -58,7 +56,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test successfully creating a bug report as an authenticated user."""
         # Login as test user
@@ -100,7 +98,7 @@ class TestBugReports:
     def test_create_bug_report_anonymous_success(
         self,
         client: TestClient,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test successfully creating a bug report as an anonymous user."""
         # Create a bug report without authentication
@@ -153,7 +151,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test that regular authenticated users cannot access bug reports (admin only)."""
         # Login as test user
@@ -187,7 +185,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test that anonymous users cannot access bug reports (admin only)."""
         # Login as test user and create a bug report
@@ -217,7 +215,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test that admins can access any bug report."""
         # Login as test user and create a bug report
@@ -257,7 +255,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test that only admins can list bug reports."""
         # Try to list bug reports as regular user
@@ -290,7 +288,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test listing bug reports with status and priority filters."""
         # Create bug reports with different statuses
@@ -330,7 +328,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test listing bug reports with details."""
         # Create a bug report
@@ -376,7 +374,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test updating a bug report as an admin."""
         # Create a bug report
@@ -423,7 +421,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test that updating a bug report to resolved sets resolved_at."""
         # Create a bug report
@@ -468,7 +466,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test deleting a bug report as an admin."""
         # Create a bug report
@@ -511,7 +509,7 @@ class TestBugReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test counting bug reports."""
         # Create a bug report

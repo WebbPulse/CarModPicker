@@ -11,19 +11,11 @@ from typing import Any, Awaitable, Callable, Dict, List
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import JSONResponse, Response
-from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
+
 logger = logging.getLogger(__name__)
-
-
-def _is_db_connection_error(exc: BaseException) -> bool:
-    """True if the exception indicates DB unreachable (cold start, network, etc.)."""
-    if isinstance(exc, (OperationalError, InterfaceError)):
-        return True
-    if isinstance(exc, DBAPIError) and exc.orig is not None:
-        return _is_db_connection_error(exc.orig)
-    return False
 
 
 async def error_handler_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
@@ -144,25 +136,7 @@ def handle_validation_error(exc: RequestValidationError) -> JSONResponse:
 
 
 def handle_unexpected_error(exc: Exception) -> JSONResponse:
-    """
-    Handle unexpected errors and convert to standardized format.
-
-    DB connection errors (e.g. during serverless/DB cold start) are returned
-    as 503 so clients know to retry.
-    """
-    if _is_db_connection_error(exc):
-        logger.warning("Database connection error (returning 503): %s", exc)
-        error_data = {
-            "success": False,
-            "message": "Service temporarily unavailable; database is starting. Please retry.",
-            "error_code": "SERVICE_UNAVAILABLE",
-        }
-        return JSONResponse(
-            content=error_data,
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            headers={"Retry-After": "2"},
-        )
-
+    """Handle unexpected errors and convert to standardized format."""
     error_data: Dict[str, str | bool] = {
         "success": False,
         "message": "Internal server error",
@@ -170,6 +144,26 @@ def handle_unexpected_error(exc: Exception) -> JSONResponse:
     }
 
     return JSONResponse(content=error_data, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def handle_item_not_found(exc: ItemNotFound) -> JSONResponse:
+    logger.info("DynamoDB item not found in %s: %s", exc.table, exc.key)
+    error_data: Dict[str, str | bool] = {
+        "success": False,
+        "message": "Resource not found",
+        "error_code": get_error_code(status.HTTP_404_NOT_FOUND),
+    }
+    return JSONResponse(content=error_data, status_code=status.HTTP_404_NOT_FOUND)
+
+
+def handle_condition_failed(exc: ConditionFailed | TransactionCanceled) -> JSONResponse:
+    logger.warning("DynamoDB condition failed: %s", exc)
+    error_data: Dict[str, str | bool] = {
+        "success": False,
+        "message": "Resource already exists or was modified concurrently",
+        "error_code": get_error_code(status.HTTP_409_CONFLICT),
+    }
+    return JSONResponse(content=error_data, status_code=status.HTTP_409_CONFLICT)
 
 
 def get_error_code(status_code: int) -> str:
@@ -219,6 +213,27 @@ def register_error_handlers(app: FastAPI) -> None:
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
         return handle_validation_error(exc)
+
+    @app.exception_handler(ItemNotFound)
+    async def item_not_found_handler(  # pyright: ignore[reportUnusedFunction]
+        request: Request, exc: ItemNotFound
+    ) -> JSONResponse:
+        return handle_item_not_found(exc)
+
+    @app.exception_handler(ConditionFailed)
+    async def condition_failed_handler(  # pyright: ignore[reportUnusedFunction]
+        request: Request, exc: ConditionFailed
+    ) -> JSONResponse:
+        return handle_condition_failed(exc)
+
+    @app.exception_handler(TransactionCanceled)
+    async def transaction_canceled_handler(  # pyright: ignore[reportUnusedFunction]
+        request: Request, exc: TransactionCanceled
+    ) -> JSONResponse:
+        if exc.conditional_check_failed:
+            return handle_condition_failed(exc)
+        logger.error(f"Transaction canceled in {request.url.path}: {str(exc)}", exc_info=True)
+        return handle_unexpected_error(exc)
 
     @app.exception_handler(Exception)
     async def general_exception_handler(  # pyright: ignore[reportUnusedFunction]

@@ -5,77 +5,63 @@ Public read; admin-only create/update/delete.
 Authenticated users can get-or-create by domain (for scrapers).
 """
 
-from typing import List
+from typing import Dict, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user, get_current_user
-from app.api.models.part_listing import PartListing as DBPartListing
-from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.retailer import RetailerCreate, RetailerRead, RetailerUpdate
-from app.api.services.base_crud_service import BaseCRUDService
 from app.api.services.part_listing_service import get_or_create_retailer
-from app.api.utils.base_endpoint_router import BaseEndpointRouter
-from app.api.utils.common_patterns import (
-    PublicEndpointDeps,
-    get_entity_or_404,
-    get_standard_public_endpoint_dependencies,
-    handle_integrity_error,
-)
 from app.api.utils.endpoint_decorators import crud_responses
 from app.api.utils.response_patterns import ResponsePatterns
-
-
-class RetailerService(BaseCRUDService[DBRetailer, RetailerCreate, RetailerRead, RetailerUpdate]):
-    """Retailer service that extends the base CRUD service."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            model=DBRetailer,
-            entity_name="retailer",
-        )
-
-    def get_active_retailers(self, db: Session) -> List[DBRetailer]:
-        """Get all active retailers ordered by name."""
-        return list(
-            db.scalars(select(DBRetailer).where(DBRetailer.is_active.is_(True)).order_by(DBRetailer.name)).all()
-        )
-
+from app.db.dynamo.catalog import Retailer
+from app.db.dynamo.users import UniqueAttributeTaken
+from app.db.dynamo.users import User as DBUser
 
 router = APIRouter()
-retailer_service = RetailerService()
 
-base_router = BaseEndpointRouter(
-    service=retailer_service,
-    router=router,
-    entity_name="retailer",
-    allow_public_read=True,
-    additional_create_data={},
-    disable_endpoints=["list", "get", "delete", "create", "update"],
-    create_schema=RetailerCreate,
-    read_schema=RetailerRead,
-    update_schema=RetailerUpdate,
-    search_fields=["name", "domain"],
+
+def _get_retailer_or_404(repos: Repositories, retailer_id: UUID) -> Retailer:
+    retailer = repos.retailers.get(str(retailer_id))
+    if retailer is None:
+        ResponsePatterns.raise_not_found("Retailer")
+    assert retailer is not None
+    return retailer
+
+
+def _raise_domain_conflict(domain: str, existing: Retailer) -> None:
+    ResponsePatterns.raise_conflict(
+        f"A retailer with domain '{domain}' already exists",
+        "DUPLICATE_RETAILER_DOMAIN",
+        details={"existing_retailer_id": str(existing.id)},
+    )
+
+
+def _check_domain_available(repos: Repositories, domain: str, *, exclude_id: UUID | None = None) -> None:
+    existing = repos.retailers.get_by_domain(domain.strip().lower())
+    if existing is not None and existing.id != exclude_id:
+        _raise_domain_conflict(domain, existing)
+
+
+@router.get(
+    "/count",
+    response_model=Dict[str, int],
+    responses={200: {"description": "Retailer count retrieved successfully"}},
 )
+async def count_retailers(repos: Repositories = Depends(get_repositories)) -> Dict[str, int]:
+    return {"count": repos.retailers.count()}
 
 
 @router.get("/", response_model=List[RetailerRead])
 async def get_retailers(
     active_only: bool = Query(True, description="Only return active retailers"),
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    repos: Repositories = Depends(get_repositories),
 ) -> List[RetailerRead]:
     """Get all retailers (optionally filtered to active only)."""
-    db = deps["db"]
-    if active_only:
-        retailers = retailer_service.get_active_retailers(db)
-    else:
-        retailers = list(db.scalars(select(DBRetailer).order_by(DBRetailer.name)).all())
-    return [RetailerRead.model_validate(r) for r in retailers]
+    return [RetailerRead.model_validate(r) for r in repos.retailers.list_sorted(active_only=active_only)]
 
 
 class RetailerGetOrCreateRequest(BaseModel):
@@ -92,37 +78,23 @@ class RetailerGetOrCreateRequest(BaseModel):
 )
 async def get_or_create_retailer_by_domain(
     body: RetailerGetOrCreateRequest,
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
 ) -> RetailerRead:
     """
     Get existing retailer by domain or create one. For use by scrapers when
     adding parts from a retailer not yet in the catalog. Any authenticated user.
     """
-    db = deps["db"]
     domain = body.domain.strip().lower()
     if not domain:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=400, detail="Domain is required")
 
-    # Derive name from domain if not provided: "a90shop.com" -> "A90Shop"
     name = body.name.strip() if body.name else _domain_to_retailer_name(domain)
-
-    retailer = get_or_create_retailer(
-        db,
-        name,
-        domain=domain,
-        base_url=body.base_url,
-    )
-    db.commit()
-    db.refresh(retailer)
+    retailer = get_or_create_retailer(name, domain=domain, base_url=body.base_url)
     return RetailerRead.model_validate(retailer)
 
 
 def _domain_to_retailer_name(domain: str) -> str:
     """Convert domain to display name: a90shop.com -> A90Shop."""
-    # Remove www. and TLD
     parts = domain.replace("www.", "").split(".")
     base = parts[0] if parts else domain
     if not base:
@@ -131,14 +103,9 @@ def _domain_to_retailer_name(domain: str) -> str:
 
 
 @router.get("/{retailer_id}", response_model=RetailerRead)
-async def get_retailer(
-    retailer_id: UUID,
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
-) -> RetailerRead:
+async def get_retailer(retailer_id: UUID, repos: Repositories = Depends(get_repositories)) -> RetailerRead:
     """Get a retailer by ID."""
-    db = deps["db"]
-    retailer = get_entity_or_404(db, DBRetailer, retailer_id, "retailer")
-    return RetailerRead.model_validate(retailer)
+    return RetailerRead.model_validate(_get_retailer_or_404(repos, retailer_id))
 
 
 @router.post(
@@ -148,24 +115,23 @@ async def get_retailer(
 )
 async def create_retailer(
     retailer: RetailerCreate,
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> RetailerRead:
     """Create a new retailer (admin only)."""
-    db = deps["db"]
     if retailer.domain:
-        existing = db.scalars(select(DBRetailer).where(DBRetailer.domain == retailer.domain)).first()
-        if existing:
-            ResponsePatterns.raise_conflict(
-                f"A retailer with domain '{retailer.domain}' already exists",
-                "DUPLICATE_RETAILER_DOMAIN",
-                details={"existing_retailer_id": str(existing.id)},
-            )
-    db_retailer = DBRetailer(**retailer.model_dump())
-    db.add(db_retailer)
-    db.commit()
-    db.refresh(db_retailer)
-    return RetailerRead.model_validate(db_retailer)
+        _check_domain_available(repos, retailer.domain)
+    candidate = Retailer(**retailer.model_dump())
+    try:
+        created = repos.retailers.create_unique(candidate)
+    except UniqueAttributeTaken as exc:
+        if exc.attribute == "domain" and retailer.domain:
+            existing = repos.retailers.get_by_domain(retailer.domain.strip().lower())
+            if existing is not None:
+                _raise_domain_conflict(retailer.domain, existing)
+        ResponsePatterns.raise_conflict("A retailer with this name already exists", "DUPLICATE_RETAILER_NAME")
+        raise
+    return RetailerRead.model_validate(created)
 
 
 @router.put(
@@ -176,32 +142,24 @@ async def create_retailer(
 async def update_retailer(
     retailer_id: UUID,
     retailer: RetailerUpdate,
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> RetailerRead:
     """Update a retailer (admin only)."""
-    db = deps["db"]
-    db_retailer = get_entity_or_404(db, DBRetailer, retailer_id, "retailer")
+    db_retailer = _get_retailer_or_404(repos, retailer_id)
     if retailer.domain is not None and retailer.domain != db_retailer.domain:
-        existing = db.scalars(select(DBRetailer).where(DBRetailer.domain == retailer.domain)).first()
-        if existing:
-            ResponsePatterns.raise_conflict(
-                f"A retailer with domain '{retailer.domain}' already exists",
-                "DUPLICATE_RETAILER_DOMAIN",
-                details={"existing_retailer_id": str(existing.id)},
-            )
+        _check_domain_available(repos, retailer.domain, exclude_id=db_retailer.id)
     update_data = retailer.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_retailer, field, value)
     try:
-        db.add(db_retailer)
-        db.commit()
-        db.refresh(db_retailer)
-        return RetailerRead.model_validate(db_retailer)
-    except Exception as e:
-        db.rollback()
-        handle_integrity_error(e, "retailer")
+        updated = repos.retailers.update_unique(db_retailer, **update_data)
+    except UniqueAttributeTaken as exc:
+        if exc.attribute == "domain" and retailer.domain:
+            existing = repos.retailers.get_by_domain(retailer.domain.strip().lower())
+            if existing is not None:
+                _raise_domain_conflict(retailer.domain, existing)
+        ResponsePatterns.raise_conflict("A retailer with this name already exists", "DUPLICATE_RETAILER_NAME")
         raise
+    return RetailerRead.model_validate(updated)
 
 
 @router.delete(
@@ -211,21 +169,17 @@ async def update_retailer(
 )
 async def delete_retailer(
     retailer_id: UUID,
-    deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_admin_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> RetailerRead:
     """Delete a retailer (admin only)."""
-    db = deps["db"]
-    db_retailer = get_entity_or_404(db, DBRetailer, retailer_id, "retailer")
-    listings_count = (
-        db.scalar(select(func.count()).select_from(DBPartListing).where(DBPartListing.retailer_id == retailer_id)) or 0
-    )
+    db_retailer = _get_retailer_or_404(repos, retailer_id)
+    listings_count = repos.part_listings.count_by_retailer(retailer_id)
     if listings_count > 0:
         ResponsePatterns.raise_conflict(
             f"Cannot delete retailer that has {listings_count} part listing(s)",
             "RETAILER_IN_USE",
         )
     response_data = RetailerRead.model_validate(db_retailer)
-    db.delete(db_retailer)
-    db.commit()
+    repos.retailers.delete_unique(db_retailer)
     return response_data

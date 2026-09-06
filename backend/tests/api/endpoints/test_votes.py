@@ -2,13 +2,13 @@ import os
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.user import User
-from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import INVALID_UUID_STR, create_car_in_db
+from app.db.dynamo.users import User
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
+from tests.conftest import INVALID_UUID_STR, create_car_in_db, save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -24,7 +24,7 @@ def get_auth_headers(token: str) -> dict[str, str]:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_vote_test_{username_suffix}"
@@ -32,18 +32,17 @@ def create_and_login_admin_user(
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -57,7 +56,7 @@ def create_and_login_admin_user(
 class TestUnifiedVotes:
     """Test cases for unified votes endpoints."""
 
-    def test_upvote_car_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_upvote_car_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully upvoting a car."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -85,24 +84,23 @@ class TestUnifiedVotes:
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "upvote"
 
-    def test_downvote_build_list_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_downvote_build_list_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully downvoting a build list."""
         # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        build_list_owner = DBUser(
-            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
-            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        build_list_owner = UserRepository().create_user(
+            DBUser(
+                username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+                email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(build_list_owner)
-        db_session.commit()
-        db_session.refresh(build_list_owner)
 
         # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
@@ -148,42 +146,37 @@ class TestUnifiedVotes:
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "downvote"
 
-    def test_vote_part_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_vote_part_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully voting on a global part."""
         # Create a second user to own the global part
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        part_owner = DBUser(
-            username=f"part_owner_{os.getpid()}_{id(db_session)}",
-            email=f"part_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        part_owner = UserRepository().create_user(
+            DBUser(
+                username=f"part_owner_{os.getpid()}_{id(db_session)}",
+                email=f"part_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(part_owner)
-        db_session.commit()
-        db_session.refresh(part_owner)
 
         # Create a category first
-        from app.api.models.category import Category as DBCategory
+        from app.db.dynamo.catalog import Category as DBCategory
 
         category = DBCategory(name=get_unique_name("Test Category"))
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
 
         # Create a part_manufacturer
-        from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
+        from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 
         part_manufacturer = DBPartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
         )
-        db_session.add(part_manufacturer)
-        db_session.commit()
-        db_session.refresh(part_manufacturer)
+        part_manufacturer = save_catalog(part_manufacturer)
 
         # Login as part owner and create a global part
         login_data = {"username": part_owner.username, "password": "testpassword"}
@@ -225,7 +218,7 @@ class TestUnifiedVotes:
         assert data["user_id"] == str(test_user.id)
         assert data["vote_type"] == "upvote"
 
-    def test_vote_unauthorized(self, client: TestClient, db_session: Session) -> None:
+    def test_vote_unauthorized(self, client: TestClient, db_session: Any) -> None:
         """Test voting without authentication."""
         # Try to upvote without authentication
         vote_data = {"vote_type": "upvote"}
@@ -248,7 +241,7 @@ class TestUnifiedVotes:
         )
         assert response.status_code == 404
 
-    def test_update_existing_vote(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_update_existing_vote(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test updating an existing vote."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -284,7 +277,7 @@ class TestUnifiedVotes:
         assert updated_vote["id"] == first_vote["id"]
         assert updated_vote["vote_type"] == "downvote"
 
-    def test_remove_vote_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_remove_vote_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully removing a vote."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -310,7 +303,7 @@ class TestUnifiedVotes:
         assert response.status_code == 200
         assert response.json()["message"] == "Vote removed successfully"
 
-    def test_remove_vote_not_found(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_remove_vote_not_found(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test removing a vote that doesn't exist."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -326,7 +319,7 @@ class TestUnifiedVotes:
         response = client.delete(f"{settings.API_STR}/votes/car_generation/{car['id']}", headers=test_user_headers)
         assert response.status_code == 404
 
-    def test_get_vote_summary_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_vote_summary_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully getting vote summary for an entity."""
         # Create a car via admin (cars are now centrally managed)
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
@@ -372,7 +365,7 @@ class TestUnifiedVotes:
         response = client.get(f"{settings.API_STR}/votes/car_generation/{INVALID_UUID_STR}/summary", headers=headers)
         assert response.status_code == 404
 
-    def test_get_flagged_entities_admin_only(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_flagged_entities_admin_only(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test that getting flagged entities requires admin access."""
         # Login as regular user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -385,7 +378,7 @@ class TestUnifiedVotes:
         response = client.get(f"{settings.API_STR}/votes/admin/flagged/car_generation", headers=headers)
         assert response.status_code == 403
 
-    def test_get_flagged_entities_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
+    def test_get_flagged_entities_success(self, client: TestClient, test_admin_user: User, db_session: Any) -> None:
         """Test successfully getting flagged entities as admin."""
         # Login as admin user
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
@@ -416,7 +409,7 @@ class TestUnifiedVotes:
         )
         assert response.status_code == 422  # Validation error
 
-    def test_vote_invalid_vote_type(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_vote_invalid_vote_type(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test voting with invalid vote type."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -434,7 +427,7 @@ class TestUnifiedVotes:
         response = client.post(f"{settings.API_STR}/votes/car_generation/{car['id']}", json=vote_data, headers=headers)
         assert response.status_code == 422  # Validation error
 
-    def test_count_votes_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_count_votes_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test counting votes."""
         # Get initial count (public endpoint, no auth required)
         response = client.get(f"{settings.API_STR}/votes/count")

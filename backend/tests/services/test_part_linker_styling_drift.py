@@ -12,14 +12,13 @@ import os
 import uuid
 from typing import Any
 
-from sqlalchemy.orm import Session
-
-from app.api.models.category import Category as DBCategory
-from app.api.models.part import Part as DBPart
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.services.part_listing_service import (
     find_part_by_part_manufacturer_and_part_number,
 )
+from app.db.dynamo.catalog import Category as DBCategory
+from app.db.dynamo.catalog import Part as DBPart
+from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from tests.conftest import save_catalog
 
 
 def _unique(prefix: str) -> str:
@@ -28,7 +27,7 @@ def _unique(prefix: str) -> str:
 
 
 def _seed_part(
-    db_session: Session,
+    db_session: Any,
     *,
     part_manufacturer_id: uuid.UUID,
     category_id: uuid.UUID,
@@ -45,13 +44,12 @@ def _seed_part(
         part_number_normalized=part_number_normalized,
         is_universal=True,
     )
-    db_session.add(part)
-    db_session.flush()
+    part = save_catalog(part)
     return part
 
 
 def test_linker_matches_across_styling_drift(
-    db_session: Session,
+    db_session: Any,
     test_user: Any,
     test_part_manufacturer: DBPartManufacturer,
     test_category: DBCategory,
@@ -67,17 +65,16 @@ def test_linker_matches_across_styling_drift(
         part_number="AEM-30-2400",
         part_number_normalized="AEM302400",
     )
-    db_session.commit()
 
     # Each of these styling variants of the same code should resolve.
     for variant in ("AEM-30-2400", "AEM 30/2400", "aem_30_2400", "AEM30-2400"):
-        match = find_part_by_part_manufacturer_and_part_number(db_session, test_part_manufacturer.id, variant)
+        match = find_part_by_part_manufacturer_and_part_number(test_part_manufacturer.id, variant)
         assert match is not None, f"linker missed {variant!r}"
         assert match.id == canonical.id
 
 
 def test_linker_returns_none_for_blacklisted_short_input(
-    db_session: Session,
+    db_session: Any,
     test_user: Any,
     test_part_manufacturer: DBPartManufacturer,
     test_category: DBCategory,
@@ -92,13 +89,12 @@ def test_linker_returns_none_for_blacklisted_short_input(
         part_number="Z4M",
         part_number_normalized="Z4M",
     )
-    db_session.commit()
 
-    assert find_part_by_part_manufacturer_and_part_number(db_session, test_part_manufacturer.id, "Z4M") is None
+    assert find_part_by_part_manufacturer_and_part_number(test_part_manufacturer.id, "Z4M") is None
 
 
 def test_linker_returns_none_for_under_4_chars(
-    db_session: Session,
+    db_session: Any,
     test_user: Any,
     test_part_manufacturer: DBPartManufacturer,
     test_category: DBCategory,
@@ -113,6 +109,5 @@ def test_linker_returns_none_for_under_4_chars(
         part_number="ABC",
         part_number_normalized="ABC",
     )
-    db_session.commit()
 
-    assert find_part_by_part_manufacturer_and_part_number(db_session, test_part_manufacturer.id, "ABC") is None
+    assert find_part_by_part_manufacturer_and_part_number(test_part_manufacturer.id, "ABC") is None

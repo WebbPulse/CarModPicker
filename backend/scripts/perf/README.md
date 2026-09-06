@@ -22,7 +22,7 @@ Requires a live uvicorn server on `localhost:8000` and sample data loaded.
 cd backend && uvicorn app.main:app --port 8000
 
 # 2. Seed sample data (idempotent; skip if already done)
-cd backend && python ../scripts/populate_sample_data.py
+# seed data through the API or the repositories in app/db/dynamo/ (there is no SQL sample-data script any more)
 
 # 3. Run the gate
 bash backend/scripts/perf/run_price_history_loadtest.sh

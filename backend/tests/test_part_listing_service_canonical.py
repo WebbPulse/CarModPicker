@@ -10,13 +10,14 @@ recreate the duplicate.
 
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from typing import Any
 
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
 from app.api.services.part_listing_service import (
     get_or_create_part_manufacturer_by_name,
     manufacturer_name_canonical,
 )
+from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from tests.conftest import save_catalog
 
 
 class TestManufacturerNameCanonical:
@@ -84,53 +85,52 @@ class TestCuratedPMResolution:
     """``get_or_create_part_manufacturer_by_name`` must route variant inputs
     to an existing canonical row instead of inserting a duplicate."""
 
-    def _make_curated(self, db_session: Session, name: str) -> DBPartManufacturer:
+    def _make_curated(self, db_session: Any, name: str) -> DBPartManufacturer:
         pm = DBPartManufacturer(
             name=name,
             is_active=True,
         )
-        db_session.add(pm)
-        db_session.flush()
+        pm = save_catalog(pm)
         return pm
 
-    def test_exact_case_insensitive_match_wins(self, db_session: Session) -> None:
+    def test_exact_case_insensitive_match_wins(self, db_session: Any) -> None:
         canonical = self._make_curated(db_session, "APR")
-        resolved = get_or_create_part_manufacturer_by_name(db_session, "apr")
+        resolved = get_or_create_part_manufacturer_by_name("apr")
         assert resolved is not None
         assert resolved.id == canonical.id
 
-    def test_subdivision_resolves_to_parent_brand(self, db_session: Session) -> None:
+    def test_subdivision_resolves_to_parent_brand(self, db_session: Any) -> None:
         # Post-migration ``APR`` is the canonical row. An adapter still
         # emitting ``APR Performance`` must hit the existing row, not insert
         # a new one.
         canonical = self._make_curated(db_session, "APR")
-        resolved = get_or_create_part_manufacturer_by_name(db_session, "APR Performance")
+        resolved = get_or_create_part_manufacturer_by_name("APR Performance")
         assert resolved is not None
         assert resolved.id == canonical.id
 
-    def test_corporate_suffix_resolves_to_parent_brand(self, db_session: Session) -> None:
+    def test_corporate_suffix_resolves_to_parent_brand(self, db_session: Any) -> None:
         canonical = self._make_curated(db_session, "Katech")
-        resolved = get_or_create_part_manufacturer_by_name(db_session, "Katech Engineering")
+        resolved = get_or_create_part_manufacturer_by_name("Katech Engineering")
         assert resolved is not None
         assert resolved.id == canonical.id
-        also = get_or_create_part_manufacturer_by_name(db_session, "Katech Inc.")
+        also = get_or_create_part_manufacturer_by_name("Katech Inc.")
         assert also is not None
         assert also.id == canonical.id
 
-    def test_punctuation_variant_resolves(self, db_session: Session) -> None:
+    def test_punctuation_variant_resolves(self, db_session: Any) -> None:
         canonical = self._make_curated(db_session, "Borg Warner")
-        resolved = get_or_create_part_manufacturer_by_name(db_session, "BorgWarner")
+        resolved = get_or_create_part_manufacturer_by_name("BorgWarner")
         assert resolved is not None
         assert resolved.id == canonical.id
 
-    def test_unrelated_brand_creates_new_row(self, db_session: Session) -> None:
+    def test_unrelated_brand_creates_new_row(self, db_session: Any) -> None:
         # Sanity: the canonical-key fallback must not accidentally collide
         # distinct brands that happen to share a prefix.
         self._make_curated(db_session, "APR")
-        resolved = get_or_create_part_manufacturer_by_name(db_session, "AEM")
+        resolved = get_or_create_part_manufacturer_by_name("AEM")
         assert resolved is not None
         assert resolved.name == "AEM"
 
-    def test_empty_input_returns_none(self, db_session: Session) -> None:
-        assert get_or_create_part_manufacturer_by_name(db_session, "") is None
-        assert get_or_create_part_manufacturer_by_name(db_session, "   ") is None
+    def test_empty_input_returns_none(self, db_session: Any) -> None:
+        assert get_or_create_part_manufacturer_by_name("") is None
+        assert get_or_create_part_manufacturer_by_name("   ") is None

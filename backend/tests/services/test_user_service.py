@@ -1,11 +1,10 @@
 """Tests for user service."""
 
 import os
+from typing import Any
 
-from sqlalchemy.orm import Session
-
-from app.api.models.user import User
 from app.api.services.user_service import UserService
+from app.db.dynamo.users import User
 
 
 def get_unique_username(base_name: str) -> str:
@@ -18,42 +17,48 @@ def get_unique_username(base_name: str) -> str:
 class TestUserService:
     """Test cases for user service."""
 
-    def test_get_by_username_found(self, db_session: Session, test_user: User) -> None:
+    def test_get_by_username_found(self, test_user: User) -> None:
         """Test getting a user by username when it exists."""
         service = UserService()
-        result = service.get_by_username(db_session, test_user.username)
+        result = service.get_by_username(test_user.username)
         assert result is not None
         assert result.username == test_user.username
 
-    def test_get_by_username_not_found(self, db_session: Session) -> None:
+    def test_get_by_username_not_found(self, dynamo_tables: Any) -> None:
         """Test getting a user by username when it doesn't exist."""
         service = UserService()
-        result = service.get_by_username(db_session, get_unique_username("nonexistent"))
+        result = service.get_by_username(get_unique_username("nonexistent"))
         assert result is None
 
-    def test_get_by_email_found(self, db_session: Session, test_user: User) -> None:
+    def test_get_by_email_found(self, test_user: User) -> None:
         """Test getting a user by email when it exists."""
         service = UserService()
-        result = service.get_by_email(db_session, test_user.email)
+        result = service.get_by_email(test_user.email)
         assert result is not None
         assert result.email == test_user.email
 
-    def test_get_by_email_not_found(self, db_session: Session) -> None:
+    def test_get_by_email_not_found(self, dynamo_tables: Any) -> None:
         """Test getting a user by email when it doesn't exist."""
         service = UserService()
-        result = service.get_by_email(db_session, f"{get_unique_username('nonexistent')}@example.com")
+        result = service.get_by_email(f"{get_unique_username('nonexistent')}@example.com")
         assert result is None
 
-    def test_get_all_users(self, db_session: Session, test_user: User) -> None:
-        """Test getting all users with pagination."""
+    def test_get_all_users(self, test_user: User) -> None:
+        """Test getting all users."""
         service = UserService()
-        result = service.get_all_users(db_session, skip=0, limit=10)
+        result = service.get_all_users()
         assert isinstance(result, list)
         assert len(result) > 0
 
-    def test_count_all(self, db_session: Session, test_user: User) -> None:
+    def test_get_all_users_search(self, test_user: User) -> None:
+        """Test filtering users by search term."""
+        service = UserService()
+        result = service.get_all_users(search=test_user.username)
+        assert [u.id for u in result] == [test_user.id]
+
+    def test_count_all(self, test_user: User) -> None:
         """Test counting all users."""
         service = UserService()
-        count = service.count_all(db_session)
+        count = service.count_all()
         assert count > 0
         assert isinstance(count, int)

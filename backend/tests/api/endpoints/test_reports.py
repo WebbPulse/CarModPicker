@@ -2,11 +2,10 @@ import os
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
-from app.api.models.user import User
 from app.core.config import settings
-from tests.conftest import INVALID_UUID_STR, create_car_in_db
+from app.db.dynamo.users import User, UserRepository
+from tests.conftest import INVALID_UUID_STR, create_car_in_db, save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -17,29 +16,28 @@ def get_unique_name(base_name: str) -> str:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     from app.api.dependencies.auth import get_password_hash
-    from app.api.models.user import User as DBUser
+    from app.db.dynamo.users import User as DBUser
 
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
     password = "testpassword"
 
     # Create admin user directly in database
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     # Log in and get token
     login_data = {"username": username, "password": password}
@@ -57,25 +55,24 @@ class TestUnifiedReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test successfully creating a report for a build list."""
         # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        build_list_owner = DBUser(
-            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
-            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        build_list_owner = UserRepository().create_user(
+            DBUser(
+                username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+                email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(build_list_owner)
-        db_session.commit()
-        db_session.refresh(build_list_owner)
 
         # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
@@ -130,43 +127,38 @@ class TestUnifiedReports:
         self,
         client: TestClient,
         test_user: User,
-        db_session: Session,
+        db_session: Any,
     ) -> None:
         """Test successfully creating a report for a global part."""
         # Create a second user to own the global part
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        part_owner = DBUser(
-            username=f"part_owner_{os.getpid()}_{id(db_session)}",
-            email=f"part_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        part_owner = UserRepository().create_user(
+            DBUser(
+                username=f"part_owner_{os.getpid()}_{id(db_session)}",
+                email=f"part_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(part_owner)
-        db_session.commit()
-        db_session.refresh(part_owner)
 
         # Create a category first
-        from app.api.models.category import Category as DBCategory
+        from app.db.dynamo.catalog import Category as DBCategory
 
         category = DBCategory(name=get_unique_name("Test Category"))
-        db_session.add(category)
-        db_session.commit()
-        db_session.refresh(category)
+        category = save_catalog(category)
 
         # Create a part_manufacturer
-        from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
+        from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 
         part_manufacturer = DBPartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
         )
-        db_session.add(part_manufacturer)
-        db_session.commit()
-        db_session.refresh(part_manufacturer)
+        part_manufacturer = save_catalog(part_manufacturer)
 
         # Login as part owner and create a global part
         login_data = {"username": part_owner.username, "password": "testpassword"}
@@ -213,7 +205,7 @@ class TestUnifiedReports:
         assert data["description"] == "This part information is inaccurate"
         assert data["status"] == "pending"
 
-    def test_create_report_unauthorized(self, client: TestClient, db_session: Session) -> None:
+    def test_create_report_unauthorized(self, client: TestClient, db_session: Any) -> None:
         """Test creating a report without authentication."""
         # Try to create a report without authentication
         report_data = {
@@ -242,7 +234,7 @@ class TestUnifiedReports:
         )
         assert response.status_code == 404
 
-    def test_create_report_own_entity(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_create_report_own_entity(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test that users cannot report their own entities."""
         # Login as test user and create a build list
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -278,24 +270,23 @@ class TestUnifiedReports:
         error_text = response_data.get("detail", response_data.get("message", "")).lower()
         assert "cannot report your own" in error_text or "report your own" in error_text
 
-    def test_create_report_already_reported(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_create_report_already_reported(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test that users cannot report the same entity twice."""
         # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        build_list_owner = DBUser(
-            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
-            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        build_list_owner = UserRepository().create_user(
+            DBUser(
+                username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+                email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(build_list_owner)
-        db_session.commit()
-        db_session.refresh(build_list_owner)
 
         # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
@@ -364,7 +355,7 @@ class TestUnifiedReports:
         response = client.get(f"{settings.API_STR}/reports/admin/list", headers=headers)
         assert response.status_code == 403
 
-    def test_list_reports_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
+    def test_list_reports_success(self, client: TestClient, test_admin_user: User, db_session: Any) -> None:
         """Test successfully listing reports as admin."""
         # Login as admin user
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
@@ -378,7 +369,7 @@ class TestUnifiedReports:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
-    def test_get_my_reports_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_my_reports_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully getting user's own reports."""
         # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -392,24 +383,23 @@ class TestUnifiedReports:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
-    def test_get_report_by_id_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_get_report_by_id_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully getting a specific report by ID."""
         # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        build_list_owner = DBUser(
-            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
-            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        build_list_owner = UserRepository().create_user(
+            DBUser(
+                username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+                email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(build_list_owner)
-        db_session.commit()
-        db_session.refresh(build_list_owner)
 
         # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
@@ -487,24 +477,23 @@ class TestUnifiedReports:
         response = client.put(f"{settings.API_STR}/reports/{INVALID_UUID_STR}", json=update_data, headers=headers)
         assert response.status_code == 403
 
-    def test_update_report_status_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
+    def test_update_report_status_success(self, client: TestClient, test_admin_user: User, db_session: Any) -> None:
         """Test successfully updating report status as admin."""
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
         # Create a test user to own the build list
-        build_list_owner = DBUser(
-            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
-            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        build_list_owner = UserRepository().create_user(
+            DBUser(
+                username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+                email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(build_list_owner)
-        db_session.commit()
-        db_session.refresh(build_list_owner)
 
         # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
@@ -529,18 +518,17 @@ class TestUnifiedReports:
         build_list = response.json()
 
         # Create a test user to make the report
-        test_user = DBUser(
-            username=f"test_user_{os.getpid()}_{id(db_session)}",
-            email=f"test_user_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username=f"test_user_{os.getpid()}_{id(db_session)}",
+                email=f"test_user_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         # Login as test user and create a report
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -589,24 +577,23 @@ class TestUnifiedReports:
         response = client.delete(f"{settings.API_STR}/reports/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 403
 
-    def test_delete_report_success(self, client: TestClient, test_admin_user: User, db_session: Session) -> None:
+    def test_delete_report_success(self, client: TestClient, test_admin_user: User, db_session: Any) -> None:
         """Test successfully deleting a report as admin."""
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
         # Create a test user to own the build list
-        build_list_owner = DBUser(
-            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
-            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        build_list_owner = UserRepository().create_user(
+            DBUser(
+                username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+                email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(build_list_owner)
-        db_session.commit()
-        db_session.refresh(build_list_owner)
 
         # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
@@ -631,18 +618,17 @@ class TestUnifiedReports:
         build_list = response.json()
 
         # Create a test user to make the report
-        test_user = DBUser(
-            username=f"test_user2_{os.getpid()}_{id(db_session)}",
-            email=f"test_user2_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        test_user = UserRepository().create_user(
+            DBUser(
+                username=f"test_user2_{os.getpid()}_{id(db_session)}",
+                email=f"test_user2_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(test_user)
-        db_session.commit()
-        db_session.refresh(test_user)
 
         # Login as test user and create a report
         login_data = {"username": test_user.username, "password": "testpassword"}
@@ -694,24 +680,23 @@ class TestUnifiedReports:
         )
         assert response.status_code == 422  # Validation error
 
-    def test_report_invalid_reason(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_report_invalid_reason(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test reporting with invalid reason."""
         # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        build_list_owner = DBUser(
-            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
-            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        build_list_owner = UserRepository().create_user(
+            DBUser(
+                username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+                email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(build_list_owner)
-        db_session.commit()
-        db_session.refresh(build_list_owner)
 
         # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
@@ -752,7 +737,7 @@ class TestUnifiedReports:
         )
         assert response.status_code == 422  # Validation error
 
-    def test_count_reports_success(self, client: TestClient, test_user: User, db_session: Session) -> None:
+    def test_count_reports_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test counting reports."""
         # Get initial count (public endpoint, no auth required)
         response = client.get(f"{settings.API_STR}/reports/count")
@@ -765,20 +750,19 @@ class TestUnifiedReports:
 
         # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
-        from app.api.models.user import User as DBUser
+        from app.db.dynamo.users import User as DBUser
 
-        build_list_owner = DBUser(
-            username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
-            email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-            hashed_password=get_password_hash("testpassword"),
-            email_verified=True,
-            disabled=False,
-            is_admin=False,
-            is_superuser=False,
+        build_list_owner = UserRepository().create_user(
+            DBUser(
+                username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
+                email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                email_verified=True,
+                disabled=False,
+                is_admin=False,
+                is_superuser=False,
+            )
         )
-        db_session.add(build_list_owner)
-        db_session.commit()
-        db_session.refresh(build_list_owner)
 
         # Create a car first (requires admin)
         car = create_car_in_db(db_session)
@@ -852,7 +836,7 @@ class TestUnifiedReports:
         assert response.status_code == 403
 
     def test_list_reports_with_details_success(
-        self, client: TestClient, test_admin_user: User, db_session: Session
+        self, client: TestClient, test_admin_user: User, db_session: Any
     ) -> None:
         """Test successfully listing reports with details as admin."""
         # Login as admin user
@@ -878,7 +862,7 @@ class TestUnifiedReports:
         assert isinstance(data["pagination"]["limit"], int)
 
     def test_list_reports_with_details_pagination(
-        self, client: TestClient, test_admin_user: User, db_session: Session
+        self, client: TestClient, test_admin_user: User, db_session: Any
     ) -> None:
         """Test pagination for listing reports with details."""
         # Login as admin user
@@ -902,7 +886,7 @@ class TestUnifiedReports:
         assert "data" in second_page
 
     def test_list_reports_with_details_filtering(
-        self, client: TestClient, test_admin_user: User, db_session: Session
+        self, client: TestClient, test_admin_user: User, db_session: Any
     ) -> None:
         """Test filtering for listing reports with details."""
         # Login as admin user

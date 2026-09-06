@@ -5,15 +5,15 @@ from typing import Any
 from uuid import UUID
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_password_hash
-from app.api.models.part_listing import PartListing
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.retailer import Retailer as DBRetailer
-from app.api.models.user import User as DBUser
 from app.core.config import settings
-from tests.conftest import INVALID_UUID_STR, get_default_category_id
+from app.db.dynamo.catalog import PartListing
+from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from app.db.dynamo.catalog import Retailer as DBRetailer
+from app.db.dynamo.users import User as DBUser
+from app.db.dynamo.users import UserRepository
+from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -24,25 +24,24 @@ def get_unique_name(base_name: str) -> str:
 
 
 def create_and_login_admin_user(
-    client: TestClient, db_session: Session, username_suffix: str = "admin"
+    client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"retailer_admin_{username_suffix}"
     email = f"retailer_admin_{username_suffix}@example.com"
     password = "testpassword"
 
-    admin_user = DBUser(
-        username=username,
-        email=email,
-        hashed_password=get_password_hash(password),
-        is_admin=True,
-        is_superuser=False,
-        email_verified=True,
-        disabled=False,
+    admin_user = UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            hashed_password=get_password_hash(password),
+            is_admin=True,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
     )
-    db_session.add(admin_user)
-    db_session.commit()
-    db_session.refresh(admin_user)
 
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
@@ -51,9 +50,7 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-def create_and_login_user(
-    client: TestClient, username_suffix: str, db_session: Session | None = None
-) -> tuple[int, str]:
+def create_and_login_user(client: TestClient, username_suffix: str, db_session: Any | None = None) -> tuple[int, str]:
     """Create a user and log them in. Returns (user_id, token)."""
     username = f"retailer_user_{username_suffix}"
     email = f"retailer_user_{username_suffix}@example.com"
@@ -70,10 +67,9 @@ def create_and_login_user(
         response.raise_for_status()
 
     if db_session is not None:
-        user = db_session.query(DBUser).filter(DBUser.username == username).first()
+        user = UserRepository().get_by_username(username)
         if user:
-            user.email_verified = True
-            db_session.commit()
+            UserRepository().update(user.id, email_verified=True)
 
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
@@ -106,7 +102,7 @@ def create_retailer_via_api(
 class TestRetailers:
     """Test cases for retailer endpoints."""
 
-    def test_get_retailers_success(self, client: TestClient, db_session: Session) -> None:
+    def test_get_retailers_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting all retailers (public, default active_only=True)."""
         response = client.get(f"{settings.API_STR}/retailers/")
         assert response.status_code == 200
@@ -117,7 +113,7 @@ class TestRetailers:
             assert "name" in r
             assert r.get("is_active", True) is True
 
-    def test_get_retailers_active_only_param(self, client: TestClient, db_session: Session) -> None:
+    def test_get_retailers_active_only_param(self, client: TestClient, db_session: Any) -> None:
         """Test get retailers with active_only=false returns all retailers."""
         _, admin_token = create_and_login_admin_user(client, db_session, "list_all")
         create_retailer_via_api(client, admin_token, get_unique_name("active_ret"))
@@ -127,9 +123,7 @@ class TestRetailers:
             domain=get_unique_name("inactive.com"),
             is_active=False,
         )
-        db_session.add(inactive)
-        db_session.commit()
-        db_session.refresh(inactive)
+        inactive = save_catalog(inactive)
 
         response = client.get(f"{settings.API_STR}/retailers/?active_only=false")
         assert response.status_code == 200
@@ -137,7 +131,7 @@ class TestRetailers:
         names = [r["name"] for r in retailers]
         assert inactive.name in names
 
-    def test_get_retailer_success(self, client: TestClient, db_session: Session) -> None:
+    def test_get_retailer_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting a specific retailer (public)."""
         _, admin_token = create_and_login_admin_user(client, db_session, "get_one")
         created = create_retailer_via_api(
@@ -158,7 +152,7 @@ class TestRetailers:
         msg = response.json().get("message", response.json().get("detail", ""))
         assert "retailer" in msg.lower() and "not found" in msg.lower()
 
-    def test_post_get_or_create_success_new(self, client: TestClient, db_session: Session) -> None:
+    def test_post_get_or_create_success_new(self, client: TestClient, db_session: Any) -> None:
         """Test get-or-create creates new retailer when domain does not exist (authenticated)."""
         _, token = create_and_login_user(client, "getorcreate", db_session)
         headers = {"Authorization": f"Bearer {token}"}
@@ -173,7 +167,7 @@ class TestRetailers:
         assert data["name"] == "New Shop"
         assert "id" in data
 
-    def test_post_get_or_create_success_existing(self, client: TestClient, db_session: Session) -> None:
+    def test_post_get_or_create_success_existing(self, client: TestClient, db_session: Any) -> None:
         """Test get-or-create returns existing retailer when domain exists."""
         _, token = create_and_login_user(client, "getorcreate_existing", db_session)
         headers = {"Authorization": f"Bearer {token}"}
@@ -191,7 +185,7 @@ class TestRetailers:
         second_data = second.json()
         assert second_data["id"] == first_id
 
-    def test_post_get_or_create_derives_name_from_domain(self, client: TestClient, db_session: Session) -> None:
+    def test_post_get_or_create_derives_name_from_domain(self, client: TestClient, db_session: Any) -> None:
         """Test get-or-create derives name from domain when name omitted."""
         _, token = create_and_login_user(client, "derive_name", db_session)
         headers = {"Authorization": f"Bearer {token}"}
@@ -205,7 +199,7 @@ class TestRetailers:
         assert data["domain"] == domain
         assert data["name"]  # Derived from domain (e.g., A90shop)
 
-    def test_post_get_or_create_empty_domain_returns_400(self, client: TestClient, db_session: Session) -> None:
+    def test_post_get_or_create_empty_domain_returns_400(self, client: TestClient, db_session: Any) -> None:
         """Test get-or-create with empty domain returns 400."""
         _, token = create_and_login_user(client, "empty_domain", db_session)
         headers = {"Authorization": f"Bearer {token}"}
@@ -223,7 +217,7 @@ class TestRetailers:
         response = client.post(f"{settings.API_STR}/retailers/get-or-create", json=payload)
         assert response.status_code == 401
 
-    def test_create_retailer_success(self, client: TestClient, db_session: Session) -> None:
+    def test_create_retailer_success(self, client: TestClient, db_session: Any) -> None:
         """Test creating a retailer (admin only)."""
         _, admin_token = create_and_login_admin_user(client, db_session, "create")
         headers = {"Authorization": f"Bearer {admin_token}"}
@@ -249,7 +243,7 @@ class TestRetailers:
         response = client.post(f"{settings.API_STR}/retailers/", json=payload)
         assert response.status_code == 401
 
-    def test_create_retailer_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+    def test_create_retailer_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
         """Test creating a retailer as non-admin returns 403."""
         _, token = create_and_login_user(client, "create_forbidden", db_session)
         headers = {"Authorization": f"Bearer {token}"}
@@ -257,7 +251,7 @@ class TestRetailers:
         response = client.post(f"{settings.API_STR}/retailers/", json=payload, headers=headers)
         assert response.status_code == 403
 
-    def test_create_retailer_duplicate_domain_returns_409(self, client: TestClient, db_session: Session) -> None:
+    def test_create_retailer_duplicate_domain_returns_409(self, client: TestClient, db_session: Any) -> None:
         """Test creating a retailer with existing domain returns 409."""
         _, admin_token = create_and_login_admin_user(client, db_session, "dup")
         domain = get_unique_name("dupdomain.com")
@@ -271,7 +265,7 @@ class TestRetailers:
         detail = str(body.get("detail", body.get("message", ""))).lower()
         assert "domain" in detail or "duplicate" in detail or "exists" in detail
 
-    def test_update_retailer_success(self, client: TestClient, db_session: Session) -> None:
+    def test_update_retailer_success(self, client: TestClient, db_session: Any) -> None:
         """Test updating a retailer (admin only)."""
         _, admin_token = create_and_login_admin_user(client, db_session, "update")
         created = create_retailer_via_api(
@@ -290,7 +284,7 @@ class TestRetailers:
         assert data["name"] == update_data["name"]
         assert data["base_url"] == update_data["base_url"]
 
-    def test_update_retailer_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+    def test_update_retailer_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
         """Test updating a retailer as non-admin returns 403."""
         _, admin_token = create_and_login_admin_user(client, db_session, "update_creator")
         created = create_retailer_via_api(
@@ -306,7 +300,7 @@ class TestRetailers:
         )
         assert response.status_code == 403
 
-    def test_update_retailer_not_found(self, client: TestClient, db_session: Session) -> None:
+    def test_update_retailer_not_found(self, client: TestClient, db_session: Any) -> None:
         """Test updating a non-existent retailer."""
         _, admin_token = create_and_login_admin_user(client, db_session, "update_nf")
         headers = {"Authorization": f"Bearer {admin_token}"}
@@ -317,7 +311,7 @@ class TestRetailers:
         )
         assert response.status_code == 404
 
-    def test_update_retailer_duplicate_domain_returns_409(self, client: TestClient, db_session: Session) -> None:
+    def test_update_retailer_duplicate_domain_returns_409(self, client: TestClient, db_session: Any) -> None:
         """Test updating retailer to existing domain returns 409."""
         _, admin_token = create_and_login_admin_user(client, db_session, "dup_update")
         first = create_retailer_via_api(
@@ -335,7 +329,7 @@ class TestRetailers:
         )
         assert response.status_code == 409
 
-    def test_delete_retailer_success(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_retailer_success(self, client: TestClient, db_session: Any) -> None:
         """Test deleting a retailer (admin only)."""
         _, admin_token = create_and_login_admin_user(client, db_session, "delete")
         created = create_retailer_via_api(
@@ -351,7 +345,7 @@ class TestRetailers:
         get_resp = client.get(f"{settings.API_STR}/retailers/{created['id']}")
         assert get_resp.status_code == 404
 
-    def test_delete_retailer_forbidden_non_admin(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_retailer_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
         """Test deleting a retailer as non-admin returns 403."""
         _, admin_token = create_and_login_admin_user(client, db_session, "delete_creator")
         created = create_retailer_via_api(
@@ -363,14 +357,14 @@ class TestRetailers:
         response = client.delete(f"{settings.API_STR}/retailers/{created['id']}", headers=headers)
         assert response.status_code == 403
 
-    def test_delete_retailer_not_found(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_retailer_not_found(self, client: TestClient, db_session: Any) -> None:
         """Test deleting a non-existent retailer."""
         _, admin_token = create_and_login_admin_user(client, db_session, "delete_nf")
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = client.delete(f"{settings.API_STR}/retailers/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
-    def test_delete_retailer_with_part_listings_fails(self, client: TestClient, db_session: Session) -> None:
+    def test_delete_retailer_with_part_listings_fails(self, client: TestClient, db_session: Any) -> None:
         """Test deleting a retailer that has part listings returns 409."""
         _, admin_token = create_and_login_admin_user(client, db_session, "delete_with_listings")
         created = create_retailer_via_api(
@@ -382,9 +376,7 @@ class TestRetailers:
         part_manufacturer = DBPartManufacturer(
             name=get_unique_name("RetPartManufacturer"), description="PartManufacturer", is_active=True
         )
-        db_session.add(part_manufacturer)
-        db_session.commit()
-        db_session.refresh(part_manufacturer)
+        part_manufacturer = save_catalog(part_manufacturer)
 
         # Create global part and part listing
         _, user_token = create_and_login_user(client, "ret_listings_user", db_session)
@@ -406,8 +398,7 @@ class TestRetailers:
             retailer_id=UUID(retailer_id),
             product_url="https://example.com/part",
         )
-        db_session.add(listing)
-        db_session.commit()
+        listing = save_catalog(listing)
 
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = client.delete(f"{settings.API_STR}/retailers/{retailer_id}", headers=headers)

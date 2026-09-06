@@ -3,7 +3,7 @@ non-default request_id + user_id. Fails CI if a future dev adds a handler that
 drops RequestContextFilter coverage or uses print() instead of logger.
 
 Decision refs: 02-CONTEXT.md D-44 (audit, not redesign), D-45 (regression guard),
-D-46 (bg_log_context), D-47 (CLI context), D-48 (sqlalchemy propagation).
+D-46 (bg_log_context), D-47 (CLI context).
 
 Landmine: pytest caplog does NOT inherit root-logger filters — the
 `caplog_with_context` fixture (conftest.py) attaches RequestContextFilter
@@ -18,12 +18,12 @@ import logging
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.models.user import User
 from app.core.log_context import (
     bg_log_context,
     request_id_var,
     user_id_var,
 )
+from app.db.dynamo.users import User
 from tests.conftest import login_user
 
 # Loggers that emit OUTSIDE the request middleware scope in TestClient context
@@ -35,6 +35,8 @@ from tests.conftest import login_user
 # not subject to the OBS-04 invariant.
 _OUT_OF_SCOPE_LOGGERS = (
     "asyncio",
+    "boto3",
+    "botocore",
     "httpx",
     "httpcore",
     "python_multipart",
@@ -64,10 +66,9 @@ def test_log_propagation_request_scope(
     "In-scope" = records emitted by application code (not TestClient plumbing).
     """
     from fastapi import Depends
-    from sqlalchemy.orm import Session
 
     from app.api.dependencies.auth import get_current_user, oauth2_scheme
-    from app.db.session import get_db
+    from app.api.dependencies.repositories import Repositories, get_repositories
     from app.main import app as fastapi_app
 
     emitted_request_ids: list[str] = []
@@ -76,9 +77,9 @@ def test_log_propagation_request_scope(
     # Override with a FastAPI-compatible signature so Depends() introspection works.
     async def logging_current_user(
         token: str = Depends(oauth2_scheme),
-        db: Session = Depends(get_db),
+        repos: Repositories = Depends(get_repositories),
     ) -> User:
-        result = await get_current_user(token=token, db=db)  # type: ignore[arg-type]
+        result = await get_current_user(token=token, repos=repos)
         test_logger = logging.getLogger("app.tests.log_propagation")
         test_logger.info("post-auth request scope log emit")
         emitted_request_ids.append(request_id_var.get())
@@ -160,34 +161,3 @@ def test_cli_log_context(caplog_with_context) -> None:
     rec = next(r for r in caplog_with_context.records if "cli startup" in r.getMessage())
     assert rec.request_id == "cli:12345"
     assert rec.user_id == "cli"
-
-
-def test_log_propagation_sqlalchemy(
-    client: TestClient,
-    test_user: User,
-    caplog_with_context,
-) -> None:
-    """SQL query log records during a request carry the request's request_id
-    (D-48: third-party loggers propagate via root logger filter)."""
-    # Login OUTSIDE the capture window so only authenticated-request records
-    # are evaluated.
-    token = login_user(client, test_user.username)
-
-    sa_logger = logging.getLogger("sqlalchemy.engine")
-    prior_level = sa_logger.level
-    sa_logger.setLevel(logging.INFO)
-    caplog_with_context.set_level(logging.INFO)
-    caplog_with_context.clear()
-    try:
-        resp = client.get(
-            "/api/users/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200, resp.text
-    finally:
-        sa_logger.setLevel(prior_level)
-    sa_records = [r for r in caplog_with_context.records if r.name.startswith("sqlalchemy")]
-    if not sa_records:
-        pytest.skip("sqlalchemy did not emit INFO log records in test env")
-    for rec in sa_records:
-        assert getattr(rec, "request_id", "-") != "-", f"sqlalchemy log missing request_id: {rec.getMessage()}"

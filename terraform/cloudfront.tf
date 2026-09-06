@@ -6,7 +6,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
-  aliases             = ["www.carmodpicker.com", "carmodpicker.com"]
+  aliases             = local.custom_domain ? ["www.${local.domain_name}", local.domain_name] : []
   price_class         = "PriceClass_100" # US + Europe only — cheapest tier
 
   origin {
@@ -57,9 +57,10 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.carmodpicker.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    cloudfront_default_certificate = local.custom_domain ? null : true
+    acm_certificate_arn            = local.custom_domain ? aws_acm_certificate_validation.carmodpicker[0].certificate_arn : null
+    ssl_support_method             = local.custom_domain ? "sni-only" : null
+    minimum_protocol_version       = local.custom_domain ? "TLSv1.2_2021" : null
   }
 
   tags = { Name = "${local.prefix}-frontend" }

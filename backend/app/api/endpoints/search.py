@@ -10,28 +10,22 @@ This endpoint provides unified search functionality across:
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import String, cast, or_, select
-from sqlalchemy.orm import Session, joinedload
 
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.car_generation import CarGeneration as DBCar
-from app.api.models.car_make import CarMake as DBMake
-from app.api.models.car_model import CarModel as DBCarModel
-from app.api.models.part import Part as DBPart
-from app.api.models.part_manufacturer import PartManufacturer as DBPartManufacturer
-from app.api.models.user import User as DBUser
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.build_list import BuildListRead
+from app.api.schemas.pagination import CursorPage
 from app.api.schemas.part import PartRead
 from app.api.schemas.user import PublicUserRead
+from app.api.services.car_generation_service import CarGenerationService
+from app.api.services.part_service import PartService
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
     get_standard_public_endpoint_dependencies,
-    validate_pagination_params,
 )
+from app.api.utils.cursor_pagination import paginate_in_memory
 from app.api.utils.endpoint_decorators import search_responses
-from app.api.utils.pagination_utils import get_total_count
+from app.db.dynamo import search
 
-# Create router
 router = APIRouter()
 
 
@@ -42,133 +36,68 @@ router = APIRouter()
 )
 async def search_all(
     q: str = Query(..., description="Search term to search across all entities"),
-    skip: int = Query(0, ge=0, description="Number of results to skip per category"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of results to return per category"),
+    build_lists_cursor: str | None = Query(None, description="Opaque cursor for the next page of build list results"),
+    users_cursor: str | None = Query(None, description="Opaque cursor for the next page of user results"),
+    parts_cursor: str | None = Query(None, description="Opaque cursor for the next page of part results"),
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, Any]:
     """
     Search across build lists, user profiles, and global parts.
-    Returns results separated by entity type.
+    Returns results separated by entity type, each as a cursor page.
     """
-    db: Session = deps["db"]
     logger = deps["logger"]
-
-    skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
     if not q or not q.strip():
         logger.warning("Empty search query provided")
         return {
-            "build_lists": {
-                "data": [],
-                "total": 0,
-                "has_next": False,
-                "skip": skip,
-                "limit": limit,
-            },
-            "users": {
-                "data": [],
-                "total": 0,
-                "has_next": False,
-                "skip": skip,
-                "limit": limit,
-            },
-            "parts": {
-                "data": [],
-                "total": 0,
-                "has_next": False,
-                "skip": skip,
-                "limit": limit,
-            },
+            "build_lists": CursorPage[BuildListRead](items=[]),
+            "users": CursorPage[PublicUserRead](items=[]),
+            "parts": CursorPage[PartRead](items=[]),
             "query": q or "",
         }
 
     search_term = q.strip()
 
-    # Search build lists (name, description, and associated car_make/car_model/generation/year range)
-    build_list_stmt = (
-        select(DBBuildList)
-        .outerjoin(DBCar, DBBuildList.car_id == DBCar.id)
-        .outerjoin(DBCarModel, DBCar.car_model_id == DBCarModel.id)
-        .outerjoin(DBMake, DBCarModel.car_make_id == DBMake.id)
-        .where(
-            or_(
-                DBBuildList.name.ilike(f"%{search_term}%"),
-                DBBuildList.description.ilike(f"%{search_term}%"),
-                DBMake.name.ilike(f"%{search_term}%"),
-                DBCarModel.name.ilike(f"%{search_term}%"),
-                DBCar.generation_name.ilike(f"%{search_term}%"),
-                cast(DBCar.start_year, String).ilike(f"%{search_term}%"),
-                cast(DBCar.end_year, String).ilike(f"%{search_term}%"),
-            )
-        )
-        .options(joinedload(DBBuildList.car_generation).joinedload(DBCar.car_model).joinedload(DBCarModel.car_make))
+    matching_car_ids = [
+        gen.id for gen in CarGenerationService(repos).matching_generations(search_term, include_years=True)
+    ]
+    term = search.normalize_term(search_term)
+    matching_car_id_set = set(matching_car_ids)
+    build_lists = search.scan_matching(
+        repos.build_lists,
+        lambda bl: search.contains(term, bl.name, bl.description) or bl.car_id in matching_car_id_set,
     )
-    build_list_total = get_total_count(db, build_list_stmt)
-    build_lists = list(db.scalars(build_list_stmt.offset(skip).limit(limit)).unique().all())
-    build_list_results = [BuildListRead.model_validate(bl) for bl in build_lists]
-    build_list_has_next = (skip + limit) < build_list_total
+    build_list_page = paginate_in_memory(
+        build_lists,
+        limit=limit,
+        cursor=build_lists_cursor,
+        sort_key=lambda bl: bl.name.lower(),
+        item_id=lambda bl: str(bl.id),
+        transform=BuildListRead.model_validate,
+    )
 
-    # Search users (username, email)
-    user_stmt = select(DBUser).where(
-        or_(
-            DBUser.username.ilike(f"%{search_term}%"),
-            DBUser.email.ilike(f"%{search_term}%"),
-        )
+    matched_users = repos.users.search(search_term)
+    user_page = paginate_in_memory(
+        matched_users,
+        limit=limit,
+        cursor=users_cursor,
+        sort_key=lambda user: user.username.lower(),
+        item_id=lambda user: str(user.id),
+        transform=PublicUserRead.model_validate,
     )
-    user_total = get_total_count(db, user_stmt)
-    users = list(db.scalars(user_stmt.offset(skip).limit(limit)).all())
-    # Use PublicUserRead to exclude sensitive fields (email_verified, totp_enabled)
-    user_results = [PublicUserRead.model_validate(u) for u in users]
-    user_has_next = (skip + limit) < user_total
 
-    # Search parts (name, description, part_manufacturer name, part_number).
-    # Non-canonical duplicates are hidden so search returns only surface parts.
-    part_stmt = (
-        select(DBPart)
-        .outerjoin(DBPartManufacturer, DBPart.part_manufacturer_id == DBPartManufacturer.id)
-        .where(
-            DBPart.canonical_part_id.is_(None),
-            or_(
-                DBPart.name.ilike(f"%{search_term}%"),
-                DBPart.description.ilike(f"%{search_term}%"),
-                DBPartManufacturer.name.ilike(f"%{search_term}%"),
-                DBPartManufacturer.description.ilike(f"%{search_term}%"),
-                DBPart.part_number.ilike(f"%{search_term}%"),
-            ),
-        )
-        .options(joinedload(DBPart.part_manufacturer))
-    )
-    part_total = get_total_count(db, part_stmt)
-    parts_list = list(db.scalars(part_stmt.offset(skip).limit(limit)).all())
-    part_results = [PartRead.model_validate(p) for p in parts_list]
-    part_has_next = (skip + limit) < part_total
+    part_page = PartService(repos).search_parts(search_term, limit=limit, cursor=parts_cursor)
 
     logger.info(
-        f"Search for '{search_term}' returned {len(build_list_results)}/{build_list_total} build lists, "
-        f"{len(user_results)}/{user_total} users, and {len(part_results)}/{part_total} parts"
+        f"Search for '{search_term}' returned {len(build_list_page.items)}/{len(build_lists)} build lists, "
+        f"{len(user_page.items)}/{len(matched_users)} users, and {len(part_page.items)} parts"
     )
 
     return {
-        "build_lists": {
-            "data": build_list_results,
-            "total": build_list_total,
-            "has_next": build_list_has_next,
-            "skip": skip,
-            "limit": limit,
-        },
-        "users": {
-            "data": user_results,
-            "total": user_total,
-            "has_next": user_has_next,
-            "skip": skip,
-            "limit": limit,
-        },
-        "parts": {
-            "data": part_results,
-            "total": part_total,
-            "has_next": part_has_next,
-            "skip": skip,
-            "limit": limit,
-        },
+        "build_lists": build_list_page,
+        "users": user_page,
+        "parts": part_page,
         "query": search_term,
     }
