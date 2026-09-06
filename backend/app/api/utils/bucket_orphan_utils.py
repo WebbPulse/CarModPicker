@@ -3,15 +3,11 @@ Utilities for admin bucket orphan cleanup.
 Collects all file keys referenced by entities so we can safely delete only unreferenced objects.
 """
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.api.dependencies.repositories import get_repositories
-from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.utils.image_utils import is_file_key
 
 
-def get_all_referenced_file_keys(db: Session) -> set[str]:
+def get_all_referenced_file_keys() -> set[str]:
     """
     Collect all file keys that are referenced by any entity in the database.
     Used to identify bucket objects that are safe to delete (orphans).
@@ -42,7 +38,7 @@ def get_all_referenced_file_keys(db: Session) -> set[str]:
         _collect_image_urls(build_list.image_urls)
 
     # Image source mappings (dedup cache)
-    for file_key in db.scalars(select(DBImageSourceMapping.file_key)).all():
+    for file_key in repos.image_source_mappings.all_file_keys():
         if file_key and is_file_key(file_key):
             referenced.add(file_key)
 
