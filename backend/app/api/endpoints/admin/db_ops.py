@@ -7,17 +7,15 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.services.part_service import PartService, purge_sql_rows_for_parts
+from app.api.services.part_service import PartService, purge_related_rows_for_parts
 from app.api.utils.endpoint_decorators import standard_responses
 from app.core.init_cars import init_car_generations
 from app.core.init_categories import init_part_categories
 from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import User as DBUser
-from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -28,11 +26,11 @@ def _init_result(success: bool, message: str) -> Dict[str, Any]:
     return {"success": success, "message": message}
 
 
-def _purge_parts(db: Session, repos: Repositories, parts: list[Part]) -> int:
+def _purge_parts(repos: Repositories, parts: list[Part]) -> int:
     service = PartService(repos)
     for part in parts:
         service.purge(part)
-    purge_sql_rows_for_parts(db, [part.id for part in parts])
+    purge_related_rows_for_parts([part.id for part in parts])
     return len(parts)
 
 
@@ -185,20 +183,16 @@ async def delete_all_parts(
     Cascades to part listings, votes, reports, build list parts, and car associations.
     This action cannot be undone.
     """
-    db = SessionLocal()
     try:
-        count = _purge_parts(db, repos, repos.parts.list_all())
+        count = _purge_parts(repos, repos.parts.list_all())
         logger.info("Admin %s deleted all %s parts", current_user.id, count)
         return DeleteAllPartsResponse(deleted_count=count)
     except Exception as e:
-        db.rollback()
         logger.exception("Delete all global parts failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
-    finally:
-        db.close()
 
 
 class DeleteAllPartManufacturersResponse(BaseModel):

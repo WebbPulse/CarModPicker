@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional, Union
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
     create_access_token,
@@ -24,7 +23,7 @@ from app.api.schemas.user import (
     UserRead,
     UserUpdate,
 )
-from app.api.services.part_service import PartService, purge_sql_rows_for_parts
+from app.api.services.part_service import PartService, purge_related_rows_for_parts
 from app.api.services.storage_service import storage_service
 from app.api.services.user_service import UserService, user_read, user_reads
 from app.api.utils.cursor_pagination import CursorParams, get_cursor_params, paginate_in_memory
@@ -35,7 +34,6 @@ from app.db.dynamo.build_lists import delete_build_list_cascade
 from app.db.dynamo.build_logs import build_log_delete_actions
 from app.db.dynamo.users import EMAIL, UniqueAttributeTaken
 from app.db.dynamo.users import User as DBUser
-from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -73,16 +71,17 @@ def _purge_owned_build_lists(repos: Repositories, user_id: UUID) -> None:
         repos.build_list_parts.batch_delete(added_elsewhere)
 
 
-def _purge_owned_parts(db: Session, repos: Repositories, user: DBUser) -> None:
+def _purge_owned_parts(repos: Repositories, user: DBUser) -> None:
     service = PartService(repos)
     parts = repos.parts.list_by_user(user.id)
     for part in parts:
         service.purge(part)
-    purge_sql_rows_for_parts(db, [part.id for part in parts])
+    purge_related_rows_for_parts([part.id for part in parts])
+    repos.part_price_alerts.delete_for_user(user.id)
 
 
-def _delete_user_everywhere(db: Session, repos: Repositories, user: DBUser) -> None:
-    _purge_owned_parts(db, repos, user)
+def _delete_user_everywhere(repos: Repositories, user: DBUser) -> None:
+    _purge_owned_parts(repos, user)
     _purge_owned_build_lists(repos, user.id)
     _purge_owned_moderation(repos, user.id)
     repos.oauth_accounts.delete_all_for_user(user.id)
@@ -159,7 +158,6 @@ async def upload_profile_picture(
     Args:
         file: Image file to upload
         current_user: Authenticated user (from JWT token)
-        db: Database session
         logger: Logger instance
 
     Returns:
@@ -213,7 +211,6 @@ async def delete_profile_picture(
 
     Args:
         current_user: Authenticated user (from JWT token)
-        db: Database session
         logger: Logger instance
 
     Returns:
@@ -462,7 +459,6 @@ async def update_user(
 )
 async def delete_user(
     user_id: UUID,
-    db: Session = Depends(get_db),
     repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
@@ -479,7 +475,7 @@ async def delete_user(
 
     deleted_user_data = user_read(db_user, repos)
 
-    _delete_user_everywhere(db, repos, db_user)
+    _delete_user_everywhere(repos, db_user)
     logger.info(f"User {current_user.id} deleted their own account")
     return deleted_user_data
 
@@ -561,7 +557,6 @@ async def admin_update_user(
 )
 async def admin_delete_user(
     user_id: UUID,
-    db: Session = Depends(get_db),
     repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> UserRead:
@@ -577,6 +572,6 @@ async def admin_delete_user(
 
     deleted_user_data = user_read(db_user, repos)
 
-    _delete_user_everywhere(db, repos, db_user)
+    _delete_user_everywhere(repos, db_user)
     logger.info(f"Admin {current_user.id} deleted user {user_id}")
     return deleted_user_data

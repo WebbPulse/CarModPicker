@@ -3,11 +3,8 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete as sql_delete
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.schemas.pagination import CursorPage
 from app.api.schemas.part import MAX_IMAGES_PER_PART, PartCreate, PartRead, PartReadWithVotes, PartUpdate
 from app.api.services.base_dynamo_crud_service import BaseDynamoCRUDService
@@ -130,7 +127,6 @@ class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
 
     def create_part(
         self,
-        db: Session,
         data: PartCreate,
         current_user: DBUser,
         logger: logging.Logger,
@@ -183,7 +179,6 @@ class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
 
         if wants_listing and data.retailer_id is not None:
             create_or_update_listing_and_price(
-                db,
                 part.id,
                 data.retailer_id,
                 product_url=data.product_url,
@@ -448,7 +443,8 @@ class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
         )
 
 
-def purge_sql_rows_for_parts(db: Session, part_ids: Iterable[UUID]) -> None:
+def purge_related_rows_for_parts(part_ids: Iterable[UUID]) -> None:
+    """Remove votes, reports, build list usages and price alerts that reference the parts."""
     ids = list(part_ids)
     if not ids:
         return
@@ -459,5 +455,4 @@ def purge_sql_rows_for_parts(db: Session, part_ids: Iterable[UUID]) -> None:
     usage_ids = [str(usage.id) for pid in ids for usage in build_list_parts.query_all("part_id-index", pid)]
     if usage_ids:
         build_list_parts.batch_delete(usage_ids)
-    db.execute(sql_delete(DBPartPriceAlert).where(DBPartPriceAlert.part_id.in_(ids)))
-    db.commit()
+    repos.part_price_alerts.delete_for_parts(ids)

@@ -13,8 +13,6 @@ from typing import Any, Iterable, Optional
 from urllib.parse import urlparse
 from uuid import UUID
 
-from sqlalchemy.orm import Session
-
 from app.api.dependencies.repositories import get_repositories
 from app.api.schemas.part_listing import PartListingRead, PartListingReadWithRetailer
 from app.api.schemas.retailer import RetailerRead
@@ -386,7 +384,6 @@ def _same_day_bounds(ts: datetime) -> tuple[datetime, datetime]:
 
 
 def create_or_update_listing_and_price(
-    db: Session,
     part_id: UUID,
     retailer_id: UUID,
     *,
@@ -454,7 +451,6 @@ def create_or_update_listing_and_price(
         )
 
         evaluate_alerts_for_listing(
-            db,
             part_id=part_id,
             retailer_id=retailer_id,
             price_cents=price_cents,

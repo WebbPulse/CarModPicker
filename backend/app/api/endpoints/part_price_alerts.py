@@ -17,12 +17,9 @@ import jwt
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import RedirectResponse
 from jwt import InvalidTokenError
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import ALGORITHM, get_current_user
 from app.api.dependencies.repositories import get_repositories
-from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.schemas.part_price_alert import (
     PartPriceAlertCreate,
     PartPriceAlertRead,
@@ -33,7 +30,6 @@ from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
 from app.db.dynamo.users import User as DBUser
-from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +49,6 @@ router = APIRouter()
 )
 async def subscribe_to_part_price_alert(
     payload: PartPriceAlertCreate,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ) -> PartPriceAlertRead:
     """Subscribe the current user to a price-drop alert on a part.
@@ -66,13 +61,10 @@ async def subscribe_to_part_price_alert(
         ResponsePatterns.raise_not_found("Part", payload.part_id)
 
     alert = part_price_alert_service.create_or_update_alert(
-        db=db,
         user_id=current_user.id,
         part_id=payload.part_id,
         threshold_cents=payload.threshold_cents,
     )
-    db.commit()
-    db.refresh(alert)
     logger.info(
         "part_price_alert_subscribed: alert_id=%s user_id=%s part_id=%s threshold_cents=%d",
         alert.id,
@@ -91,12 +83,9 @@ async def subscribe_to_part_price_alert(
         unauthorized=True,
     ),
 )
-async def list_my_active_alerts(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_user),
-) -> list[PartPriceAlertRead]:
+async def list_my_active_alerts(current_user: DBUser = Depends(get_current_user)) -> list[PartPriceAlertRead]:
     """List the current user's active alerts (active=True only)."""
-    alerts = part_price_alert_service.list_active_alerts_for_user(db, current_user.id)
+    alerts = part_price_alert_service.list_active_alerts_for_user(current_user.id)
     return [PartPriceAlertRead.model_validate(a) for a in alerts]
 
 
@@ -113,7 +102,6 @@ async def list_my_active_alerts(
 async def update_my_alert(
     alert_id: UUID,
     payload: PartPriceAlertUpdate,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ) -> PartPriceAlertRead:
     """Update threshold and/or active flag on the user's own alert.
@@ -121,18 +109,12 @@ async def update_my_alert(
     Returns 404 (not 403) for alerts owned by another user, to avoid leaking
     existence via endpoint behavior.
     """
-    alert = part_price_alert_service.get_alert_for_owner(db, alert_id, current_user.id)
+    alert = part_price_alert_service.get_alert_for_owner(alert_id, current_user.id)
     if alert is None:
         ResponsePatterns.raise_not_found("Price alert", alert_id)
+    assert alert is not None
 
-    if payload.threshold_cents is not None:
-        alert.threshold_cents = payload.threshold_cents
-    if payload.active is not None:
-        alert.active = payload.active
-
-    db.add(alert)
-    db.commit()
-    db.refresh(alert)
+    alert = part_price_alert_service.update_alert(alert, threshold_cents=payload.threshold_cents, active=payload.active)
     return PartPriceAlertRead.model_validate(alert)
 
 
@@ -147,7 +129,6 @@ async def update_my_alert(
 )
 async def delete_my_alert(
     alert_id: UUID,
-    db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_user),
 ) -> None:
     """Soft-delete the user's own alert by setting active=False.
@@ -157,10 +138,9 @@ async def delete_my_alert(
     treat already-deleted rows the same way the unsubscribe-via-token path
     does — currently 404 is the simplest contract for this surface.)
     """
-    deactivated = part_price_alert_service.deactivate_alert(db, alert_id, current_user.id)
+    deactivated = part_price_alert_service.deactivate_alert(alert_id, current_user.id)
     if not deactivated:
         ResponsePatterns.raise_not_found("Price alert", alert_id)
-    db.commit()
     return None
 
 
@@ -184,10 +164,7 @@ def _unsubscribe_redirect_url(success: bool, message: str) -> str:
         302: {"description": "Redirected to /account/alerts with a status flag"},
     },
 )
-async def unsubscribe_via_token(
-    token: str = Query(...),
-    db: Session = Depends(get_db),
-) -> RedirectResponse:
+async def unsubscribe_via_token(token: str = Query(...)) -> RedirectResponse:
     """One-click unsubscribe via signed JWT (no auth dependency — token IS the auth).
 
     Decodes the token, requires ``purpose == 'price_alert_unsubscribe'``, looks
@@ -217,7 +194,9 @@ async def unsubscribe_via_token(
                 status_code=302,
             )
 
-        alert = db.scalars(select(DBPartPriceAlert).where(DBPartPriceAlert.id == alert_id)).first()
+        # Idempotent — flipping an already-inactive alert to inactive is fine
+        # and still reports success to the user (link clicked twice in inbox).
+        alert = part_price_alert_service.deactivate_by_id(alert_id)
         if alert is None:
             logger.warning("price_alert_unsubscribe_alert_missing: alert_id=%s", alert_id)
             return RedirectResponse(
@@ -225,11 +204,6 @@ async def unsubscribe_via_token(
                 status_code=302,
             )
 
-        # Idempotent — flipping an already-inactive alert to inactive is fine
-        # and still reports success to the user (link clicked twice in inbox).
-        alert.active = False
-        db.add(alert)
-        db.commit()
         logger.info(
             "price_alert_unsubscribe_success: alert_id=%s user_id=%s",
             alert.id,
