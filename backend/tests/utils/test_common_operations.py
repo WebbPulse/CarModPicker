@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from uuid6 import uuid7
 
-from app.api.models.report import Report
+from app.api.models.bug_report import BugReport as Report
 from app.api.utils.common_operations import (
     delete_entity,
     validate_pagination_params,
@@ -19,7 +19,7 @@ from app.db.dynamo.users import User, UserRepository
 
 def _make_report(db_session: Session, user_id: UUID) -> Report:
     """Persist a Report as a stand-in SQL entity with a ``user_id`` owner."""
-    report = Report(user_id=user_id, entity_type="part", entity_id=uuid7(), reason="spam", description="Test")
+    report = Report(user_id=user_id, title="Test", description="Test")
     db_session.add(report)
     db_session.commit()
     db_session.refresh(report)

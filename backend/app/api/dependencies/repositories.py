@@ -19,6 +19,7 @@ from app.db.dynamo.catalog import (
     PartRepository,
     RetailerRepository,
 )
+from app.db.dynamo.moderation import ReportRepository, VoteRepository
 from app.db.dynamo.users import OAuthAccountRepository, UserRepository, WebAuthnCredentialRepository
 
 
@@ -43,6 +44,8 @@ class Repositories:
     build_list_labor_estimates: BuildListLaborEstimateRepository
     build_logs: BuildLogRepository
     build_log_posts: BuildLogPostRepository
+    votes: VoteRepository
+    reports: ReportRepository
 
 
 _repositories = Repositories(
@@ -65,6 +68,8 @@ _repositories = Repositories(
     build_list_labor_estimates=BuildListLaborEstimateRepository(),
     build_logs=BuildLogRepository(),
     build_log_posts=BuildLogPostRepository(),
+    votes=VoteRepository(),
+    reports=ReportRepository(),
 )
 
 

@@ -7,12 +7,10 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import delete as sql_delete
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.vote import Vote as DBVote
 from app.api.services.part_service import PartService, purge_sql_rows_for_parts
 from app.api.utils.endpoint_decorators import standard_responses
 from app.core.init_cars import init_car_generations
@@ -125,17 +123,11 @@ async def delete_all_cars(
     Init Car Generations can repopulate from a clean slate.
     This action cannot be undone.
     """
-    db = SessionLocal()
     try:
         for build_list in repos.build_lists.scan_all():
             if build_list.car_id is not None:
                 repos.build_lists.update(build_list.id, car_id=None)
-        db.execute(
-            sql_delete(DBVote)
-            .where(DBVote.entity_type == "car_generation")
-            .execution_options(synchronize_session=False)
-        )
-        db.commit()
+        repos.votes.delete_for_entity_type("car_generation")
         generations = repos.car_generations.list_all()
         for generation in generations:
             repos.part_cars.delete_for_car(generation.id)
@@ -162,14 +154,11 @@ async def delete_all_cars(
             deleted_makes_count=makes_count,
         )
     except Exception as e:
-        db.rollback()
         logger.exception("Delete all cars failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
-    finally:
-        db.close()
 
 
 class DeleteAllPartsResponse(BaseModel):

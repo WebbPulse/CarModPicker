@@ -4,13 +4,10 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
-from app.api.models.report import Report as DBReport
-from app.api.models.vote import Vote as DBVote
 from app.api.schemas.pagination import CursorPage
 from app.api.schemas.part import MAX_IMAGES_PER_PART, PartCreate, PartRead, PartReadWithVotes, PartUpdate
 from app.api.services.base_dynamo_crud_service import BaseDynamoCRUDService
@@ -343,7 +340,6 @@ class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
 
     def list_with_votes(
         self,
-        db: Session,
         filters: PartListFilters,
         *,
         sort: Optional[str],
@@ -356,37 +352,20 @@ class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
             parts, limit=limit, cursor=cursor, sort_key=self._sort_key(sort, parts), transform=lambda p: p
         )
         return CursorPage(
-            items=self.with_votes(db, page.items, current_user),
+            items=self.with_votes(page.items, current_user),
             next_cursor=page.next_cursor,
             has_next=page.has_next,
         )
 
-    def with_votes(self, db: Session, parts: list[Part], current_user: Optional[DBUser]) -> list[PartReadWithVotes]:
+    def with_votes(self, parts: list[Part], current_user: Optional[DBUser]) -> list[PartReadWithVotes]:
         if not parts:
             return []
         part_ids = [part.id for part in parts]
-        rows = db.execute(
-            select(DBVote.entity_id, DBVote.vote_type, func.count(DBVote.id))
-            .where(DBVote.entity_type == "part", DBVote.entity_id.in_(part_ids))
-            .group_by(DBVote.entity_id, DBVote.vote_type)
-        ).all()
-        upvotes: Dict[UUID, int] = {}
-        downvotes: Dict[UUID, int] = {}
-        for entity_id, vote_type, count in rows:
-            if vote_type == "upvote":
-                upvotes[entity_id] = count
-            elif vote_type == "downvote":
-                downvotes[entity_id] = count
+        repos = get_repositories()
+        upvotes, downvotes = repos.votes.tallies("part", part_ids)
         user_votes: Dict[UUID, str] = {}
         if current_user:
-            user_rows = db.execute(
-                select(DBVote.entity_id, DBVote.vote_type).where(
-                    DBVote.entity_type == "part",
-                    DBVote.entity_id.in_(part_ids),
-                    DBVote.user_id == current_user.id,
-                )
-            ).all()
-            user_votes = {entity_id: vote_type for entity_id, vote_type in user_rows}
+            user_votes = repos.votes.user_votes("part", part_ids, current_user.id)
         result: list[PartReadWithVotes] = []
         for part in parts:
             part_dict = PartRead.model_validate(part).model_dump()
@@ -473,9 +452,10 @@ def purge_sql_rows_for_parts(db: Session, part_ids: Iterable[UUID]) -> None:
     ids = list(part_ids)
     if not ids:
         return
-    db.execute(sql_delete(DBVote).where(DBVote.entity_type == "part", DBVote.entity_id.in_(ids)))
-    db.execute(sql_delete(DBReport).where(DBReport.entity_type == "part", DBReport.entity_id.in_(ids)))
-    build_list_parts = get_repositories().build_list_parts
+    repos = get_repositories()
+    repos.votes.delete_for_entities("part", ids)
+    repos.reports.delete_for_entities("part", ids)
+    build_list_parts = repos.build_list_parts
     usage_ids = [str(usage.id) for pid in ids for usage in build_list_parts.query_all("part_id-index", pid)]
     if usage_ids:
         build_list_parts.batch_delete(usage_ids)

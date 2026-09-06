@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional, Union
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import (
@@ -17,8 +16,6 @@ from app.api.dependencies.auth import (
     verify_password,
 )
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.report import Report as DBReport
-from app.api.models.vote import Vote as DBVote
 from app.api.schemas.pagination import CursorPage
 from app.api.schemas.user import (
     AdminUserUpdate,
@@ -53,14 +50,9 @@ def _raise_duplicate(error: UniqueAttributeTaken) -> None:
     ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
 
 
-def _purge_owned_sql_rows(db: Session, user_id: UUID) -> None:
-    for model, column in (
-        (DBVote, DBVote.user_id),
-        (DBReport, DBReport.user_id),
-    ):
-        for row in db.scalars(select(model).where(column == user_id)).all():
-            db.delete(row)
-    db.commit()
+def _purge_owned_moderation(repos: Repositories, user_id: UUID) -> None:
+    repos.votes.delete_for_user(user_id)
+    repos.reports.delete_for_user(user_id)
 
 
 def _purge_owned_build_lists(repos: Repositories, user_id: UUID) -> None:
@@ -92,7 +84,7 @@ def _purge_owned_parts(db: Session, repos: Repositories, user: DBUser) -> None:
 def _delete_user_everywhere(db: Session, repos: Repositories, user: DBUser) -> None:
     _purge_owned_parts(db, repos, user)
     _purge_owned_build_lists(repos, user.id)
-    _purge_owned_sql_rows(db, user.id)
+    _purge_owned_moderation(repos, user.id)
     repos.oauth_accounts.delete_all_for_user(user.id)
     repos.webauthn_credentials.delete_all_for_user(user.id)
     repos.users.delete_user(user)

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid6 import uuid7
 
-from app.api.models.report import Report
+from app.api.models.bug_report import BugReport as Report
 from app.api.utils.pagination_utils import (
     apply_search_filter,
     apply_sorting,
@@ -18,10 +18,7 @@ from app.api.utils.pagination_utils import (
 
 def _seed_reports(db_session: Session, user_id: UUID, descriptions: list[str]) -> None:
     """Persist Reports as a stand-in SQL table with an owner and a searchable text column."""
-    db_session.add_all(
-        Report(user_id=user_id, entity_type="part", entity_id=uuid7(), reason="spam", description=description)
-        for description in descriptions
-    )
+    db_session.add_all(Report(user_id=user_id, title="Test", description=description) for description in descriptions)
     db_session.commit()
 
 
