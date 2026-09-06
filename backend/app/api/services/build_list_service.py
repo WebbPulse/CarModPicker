@@ -2,9 +2,7 @@
 Build list service on DynamoDB.
 
 Build lists, their parts, phases, labor estimates and the build log thread
-auto-created alongside every list all live in DynamoDB. The create and copy
-paths still accept the SQL session only for the premium kill-switch lookup
-behind ``is_user_premium``.
+auto-created alongside every list all live in DynamoDB.
 """
 
 import logging
@@ -12,7 +10,6 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.build_list import BuildListCreate, BuildListUpdate
@@ -42,8 +39,8 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
         if self.repos.car_generations.get(str(car_id)) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Car not found")
 
-    def _enforce_free_tier_limit(self, db: Optional[Session], current_user: DBUser) -> None:
-        if is_user_premium(current_user, db):
+    def _enforce_free_tier_limit(self, current_user: DBUser) -> None:
+        if is_user_premium(current_user, check_kill_switch=True):
             return
         if self.count_by_user(current_user.id) >= FREE_TIER_BUILD_LIST_LIMIT:
             raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=FREE_TIER_LIMIT_DETAIL)
@@ -74,11 +71,10 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
         current_user: DBUser,
         additional_data: Optional[Dict[str, Any]] = None,
         *,
-        db: Optional[Session] = None,
         logger: Optional[logging.Logger] = None,
     ) -> BuildList:
         self._verify_car_exists(data.car_id)
-        self._enforce_free_tier_limit(db, current_user)
+        self._enforce_free_tier_limit(current_user)
 
         build_list = self.repository.create(self.build_entity(data, current_user, additional_data))
         self._create_build_log(build_list)
@@ -111,7 +107,6 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
 
     def copy_build_list(
         self,
-        db: Session,
         build_list_id: UUID,
         current_user: DBUser,
         logger: Optional[logging.Logger] = None,
@@ -122,7 +117,7 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
         the current user. Purchased flags are not carried over.
         """
         original = self.get_by_id(build_list_id, allow_public=True)
-        self._enforce_free_tier_limit(db, current_user)
+        self._enforce_free_tier_limit(current_user)
 
         new_build_list = self.repository.create(
             BuildList(
@@ -157,7 +152,6 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
                 )
             )
 
-        db.commit()
         if logger:
             logger.info(f"User {current_user.id} copied build list {build_list_id} to {new_build_list.id}")
         return new_build_list

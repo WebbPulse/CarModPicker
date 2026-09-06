@@ -6,7 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid6 import uuid7
 
-from app.api.models.bug_report import BugReport as Report
 from app.api.utils.pagination_utils import (
     apply_search_filter,
     apply_sorting,
@@ -14,6 +13,7 @@ from app.api.utils.pagination_utils import (
     get_total_count,
     paginate_query,
 )
+from tests.sql_stub import StubRecord as Report
 
 
 def _seed_reports(db_session: Session, user_id: UUID, descriptions: list[str]) -> None:

@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from app.db.dynamo.app_settings import AppSettingsRepository
+from app.db.dynamo.bug_reports import BugReportRepository
 from app.db.dynamo.build_lists import (
     BuildListLaborEstimateRepository,
     BuildListPartRepository,
@@ -46,6 +48,8 @@ class Repositories:
     build_log_posts: BuildLogPostRepository
     votes: VoteRepository
     reports: ReportRepository
+    bug_reports: BugReportRepository
+    app_settings: AppSettingsRepository
 
 
 _repositories = Repositories(
@@ -70,6 +74,8 @@ _repositories = Repositories(
     build_log_posts=BuildLogPostRepository(),
     votes=VoteRepository(),
     reports=ReportRepository(),
+    bug_reports=BugReportRepository(),
+    app_settings=AppSettingsRepository(),
 )
 
 

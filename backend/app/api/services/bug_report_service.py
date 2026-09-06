@@ -1,24 +1,22 @@
 """
-Bug report service for handling bug reports.
+Bug report service on DynamoDB.
 """
 
 import logging
-from datetime import UTC, datetime
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import desc, func, select
-from sqlalchemy.orm import Session
 
-from app.api.models.bug_report import BugReport as DBBugReport
+from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.bug_report import (
     BugReportCreate,
     BugReportRead,
     BugReportUpdate,
     BugReportWithDetails,
 )
-from app.db.dynamo.users import UserRepository
+from app.db.dynamo.bug_reports import BugReport
+from app.db.dynamo.models import utc_now
 
 
 class BugReportService:
@@ -26,278 +24,137 @@ class BugReportService:
     Service for handling bug reports.
     """
 
-    def __init__(self) -> None:
-        self.users = UserRepository()
+    def __init__(self, repos: Optional[Repositories] = None) -> None:
+        self.repos = repos or get_repositories()
+        self.users = self.repos.users
 
     def create_bug_report(
         self,
-        db: Session,
         bug_report_data: BugReportCreate,
         user_id: Optional[UUID] = None,
         logger: Optional[logging.Logger] = None,
-    ) -> DBBugReport:
-        """
-        Create a new bug report.
-
-        Args:
-            db: Database session
-            bug_report_data: Bug report data
-            user_id: Optional user ID (for authenticated users)
-            logger: Optional logger instance
-
-        Returns:
-            The created bug report
-        """
-        db_bug_report = DBBugReport(
-            user_id=user_id,
-            title=bug_report_data.title,
-            description=bug_report_data.description,
-            steps_to_reproduce=bug_report_data.steps_to_reproduce,
-            expected_behavior=bug_report_data.expected_behavior,
-            actual_behavior=bug_report_data.actual_behavior,
-            browser_info=bug_report_data.browser_info,
-            device_info=bug_report_data.device_info,
-            screenshot_url=bug_report_data.screenshot_url,
-        )
-        db.add(db_bug_report)
-        db.commit()
-        db.refresh(db_bug_report)
-
+    ) -> BugReport:
+        """Create a new bug report (``user_id`` is None for anonymous reports)."""
+        bug_report = self.repos.bug_reports.create(BugReport(user_id=user_id, **bug_report_data.model_dump()))
         if logger:
-            logger.info(f"Bug report created: {db_bug_report.id} by user {user_id or 'anonymous'}")
-        return db_bug_report
+            logger.info(f"Bug report created: {bug_report.id} by user {user_id or 'anonymous'}")
+        return bug_report
+
+    def _list(
+        self, status: Optional[str], priority: Optional[str], skip: int, limit: int
+    ) -> tuple[List[BugReport], int]:
+        reports = self.repos.bug_reports.list_filtered(status=status or None, priority=priority or None)
+        return reports[skip : skip + limit], len(reports)
 
     def get_bug_reports(
         self,
-        db: Session,
         status: Optional[str] = None,
         priority: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
         logger: Optional[logging.Logger] = None,
     ) -> List[BugReportRead]:
-        """
-        Get bug reports with optional filtering.
-
-        Args:
-            db: Database session
-            status: Optional status filter
-            priority: Optional priority filter
-            skip: Number of reports to skip
-            limit: Maximum number of reports to return
-            logger: Optional logger instance
-
-        Returns:
-            List of bug reports
-        """
-        stmt = select(DBBugReport)
-
-        if status:
-            stmt = stmt.where(DBBugReport.status == status)
-
-        if priority:
-            stmt = stmt.where(DBBugReport.priority == priority)
-
-        bug_reports = db.scalars(stmt.order_by(desc(DBBugReport.created_at)).offset(skip).limit(limit)).all()
-
-        return [BugReportRead.model_validate(report) for report in bug_reports]
+        """Bug reports matching the optional status/priority filters, newest first."""
+        reports, _ = self._list(status, priority, skip, limit)
+        return [BugReportRead.model_validate(report) for report in reports]
 
     def get_bug_reports_with_details(
         self,
-        db: Session,
         status: Optional[str] = None,
         priority: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
         logger: Optional[logging.Logger] = None,
     ) -> tuple[List[BugReportWithDetails], int]:
-        """
-        Get bug reports with detailed information including reporter and assignee details.
-
-        Args:
-            db: Database session
-            status: Optional status filter
-            priority: Optional priority filter
-            skip: Number of reports to skip
-            limit: Maximum number of reports to return
-            logger: Optional logger instance
-
-        Returns:
-            Tuple of (list of bug reports with details, total count)
-        """
-        stmt = select(DBBugReport)
-
-        if status:
-            stmt = stmt.where(DBBugReport.status == status)
-
-        if priority:
-            stmt = stmt.where(DBBugReport.priority == priority)
-
-        # Get total count before pagination
-        total_count = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-
-        bug_reports = db.scalars(stmt.order_by(desc(DBBugReport.created_at)).offset(skip).limit(limit)).all()
-        user_ids = [bug_report.user_id for bug_report in bug_reports if bug_report.user_id] + [
-            bug_report.assigned_to for bug_report in bug_reports if bug_report.assigned_to
+        """Bug reports with reporter/assignee usernames, plus the unpaginated total."""
+        reports, total_count = self._list(status, priority, skip, limit)
+        user_ids = [report.user_id for report in reports if report.user_id] + [
+            report.assigned_to for report in reports if report.assigned_to
         ]
         users_by_id = self.users.get_many(user_ids)
 
-        bug_reports_with_details: List[BugReportWithDetails] = []
-        for bug_report in bug_reports:
-            reporter = users_by_id.get(bug_report.user_id) if bug_report.user_id else None
-            reporter_username = reporter.username if reporter else None
-            assignee = users_by_id.get(bug_report.assigned_to) if bug_report.assigned_to else None
-            assignee_username = assignee.username if assignee else None
+        def username(user_id: UUID | None) -> str | None:
+            user = users_by_id.get(user_id) if user_id else None
+            return user.username if user else None
 
-            bug_reports_with_details.append(
-                BugReportWithDetails(
-                    id=bug_report.id,
-                    user_id=bug_report.user_id,
-                    title=bug_report.title,
-                    description=bug_report.description,
-                    steps_to_reproduce=bug_report.steps_to_reproduce,
-                    expected_behavior=bug_report.expected_behavior,
-                    actual_behavior=bug_report.actual_behavior,
-                    browser_info=bug_report.browser_info,
-                    device_info=bug_report.device_info,
-                    screenshot_url=bug_report.screenshot_url,
-                    status=bug_report.status,
-                    priority=bug_report.priority,
-                    admin_notes=bug_report.admin_notes,
-                    assigned_to=bug_report.assigned_to,
-                    resolved_at=bug_report.resolved_at,
-                    created_at=bug_report.created_at,
-                    updated_at=bug_report.updated_at,
-                    reporter_username=reporter_username,
-                    assignee_username=assignee_username,
-                )
+        return [
+            self._with_details(
+                report,
+                reporter_username=username(report.user_id),
+                assignee_username=username(report.assigned_to),
             )
-
-        return bug_reports_with_details, total_count
+            for report in reports
+        ], total_count
 
     def update_bug_report(
         self,
-        db: Session,
         bug_report_id: UUID,
         bug_report_update: BugReportUpdate,
         logger: Optional[logging.Logger] = None,
-    ) -> DBBugReport:
-        """
-        Update a bug report (typically for admin review).
+    ) -> BugReport:
+        """Update a bug report (typically for admin review). Raises 404 when missing."""
+        self._require(bug_report_id)
 
-        Args:
-            db: Database session
-            bug_report_id: ID of the bug report to update
-            bug_report_update: Update data
-            logger: Optional logger instance
-
-        Returns:
-            The updated bug report
-
-        Raises:
-            HTTPException: If bug report doesn't exist
-        """
-        bug_report = db.scalars(select(DBBugReport).where(DBBugReport.id == bug_report_id)).first()
-        if not bug_report:
-            raise HTTPException(status_code=404, detail="Bug report not found")
-
+        changes: dict[str, object] = {}
         if bug_report_update.status:
-            bug_report.status = bug_report_update.status.value
-            # Set resolved_at if status is resolved
+            changes["status"] = bug_report_update.status.value
             if bug_report_update.status.value == "resolved":
-                bug_report.resolved_at = datetime.now(UTC)
-
+                changes["resolved_at"] = utc_now()
         if bug_report_update.priority:
-            bug_report.priority = bug_report_update.priority.value
-
+            changes["priority"] = bug_report_update.priority.value
         if bug_report_update.admin_notes is not None:
-            bug_report.admin_notes = bug_report_update.admin_notes
-
+            changes["admin_notes"] = bug_report_update.admin_notes
         if bug_report_update.assigned_to is not None:
-            bug_report.assigned_to = bug_report_update.assigned_to
+            changes["assigned_to"] = bug_report_update.assigned_to
 
-        bug_report.updated_at = datetime.now(UTC)
-
-        db.commit()
-        db.refresh(bug_report)
-
+        bug_report = self.repos.bug_reports.update(bug_report_id, updated_at=utc_now(), **changes)
         if logger:
             logger.info(f"Bug report updated: {bug_report_id}")
-
         return bug_report
 
     def delete_bug_report(
         self,
-        db: Session,
         bug_report_id: UUID,
         logger: Optional[logging.Logger] = None,
     ) -> None:
-        """
-        Delete a bug report (admin only).
-
-        Args:
-            db: Database session
-            bug_report_id: ID of the bug report to delete
-            logger: Optional logger instance
-
-        Raises:
-            HTTPException: If bug report doesn't exist
-        """
-        bug_report = db.scalars(select(DBBugReport).where(DBBugReport.id == bug_report_id)).first()
-        if not bug_report:
-            raise HTTPException(status_code=404, detail="Bug report not found")
-
-        db.delete(bug_report)
-        db.commit()
-
+        """Delete a bug report (admin only). Raises 404 when missing."""
+        self._require(bug_report_id)
+        self.repos.bug_reports.delete(bug_report_id)
         if logger:
             logger.info(f"Bug report deleted: {bug_report_id}")
 
     def get_bug_report_by_id(
         self,
-        db: Session,
         bug_report_id: UUID,
         logger: Optional[logging.Logger] = None,
     ) -> Optional[BugReportWithDetails]:
-        """
-        Get a specific bug report by ID.
-
-        Args:
-            db: Database session
-            bug_report_id: ID of the bug report to retrieve
-            logger: Optional logger instance
-
-        Returns:
-            Bug report with details if found, None otherwise
-        """
-        bug_report = db.scalars(select(DBBugReport).where(DBBugReport.id == bug_report_id)).first()
-
-        if not bug_report:
+        """A single bug report with reporter/assignee usernames, or None."""
+        bug_report = self.repos.bug_reports.get(bug_report_id)
+        if bug_report is None:
             return None
 
         reporter = self.users.get(bug_report.user_id) if bug_report.user_id else None
-        reporter_username = reporter.username if reporter else None
         assignee = self.users.get(bug_report.assigned_to) if bug_report.assigned_to else None
-        assignee_username = assignee.username if assignee else None
+        return self._with_details(
+            bug_report,
+            reporter_username=reporter.username if reporter else None,
+            assignee_username=assignee.username if assignee else None,
+        )
 
+    # -- helpers -----------------------------------------------------------
+
+    def _require(self, bug_report_id: UUID) -> BugReport:
+        bug_report = self.repos.bug_reports.get(bug_report_id)
+        if bug_report is None:
+            raise HTTPException(status_code=404, detail="Bug report not found")
+        return bug_report
+
+    @staticmethod
+    def _with_details(
+        bug_report: BugReport, *, reporter_username: str | None, assignee_username: str | None
+    ) -> BugReportWithDetails:
         return BugReportWithDetails(
-            id=bug_report.id,
-            user_id=bug_report.user_id,
-            title=bug_report.title,
-            description=bug_report.description,
-            steps_to_reproduce=bug_report.steps_to_reproduce,
-            expected_behavior=bug_report.expected_behavior,
-            actual_behavior=bug_report.actual_behavior,
-            browser_info=bug_report.browser_info,
-            device_info=bug_report.device_info,
-            screenshot_url=bug_report.screenshot_url,
-            status=bug_report.status,
-            priority=bug_report.priority,
-            admin_notes=bug_report.admin_notes,
-            assigned_to=bug_report.assigned_to,
-            resolved_at=bug_report.resolved_at,
-            created_at=bug_report.created_at,
-            updated_at=bug_report.updated_at,
+            **BugReportRead.model_validate(bug_report).model_dump(),
             reporter_username=reporter_username,
             assignee_username=assignee_username,
         )
