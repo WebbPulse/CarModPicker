@@ -10,10 +10,6 @@
 # run on the workspace to reach a terminal state, so a code update never races an
 # in-flight configuration change.
 #
-# Legacy path: while APP_RUNNER_SERVICE_ARN is set on the Environment the job also builds
-# and pushes the Docker image and redeploys App Runner. Unset the variable once the
-# legacy stack is removed and those steps are skipped.
-#
 # Requires GitHub Actions secret: TFC_API_TOKEN (a Terraform Cloud user/team token).
 #
 # Concurrency: one deploy per branch at a time. A second push queues rather than
@@ -90,25 +86,7 @@ jobs:
         run: |
           aws s3 cp backend/build/lambda.zip "s3://$LAMBDA_ARTIFACTS_BUCKET/$LAMBDA_ARTIFACT_KEY"
 
-      - name: Log in to ECR
-        if: ${{ vars.APP_RUNNER_SERVICE_ARN != '' }}
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push image
-        if: ${{ vars.APP_RUNNER_SERVICE_ARN != '' }}
-        working-directory: backend
-        env:
-          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
-          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY_NAME }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-      # Wait for HCP Terraform to finish before touching Lambda or App Runner.
+      # Wait for HCP Terraform to finish before touching Lambda.
       # Polls every 15 s for up to 10 min (40 attempts).
       - name: Wait for Terraform run to complete
         env:
@@ -151,33 +129,3 @@ jobs:
             --description "${{ github.sha }}" \
             --query 'Version' --output text
 
-      # Secondary guard: wait for App Runner itself to reach RUNNING (handles any
-      # residual in-progress state, e.g. a prior deployment finishing up).
-      - name: Wait for App Runner service to be ready
-        if: ${{ vars.APP_RUNNER_SERVICE_ARN != '' }}
-        env:
-          APP_RUNNER_SERVICE_ARN: ${{ vars.APP_RUNNER_SERVICE_ARN }}
-        run: |
-          echo "Waiting for App Runner service to reach RUNNING state..."
-          for i in $(seq 1 30); do
-            STATUS=$(aws apprunner describe-service \
-              --service-arn "$APP_RUNNER_SERVICE_ARN" \
-              --query 'Service.Status' --output text)
-            echo "  Attempt $i/30 — App Runner status: $STATUS"
-            if [ "$STATUS" = "RUNNING" ]; then
-              echo "Service is ready."
-              exit 0
-            fi
-            if [ "$i" -eq 30 ]; then
-              echo "Timed out waiting for App Runner (last status: $STATUS)."
-              exit 1
-            fi
-            sleep 20
-          done
-
-      - name: Deploy to App Runner
-        if: ${{ vars.APP_RUNNER_SERVICE_ARN != '' }}
-        env:
-          APP_RUNNER_SERVICE_ARN: ${{ vars.APP_RUNNER_SERVICE_ARN }}
-        run: |
-          aws apprunner start-deployment --service-arn "$APP_RUNNER_SERVICE_ARN"

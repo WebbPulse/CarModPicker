@@ -15,31 +15,6 @@ variable "environment" {
   }
 }
 
-variable "legacy_stack_enabled" {
-  description = "Provision the RDS + App Runner stack. null = enabled in production, never in staging."
-  type        = bool
-  default     = null
-  nullable    = true
-}
-
-variable "rds_deletion_protection" {
-  description = "Keep deletion protection on the legacy RDS instance. Set to false (and apply) before legacy_stack_enabled = false, otherwise the destroy is refused."
-  type        = bool
-  default     = true
-}
-
-variable "api_target" {
-  description = "Which backend api.<domain_name> points at: 'legacy' (App Runner) or 'lambda' (HTTP API). null = 'legacy' while the legacy stack is enabled, 'lambda' otherwise."
-  type        = string
-  default     = null
-  nullable    = true
-
-  validation {
-    condition     = var.api_target == null || contains(["legacy", "lambda"], var.api_target)
-    error_message = "api_target must be 'legacy' or 'lambda'."
-  }
-}
-
 variable "custom_domain_enabled" {
   description = "Provision Route53, ACM and custom hostnames. null = production or staging_profile 'full'."
   type        = bool
@@ -89,34 +64,6 @@ variable "api_throttle_rate_limit" {
   default     = 25
 }
 
-# Database
-variable "db_password" {
-  description = "Master password for the RDS PostgreSQL instance. Required only when the legacy stack is enabled."
-  type        = string
-  sensitive   = true
-  default     = null
-  nullable    = true
-}
-
-variable "db_instance_class" {
-  description = "RDS instance type"
-  type        = string
-  default     = "db.t4g.micro"
-}
-
-# App Runner compute
-variable "app_runner_cpu" {
-  description = "vCPU units for the App Runner service (256 = 0.25 vCPU)"
-  type        = string
-  default     = "256"
-}
-
-variable "app_runner_memory" {
-  description = "Memory in MB for the App Runner service"
-  type        = string
-  default     = "512"
-}
-
 # Application secrets (stored in Secrets Manager, values injected via HCP workspace vars)
 variable "secret_key" {
   description = "JWT signing secret for the FastAPI backend"
@@ -151,7 +98,6 @@ variable "sentry_release" {
   type        = string
   default     = ""
 }
-
 
 variable "staging_profile" {
   description = "How much of the stack this environment provisions. 'none' means the environment is switched off and must not be built. Set on the workspace by the WebbPulse-Organization workspace factory."

@@ -8,26 +8,6 @@ output "aws_region" {
   value       = data.aws_region.current.name
 }
 
-output "ecr_repository_url" {
-  description = "ECR repository URL for the backend image (legacy stack only)"
-  value       = one(aws_ecr_repository.backend[*].repository_url)
-}
-
-output "app_runner_service_url" {
-  description = "Default App Runner service URL (legacy stack only)"
-  value       = local.legacy_stack ? "https://${aws_apprunner_service.backend[0].service_url}" : null
-}
-
-output "app_runner_service_arn" {
-  description = "App Runner service ARN (legacy stack only)"
-  value       = one(aws_apprunner_service.backend[*].arn)
-}
-
-output "rds_endpoint" {
-  description = "RDS PostgreSQL endpoint (host:port, legacy stack only)"
-  value       = one(aws_db_instance.main[*].endpoint)
-}
-
 output "cloudfront_domain" {
   description = "CloudFront distribution domain name"
   value       = aws_cloudfront_distribution.frontend.domain_name

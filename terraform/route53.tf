@@ -61,25 +61,9 @@ moved {
   to   = aws_route53_record.www[0]
 }
 
-# api → App Runner service URL
-resource "aws_route53_record" "api" {
-  count = local.custom_domain && local.legacy_stack && local.api_target == "legacy" ? 1 : 0
-
-  zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = "api.${local.domain_name}"
-  type    = "CNAME"
-  ttl     = 60
-  records = [aws_apprunner_service.backend[0].service_url]
-}
-
-moved {
-  from = aws_route53_record.api
-  to   = aws_route53_record.api[0]
-}
-
 # api → HTTP API custom domain
 resource "aws_route53_record" "api_lambda" {
-  count = local.custom_domain && local.api_target == "lambda" ? 1 : 0
+  count = local.custom_domain ? 1 : 0
 
   zone_id = aws_route53_zone.carmodpicker[0].zone_id
   name    = "api.${local.domain_name}"
@@ -198,18 +182,4 @@ resource "aws_route53_record" "dmarc" {
 moved {
   from = aws_route53_record.dmarc
   to   = aws_route53_record.dmarc[0]
-}
-
-# App Runner custom domain validation records (Stage 2 — now active)
-# These CNAMEs let App Runner verify ownership of api.carmodpicker.com.
-# count=2 because App Runner always emits exactly 2 validation records; using
-# for_each here is blocked by Terraform since the keys are unknown until apply.
-resource "aws_route53_record" "apprunner_validation" {
-  count = local.custom_domain && local.legacy_stack ? 2 : 0
-
-  zone_id = aws_route53_zone.carmodpicker[0].zone_id
-  name    = tolist(aws_apprunner_custom_domain_association.api[0].certificate_validation_records)[count.index].name
-  type    = tolist(aws_apprunner_custom_domain_association.api[0].certificate_validation_records)[count.index].type
-  ttl     = 60
-  records = [tolist(aws_apprunner_custom_domain_association.api[0].certificate_validation_records)[count.index].value]
 }

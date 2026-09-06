@@ -33,36 +33,6 @@ resource "aws_iam_role" "github_actions_deploy" {
 }
 
 locals {
-  github_actions_legacy_statements = local.legacy_stack ? [
-    # ECR — push backend images
-    {
-      Effect = "Allow"
-      Action = [
-        "ecr:GetAuthorizationToken",
-      ]
-      Resource = "*"
-    },
-    {
-      Effect = "Allow"
-      Action = [
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:CompleteLayerUpload",
-        "ecr:InitiateLayerUpload",
-        "ecr:PutImage",
-        "ecr:UploadLayerPart",
-        "ecr:BatchGetImage",
-        "ecr:GetDownloadUrlForLayer",
-      ]
-      Resource = aws_ecr_repository.backend[0].arn
-    },
-    # App Runner — trigger redeployment and poll readiness before deploying
-    {
-      Effect   = "Allow"
-      Action   = ["apprunner:StartDeployment", "apprunner:DescribeService"]
-      Resource = aws_apprunner_service.backend[0].arn
-    },
-  ] : []
-
   github_actions_statements = [
     # Lambda — upload the zip to the artifacts bucket, then point the function at it
     {
@@ -113,6 +83,6 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
 
   policy = jsonencode({
     Version   = "2012-10-17"
-    Statement = concat(local.github_actions_legacy_statements, local.github_actions_statements)
+    Statement = local.github_actions_statements
   })
 }
