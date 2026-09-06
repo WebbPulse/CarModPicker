@@ -13,8 +13,8 @@ from xml.etree import ElementTree as ET
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.models.build_list import BuildList as DBBuildList
 from app.api.services import sitemap_service
+from app.db.dynamo.build_lists import BuildList, BuildListRepository
 from app.db.dynamo.catalog import Part as DBPart
 from app.db.dynamo.users import User
 from tests.conftest import get_default_category_id, save_catalog
@@ -96,8 +96,7 @@ def test_parts_sitemap_lists_canonical_only(client: TestClient, db_session: Sess
 
 
 def test_build_lists_sitemap_lists_entries(client: TestClient, db_session: Session, test_user: User) -> None:
-    bl = DBBuildList(name="My Build", user_id=test_user.id)
-    db_session.add(bl)
+    bl = BuildListRepository().create(BuildList(name="My Build", user_id=test_user.id))
     db_session.commit()
 
     resp = client.get("/sitemap-build-lists.xml")

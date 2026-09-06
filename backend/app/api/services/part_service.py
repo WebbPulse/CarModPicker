@@ -8,7 +8,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_list_part import BuildListPart as DBBuildListPart
 from app.api.models.part_price_alert import PartPriceAlert as DBPartPriceAlert
 from app.api.models.report import Report as DBReport
 from app.api.models.vote import Vote as DBVote
@@ -476,6 +475,9 @@ def purge_sql_rows_for_parts(db: Session, part_ids: Iterable[UUID]) -> None:
         return
     db.execute(sql_delete(DBVote).where(DBVote.entity_type == "part", DBVote.entity_id.in_(ids)))
     db.execute(sql_delete(DBReport).where(DBReport.entity_type == "part", DBReport.entity_id.in_(ids)))
-    db.execute(sql_delete(DBBuildListPart).where(DBBuildListPart.part_id.in_(ids)))
+    build_list_parts = get_repositories().build_list_parts
+    usage_ids = [str(usage.id) for pid in ids for usage in build_list_parts.query_all("part_id-index", pid)]
+    if usage_ids:
+        build_list_parts.batch_delete(usage_ids)
     db.execute(sql_delete(DBPartPriceAlert).where(DBPartPriceAlert.part_id.in_(ids)))
     db.commit()

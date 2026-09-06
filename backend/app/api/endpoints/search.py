@@ -10,11 +10,8 @@ This endpoint provides unified search functionality across:
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_list import BuildList as DBBuildList
 from app.api.schemas.build_list import BuildListRead
 from app.api.schemas.pagination import CursorPage
 from app.api.schemas.part import PartRead
@@ -27,6 +24,7 @@ from app.api.utils.common_patterns import (
 )
 from app.api.utils.cursor_pagination import paginate_in_memory
 from app.api.utils.endpoint_decorators import search_responses
+from app.db.dynamo import search
 
 router = APIRouter()
 
@@ -49,7 +47,6 @@ async def search_all(
     Search across build lists, user profiles, and global parts.
     Returns results separated by entity type, each as a cursor page.
     """
-    db: Session = deps["db"]
     logger = deps["logger"]
 
     if not q or not q.strip():
@@ -66,13 +63,12 @@ async def search_all(
     matching_car_ids = [
         gen.id for gen in CarGenerationService(repos).matching_generations(search_term, include_years=True)
     ]
-    build_list_conditions = [
-        DBBuildList.name.ilike(f"%{search_term}%"),
-        DBBuildList.description.ilike(f"%{search_term}%"),
-    ]
-    if matching_car_ids:
-        build_list_conditions.append(DBBuildList.car_id.in_(matching_car_ids))
-    build_lists = list(db.scalars(select(DBBuildList).where(or_(*build_list_conditions))).all())
+    term = search.normalize_term(search_term)
+    matching_car_id_set = set(matching_car_ids)
+    build_lists = search.scan_matching(
+        repos.build_lists,
+        lambda bl: search.contains(term, bl.name, bl.description) or bl.car_id in matching_car_id_set,
+    )
     build_list_page = paginate_in_memory(
         build_lists,
         limit=limit,

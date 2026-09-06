@@ -1,15 +1,12 @@
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from sqlalchemy import Index, Uuid
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 from uuid6 import uuid7
 
 from app.db.base_class import Base
-
-if TYPE_CHECKING:
-    from .build_list import BuildList
 
 
 class Report(Base):
@@ -38,13 +35,6 @@ class Report(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    # Polymorphic relationships (these will be handled by the entity models)
-    build_list: Mapped[Optional["BuildList"]] = relationship(
-        "BuildList",
-        foreign_keys="[Report.entity_id]",
-        primaryjoin="and_(Report.entity_id == BuildList.id, Report.entity_type == 'build_list')",
-        viewonly=True,
-    )
     __table_args__ = (
         Index("ix_reports_entity", "entity_type", "entity_id"),
         Index("ix_reports_status", "status"),

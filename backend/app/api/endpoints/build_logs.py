@@ -11,7 +11,6 @@ from sqlalchemy import func, select
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.build_log import BuildLogPost as DBBuildLogPost
 from app.api.schemas.build_log import (
@@ -31,10 +30,19 @@ from app.api.utils.common_patterns import (
 from app.api.utils.endpoint_decorators import crud_responses
 from app.api.utils.image_utils import get_presigned_url_from_file_key
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.build_lists import BuildList
 from app.db.dynamo.users import User as DBUser
 
 # Create router
 router = APIRouter()
+
+
+def _require_build_list(repos: Repositories, build_list_id: UUID) -> BuildList:
+    build_list = repos.build_lists.get(build_list_id)
+    if build_list is None:
+        ResponsePatterns.raise_not_found("build list", build_list_id)
+    assert build_list is not None
+    return build_list
 
 
 def _post_with_author(post: DBBuildLogPost, author: Optional[DBUser]) -> BuildLogPostRead:
@@ -94,7 +102,7 @@ async def get_build_log_by_build_list(
 
     # Verify the build list exists (raises 404 if not; post-DATA-08 we no longer
     # reference the returned entity — the eager-create path owns build_log.title).
-    get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    _require_build_list(repos, build_list_id)
 
     # Get the build log for this build list.
     build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == build_list_id)).first()
@@ -183,6 +191,7 @@ async def create_build_log_post(
     post_data: BuildLogPostCreate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> BuildLogPostRead:
     """
     Create a new post in a build log thread.
@@ -193,7 +202,7 @@ async def create_build_log_post(
 
     # Verify the build list exists (raises 404 if not; post-DATA-08 we no longer
     # reference the returned entity — the eager-create path owns build_log.title).
-    get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    _require_build_list(repos, build_list_id)
 
     # Get the build log for this build list.
     build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == build_list_id)).first()
@@ -249,7 +258,7 @@ async def update_build_log_post(
     if not build_log:
         ResponsePatterns.raise_not_found("build log", post.build_log_id)
 
-    build_list = db.scalars(select(DBBuildList).where(DBBuildList.id == build_log.build_list_id)).first()
+    build_list = repos.build_lists.get(build_log.build_list_id)
     if not build_list:
         ResponsePatterns.raise_not_found("build list", build_log.build_list_id)
 
@@ -292,6 +301,7 @@ async def delete_build_log_post(
     post_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, str]:
     """
     Delete a build log post.
@@ -309,7 +319,7 @@ async def delete_build_log_post(
     if not build_log:
         ResponsePatterns.raise_not_found("build log", post.build_log_id)
 
-    build_list = db.scalars(select(DBBuildList).where(DBBuildList.id == build_log.build_list_id)).first()
+    build_list = repos.build_lists.get(build_log.build_list_id)
     if not build_list:
         ResponsePatterns.raise_not_found("build list", build_log.build_list_id)
 

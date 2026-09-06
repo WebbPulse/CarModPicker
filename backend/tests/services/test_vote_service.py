@@ -5,10 +5,10 @@ import os
 
 from sqlalchemy.orm import Session
 
-from app.api.models.build_list import BuildList
 from app.api.models.vote import Vote
 from app.api.schemas.vote import EntityType, VoteCreate, VoteType
 from app.api.services.vote_service import VoteService
+from app.db.dynamo.build_lists import BuildList, BuildListRepository
 from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import save_catalog
@@ -51,12 +51,13 @@ class TestVoteService:
     def test_vote_on_build_list(self, db_session: Session, test_user: User) -> None:
         """Test voting on a build list."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Vote on build list
@@ -108,12 +109,13 @@ class TestVoteService:
     def test_vote_update_existing(self, db_session: Session, test_user: User) -> None:
         """Test updating an existing vote."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list2"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list2"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Create initial vote
@@ -136,12 +138,13 @@ class TestVoteService:
     def test_remove_vote(self, db_session: Session, test_user: User) -> None:
         """Test removing a vote."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list3"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list3"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Create vote
@@ -162,12 +165,13 @@ class TestVoteService:
     def test_remove_vote_not_exists(self, db_session: Session, test_user: User) -> None:
         """Test removing a vote that doesn't exist."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list4"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list4"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Try to remove non-existent vote
@@ -180,12 +184,13 @@ class TestVoteService:
     def test_get_vote_summary(self, db_session: Session, test_user: User) -> None:
         """Test getting vote summary."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list5"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list5"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Create votes from multiple users
@@ -233,12 +238,13 @@ class TestVoteService:
     def test_get_vote_summary_with_user_vote(self, db_session: Session, test_user: User) -> None:
         """Test getting vote summary with user's vote."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list6"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list6"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Create vote
@@ -255,12 +261,13 @@ class TestVoteService:
     def test_get_vote_summary_no_user_vote(self, db_session: Session, test_user: User) -> None:
         """Test getting vote summary when user hasn't voted."""
         # Create a build list
-        build_list = BuildList(
-            name=get_unique_name("test_build_list7"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list7"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Get vote summary without user_id
@@ -285,12 +292,13 @@ class TestVoteService:
         )
 
         # Create build list with many downvotes (should be flagged)
-        build_list = BuildList(
-            name=get_unique_name("flagged_build_list"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("flagged_build_list"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         service = VoteService()

@@ -1,5 +1,11 @@
 from dataclasses import dataclass
 
+from app.db.dynamo.build_lists import (
+    BuildListLaborEstimateRepository,
+    BuildListPartRepository,
+    BuildListPhaseRepository,
+    BuildListRepository,
+)
 from app.db.dynamo.catalog import (
     CarGenerationRepository,
     CarMakeRepository,
@@ -30,6 +36,10 @@ class Repositories:
     part_cars: PartCarRepository
     part_listings: PartListingRepository
     part_price_history: PartPriceHistoryRepository
+    build_lists: BuildListRepository
+    build_list_parts: BuildListPartRepository
+    build_list_phases: BuildListPhaseRepository
+    build_list_labor_estimates: BuildListLaborEstimateRepository
 
 
 _repositories = Repositories(
@@ -46,6 +56,10 @@ _repositories = Repositories(
     part_cars=PartCarRepository(),
     part_listings=PartListingRepository(),
     part_price_history=PartPriceHistoryRepository(),
+    build_lists=BuildListRepository(),
+    build_list_parts=BuildListPartRepository(),
+    build_list_phases=BuildListPhaseRepository(),
+    build_list_labor_estimates=BuildListLaborEstimateRepository(),
 )
 
 

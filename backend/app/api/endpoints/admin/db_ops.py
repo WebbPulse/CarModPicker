@@ -8,12 +8,10 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import update as sql_update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.vote import Vote as DBVote
 from app.api.services.part_service import PartService, purge_sql_rows_for_parts
 from app.api.utils.endpoint_decorators import standard_responses
@@ -129,12 +127,9 @@ async def delete_all_cars(
     """
     db = SessionLocal()
     try:
-        db.execute(
-            sql_update(DBBuildList)
-            .where(DBBuildList.car_id.isnot(None))
-            .values(car_id=None)
-            .execution_options(synchronize_session=False)
-        )
+        for build_list in repos.build_lists.scan_all():
+            if build_list.car_id is not None:
+                repos.build_lists.update(build_list.id, car_id=None)
         db.execute(
             sql_delete(DBVote)
             .where(DBVote.entity_type == "car_generation")

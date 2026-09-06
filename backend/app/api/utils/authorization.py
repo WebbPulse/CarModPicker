@@ -1,11 +1,11 @@
 from typing import Optional
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.build_list_part import BuildListPart as DBBuildListPart
+from app.api.dependencies.repositories import get_repositories
+from app.db.dynamo.build_lists import BuildList as DBBuildList
+from app.db.dynamo.build_lists import BuildListPart as DBBuildListPart
 from app.db.dynamo.catalog import Part as DBPart
 from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 from app.db.dynamo.users import User as DBUser
@@ -36,15 +36,9 @@ def can_edit_build_list_part(
     if build_list_part.added_by == user.id or user.is_admin or user.is_superuser:
         return True
 
-    if build_list:
-        return build_list.user_id == user.id
-
-    if db:
-        build_list = db.scalars(select(DBBuildList).where(DBBuildList.id == build_list_part.build_list_id)).first()
-        if build_list and build_list.user_id == user.id:
-            return True
-
-    return False
+    if build_list is None:
+        build_list = get_repositories().build_lists.get(build_list_part.build_list_id)
+    return build_list is not None and build_list.user_id == user.id
 
 
 def require_part_delete_permission(user: DBUser, part: DBPart) -> None:

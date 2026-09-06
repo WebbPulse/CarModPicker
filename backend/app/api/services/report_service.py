@@ -12,7 +12,6 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import get_repositories
-from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.report import Report as DBReport
 from app.api.schemas.report import (
     EntityType,
@@ -20,6 +19,7 @@ from app.api.schemas.report import (
     ReportRead,
     ReportWithDetails,
 )
+from app.db.dynamo.build_lists import BuildList as DBBuildList
 from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import UserRepository
 
@@ -371,7 +371,7 @@ class ReportService:
     def _get_entity_or_404(self, db: Session, entity_type: EntityType, entity_id: UUID) -> Union[DBBuildList, Part]:
         entity: Union[DBBuildList, Part, None]
         if entity_type == EntityType.BUILD_LIST:
-            entity = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
+            entity = get_repositories().build_lists.get(entity_id)
         elif entity_type == EntityType.PART:
             entity = get_repositories().parts.get(str(entity_id))
         else:
@@ -383,7 +383,7 @@ class ReportService:
     def _get_entity_details(self, db: Session, entity_type: str, entity_id: UUID) -> Dict[str, Any]:
         """Get entity details for report display."""
         if entity_type == "build_list":
-            bl = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
+            bl = get_repositories().build_lists.get(entity_id)
             if bl:
                 return {"name": bl.name, "description": bl.description}
         elif entity_type == "part":

@@ -5,10 +5,10 @@ import os
 
 from sqlalchemy.orm import Session
 
-from app.api.models.build_list import BuildList
 from app.api.models.report import Report
 from app.api.schemas.report import EntityType, ReportCreate, ReportReason
 from app.api.services.report_service import ReportService
+from app.db.dynamo.build_lists import BuildList, BuildListRepository
 from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import save_catalog
@@ -39,12 +39,13 @@ class TestReportService:
             )
         )
 
-        build_list = BuildList(
-            name=get_unique_name("test_build_list"),
-            description="Test build list",
-            user_id=other_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list"),
+                description="Test build list",
+                user_id=other_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Create report
@@ -125,12 +126,13 @@ class TestReportService:
     def test_create_report_own_entity(self, db_session: Session, test_user: User) -> None:
         """Test that users cannot report their own entities."""
         # Create build list owned by test_user
-        build_list = BuildList(
-            name=get_unique_name("own_build_list"),
-            description="Test",
-            user_id=test_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("own_build_list"),
+                description="Test",
+                user_id=test_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Try to create report
@@ -162,12 +164,13 @@ class TestReportService:
             )
         )
 
-        build_list = BuildList(
-            name=get_unique_name("test_build_list2"),
-            description="Test",
-            user_id=other_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list2"),
+                description="Test",
+                user_id=other_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Create first report
@@ -201,12 +204,13 @@ class TestReportService:
             )
         )
 
-        build_list = BuildList(
-            name=get_unique_name("test_build_list3"),
-            description="Test",
-            user_id=other_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list3"),
+                description="Test",
+                user_id=other_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Create reports - create for different entities to avoid duplicate report error
@@ -217,12 +221,13 @@ class TestReportService:
         service.create_report(db_session, EntityType.BUILD_LIST, build_list.id, test_user.id, report_data1, logger)
 
         # Create a second build list for the second report to avoid duplicate report error
-        build_list2 = BuildList(
-            name=get_unique_name("test_build_list4"),
-            description="Test 2",
-            user_id=other_user.id,
+        build_list2 = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list4"),
+                description="Test 2",
+                user_id=other_user.id,
+            )
         )
-        db_session.add(build_list2)
         db_session.commit()
         service.create_report(db_session, EntityType.BUILD_LIST, build_list2.id, test_user.id, report_data2, logger)
 
@@ -247,12 +252,13 @@ class TestReportService:
             )
         )
 
-        build_list = BuildList(
-            name=get_unique_name("test_build_list4"),
-            description="Test",
-            user_id=other_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list4"),
+                description="Test",
+                user_id=other_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         # Get or create a category
@@ -321,12 +327,13 @@ class TestReportService:
             )
         )
 
-        build_list = BuildList(
-            name=get_unique_name("test_build_list5"),
-            description="Test",
-            user_id=other_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list5"),
+                description="Test",
+                user_id=other_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         service = ReportService()
@@ -366,12 +373,13 @@ class TestReportService:
             )
         )
 
-        build_list = BuildList(
-            name=get_unique_name("test_build_list6"),
-            description="Test",
-            user_id=other_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list6"),
+                description="Test",
+                user_id=other_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         service = ReportService()
@@ -403,12 +411,13 @@ class TestReportService:
             )
         )
 
-        build_list = BuildList(
-            name=get_unique_name("test_build_list7"),
-            description="Test build list description",
-            user_id=other_user.id,
+        build_list = BuildListRepository().create(
+            BuildList(
+                name=get_unique_name("test_build_list7"),
+                description="Test build list description",
+                user_id=other_user.id,
+            )
         )
-        db_session.add(build_list)
         db_session.commit()
 
         service = ReportService()

@@ -9,8 +9,6 @@ audit rules (composite-index left-prefix rule).
 
 from __future__ import annotations
 
-from app.api.models.build_list import BuildList
-from app.api.models.build_list_part import BuildListPart
 from app.api.models.report import Report
 from app.api.models.vote import Vote
 
@@ -29,12 +27,6 @@ def _column_is_indexed(table, column_name: str) -> bool:
 
 
 EXPECTED_INDEXED_FKS = [
-    (BuildList, "user_id"),
-    (BuildList, "car_id"),
-    (BuildListPart, "build_list_id"),
-    (BuildListPart, "part_id"),
-    (BuildListPart, "added_by"),
-    (BuildListPart, "build_list_phase_id"),
     (Report, "reviewed_by"),
 ]
 
