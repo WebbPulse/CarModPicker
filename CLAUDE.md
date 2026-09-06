@@ -18,24 +18,21 @@ CarModPicker is a full-stack web application for managing car modifications. Use
 # Start dev server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Database (requires Docker)
-docker-compose up -d      # start PostgreSQL
-docker-compose down       # stop
+# Local services (requires Docker): DynamoDB Local on :8001, MinIO on :9000
+docker-compose up -d
+docker-compose down
+python scripts/create_dynamo_tables.py   # create the app's tables in DynamoDB Local (idempotent)
 
-# Migrations — always use autogenerate, never write manually
-alembic revision --autogenerate -m "description"
-alembic upgrade head
+# Table definitions live in app/db/dynamo/tables.py; regenerate the Terraform copy after editing
+python scripts/export_dynamo_tables.py
 
 # Tests — always run with -n auto for parallel execution
-# Tests use SQLite in-memory (not PostgreSQL) — no DB setup required
+# Tests run against moto's in-memory DynamoDB — no services required
 pytest -n auto
 pytest -n auto --cov=app --cov-report=term-missing
 pytest -n auto path/to/test_file.py       # single file
 pytest -n auto -k "test_name"             # single test
 # Rate limiting is disabled in tests by default; set ENABLE_RATE_LIMITING=true to test it
-
-# Populate local DB with sample data
-python ../scripts/populate_sample_data.py   # run from backend/
 
 # Linting / formatting
 black --config pyproject.toml .
@@ -73,23 +70,22 @@ npm run watch   # auto-rebuild on change (then reload in chrome://extensions/)
 ```
 Browser / Chrome Extension
     → React frontend (port 4000, dev proxy /api → 8000)
-    → FastAPI backend (port 8000, prefix /api)
-    → PostgreSQL (Docker locally, RDS PostgreSQL 16 in prod)
+    → FastAPI backend (port 8000, prefix /api; Lambda + HTTP API in AWS)
+    → DynamoDB (DynamoDB Local in Docker locally, DynamoDB in AWS)
 ```
 
 ### Backend (`backend/app/`)
 
 - **`main.py`** — App factory: registers all routers via `EndpointRegistry`, adds CORS, rate-limiting, and error-handler middleware.
 - **`api/endpoints/`** — One file per domain (`auth`, `users`, `car_generations`, `parts`, `build_lists`, `build_list_parts`, `build_list_phases`, `build_logs`, `votes`, `reports`, `images`, `search`, `admin`, `crawled_pages`, `part_manufacturers`, `categories`, `retailers`, `bug_reports`).
-- **`api/models/`** — SQLAlchemy 2.0 ORM models (22+ tables).
+- **`db/dynamo/`** — DynamoDB layer: `tables.py` (every table and GSI, one `TableSpec` each), `repository.py` (generic `DynamoRepository[TModel]`), and one module per domain (`users`, `catalog`, `build_lists`, `build_logs`, `moderation`, ...) holding the Pydantic item models and their repositories. `api/dependencies/repositories.py` bundles them into the `Repositories` dependency.
 - **`api/schemas/`** — Pydantic v2 request/response schemas.
 - **`api/services/`** — Business logic layer called by endpoints.
 - **`api/dependencies/auth.py`** — FastAPI `Depends()` helpers: `get_current_user`, `get_optional_current_user`, `get_current_admin_user`, `get_current_superuser`.
 - **`api/middleware/`** — Rate limiting + content-length guard + error handlers.
-- **`api/utils/`** — Shared patterns: `BaseEndpointRouter` (generic CRUD router), `BaseCRUDService`, `EndpointRegistry` (standardized router registration), pagination, authorization, subscription checks.
+- **`api/utils/`** — Shared patterns: `BaseDynamoEndpointRouter` (generic CRUD router over `BaseDynamoCRUDService`), `EndpointRegistry` (standardized router registration), pagination, authorization, subscription checks.
 - **`core/`** — Config, logging, email templates (React Email HTML, sent via SES), car/category seed data.
 - **`backend/app/core/sentry.py`** — Sentry SDK 2.x init helper. Env-gated (TESTING+APP_ENVIRONMENT+DSN). Scope processor reads request_id/user_id from log_context ContextVars.
-- **`alembic/versions/`** — Migration history (never edit manually).
 
 **Auth:** JWT (HS256, configurable expiry 15 min–7 days per user preference) + bcrypt passwords + optional TOTP 2FA. Requires email verification before login is allowed. Email sent via AWS SES with IAM role auth.
 
@@ -97,11 +93,11 @@ Browser / Chrome Extension
 
 **Special endpoints:**
 - `GET /health` — liveness check (always 200)
-- `GET /ready` — readiness check (503 until DB is reachable; used during App Runner cold start)
+- `GET /ready` — readiness check (503 until DynamoDB answers a `DescribeTable` on the users table)
 
 ### Backend patterns
 
-Most endpoints are built on `BaseEndpointRouter` (generic CRUD over `BaseCRUDService`) rather than hand-rolled route functions. When adding a new domain, follow this pattern instead of writing boilerplate. Votes and reports are polymorphic over `entity_type` / `entity_id` and served by the unified `votes.py` / `reports.py` endpoints backed by `VoteService` / `ReportService` on DynamoDB.
+Endpoints read and write through repositories from `app/db/dynamo/`, injected via `get_repositories()`. Simple domains use `BaseDynamoEndpointRouter` (generic CRUD over `BaseDynamoCRUDService`) rather than hand-rolled route functions; when adding a new domain, add a `TableSpec`, an item model plus repository, and follow that pattern. Votes and reports are polymorphic over `entity_type` / `entity_id` and served by the unified `votes.py` / `reports.py` endpoints backed by `VoteService` / `ReportService` on DynamoDB.
 
 ### Frontend (`frontend/src/`)
 
@@ -185,7 +181,7 @@ The Lambda's code is not Terraform's: the function is created from a placeholder
 
 ## Key Conventions
 
-- **Alembic migrations:** Always use `alembic revision --autogenerate`. Never write migration files by hand.
-- **pytest:** Always pass `-n auto` for parallel execution. Tests use SQLite in-memory — no Postgres required.
-- **New CRUD endpoints:** Extend `BaseEndpointRouter` + `BaseCRUDService`; register with `EndpointRegistry` in `main.py`.
+- **Tables:** Declare every table and index in `backend/app/db/dynamo/tables.py`, then run `python scripts/export_dynamo_tables.py` so `terraform/dynamodb_tables.json` matches (a test fails when they drift). There are no migrations; schema changes are additive attributes on Pydantic item models.
+- **pytest:** Always pass `-n auto` for parallel execution. Tests use moto's in-memory DynamoDB — no services required.
+- **New CRUD endpoints:** Extend `BaseDynamoEndpointRouter` + `BaseDynamoCRUDService`; register with `EndpointRegistry` in `main.py`.
 - The backend CORS config explicitly allows `chrome-extension://` origins and `null` (for service workers).
