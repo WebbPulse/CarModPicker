@@ -2083,6 +2083,38 @@
         "title": "CreatePartAndAddToBuildListRequest",
         "type": "object"
       },
+      "CursorPage_BuildListRead_": {
+        "properties": {
+          "has_next": {
+            "default": false,
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BuildListRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CursorPage[BuildListRead]",
+        "type": "object"
+      },
       "CursorPage_CarGenerationRead_": {
         "properties": {
           "has_next": {
@@ -7562,20 +7594,22 @@
     },
     "/api/build-list-labor-estimates/count": {
       "get": {
-        "description": "Total count of build list labor estimates (public read, same pattern as other /count endpoints).",
+        "description": "Get total count of build list labor estimates.",
         "operationId": "count_build_list_labor_estimates_api_build_list_labor_estimates_count_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
                   "title": "Response Count Build List Labor Estimates Api Build List Labor Estimates Count Get",
                   "type": "object"
                 }
               }
             },
-            "description": "Build list labor estimate count retrieved successfully"
+            "description": "Count of build list labor estimates"
           }
         },
         "summary": "Count Build List Labor Estimates",
@@ -7586,7 +7620,7 @@
     },
     "/api/build-list-labor-estimates/{labor_estimate_id}": {
       "delete": {
-        "description": "Delete a build list labor estimate. Only build list owner or admin.",
+        "description": "Delete a labor estimate. Only build list owner or admin.",
         "operationId": "delete_build_list_labor_estimate_api_build_list_labor_estimates__labor_estimate_id__delete",
         "parameters": [
           {
@@ -7639,7 +7673,7 @@
         ]
       },
       "put": {
-        "description": "Update a build list labor estimate. Only build list owner or admin.",
+        "description": "Update a labor estimate. Only build list owner or admin.",
         "operationId": "update_build_list_labor_estimate_api_build_list_labor_estimates__labor_estimate_id__put",
         "parameters": [
           {
@@ -8293,20 +8327,22 @@
     },
     "/api/build-list-phases/count": {
       "get": {
-        "description": "Total count of build list phases (public read, same pattern as other /count endpoints).",
+        "description": "Get total count of build list phases.",
         "operationId": "count_build_list_phases_api_build_list_phases_count_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
                   "title": "Response Count Build List Phases Api Build List Phases Count Get",
                   "type": "object"
                 }
               }
             },
-            "description": "Build list phase count retrieved successfully"
+            "description": "Count of build list phases"
           }
         },
         "summary": "Count Build List Phases",
@@ -8317,7 +8353,7 @@
     },
     "/api/build-list-phases/{phase_id}": {
       "delete": {
-        "description": "Delete a build list phase. Parts in this phase are unassigned (build_list_phase_id set to NULL).",
+        "description": "Delete a phase. Parts and labor estimates in it become ungrouped. Only build list owner or admin.",
         "operationId": "delete_build_list_phase_api_build_list_phases__phase_id__delete",
         "parameters": [
           {
@@ -8370,7 +8406,7 @@
         ]
       },
       "put": {
-        "description": "Update a build list phase. Only build list owner or admin.",
+        "description": "Update a phase. Only build list owner or admin.",
         "operationId": "update_build_list_phase_api_build_list_phases__phase_id__put",
         "parameters": [
           {
@@ -8435,30 +8471,16 @@
     },
     "/api/build-lists/": {
       "get": {
-        "description": "List all entities with pagination and search.",
         "operationId": "list_entities_api_build_lists__get",
         "parameters": [
           {
-            "description": "Number of build lists to skip",
-            "in": "query",
-            "name": "skip",
-            "required": false,
-            "schema": {
-              "default": 0,
-              "description": "Number of build lists to skip",
-              "minimum": 0,
-              "title": "Skip",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Maximum number of build lists to return",
+            "description": "Maximum number of items to return",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Maximum number of build lists to return",
+              "description": "Maximum number of items to return",
               "maximum": 1000,
               "minimum": 1,
               "title": "Limit",
@@ -8466,9 +8488,9 @@
             }
           },
           {
-            "description": "Search in build list names and descriptions",
+            "description": "Opaque cursor from a previous page's next_cursor",
             "in": "query",
-            "name": "search",
+            "name": "cursor",
             "required": false,
             "schema": {
               "anyOf": [
@@ -8479,8 +8501,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Search in build list names and descriptions",
-              "title": "Search"
+              "description": "Opaque cursor from a previous page's next_cursor",
+              "title": "Cursor"
             }
           }
         ],
@@ -8489,15 +8511,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/BuildListRead"
-                  },
-                  "title": "Response List Entities Api Build Lists  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/CursorPage_BuildListRead_"
                 }
               }
             },
-            "description": "List of build lists retrieved successfully"
+            "description": "Build List page retrieved successfully"
           },
           "422": {
             "content": {
@@ -8516,8 +8534,8 @@
         ]
       },
       "post": {
-        "description": "Create a new entity.",
-        "operationId": "create_entity_api_build_lists__post",
+        "description": "Create a build list. Free accounts are capped at one.",
+        "operationId": "create_build_list_api_build_lists__post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8537,16 +8555,13 @@
                 }
               }
             },
-            "description": "Successful Response"
-          },
-          "400": {
-            "description": "Invalid build list data"
-          },
-          "402": {
-            "description": "Subscription limit reached"
+            "description": "Build list created successfully"
           },
           "403": {
-            "description": "Not authorized to create build list"
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Resource not found"
           },
           "422": {
             "content": {
@@ -8564,7 +8579,7 @@
             "OAuth2PasswordBearer": []
           }
         ],
-        "summary": "Create Entity",
+        "summary": "Create Build List",
         "tags": [
           "build-lists"
         ]
@@ -8668,8 +8683,8 @@
     },
     "/api/build-lists/count": {
       "get": {
-        "description": "Get total count of entities.",
-        "operationId": "count_entities_api_build_lists_count_get",
+        "description": "Get total count of build lists.",
+        "operationId": "count_build_lists_api_build_lists_count_get",
         "responses": {
           "200": {
             "content": {
@@ -8678,15 +8693,15 @@
                   "additionalProperties": {
                     "type": "integer"
                   },
-                  "title": "Response Count Entities Api Build Lists Count Get",
+                  "title": "Response Count Build Lists Api Build Lists Count Get",
                   "type": "object"
                 }
               }
             },
-            "description": "Count of build lists"
+            "description": "Build list count retrieved successfully"
           }
         },
-        "summary": "Count Entities",
+        "summary": "Count Build Lists",
         "tags": [
           "build-lists"
         ]
@@ -9049,6 +9064,59 @@
       }
     },
     "/api/build-lists/{build_list_id}": {
+      "delete": {
+        "description": "Delete a build list with its parts, phases, labor estimates and build log.",
+        "operationId": "delete_build_list_api_build_lists__build_list_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "build_list_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Build List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildListRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Build list not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Build List",
+        "tags": [
+          "build-lists"
+        ]
+      },
       "get": {
         "description": "Retrieve a build list by ID.\nPublic read access - anyone can view build lists.\nOnly owners can edit or delete.",
         "operationId": "read_build_list_api_build_lists__build_list_id__get",
@@ -9598,61 +9666,7 @@
       }
     },
     "/api/build-lists/{entity_id}": {
-      "delete": {
-        "description": "Delete an entity and return the deleted data.",
-        "operationId": "delete_entity_api_build_lists__entity_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "entity_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Entity Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BuildListRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "403": {
-            "description": "Not authorized to delete this build list"
-          },
-          "404": {
-            "description": "Build List not found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Delete Entity",
-        "tags": [
-          "build-lists"
-        ]
-      },
       "put": {
-        "description": "Update an existing entity.",
         "operationId": "update_entity_api_build_lists__entity_id__put",
         "parameters": [
           {
@@ -9688,7 +9702,7 @@
             "description": "Successful Response"
           },
           "403": {
-            "description": "Not authorized to update this build list"
+            "description": "Not authorized"
           },
           "404": {
             "description": "Build List not found"

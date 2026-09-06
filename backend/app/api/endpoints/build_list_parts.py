@@ -1,19 +1,14 @@
 """
-Build list parts endpoint.
+Build list parts endpoint on DynamoDB.
 """
 
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
-from sqlalchemy.orm import joinedload
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_list import BuildList as DBBuildList
-from app.api.models.build_list_part import BuildListPart as DBBuildListPart
-from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.schemas.build_list_part import (
     BuildListPartCreate,
     BuildListPartRead,
@@ -39,12 +34,12 @@ from app.api.utils.authorization import (
 )
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
-    get_entity_or_404,
     get_standard_public_endpoint_dependencies,
     verify_user_access_or_admin,
 )
 from app.api.utils.endpoint_decorators import standard_responses
 from app.api.utils.response_patterns import ResponsePatterns
+from app.db.dynamo.build_lists import BuildList, BuildListPart
 from app.db.dynamo.catalog import Part
 from app.db.dynamo.users import User as DBUser
 
@@ -61,6 +56,37 @@ def _require_part(repos: Repositories, part_id: UUID) -> Part:
     return part
 
 
+def _require_build_list(repos: Repositories, build_list_id: UUID) -> BuildList:
+    build_list = repos.build_lists.get(build_list_id)
+    if build_list is None:
+        ResponsePatterns.raise_not_found("build list", build_list_id)
+    assert build_list is not None
+    return build_list
+
+
+def _require_build_list_part(repos: Repositories, build_list_part_id: UUID) -> BuildListPart:
+    build_list_part = repos.build_list_parts.get(build_list_part_id)
+    if build_list_part is None:
+        ResponsePatterns.raise_not_found("build list part", build_list_part_id)
+    assert build_list_part is not None
+    return build_list_part
+
+
+def _find_part_in_build_list(repos: Repositories, build_list_id: UUID, part_id: UUID) -> Optional[BuildListPart]:
+    return next(
+        (blp for blp in repos.build_list_parts.all_for_build_list(build_list_id) if blp.part_id == part_id),
+        None,
+    )
+
+
+def _require_part_in_build_list(repos: Repositories, build_list_id: UUID, part_id: UUID) -> BuildListPart:
+    build_list_part = _find_part_in_build_list(repos, build_list_id, part_id)
+    if build_list_part is None:
+        ResponsePatterns.raise_not_found("Build list part not found in build list")
+    assert build_list_part is not None
+    return build_list_part
+
+
 def _part_read_with_best_price(part: Part) -> PartRead:
     best = get_best_listing_for_part(part.id)
     part_dict = PartRead.model_validate(part).model_dump()
@@ -69,34 +95,59 @@ def _part_read_with_best_price(part: Part) -> PartRead:
 
 
 def _build_list_part_with_part(
-    db: Any, db_build_list_part: DBBuildListPart, part_read: PartRead
+    repos: Repositories, build_list_part: BuildListPart, part_read: PartRead
 ) -> BuildListPartReadWithPart:
     phase_name = None
-    if db_build_list_part.build_list_phase_id:
-        ph = db.get(DBBuildListPhase, db_build_list_part.build_list_phase_id)
-        phase_name = ph.name if ph else None
+    if build_list_part.build_list_phase_id:
+        phase = repos.build_list_phases.get(build_list_part.build_list_phase_id)
+        phase_name = phase.name if phase else None
     return BuildListPartReadWithPart(
-        id=db_build_list_part.id,
-        build_list_id=db_build_list_part.build_list_id,
-        part_id=db_build_list_part.part_id,
-        added_by=db_build_list_part.added_by,
-        quantity=db_build_list_part.quantity,
-        notes=db_build_list_part.notes,
-        purchased=db_build_list_part.purchased,
-        added_at=db_build_list_part.added_at,
-        build_list_phase_id=db_build_list_part.build_list_phase_id,
+        id=build_list_part.id,
+        build_list_id=build_list_part.build_list_id,
+        part_id=build_list_part.part_id,
+        added_by=build_list_part.added_by,
+        quantity=build_list_part.quantity,
+        notes=build_list_part.notes,
+        purchased=build_list_part.purchased,
+        added_at=build_list_part.added_at,
+        build_list_phase_id=build_list_part.build_list_phase_id,
         phase_name=phase_name,
         part=part_read,
     )
 
 
-def _validate_phase_belongs_to_build_list(db, phase_id: Optional[UUID], build_list_id: UUID) -> None:
+def _validate_phase_belongs_to_build_list(repos: Repositories, phase_id: Optional[UUID], build_list_id: UUID) -> None:
     """If phase_id is set, verify the phase exists and belongs to the build list."""
     if phase_id is None:
         return
-    phase = get_entity_or_404(db, DBBuildListPhase, phase_id, "build list phase")
+    phase = repos.build_list_phases.get(phase_id)
+    if phase is None:
+        ResponsePatterns.raise_not_found("build list phase", phase_id)
+    assert phase is not None
     if phase.build_list_id != build_list_id:
         ResponsePatterns.raise_not_found("Build list phase does not belong to this build list")
+
+
+def _add_part_to_build_list(
+    repos: Repositories,
+    build_list_id: UUID,
+    part_id: UUID,
+    current_user: DBUser,
+    *,
+    quantity: int,
+    notes: Optional[str],
+    build_list_phase_id: Optional[UUID],
+) -> BuildListPart:
+    return repos.build_list_parts.create(
+        BuildListPart(
+            build_list_id=build_list_id,
+            part_id=part_id,
+            added_by=current_user.id,
+            quantity=quantity,
+            notes=notes,
+            build_list_phase_id=build_list_phase_id,
+        )
+    )
 
 
 @router.get(
@@ -106,18 +157,13 @@ def _validate_phase_belongs_to_build_list(db, phase_id: Optional[UUID], build_li
 )
 async def count_build_list_parts(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, int]:
     """Get total count of build list parts."""
-    db = deps["db"]
     logger = deps["logger"]
-
-    try:
-        count = db.scalar(select(func.count()).select_from(DBBuildListPart)) or 0
-        logger.info(f"Retrieved build list parts count: {count}")
-        return {"count": count}
-    except Exception as e:
-        logger.error(f"Error counting build list parts: {str(e)}")
-        raise
+    count = len(repos.build_list_parts.scan_all())
+    logger.info(f"Retrieved build list parts count: {count}")
+    return {"count": count}
 
 
 @router.post(
@@ -139,43 +185,34 @@ async def add_part_to_build_list(
     repos: Repositories = Depends(get_repositories),
 ) -> BuildListPartRead:
     """Add an existing part to a build list as a build list part."""
-    db = deps["db"]
     logger = deps["logger"]
 
-    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+    build_list = _require_build_list(repos, build_list_id)
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
 
     _require_part(repos, part_id)
 
-    existing_relationship = db.scalars(
-        select(DBBuildListPart).where(
-            DBBuildListPart.build_list_id == build_list_id,
-            DBBuildListPart.part_id == part_id,
-        )
-    ).first()
-    if existing_relationship:
+    if _find_part_in_build_list(repos, build_list_id, part_id) is not None:
         ResponsePatterns.raise_conflict("Part already exists in build list")
 
-    _validate_phase_belongs_to_build_list(db, getattr(build_list_part, "build_list_phase_id", None), build_list_id)
+    phase_id = getattr(build_list_part, "build_list_phase_id", None)
+    _validate_phase_belongs_to_build_list(repos, phase_id, build_list_id)
 
-    db_build_list_part = DBBuildListPart(
-        build_list_id=build_list_id,
-        part_id=part_id,
-        added_by=current_user.id,
+    created = _add_part_to_build_list(
+        repos,
+        build_list_id,
+        part_id,
+        current_user,
         quantity=build_list_part.quantity,
         notes=build_list_part.notes,
-        build_list_phase_id=getattr(build_list_part, "build_list_phase_id", None),
+        build_list_phase_id=phase_id,
     )
-
-    db.add(db_build_list_part)
-    db.commit()
-    db.refresh(db_build_list_part)
 
     logger.info(
         f"Part {part_id} added to build list {build_list_id} "
-        f"as build list part {db_build_list_part.id} by user {current_user.id}"
+        f"as build list part {created.id} by user {current_user.id}"
     )
-    return BuildListPartRead.model_validate(db_build_list_part)
+    return BuildListPartRead.model_validate(created)
 
 
 @router.get(
@@ -187,18 +224,15 @@ async def get_build_list_parts(
     build_list_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> List[BuildListPartRead]:
     """Get all build list parts in a build list. Public read access."""
-    db = deps["db"]
     logger = deps["logger"]
 
-    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-
-    db_build_list_parts = list(
-        db.scalars(select(DBBuildListPart).where(DBBuildListPart.build_list_id == build_list_id)).all()
-    )
-
-    build_list_parts = [BuildListPartRead.model_validate(part) for part in db_build_list_parts]
+    _require_build_list(repos, build_list_id)
+    build_list_parts = [
+        BuildListPartRead.model_validate(part) for part in repos.build_list_parts.all_for_build_list(build_list_id)
+    ]
 
     user_info = f"User {current_user.id}" if current_user else "Anonymous user"
     logger.info(f"{user_info}: Retrieved {len(build_list_parts)} build list parts from build list {build_list_id}")
@@ -217,32 +251,23 @@ async def update_build_list_part(
     build_list_part: BuildListPartUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> BuildListPartRead:
     """Update a build list part."""
-    db = deps["db"]
     logger = deps["logger"]
 
-    db_build_list_part = get_entity_or_404(db, DBBuildListPart, build_list_part_id, "build list part")
-    db_build_list = get_entity_or_404(db, DBBuildList, db_build_list_part.build_list_id, "build list")
+    existing = _require_build_list_part(repos, build_list_part_id)
+    build_list = _require_build_list(repos, existing.build_list_id)
 
-    require_build_list_part_edit_permission(current_user, db_build_list_part, db, db_build_list)
+    require_build_list_part_edit_permission(current_user, existing, None, build_list)
 
     update_data = build_list_part.model_dump(exclude_unset=True)
     if "build_list_phase_id" in update_data:
-        _validate_phase_belongs_to_build_list(
-            db,
-            update_data["build_list_phase_id"],
-            db_build_list_part.build_list_id,
-        )
-    for key, value in update_data.items():
-        setattr(db_build_list_part, key, value)
+        _validate_phase_belongs_to_build_list(repos, update_data["build_list_phase_id"], existing.build_list_id)
+    updated = repos.build_list_parts.update(existing.id, **update_data) if update_data else existing
 
-    db.add(db_build_list_part)
-    db.commit()
-    db.refresh(db_build_list_part)
-
-    logger.info(f"Build list part {db_build_list_part.id} updated by user {current_user.id}")
-    return BuildListPartRead.model_validate(db_build_list_part)
+    logger.info(f"Build list part {updated.id} updated by user {current_user.id}")
+    return BuildListPartRead.model_validate(updated)
 
 
 @router.delete(
@@ -256,20 +281,18 @@ async def delete_build_list_part(
     build_list_part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> BuildListPartRead:
     """Delete a build list part."""
-    db = deps["db"]
     logger = deps["logger"]
 
-    db_build_list_part = get_entity_or_404(db, DBBuildListPart, build_list_part_id, "build list part")
-    require_build_list_part_delete_permission(current_user, db_build_list_part)
+    existing = _require_build_list_part(repos, build_list_part_id)
+    require_build_list_part_delete_permission(current_user, existing)
 
-    deleted_data = BuildListPartRead.model_validate(db_build_list_part)
+    deleted_data = BuildListPartRead.model_validate(existing)
+    repos.build_list_parts.delete(existing.id)
 
-    db.delete(db_build_list_part)
-    db.commit()
-
-    logger.info(f"Build list part {db_build_list_part.id} deleted by user {current_user.id}")
+    logger.info(f"Build list part {existing.id} deleted by user {current_user.id}")
     return deleted_data
 
 
@@ -294,13 +317,14 @@ async def create_part_and_add_to_build_list(
     db = deps["db"]
     logger = deps["logger"]
 
-    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
-    verify_user_access_or_admin(current_user, db_build_list.user_id, "modify this build list", logger)
+    build_list = _require_build_list(repos, build_list_id)
+    verify_user_access_or_admin(current_user, build_list.user_id, "modify this build list", logger)
 
     if repos.categories.get(str(request.category_id)) is None:
         ResponsePatterns.raise_not_found("category", request.category_id)
 
-    _validate_phase_belongs_to_build_list(db, getattr(request, "build_list_phase_id", None), build_list_id)
+    phase_id = getattr(request, "build_list_phase_id", None)
+    _validate_phase_belongs_to_build_list(repos, phase_id, build_list_id)
 
     # Dedup: find existing part by URL, part_manufacturer+part_number, or GTIN
     part_by_url: Optional[Part] = None
@@ -328,11 +352,14 @@ async def create_part_and_add_to_build_list(
             },
         )
 
+    wants_listing = bool(request.retailer_id and (request.product_url or request.price_cents is not None))
+    if wants_listing and repos.retailers.get(str(request.retailer_id)) is None:
+        ResponsePatterns.raise_not_found("retailer", request.retailer_id)
+
     existing_part = part_by_gtin or part_by_url or part_by_part_manufacturer
     if existing_part:
-        if request.retailer_id and (request.product_url or request.price_cents is not None):
-            if repos.retailers.get(str(request.retailer_id)) is None:
-                ResponsePatterns.raise_not_found("retailer", request.retailer_id)
+        if wants_listing:
+            assert request.retailer_id is not None
             create_or_update_listing_and_price(
                 db,
                 existing_part.id,
@@ -340,23 +367,21 @@ async def create_part_and_add_to_build_list(
                 product_url=request.product_url,
                 price_cents=request.price_cents,
             )
-        db_build_list_part = DBBuildListPart(
-            build_list_id=build_list_id,
-            part_id=existing_part.id,
-            added_by=current_user.id,
+        created = _add_part_to_build_list(
+            repos,
+            build_list_id,
+            existing_part.id,
+            current_user,
             quantity=request.quantity,
             notes=request.notes,
-            build_list_phase_id=getattr(request, "build_list_phase_id", None),
+            build_list_phase_id=phase_id,
         )
-        db.add(db_build_list_part)
-        db.commit()
-        db.refresh(db_build_list_part)
         existing_part = repos.parts.get(str(existing_part.id)) or existing_part
         logger.info(
             f"User {current_user.id} added existing part {existing_part.id} to build list "
-            f"{build_list_id} as build list part {db_build_list_part.id} (dedup)"
+            f"{build_list_id} as build list part {created.id} (dedup)"
         )
-        return _build_list_part_with_part(db, db_build_list_part, _part_read_with_best_price(existing_part))
+        return _build_list_part_with_part(repos, created, _part_read_with_best_price(existing_part))
 
     part_create = PartCreate(
         name=request.name,
@@ -372,28 +397,23 @@ async def create_part_and_add_to_build_list(
         retailer_id=request.retailer_id,
         price_cents=request.price_cents,
     )
-    if request.retailer_id and (request.product_url or request.price_cents is not None):
-        if repos.retailers.get(str(request.retailer_id)) is None:
-            ResponsePatterns.raise_not_found("retailer", request.retailer_id)
     db_part = part_service.create_part(db, part_create, current_user, logger)
 
-    db_build_list_part = DBBuildListPart(
-        build_list_id=build_list_id,
-        part_id=db_part.id,
-        added_by=current_user.id,
+    created = _add_part_to_build_list(
+        repos,
+        build_list_id,
+        db_part.id,
+        current_user,
         quantity=request.quantity,
         notes=request.notes,
-        build_list_phase_id=getattr(request, "build_list_phase_id", None),
+        build_list_phase_id=phase_id,
     )
-    db.add(db_build_list_part)
-    db.commit()
-    db.refresh(db_build_list_part)
 
     logger.info(
         f"Part {db_part.id} created and added to build list "
-        f"{build_list_id} as build list part {db_build_list_part.id} by user {current_user.id}"
+        f"{build_list_id} as build list part {created.id} by user {current_user.id}"
     )
-    return _build_list_part_with_part(db, db_build_list_part, _part_read_with_best_price(db_part))
+    return _build_list_part_with_part(repos, created, _part_read_with_best_price(db_part))
 
 
 @router.get(
@@ -408,25 +428,17 @@ async def get_parts_in_build_list(
     repos: Repositories = Depends(get_repositories),
 ) -> List[BuildListPartReadWithPart]:
     """Get all build list parts in a build list. Public read access."""
-    db = deps["db"]
     logger = deps["logger"]
 
-    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    _require_build_list(repos, build_list_id)
 
-    db_build_list_parts = list(
-        db.scalars(
-            select(DBBuildListPart)
-            .options(joinedload(DBBuildListPart.build_list_phase))
-            .where(DBBuildListPart.build_list_id == build_list_id)
-        )
-        .unique()
-        .all()
-    )
+    build_list_parts_raw = repos.build_list_parts.all_for_build_list(build_list_id)
+    phases = {phase.id: phase for phase in repos.build_list_phases.all_for_build_list(build_list_id)}
 
     # Resolve each BuildListPart.part to its canonical for display. BuildListPart.part_id
-    # stays as stored (no FK repoint) so we preserve the exact part the user added, but
+    # stays as stored (no repoint) so we preserve the exact part the user added, but
     # the rendered Part data is always the canonical so users see the surface record.
-    stored_parts = repos.parts.get_many({p.part_id for p in db_build_list_parts})
+    stored_parts = repos.parts.get_many({p.part_id for p in build_list_parts_raw})
     canonical_ids_to_load = {
         part.canonical_part_id for part in stored_parts.values() if part.canonical_part_id is not None
     }
@@ -446,6 +458,10 @@ async def get_parts_in_build_list(
         part_dict["best_price_cents"] = best_price_cents_dict[part.id]
         return PartRead(**part_dict)
 
+    def phase_name(part: BuildListPart) -> Optional[str]:
+        phase = phases.get(part.build_list_phase_id) if part.build_list_phase_id else None
+        return phase.name if phase else None
+
     build_list_parts = [
         BuildListPartReadWithPart(
             id=part.id,
@@ -457,10 +473,10 @@ async def get_parts_in_build_list(
             purchased=part.purchased,
             added_at=part.added_at,
             build_list_phase_id=part.build_list_phase_id,
-            phase_name=part.build_list_phase.name if part.build_list_phase else None,
+            phase_name=phase_name(part),
             part=part_read_with_best_price(effective_part(stored_parts[part.part_id])),
         )
-        for part in db_build_list_parts
+        for part in build_list_parts_raw
         if part.part_id in stored_parts
     ]
 
@@ -482,38 +498,23 @@ async def update_part_in_build_list(
     build_list_part: BuildListPartUpdate,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> BuildListPartRead:
     """Update a build list part's notes in a build list."""
-    db = deps["db"]
     logger = deps["logger"]
 
-    db_build_list = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    build_list = _require_build_list(repos, build_list_id)
+    existing = _require_part_in_build_list(repos, build_list_id, part_id)
 
-    db_build_list_part = db.scalars(
-        select(DBBuildListPart).where(
-            DBBuildListPart.build_list_id == build_list_id,
-            DBBuildListPart.part_id == part_id,
-        )
-    ).first()
-    if not db_build_list_part:
-        ResponsePatterns.raise_not_found("Build list part not found in build list")
-
-    require_build_list_part_edit_permission(current_user, db_build_list_part, db, db_build_list)
+    require_build_list_part_edit_permission(current_user, existing, None, build_list)
 
     update_data = build_list_part.model_dump(exclude_unset=True)
     if "build_list_phase_id" in update_data:
-        _validate_phase_belongs_to_build_list(db, update_data["build_list_phase_id"], build_list_id)
-    for key, value in update_data.items():
-        setattr(db_build_list_part, key, value)
+        _validate_phase_belongs_to_build_list(repos, update_data["build_list_phase_id"], build_list_id)
+    updated = repos.build_list_parts.update(existing.id, **update_data) if update_data else existing
 
-    db.add(db_build_list_part)
-    db.commit()
-    db.refresh(db_build_list_part)
-
-    logger.info(
-        f"Build list part {db_build_list_part.id} updated in build list {build_list_id} by user {current_user.id}"
-    )
-    return BuildListPartRead.model_validate(db_build_list_part)
+    logger.info(f"Build list part {updated.id} updated in build list {build_list_id} by user {current_user.id}")
+    return BuildListPartRead.model_validate(updated)
 
 
 @router.delete(
@@ -528,32 +529,20 @@ async def remove_part_from_build_list(
     part_id: UUID,
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
     current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
 ) -> BuildListPartRead:
     """Remove a build list part from a build list."""
-    db = deps["db"]
     logger = deps["logger"]
 
-    _ = get_entity_or_404(db, DBBuildList, build_list_id, "build list")
+    _require_build_list(repos, build_list_id)
+    existing = _require_part_in_build_list(repos, build_list_id, part_id)
 
-    db_build_list_part = db.scalars(
-        select(DBBuildListPart).where(
-            DBBuildListPart.build_list_id == build_list_id,
-            DBBuildListPart.part_id == part_id,
-        )
-    ).first()
-    if not db_build_list_part:
-        ResponsePatterns.raise_not_found("Build list part not found in build list")
+    require_build_list_part_delete_permission(current_user, existing)
 
-    require_build_list_part_delete_permission(current_user, db_build_list_part)
+    deleted_data = BuildListPartRead.model_validate(existing)
+    repos.build_list_parts.delete(existing.id)
 
-    deleted_data = BuildListPartRead.model_validate(db_build_list_part)
-
-    db.delete(db_build_list_part)
-    db.commit()
-
-    logger.info(
-        f"Build list part {db_build_list_part.id} removed from build list {build_list_id} by user {current_user.id}"
-    )
+    logger.info(f"Build list part {existing.id} removed from build list {build_list_id} by user {current_user.id}")
     return deleted_data
 
 
@@ -568,17 +557,12 @@ async def count_build_lists_containing_part(
     repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, int]:
     """Count the number of build lists that contain a specific part."""
-    db = deps["db"]
     logger = deps["logger"]
 
     _require_part(repos, part_id)
 
-    count = (
-        db.scalar(
-            select(func.count(func.distinct(DBBuildListPart.build_list_id))).where(DBBuildListPart.part_id == part_id)
-        )
-        or 0
-    )
+    usages: List[Any] = repos.build_list_parts.query_all("part_id-index", part_id)
+    count = len({usage.build_list_id for usage in usages})
 
     logger.info(f"Part {part_id} is contained in {count} build list(s)")
     return {"count": count}

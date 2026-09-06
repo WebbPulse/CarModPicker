@@ -1,8 +1,12 @@
 """Tests for common patterns utility functions."""
 
-from fastapi import HTTPException
+from uuid import UUID
 
-from app.api.models.build_list import BuildList
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from uuid6 import uuid7
+
+from app.api.models.report import Report
 from app.api.utils.common_patterns import (
     get_entity_or_404,
     validate_pagination_params,
@@ -11,27 +15,29 @@ from app.api.utils.common_patterns import (
 from app.db.dynamo.users import User, UserRepository
 
 
+def _make_report(db_session: Session, user_id: UUID) -> Report:
+    """Persist a Report as a stand-in SQL entity with a ``user_id`` owner."""
+    report = Report(user_id=user_id, entity_type="part", entity_id=uuid7(), reason="spam", description="Test")
+    db_session.add(report)
+    db_session.commit()
+    db_session.refresh(report)
+    return report
+
+
 class TestCommonPatterns:
     """Test cases for common patterns utility functions."""
 
     def test_get_entity_or_404_success(self, db_session, test_user: User) -> None:
         """Test getting an entity that exists."""
-        build_list = BuildList(
-            name="Test Build List",
-            description="Test",
-            user_id=test_user.id,
-        )
-        db_session.add(build_list)
-        db_session.commit()
-        db_session.refresh(build_list)
+        build_list = _make_report(db_session, test_user.id)
 
-        result = get_entity_or_404(db_session, BuildList, build_list.id, "build list")
+        result = get_entity_or_404(db_session, Report, build_list.id, "build list")
         assert result.id == build_list.id
 
     def test_get_entity_or_404_not_found(self, db_session) -> None:
         """Test getting an entity that doesn't exist."""
         try:
-            get_entity_or_404(db_session, BuildList, 99999, "build list")
+            get_entity_or_404(db_session, Report, uuid7(), "build list")
             assert False, "Should have raised HTTPException"
         except HTTPException as e:
             assert e.status_code == 404
@@ -62,14 +68,7 @@ class TestCommonPatterns:
 
     def test_verify_entity_ownership_success(self, db_session, test_user: User) -> None:
         """Test verifying ownership of an entity owned by the user."""
-        build_list = BuildList(
-            name="Test Build List",
-            description="Test",
-            user_id=test_user.id,
-        )
-        db_session.add(build_list)
-        db_session.commit()
-        db_session.refresh(build_list)
+        build_list = _make_report(db_session, test_user.id)
 
         # Should not raise
         verify_entity_ownership(build_list, test_user, "build list")
@@ -88,14 +87,7 @@ class TestCommonPatterns:
             )
         )
 
-        build_list = BuildList(
-            name="Test Build List",
-            description="Test",
-            user_id=other_user.id,  # Owned by different user
-        )
-        db_session.add(build_list)
-        db_session.commit()
-        db_session.refresh(build_list)
+        build_list = _make_report(db_session, other_user.id)
 
         try:
             verify_entity_ownership(build_list, test_user, "build list")

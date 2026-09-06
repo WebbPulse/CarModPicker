@@ -6,10 +6,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.build_log import BuildLogPost as DBBuildLogPost
 from app.core.config import settings
+from app.db.dynamo.build_lists import BuildList, BuildListRepository
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 
@@ -17,9 +17,7 @@ from app.db.dynamo.users import UserRepository
 def _seed_build_list_with_posts(
     db: Session, owner: DBUser, post_count: int
 ) -> tuple[uuid.UUID, uuid.UUID, list[DBUser]]:
-    bl = DBBuildList(name=f"seed-{uuid.uuid4().hex[:6]}", user_id=owner.id)
-    db.add(bl)
-    db.flush()
+    bl = BuildListRepository().create(BuildList(name=f"seed-{uuid.uuid4().hex[:6]}", user_id=owner.id))
     bl_log = DBBuildLog(build_list_id=bl.id, title=f"Build Log: {bl.name}")
     db.add(bl_log)
     db.flush()

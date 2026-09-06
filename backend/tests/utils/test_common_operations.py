@@ -1,8 +1,12 @@
 """Tests for common operations utility functions."""
 
-from fastapi import HTTPException
+from uuid import UUID
 
-from app.api.models.build_list import BuildList
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from uuid6 import uuid7
+
+from app.api.models.report import Report
 from app.api.utils.common_operations import (
     delete_entity,
     validate_pagination_params,
@@ -13,27 +17,29 @@ from app.api.utils.common_operations import (
 from app.db.dynamo.users import User, UserRepository
 
 
+def _make_report(db_session: Session, user_id: UUID) -> Report:
+    """Persist a Report as a stand-in SQL entity with a ``user_id`` owner."""
+    report = Report(user_id=user_id, entity_type="part", entity_id=uuid7(), reason="spam", description="Test")
+    db_session.add(report)
+    db_session.commit()
+    db_session.refresh(report)
+    return report
+
+
 class TestCommonOperations:
     """Test cases for common operations utility functions."""
 
     def test_verify_entity_exists_success(self, db_session, test_user: User) -> None:
         """Test verifying an entity that exists."""
-        build_list = BuildList(
-            name="Test Build List",
-            description="Test",
-            user_id=test_user.id,
-        )
-        db_session.add(build_list)
-        db_session.commit()
-        db_session.refresh(build_list)
+        build_list = _make_report(db_session, test_user.id)
 
-        result = verify_entity_exists(db_session, BuildList, build_list.id, "build list")
+        result = verify_entity_exists(db_session, Report, build_list.id, "build list")
         assert result.id == build_list.id
 
     def test_verify_entity_exists_not_found(self, db_session) -> None:
         """Test verifying an entity that doesn't exist."""
         try:
-            verify_entity_exists(db_session, BuildList, 99999, "build list")
+            verify_entity_exists(db_session, Report, uuid7(), "build list")
             assert False, "Should have raised HTTPException"
         except HTTPException as e:
             assert e.status_code == 404
@@ -41,16 +47,9 @@ class TestCommonOperations:
 
     def test_verify_entity_ownership_success(self, db_session, test_user: User) -> None:
         """Test verifying ownership of an entity owned by the user."""
-        build_list = BuildList(
-            name="Test Build List",
-            description="Test",
-            user_id=test_user.id,
-        )
-        db_session.add(build_list)
-        db_session.commit()
-        db_session.refresh(build_list)
+        build_list = _make_report(db_session, test_user.id)
 
-        result = verify_entity_ownership(db_session, BuildList, build_list.id, test_user, "build list")
+        result = verify_entity_ownership(db_session, Report, build_list.id, test_user, "build list")
         assert result.id == build_list.id
 
     def test_verify_entity_ownership_not_owner(self, db_session, test_user: User) -> None:
@@ -67,17 +66,10 @@ class TestCommonOperations:
             )
         )
 
-        build_list = BuildList(
-            name="Test Build List",
-            description="Test",
-            user_id=other_user.id,  # Owned by different user
-        )
-        db_session.add(build_list)
-        db_session.commit()
-        db_session.refresh(build_list)
+        build_list = _make_report(db_session, other_user.id)
 
         try:
-            verify_entity_ownership(db_session, BuildList, build_list.id, test_user, "build list")
+            verify_entity_ownership(db_session, Report, build_list.id, test_user, "build list")
             assert False, "Should have raised HTTPException"
         except HTTPException as e:
             assert e.status_code == 403
@@ -137,14 +129,7 @@ class TestCommonOperations:
         """Test deleting an entity successfully."""
         import logging
 
-        build_list = BuildList(
-            name="Test Build List",
-            description="Test",
-            user_id=test_user.id,
-        )
-        db_session.add(build_list)
-        db_session.commit()
-        db_session.refresh(build_list)
+        build_list = _make_report(db_session, test_user.id)
 
         logger = logging.getLogger(__name__)
         result = delete_entity(db_session, build_list, test_user.id, logger, "build list")
@@ -153,5 +138,5 @@ class TestCommonOperations:
         assert "deleted successfully" in result["message"].lower()
 
         # Verify entity is deleted
-        deleted = db_session.query(BuildList).filter(BuildList.id == build_list.id).first()
+        deleted = db_session.query(Report).filter(Report.id == build_list.id).first()
         assert deleted is None

@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import get_repositories
-from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.utils.image_utils import is_file_key
 
@@ -39,8 +38,8 @@ def get_all_referenced_file_keys(db: Session) -> set[str]:
         _collect_image_urls(car.image_urls)
 
     # Build lists: image_urls
-    for image_urls in db.scalars(select(DBBuildList.image_urls).where(DBBuildList.image_urls.isnot(None))).all():
-        _collect_image_urls(image_urls)
+    for build_list in repos.build_lists.scan_all():
+        _collect_image_urls(build_list.image_urls)
 
     # Image source mappings (dedup cache)
     for file_key in db.scalars(select(DBImageSourceMapping.file_key)).all():

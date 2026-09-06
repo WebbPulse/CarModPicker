@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_list_phase import BuildListPhase as DBBuildListPhase
 from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.report import Report as DBReport
@@ -54,7 +53,7 @@ async def get_admin_table_counts(
     reports_by_entity_type = {str(row[0]): int(row[1]) for row in report_rows}
 
     return {
-        "build_list_phases": approximate_count(db, DBBuildListPhase),
+        "build_list_phases": len(repos.build_list_phases.scan_all()),
         "part_listings": repos.part_listings.count(),
         "part_price_histories": repos.part_price_history.count(),
         "image_source_mappings": approximate_count(db, DBImageSourceMapping),

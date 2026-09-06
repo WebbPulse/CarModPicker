@@ -12,7 +12,6 @@ from sqlalchemy import Float, and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.report import Report as DBReport
 from app.api.models.vote import Vote as DBVote
 from app.api.schemas.vote import (
@@ -21,6 +20,7 @@ from app.api.schemas.vote import (
     VoteCreate,
     VoteSummary,
 )
+from app.db.dynamo.build_lists import BuildList as DBBuildList
 from app.db.dynamo.catalog import CarGeneration, Part
 from app.db.dynamo.repository import ItemNotFound
 
@@ -314,8 +314,7 @@ class VoteService:
         if not ids:
             return {}
         if entity_type == EntityType.BUILD_LIST:
-            rows = db.scalars(select(DBBuildList).where(DBBuildList.id.in_(ids))).all()
-            return {row.id: row for row in rows}
+            return dict(self.repos.build_lists.get_many(ids))
         if entity_type == EntityType.CAR_GENERATION:
             return dict(self.repos.car_generations.get_many(ids))
         if entity_type == EntityType.PART:

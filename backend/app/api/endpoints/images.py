@@ -88,12 +88,11 @@ async def upload_image(
     # If entity_id is provided, verify the user owns the entity
     if entity_id:
         from app.api.dependencies.repositories import get_repositories
-        from app.api.models.build_list import BuildList as DBBuildList
 
         repos = get_repositories()
         entity_owned = False
         if entity_type == "build_list":
-            entity = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
+            entity = repos.build_lists.get(entity_id)
             if entity and entity.user_id == current_user.id:
                 entity_owned = True
         elif entity_type == "part":
@@ -116,9 +115,7 @@ async def upload_image(
             # For build log posts, verify the user has access to the build list
             # If entity_id is provided, it should be the build_list_id
             if entity_id:
-                from app.api.models.build_list import BuildList as DBBuildList
-
-                build_list = db.scalars(select(DBBuildList).where(DBBuildList.id == entity_id)).first()
+                build_list = repos.build_lists.get(entity_id)
                 if build_list:
                     # Any authenticated user can upload images for build log posts
                     # (build logs are public-readable, so images should be too)

@@ -1,15 +1,11 @@
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Index, UniqueConstraint, Uuid
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 from uuid6 import uuid7
 
 from app.db.base_class import Base
-
-if TYPE_CHECKING:
-    from .build_list import BuildList
 
 
 class Vote(Base):
@@ -31,13 +27,6 @@ class Vote(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    # Polymorphic relationships (these will be handled by the entity models)
-    build_list: Mapped[Optional["BuildList"]] = relationship(
-        "BuildList",
-        foreign_keys="[Vote.entity_id]",
-        primaryjoin="and_(Vote.entity_id == BuildList.id, Vote.entity_type == 'build_list')",
-        viewonly=True,
-    )
     # Ensure one vote per user per entity
     __table_args__ = (
         UniqueConstraint("user_id", "entity_type", "entity_id", name="unique_user_entity_vote"),

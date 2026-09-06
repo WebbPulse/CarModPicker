@@ -1,22 +1,21 @@
 """DATA-08 invariant: every build_list has a build_log row (eager-create).
 
-Phase 4 plan 04-02 task 3. Exercises the eager-create path already present in
-backend/app/api/services/build_list_service.py:82-88 and the post-backfill
-invariant asserted by D-27: SELECT COUNT(*) FROM build_lists WHERE id NOT IN
-(SELECT build_list_id FROM build_logs) = 0.
+Phase 4 plan 04-02 task 3. Exercises the eager-create path in
+backend/app/api/services/build_list_service.py and the post-backfill
+invariant asserted by D-27: no build list exists without a build log.
 """
 
 from __future__ import annotations
 
 import logging
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.models.build_list import BuildList as DBBuildList
 from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.schemas.build_list import BuildListCreate
 from app.api.services.build_list_service import BuildListService
+from app.db.dynamo.build_lists import BuildListRepository
 from app.db.dynamo.users import User
 from tests.conftest import create_car_orm_in_db
 
@@ -37,8 +36,7 @@ def test_new_build_list_has_eager_build_log(db_session: Session, test_user: User
 
     svc = BuildListService()
     payload = BuildListCreate(name="test-eager-create", description="seed", car_id=car.id)
-    bl = svc.create(db_session, payload, test_user, logger)
-    db_session.commit()
+    bl = svc.create(payload, test_user, db=db_session, logger=logger)
 
     # Invariant: the just-created BuildList has a BuildLog row.
     bl_row = db_session.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == bl.id)).first()
@@ -64,14 +62,12 @@ def test_no_orphan_build_lists(db_session: Session, premium_test_user: User) -> 
     svc = BuildListService()
     for i in range(3):
         svc.create(
-            db_session,
             BuildListCreate(name=f"seed-orphan-test-{i}", description=None, car_id=car.id),
             premium_test_user,
-            logger,
+            db=db_session,
+            logger=logger,
         )
-    db_session.commit()
 
-    orphan_count = db_session.scalar(
-        select(func.count()).select_from(DBBuildList).where(~DBBuildList.id.in_(select(DBBuildLog.build_list_id)))
-    )
-    assert orphan_count == 0, f"{orphan_count} build_list rows lack a build_log"
+    logged_ids = set(db_session.scalars(select(DBBuildLog.build_list_id)).all())
+    orphans = [bl.id for bl in BuildListRepository().scan_all() if bl.id not in logged_ids]
+    assert orphans == [], f"{len(orphans)} build lists lack a build_log: {orphans}"
