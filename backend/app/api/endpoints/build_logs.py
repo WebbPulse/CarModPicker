@@ -7,23 +7,18 @@ from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import func, select
 
 from app.api.dependencies.auth import get_current_user, get_optional_current_user
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_log import BuildLog as DBBuildLog
-from app.api.models.build_log import BuildLogPost as DBBuildLogPost
 from app.api.schemas.build_log import (
     BuildLogPostCreate,
     BuildLogPostRead,
     BuildLogPostUpdate,
-    BuildLogRead,
     BuildLogReadPaginated,
 )
 from app.api.utils.common_patterns import (
     PublicEndpointDeps,
     create_paginated_response,
-    get_entity_or_404,
     get_standard_public_endpoint_dependencies,
     validate_pagination_params,
 )
@@ -31,6 +26,7 @@ from app.api.utils.endpoint_decorators import crud_responses
 from app.api.utils.image_utils import get_presigned_url_from_file_key
 from app.api.utils.response_patterns import ResponsePatterns
 from app.db.dynamo.build_lists import BuildList
+from app.db.dynamo.build_logs import BuildLog, BuildLogPost
 from app.db.dynamo.users import User as DBUser
 
 # Create router
@@ -45,13 +41,60 @@ def _require_build_list(repos: Repositories, build_list_id: UUID) -> BuildList:
     return build_list
 
 
-def _post_with_author(post: DBBuildLogPost, author: Optional[DBUser]) -> BuildLogPostRead:
+def _require_build_log(repos: Repositories, build_list_id: UUID, logger) -> BuildLog:
+    """The build log for a build list; every build list is created with one."""
+    build_log = repos.build_logs.for_build_list(build_list_id)
+    if build_log is None:
+        # Post-DATA-08 backfill invariant: every build list has a build log.
+        # If this branch fires, something broke the invariant — do not silently
+        # auto-create (the old fallback hid data-integrity issues).
+        logger.error("Orphan build_list %s has no build_log; DATA-08 invariant violated", build_list_id)
+        ResponsePatterns.raise_not_found("build log", build_list_id)
+    assert build_log is not None
+    return build_log
+
+
+def _require_post(repos: Repositories, post_id: UUID) -> BuildLogPost:
+    post = repos.build_log_posts.get(post_id)
+    if post is None:
+        ResponsePatterns.raise_not_found("build log post", post_id)
+    assert post is not None
+    return post
+
+
+def _post_with_author(post: BuildLogPost, author: Optional[DBUser]) -> BuildLogPostRead:
     post_data = BuildLogPostRead.model_validate(post)
     post_data.author_username = author.username if author else None
     post_data.author_image_url = (
         get_presigned_url_from_file_key((author.image_urls or [None])[0]) if author and author.image_urls else None
     )
     return post_data
+
+
+def _authorize_post_change(repos: Repositories, post: BuildLogPost, current_user: DBUser, action: str, logger) -> None:
+    """
+    A post may be changed by its author, by the owner of the build list the
+    thread belongs to, or by an admin.
+    """
+    build_log = repos.build_logs.get(post.build_log_id)
+    if build_log is None:
+        ResponsePatterns.raise_not_found("build log", post.build_log_id)
+    assert build_log is not None
+
+    build_list = repos.build_lists.get(build_log.build_list_id)
+    if build_list is None:
+        ResponsePatterns.raise_not_found("build list", build_log.build_list_id)
+    assert build_list is not None
+
+    allowed = (
+        post.user_id == current_user.id
+        or build_list.user_id == current_user.id
+        or current_user.is_admin
+        or current_user.is_superuser
+    )
+    if not allowed:
+        logger.warning(f"Access denied: User {current_user.id} attempted to {action} build log post {post.id}")
+        ResponsePatterns.raise_forbidden(f"Not authorized to {action} this build log post")
 
 
 @router.get(
@@ -63,21 +106,16 @@ def _post_with_author(post: DBBuildLogPost, author: Optional[DBUser]) -> BuildLo
 )
 async def count_build_log_posts(
     deps: PublicEndpointDeps = Depends(get_standard_public_endpoint_dependencies),
+    repos: Repositories = Depends(get_repositories),
 ) -> Dict[str, int]:
     """
     Get total count of build log posts.
     Public access - anyone can view the count.
     """
-    db = deps["db"]
     logger = deps["logger"]
-
-    try:
-        count = db.scalar(select(func.count()).select_from(DBBuildLogPost)) or 0
-        logger.info(f"Retrieved build log posts count: {count}")
-        return {"count": count}
-    except Exception as e:
-        logger.error(f"Error counting build log posts: {str(e)}")
-        raise
+    count = repos.build_log_posts.count()
+    logger.info(f"Retrieved build log posts count: {count}")
+    return {"count": count}
 
 
 @router.get(
@@ -97,49 +135,22 @@ async def get_build_log_by_build_list(
     Get the build log thread for a specific build list.
     Public read access - anyone can view build logs.
     """
-    db = deps["db"]
     logger = deps["logger"]
 
-    # Verify the build list exists (raises 404 if not; post-DATA-08 we no longer
-    # reference the returned entity — the eager-create path owns build_log.title).
     _require_build_list(repos, build_list_id)
+    build_log = _require_build_log(repos, build_list_id, logger)
 
-    # Get the build log for this build list.
-    build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == build_list_id)).first()
-    if not build_log:
-        # Post-DATA-08 backfill invariant: every build_list has a build_log row.
-        # If this branch fires, something broke the invariant — do not silently
-        # auto-create (the old fallback hid data-integrity issues).
-        logger.error("Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id)
-        ResponsePatterns.raise_not_found("build log", build_list_id)
-
-    # Validate pagination parameters
     skip, limit = validate_pagination_params(skip=skip, limit=limit)
 
-    # Get total count of posts (modern select() form per DATA-06 sweep; Pitfall 5:
-    # select(func.count()).select_from(X) preserves COUNT(*) semantics).
-    # `db.scalar` returns Optional[int]; COUNT(*) is never NULL in practice (returns 0
-    # when no rows match), so coerce to int to satisfy create_paginated_response's
-    # non-optional `total` param.
-    total_posts = (
-        db.scalar(select(func.count()).select_from(DBBuildLogPost).where(DBBuildLogPost.build_log_id == build_log.id))
-        or 0
-    )
-
-    posts = db.scalars(
-        select(DBBuildLogPost)
-        .where(DBBuildLogPost.build_log_id == build_log.id)
-        .order_by(DBBuildLogPost.created_at)
-        .offset(skip)
-        .limit(limit)
-    ).all()
+    all_posts = sorted(repos.build_log_posts.all_for_build_log(build_log.id), key=lambda p: (p.created_at, str(p.id)))
+    total_posts = len(all_posts)
+    posts = all_posts[skip : skip + limit]
 
     authors = repos.users.get_many([post.user_id for post in posts if post.user_id is not None])
     posts_with_authors: List[BuildLogPostRead] = [
         _post_with_author(post, authors.get(post.user_id) if post.user_id is not None else None) for post in posts
     ]
 
-    # Create paginated response
     paginated_response = create_paginated_response(
         data=posts_with_authors,
         total=total_posts,
@@ -147,8 +158,6 @@ async def get_build_log_by_build_list(
         limit=limit,
         message="Build log retrieved successfully",
     )
-
-    build_log_data = BuildLogRead.model_validate(build_log)
 
     # Map pagination response to match frontend expectations
     pagination_data = paginated_response["pagination"]
@@ -161,13 +170,12 @@ async def get_build_log_by_build_list(
         "has_previous": pagination_data["has_previous"],
     }
 
-    # Create paginated build log response
     build_log_paginated = BuildLogReadPaginated(
-        id=build_log_data.id,
-        build_list_id=build_log_data.build_list_id,
-        title=build_log_data.title,
-        created_at=build_log_data.created_at,
-        updated_at=build_log_data.updated_at,
+        id=build_log.id,
+        build_list_id=build_log.build_list_id,
+        title=build_log.title,
+        created_at=build_log.created_at,
+        updated_at=build_log.updated_at,
         posts=paginated_response["data"],
         pagination=pagination_mapped,
     )
@@ -197,37 +205,18 @@ async def create_build_log_post(
     Create a new post in a build log thread.
     Requires authentication.
     """
-    db = deps["db"]
     logger = deps["logger"]
 
-    # Verify the build list exists (raises 404 if not; post-DATA-08 we no longer
-    # reference the returned entity — the eager-create path owns build_log.title).
     _require_build_list(repos, build_list_id)
+    build_log = _require_build_log(repos, build_list_id, logger)
 
-    # Get the build log for this build list.
-    build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.build_list_id == build_list_id)).first()
-    if not build_log:
-        # Post-DATA-08 backfill invariant: every build_list has a build_log row.
-        # If this branch fires, something broke the invariant — do not silently
-        # auto-create (the old fallback hid data-integrity issues).
-        logger.error("Orphan build_list %s has no build_log row; DATA-08 invariant violated", build_list_id)
-        ResponsePatterns.raise_not_found("build log", build_list_id)
-
-    # Create the post
-    post = DBBuildLogPost(
-        build_log_id=build_log.id,
-        user_id=current_user.id,
-        content=post_data.content,
+    post = repos.build_log_posts.create(
+        BuildLogPost(build_log_id=build_log.id, user_id=current_user.id, content=post_data.content)
     )
-    db.add(post)
-    db.commit()
-    db.refresh(post)
-
-    post_response = _post_with_author(post, current_user)
 
     logger.info(f"User {current_user.id} created post {post.id} in build log {build_log.id}")
 
-    return post_response
+    return _post_with_author(post, current_user)
 
 
 @router.put(
@@ -247,50 +236,19 @@ async def update_build_log_post(
     Users can update their own posts, build list owners can update any post in their build log,
     or admins can update any post.
     """
-    db = deps["db"]
     logger = deps["logger"]
 
-    # Get the post
-    post = get_entity_or_404(db, DBBuildLogPost, post_id, "build log post")
+    post = _require_post(repos, post_id)
+    _authorize_post_change(repos, post, current_user, "update", logger)
 
-    # Get the build log and build list to check ownership
-    build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.id == post.build_log_id)).first()
-    if not build_log:
-        ResponsePatterns.raise_not_found("build log", post.build_log_id)
-
-    build_list = repos.build_lists.get(build_log.build_list_id)
-    if not build_list:
-        ResponsePatterns.raise_not_found("build list", build_log.build_list_id)
-
-    # Check authorization:
-    # 1. User owns the post
-    # 2. User owns the build list
-    # 3. User is admin/superuser
-    can_update = (
-        post.user_id == current_user.id
-        or build_list.user_id == current_user.id
-        or current_user.is_admin
-        or current_user.is_superuser
-    )
-
-    if not can_update:
-        if logger:
-            logger.warning(f"Access denied: User {current_user.id} attempted to update build log post {post_id}")
-        ResponsePatterns.raise_forbidden("Not authorized to update this build log post")
-
-    # Update the post
     if post_data.content is not None:
-        post.content = post_data.content
-
-    db.commit()
-    db.refresh(post)
+        post = repos.build_log_posts.update(post.id, content=post_data.content)
 
     author = repos.users.get(post.user_id) if post.user_id is not None else None
-    post_response = _post_with_author(post, author)
 
     logger.info(f"User {current_user.id} updated post {post.id}")
 
-    return post_response
+    return _post_with_author(post, author)
 
 
 @router.delete(
@@ -308,40 +266,12 @@ async def delete_build_log_post(
     Users can delete their own posts, build list owners can delete any post in their build log,
     or admins can delete any post.
     """
-    db = deps["db"]
     logger = deps["logger"]
 
-    # Get the post
-    post = get_entity_or_404(db, DBBuildLogPost, post_id, "build log post")
+    post = _require_post(repos, post_id)
+    _authorize_post_change(repos, post, current_user, "delete", logger)
 
-    # Get the build log and build list to check ownership
-    build_log = db.scalars(select(DBBuildLog).where(DBBuildLog.id == post.build_log_id)).first()
-    if not build_log:
-        ResponsePatterns.raise_not_found("build log", post.build_log_id)
-
-    build_list = repos.build_lists.get(build_log.build_list_id)
-    if not build_list:
-        ResponsePatterns.raise_not_found("build list", build_log.build_list_id)
-
-    # Check authorization:
-    # 1. User owns the post
-    # 2. User owns the build list
-    # 3. User is admin/superuser
-    can_delete = (
-        post.user_id == current_user.id
-        or build_list.user_id == current_user.id
-        or current_user.is_admin
-        or current_user.is_superuser
-    )
-
-    if not can_delete:
-        if logger:
-            logger.warning(f"Access denied: User {current_user.id} attempted to delete build log post {post_id}")
-        ResponsePatterns.raise_forbidden("Not authorized to delete this build log post")
-
-    # Delete the post
-    db.delete(post)
-    db.commit()
+    repos.build_log_posts.delete(post.id)
 
     logger.info(f"User {current_user.id} deleted post {post_id}")
 

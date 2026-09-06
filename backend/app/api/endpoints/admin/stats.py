@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_admin_user
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_log import BuildLog as DBBuildLog
 from app.api.models.image_source_mapping import ImageSourceMapping as DBImageSourceMapping
 from app.api.models.report import Report as DBReport
 from app.api.models.vote import Vote as DBVote
@@ -57,7 +56,7 @@ async def get_admin_table_counts(
         "part_listings": repos.part_listings.count(),
         "part_price_histories": repos.part_price_history.count(),
         "image_source_mappings": approximate_count(db, DBImageSourceMapping),
-        "build_logs": approximate_count(db, DBBuildLog),
+        "build_logs": repos.build_logs.count(),
         "part_cars": repos.part_cars.count(),
         "oauth_accounts": repos.oauth_accounts.count(),
         "webauthn_credentials": repos.webauthn_credentials.count(),

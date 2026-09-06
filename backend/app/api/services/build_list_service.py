@@ -1,10 +1,10 @@
 """
 Build list service on DynamoDB.
 
-Build lists, their parts, phases and labor estimates live in DynamoDB. The
-build log auto-created alongside every build list is still a SQL row, so the
-create and copy paths take the SQL session for that one write and for the
-premium kill-switch lookup behind ``is_user_premium``.
+Build lists, their parts, phases, labor estimates and the build log thread
+auto-created alongside every list all live in DynamoDB. The create and copy
+paths still accept the SQL session only for the premium kill-switch lookup
+behind ``is_user_premium``.
 """
 
 import logging
@@ -12,13 +12,9 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete as sql_delete
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.repositories import Repositories, get_repositories
-from app.api.models.build_log import BuildLog as DBBuildLog
-from app.api.models.build_log import BuildLogPost as DBBuildLogPost
 from app.api.schemas.build_list import BuildListCreate, BuildListUpdate
 from app.api.services.base_dynamo_crud_service import BaseDynamoCRUDService
 from app.api.utils.subscription_utils import is_user_premium
@@ -28,6 +24,7 @@ from app.db.dynamo.build_lists import (
     BuildListPhase,
     delete_build_list_cascade,
 )
+from app.db.dynamo.build_logs import BuildLog, build_log_delete_actions
 from app.db.dynamo.users import User as DBUser
 
 FREE_TIER_BUILD_LIST_LIMIT = 1
@@ -45,33 +42,16 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
         if self.repos.car_generations.get(str(car_id)) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Car not found")
 
-    def _enforce_free_tier_limit(self, db: Session, current_user: DBUser) -> None:
+    def _enforce_free_tier_limit(self, db: Optional[Session], current_user: DBUser) -> None:
         if is_user_premium(current_user, db):
             return
         if self.count_by_user(current_user.id) >= FREE_TIER_BUILD_LIST_LIMIT:
             raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=FREE_TIER_LIMIT_DETAIL)
 
-    @staticmethod
-    def _create_build_log(db: Session, build_list: BuildList) -> None:
-        db.add(DBBuildLog(build_list_id=build_list.id, title=f"Build Log: {build_list.name}"))
-        db.flush()
-
-    @staticmethod
-    def delete_build_logs(db: Session, build_list_ids: List[UUID]) -> None:
-        """
-        Remove the SQL build log threads for deleted build lists.
-
-        The build log used to go away through ``ON DELETE CASCADE`` from the
-        build_lists table; with build lists in DynamoDB that has to be explicit.
-        """
-        if not build_list_ids:
-            return
-        log_ids = list(db.scalars(select(DBBuildLog.id).where(DBBuildLog.build_list_id.in_(build_list_ids))).all())
-        if not log_ids:
-            return
-        db.execute(sql_delete(DBBuildLogPost).where(DBBuildLogPost.build_log_id.in_(log_ids)))
-        db.execute(sql_delete(DBBuildLog).where(DBBuildLog.id.in_(log_ids)))
-        db.flush()
+    def _create_build_log(self, build_list: BuildList) -> BuildLog:
+        return self.repos.build_logs.create(
+            BuildLog(build_list_id=build_list.id, title=f"Build Log: {build_list.name}")
+        )
 
     # -- reads -------------------------------------------------------------
 
@@ -97,14 +77,11 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
         db: Optional[Session] = None,
         logger: Optional[logging.Logger] = None,
     ) -> BuildList:
-        if db is None:
-            raise ValueError("BuildListService.create requires the SQL session for the build log")
         self._verify_car_exists(data.car_id)
         self._enforce_free_tier_limit(db, current_user)
 
         build_list = self.repository.create(self.build_entity(data, current_user, additional_data))
-        self._create_build_log(db, build_list)
-        db.commit()
+        self._create_build_log(build_list)
         if logger:
             logger.info(f"User {current_user.id} created build list {build_list.id}")
         return build_list
@@ -115,8 +92,8 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
             self._verify_car_exists(changes["car_id"])
         return super().update(entity_id, data, current_user)
 
-    def delete(self, entity_id: UUID, current_user: DBUser, *, db: Optional[Session] = None) -> BuildList:
-        """Delete a build list, its Dynamo children and, given a session, its SQL build log."""
+    def delete(self, entity_id: UUID, current_user: DBUser) -> BuildList:
+        """Delete a build list with its parts, phases, labor estimates and build log thread."""
         entity = self.get_by_id(entity_id, allow_public=True)
         if not self.can_modify(entity, current_user):
             raise self.forbidden("delete")
@@ -126,10 +103,10 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
             parts=self.repos.build_list_parts,
             phases=self.repos.build_list_phases,
             labor_estimates=self.repos.build_list_labor_estimates,
+            extra_actions=build_log_delete_actions(
+                entity_id, build_logs=self.repos.build_logs, posts=self.repos.build_log_posts
+            ),
         )
-        if db is not None:
-            self.delete_build_logs(db, [entity_id])
-            db.commit()
         return entity
 
     def copy_build_list(
@@ -157,7 +134,7 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
                 user_id=current_user.id,
             )
         )
-        self._create_build_log(db, new_build_list)
+        self._create_build_log(new_build_list)
 
         phase_id_map: Dict[UUID, UUID] = {}
         for phase in self.repos.build_list_phases.ordered_for_build_list(original.id):

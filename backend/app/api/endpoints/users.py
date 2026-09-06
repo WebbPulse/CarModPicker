@@ -27,7 +27,6 @@ from app.api.schemas.user import (
     UserRead,
     UserUpdate,
 )
-from app.api.services.build_list_service import BuildListService
 from app.api.services.part_service import PartService, purge_sql_rows_for_parts
 from app.api.services.storage_service import storage_service
 from app.api.services.user_service import UserService, user_read, user_reads
@@ -36,6 +35,7 @@ from app.api.utils.endpoint_decorators import crud_responses
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
 from app.db.dynamo.build_lists import delete_build_list_cascade
+from app.db.dynamo.build_logs import build_log_delete_actions
 from app.db.dynamo.users import EMAIL, UniqueAttributeTaken
 from app.db.dynamo.users import User as DBUser
 from app.db.session import get_db
@@ -63,7 +63,7 @@ def _purge_owned_sql_rows(db: Session, user_id: UUID) -> None:
     db.commit()
 
 
-def _purge_owned_build_lists(db: Session, repos: Repositories, user_id: UUID) -> None:
+def _purge_owned_build_lists(repos: Repositories, user_id: UUID) -> None:
     owned = repos.build_lists.query_all("user_id-created_at-index", user_id)
     for build_list in owned:
         delete_build_list_cascade(
@@ -72,8 +72,10 @@ def _purge_owned_build_lists(db: Session, repos: Repositories, user_id: UUID) ->
             parts=repos.build_list_parts,
             phases=repos.build_list_phases,
             labor_estimates=repos.build_list_labor_estimates,
+            extra_actions=build_log_delete_actions(
+                build_list.id, build_logs=repos.build_logs, posts=repos.build_log_posts
+            ),
         )
-    BuildListService.delete_build_logs(db, [build_list.id for build_list in owned])
     added_elsewhere = [str(blp.id) for blp in repos.build_list_parts.scan_all() if blp.added_by == user_id]
     if added_elsewhere:
         repos.build_list_parts.batch_delete(added_elsewhere)
@@ -89,7 +91,7 @@ def _purge_owned_parts(db: Session, repos: Repositories, user: DBUser) -> None:
 
 def _delete_user_everywhere(db: Session, repos: Repositories, user: DBUser) -> None:
     _purge_owned_parts(db, repos, user)
-    _purge_owned_build_lists(db, repos, user.id)
+    _purge_owned_build_lists(repos, user.id)
     _purge_owned_sql_rows(db, user.id)
     repos.oauth_accounts.delete_all_for_user(user.id)
     repos.webauthn_credentials.delete_all_for_user(user.id)
