@@ -1,3 +1,8 @@
+"""Tests for the generic DynamoDB repository over moto backed tables.
+
+Covers CRUD, conditions, index queries, cursors, batches, uniqueness and transactions.
+"""
+
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -25,6 +30,8 @@ WIDGETS = TableSpec(
 
 
 class Widget(TimestampedDynamoModel):
+    """A timestamped model with an owner index and a lowercase name mirror."""
+
     name: str
     owner_id: str
     score: int = 0
@@ -33,11 +40,15 @@ class Widget(TimestampedDynamoModel):
 
 
 class User(TimestampedDynamoModel):
+    """A minimal timestamped user model for unique lookup tests."""
+
     username: str
     email: str
 
 
 class Vote(TimestampedDynamoModel):
+    """A timestamped vote model used for transactional uniqueness."""
+
     user_id: str
     entity_type: str
     entity_id: str
@@ -45,22 +56,27 @@ class Vote(TimestampedDynamoModel):
 
 
 class PartCar(DynamoModel):
+    """A composite key model with no timestamps."""
+
     part_id: str
     car_id: str
 
 
 @pytest.fixture
 def widgets(dynamo_tables: Any) -> DynamoRepository[Widget]:
+    """A repository over a freshly created widgets table."""
     dynamo_tables.create_table(**WIDGETS.create_table_request(dynamo_client.table_name(WIDGETS)))
     return DynamoRepository(Widget, WIDGETS)
 
 
 @pytest.fixture
 def users(dynamo_tables: Any) -> DynamoRepository[User]:
+    """A repository over the shared users table."""
     return DynamoRepository(User, USERS)
 
 
 def make_widgets(owner_id: str, count: int) -> list[Widget]:
+    """Build the requested number of widgets for one owner with ascending timestamps."""
     base = datetime(2026, 1, 1, tzinfo=UTC)
     return [
         Widget(name=f"w{i}", owner_id=owner_id, score=i, created_at=base + timedelta(minutes=i)) for i in range(count)
@@ -68,6 +84,7 @@ def make_widgets(owner_id: str, count: int) -> list[Widget]:
 
 
 def test_create_get_update_delete(widgets: DynamoRepository[Widget]) -> None:
+    """An item round trips through create, get, update and delete."""
     widget = widgets.create(Widget(name="Alpha", owner_id="o1", note="hi", tags=["x"]))
     assert widgets.get(widget.id) == widget
     assert widgets.get_or_raise(widget.id).name == "Alpha"
@@ -89,17 +106,20 @@ def test_create_get_update_delete(widgets: DynamoRepository[Widget]) -> None:
 
 
 def test_update_missing_item_raises(widgets: DynamoRepository[Widget]) -> None:
+    """Updating an item that does not exist raises not found."""
     with pytest.raises(ItemNotFound):
         widgets.update("nope", name="x")
 
 
 def test_update_rejects_key_attributes(widgets: DynamoRepository[Widget]) -> None:
+    """An update naming a key attribute is refused."""
     widget = widgets.create(Widget(name="a", owner_id="o"))
     with pytest.raises(ValueError):
         widgets.update(widget.id, id="other")
 
 
 def test_update_rejects_composite_key_sources(dynamo_tables: Any) -> None:
+    """An update naming a composite key source attribute is refused."""
     votes = DynamoRepository(Vote, VOTES)
     vote = votes.create(Vote(user_id="u", entity_type="part", entity_id="p", vote_type="upvote"))
     with pytest.raises(ValueError):
@@ -107,6 +127,7 @@ def test_update_rejects_composite_key_sources(dynamo_tables: Any) -> None:
 
 
 def test_create_rejects_duplicate_id(widgets: DynamoRepository[Widget]) -> None:
+    """Creating an item whose id already exists fails the condition."""
     widget = widgets.create(Widget(name="a", owner_id="o"))
     with pytest.raises(ConditionFailed):
         widgets.create(Widget(id=widget.id, name="b", owner_id="o"))
@@ -114,6 +135,7 @@ def test_create_rejects_duplicate_id(widgets: DynamoRepository[Widget]) -> None:
 
 
 def test_put_with_condition(widgets: DynamoRepository[Widget]) -> None:
+    """A put carrying a condition fails when the condition does not hold."""
     widget = widgets.create(Widget(name="a", owner_id="o", score=1))
     with pytest.raises(ConditionFailed):
         widgets.put(widget, condition=Attr("score").eq(99))
@@ -122,6 +144,7 @@ def test_put_with_condition(widgets: DynamoRepository[Widget]) -> None:
 
 
 def test_gsi_query_with_range_condition_and_pagination(widgets: DynamoRepository[Widget]) -> None:
+    """An index query honours the range condition and pages through results."""
     mine = make_widgets("me", 7)
     widgets.batch_put(mine + make_widgets("other", 3))
 
@@ -158,6 +181,7 @@ def test_gsi_query_with_range_condition_and_pagination(widgets: DynamoRepository
 
 
 def test_query_range_condition_requires_range_key(widgets: DynamoRepository[Widget]) -> None:
+    """A range condition on an index with no range key is refused."""
     with pytest.raises(ValueError):
         widgets.query("name_lower-index", "x", range_condition=RangeCondition.eq("y"))
     with pytest.raises(KeyError):
@@ -165,6 +189,7 @@ def test_query_range_condition_requires_range_key(widgets: DynamoRepository[Widg
 
 
 def test_cursor_round_trip_and_rejection() -> None:
+    """A cursor round trips and a tampered one is rejected."""
     key = {"id": "abc", "sort_order": 3}
     assert decode_cursor(encode_cursor(key)) == key
     assert encode_cursor(None) is None
@@ -174,6 +199,7 @@ def test_cursor_round_trip_and_rejection() -> None:
 
 
 def test_base_table_query_on_composite_key(dynamo_tables: Any) -> None:
+    """The base table can be queried by partition key on a composite key table."""
     part_cars = DynamoRepository(PartCar, PART_CARS)
     part_cars.batch_put(
         [PartCar(part_id="p1", car_id=f"c{i}") for i in range(3)] + [PartCar(part_id="p2", car_id="c0")]
@@ -190,6 +216,7 @@ def test_base_table_query_on_composite_key(dynamo_tables: Any) -> None:
 
 
 def test_batch_operations_above_chunk_size(widgets: DynamoRepository[Widget]) -> None:
+    """Batch writes and reads work beyond one chunk."""
     models = make_widgets("bulk", 60)
     widgets.batch_put(models)
     ids = [w.id for w in models]
@@ -203,6 +230,7 @@ def test_batch_operations_above_chunk_size(widgets: DynamoRepository[Widget]) ->
 
 
 def test_scan_excludes_unique_lookup_items(widgets: DynamoRepository[Widget]) -> None:
+    """A scan skips the unique lookup sentinel rows."""
     widgets.create(Widget(name="a", owner_id="o", score=1))
     widgets.create(Widget(name="b", owner_id="o", score=2))
     widgets.ensure_unique("name", "a")
@@ -213,6 +241,7 @@ def test_scan_excludes_unique_lookup_items(widgets: DynamoRepository[Widget]) ->
 
 
 def test_ensure_and_release_unique(users: DynamoRepository[User]) -> None:
+    """A unique lookup can be claimed and released."""
     users.ensure_unique("email", "a@b.c", owner_id="u1")
     assert users.is_unique_taken("email", "a@b.c")
     with pytest.raises(ConditionFailed):
@@ -223,12 +252,14 @@ def test_ensure_and_release_unique(users: DynamoRepository[User]) -> None:
 
 
 def test_unique_lookup_rejected_on_composite_table(dynamo_tables: Any) -> None:
+    """Unique lookups are refused on a composite key table."""
     part_cars = DynamoRepository(PartCar, PART_CARS)
     with pytest.raises(ValueError):
         part_cars.ensure_unique("car_id", "x")
 
 
 def test_transact_write_enforces_uniqueness(users: DynamoRepository[User]) -> None:
+    """A transactional write enforces the unique lookup and rolls back on conflict."""
     first = User(username="Tyler", email="T@example.com")
     transact_write(
         [
@@ -276,18 +307,21 @@ def test_transact_write_enforces_uniqueness(users: DynamoRepository[User]) -> No
 
 
 def test_transact_write_condition_check_failure(users: DynamoRepository[User]) -> None:
+    """A failed condition check cancels the whole transaction."""
     with pytest.raises(TransactionCanceled):
         transact_write([users.condition_check_action("missing"), users.create_action(User(username="a", email="b"))])
     assert users.scan_all() == []
 
 
 def test_transact_write_limits() -> None:
+    """A transaction beyond the item limit is refused."""
     transact_write([])
     with pytest.raises(ValueError):
         transact_write([{"Put": {}}] * 101)
 
 
 def test_derived_attributes_survive_update(dynamo_tables: Any) -> None:
+    """Lowercase mirrors are recomputed on update."""
     votes = DynamoRepository(Vote, VOTES)
     entity_id = str(uuid4())
     vote = votes.create(Vote(user_id="u1", entity_type="part", entity_id=entity_id, vote_type="upvote"))

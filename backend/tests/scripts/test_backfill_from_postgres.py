@@ -17,14 +17,17 @@ NOW = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
 
 
 def _ids(count: int) -> list[UUID]:
+    """Return the requested number of fresh UUID7 identifiers."""
     return [uuid7() for _ in range(count)]
 
 
 def _stamped(**values: Any) -> dict[str, Any]:
+    """Add matching created and updated timestamps to a row's values."""
     return {"created_at": NOW, "updated_at": NOW, **values}
 
 
 def sample_rows() -> backfill.Rows:
+    """A small consistent Postgres row set spanning every table the backfill reads."""
     user_a, user_b = _ids(2)
     make, model, generation = _ids(3)
     category, retailer, manufacturer = _ids(3)
@@ -100,7 +103,10 @@ def sample_rows() -> backfill.Rows:
 
 
 class TestBuildPlan:
+    """Tests for turning Postgres rows into the DynamoDB write plan."""
+
     def test_maps_every_row_and_fills_derived_part_attributes(self, dynamo_tables: Any) -> None:
+        """Every row is mapped and derived part attributes are filled in."""
         rows = sample_rows()
         plan = backfill.build_plan(rows, get_repositories())
 
@@ -119,6 +125,7 @@ class TestBuildPlan:
         assert linked.net_votes == -1
 
     def test_creates_the_missing_build_log(self, dynamo_tables: Any) -> None:
+        """A build list with no log gets one created in the plan."""
         rows = sample_rows()
         covered_list = str(uuid7())
         rows["build_lists"].append(
@@ -138,6 +145,7 @@ class TestBuildPlan:
         assert backfill.build_plan(rows, get_repositories()).models["build_logs"][1].id == log.id
 
     def test_lookup_items_cover_users_oauth_webauthn_and_catalog(self, dynamo_tables: Any) -> None:
+        """Lookup items are planned for users, OAuth, WebAuthn and the catalog tables."""
         plan = backfill.build_plan(sample_rows(), get_repositories())
 
         assert len(plan.lookups["users"]) == 4
@@ -150,6 +158,7 @@ class TestBuildPlan:
         assert plan.lookups["votes"] == []
 
     def test_rejects_rows_that_collide_on_a_unique_attribute(self, dynamo_tables: Any) -> None:
+        """Rows colliding on a unique attribute are rejected rather than planned."""
         rows = sample_rows()
         rows["users"][1]["email"] = "ALICE@example.com"
 
@@ -158,7 +167,10 @@ class TestBuildPlan:
 
 
 class TestWritePlan:
+    """Tests for applying the write plan through the repositories."""
+
     def test_round_trips_through_the_repositories(self, dynamo_tables: Any) -> None:
+        """The written plan reads back through the repositories unchanged."""
         rows = sample_rows()
         repos = get_repositories()
         plan = backfill.build_plan(rows, repos)
@@ -183,6 +195,7 @@ class TestWritePlan:
         assert counts["users"] == (2, 2)
 
     def test_is_idempotent(self, dynamo_tables: Any) -> None:
+        """Writing the same plan twice leaves the same row counts."""
         repos = get_repositories()
         plan = backfill.build_plan(sample_rows(), repos)
 
@@ -194,37 +207,52 @@ class TestWritePlan:
 
 
 class FakeCursor:
+    """A minimal DB-API cursor returning one row with a memoryview column."""
+
     description = (("id",), ("blob",))
 
     def __init__(self) -> None:
+        """Start with no executed statements recorded."""
         self.executed: list[str] = []
 
     def __enter__(self) -> "FakeCursor":
+        """Return self so the cursor works as a context manager."""
         return self
 
     def __exit__(self, *args: Any) -> None:
+        """Exit the context manager without suppressing anything."""
         return None
 
     def execute(self, sql: str) -> None:
+        """Record the SQL statement instead of running it."""
         self.executed.append(sql)
 
     def fetchall(self) -> list[tuple[Any, ...]]:
+        """Return the single canned row."""
         return [(1, memoryview(b"raw"))]
 
 
 class FakeConnection:
+    """A minimal DB-API connection handing out one FakeCursor."""
+
     def __init__(self) -> None:
+        """Create the single cursor this connection hands out."""
         self.cursor_obj = FakeCursor()
 
     def cursor(self) -> FakeCursor:
+        """Return the one cursor, so tests can read what was executed."""
         return self.cursor_obj
 
     def close(self) -> None:
+        """Close is a no-op for the fake connection."""
         return None
 
 
 class TestFetchRows:
+    """Tests for reading rows out of Postgres."""
+
     def test_selects_each_table_and_converts_memoryviews(self) -> None:
+        """Each table is selected in turn and memoryview columns become bytes."""
         conn = FakeConnection()
 
         rows = backfill.fetch_rows(conn, tables=("users", "parts"))
@@ -234,15 +262,20 @@ class TestFetchRows:
 
 
 class TestCli:
+    """Tests for the command line entrypoint's exit codes."""
+
     def test_requires_database_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A missing database URL exits with the usage error code."""
         monkeypatch.delenv("DATABASE_URL", raising=False)
         assert backfill.main([]) == 2
 
     def test_rejects_unknown_tables(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An unknown table name exits with the usage error code."""
         monkeypatch.setenv("DATABASE_URL", "postgresql://example")
         assert backfill.main(["--tables", "users,nope"]) == 2
 
     def test_dry_run_reads_without_writing(self, dynamo_tables: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A dry run succeeds and writes nothing to DynamoDB."""
         rows = sample_rows()
         monkeypatch.setattr(backfill, "connect", lambda url: FakeConnection())
         monkeypatch.setattr(backfill, "fetch_rows", lambda conn: rows)
@@ -251,6 +284,7 @@ class TestCli:
         assert get_repositories().users.count() == 0
 
     def test_writes_and_verifies(self, dynamo_tables: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A verifying run writes the rows and succeeds."""
         rows = sample_rows()
         monkeypatch.setattr(backfill, "connect", lambda url: FakeConnection())
         monkeypatch.setattr(backfill, "fetch_rows", lambda conn: rows)
@@ -259,6 +293,7 @@ class TestCli:
         assert get_repositories().users.count() == 2
 
     def test_reports_collisions_as_failure(self, dynamo_tables: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A unique attribute collision exits with the failure code."""
         rows = sample_rows()
         rows["users"][1]["username"] = "ALICE"
         monkeypatch.setattr(backfill, "connect", lambda url: FakeConnection())
