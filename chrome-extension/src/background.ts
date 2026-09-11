@@ -683,70 +683,37 @@ async function getImageBySourceUrl(
 }
 
 /**
- * Return the file key for an image URL, uploading it when it is not cached.
- * Passing a part id lets the backend reject an upload onto a full gallery.
+ * Return the file key for an image URL, having the server fetch it when it is
+ * not already cached. Passing a part id lets the backend reject an upload onto
+ * a full gallery.
+ *
+ * The bytes are deliberately not read here: in an MV3 service worker a fetch to
+ * a retailer image CDN is an ordinary cross origin request, and many of those
+ * CDNs send no `Access-Control-Allow-Origin`, so the read fails. The hosts are
+ * whatever page the user scraped, so `host_permissions` cannot cover them.
  */
 async function uploadImage(
   imageUrl: string,
   entityId?: string,
 ): Promise<ApiResponse<{ fileKey: string }>> {
-  try {
-    const apiUrl = await getApiUrl();
-    const token = await getToken();
-
-    if (!token) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    const cached = await getImageBySourceUrl(imageUrl);
-    if (cached.success && cached.data?.fileKey) {
-      return { success: true, data: { fileKey: cached.data.fileKey } };
-    }
-
-    const fetchUrl = getHighResImageUrl(imageUrl);
-    const imageResponse = await fetch(fetchUrl);
-    if (!imageResponse.ok) {
-      throw new Error("Failed to fetch image");
-    }
-
-    const blob = await imageResponse.blob();
-    const file = new File([blob], "image.jpg", { type: blob.type });
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("source_url", getCanonicalImageUrl(imageUrl));
-
-    const uploadUrl = new URL(`${apiUrl}/images/upload`);
-    uploadUrl.searchParams.set("entity_type", "part");
-    if (entityId != null) {
-      uploadUrl.searchParams.set("entity_id", entityId);
-    }
-
-    const response = await fetch(uploadUrl.toString(), {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    const data = (await response.json()) as
-      | ImageUploadResponse
-      | { detail?: string };
-
-    if (!response.ok) {
-      const errorData = data as { detail?: string };
-      throw new Error(errorData.detail || "Image upload failed");
-    }
-
-    const uploadData = data as ImageUploadResponse;
-    return { success: true, data: { fileKey: uploadData.file_key } };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Image upload failed",
-    };
+  const cached = await getImageBySourceUrl(imageUrl);
+  if (cached.success && cached.data?.fileKey) {
+    return { success: true, data: { fileKey: cached.data.fileKey } };
   }
+
+  const res = await apiRequest<ImageUploadResponse>("/images/fetch-from-url", {
+    method: "POST",
+    body: JSON.stringify({
+      source_url: getCanonicalImageUrl(imageUrl),
+      entity_type: "part",
+      ...(entityId != null ? { entity_id: entityId } : {}),
+    }),
+  });
+
+  if (res.success && res.data) {
+    return { success: true, data: { fileKey: res.data.file_key } };
+  }
+  return { success: false, error: res.error ?? "Image upload failed" };
 }
 
 /**

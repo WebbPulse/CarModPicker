@@ -5,10 +5,12 @@ Supports source URL tracking for deduplication (avoid re-downloading same images
 """
 
 import logging
+from io import BytesIO
 from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel, Field
 
 from app.api.dependencies.auth import (
     get_current_admin_user,
@@ -18,7 +20,8 @@ from app.api.dependencies.auth import (
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.services.storage_service import storage_service
 from app.api.utils.bucket_orphan_utils import get_all_referenced_file_keys
-from app.api.utils.image_url_utils import get_canonical_image_url
+from app.api.utils.image_url_utils import get_canonical_image_url, get_high_res_image_url
+from app.api.utils.remote_image_fetch import assert_url_is_fetchable, fetch_remote_image
 from app.db.dynamo.users import User as DBUser
 
 logger = logging.getLogger(__name__)
@@ -43,6 +46,75 @@ async def get_image_by_source_url(
     return {"file_key": mapping.file_key}
 
 
+ALLOWED_ENTITY_TYPES = ["build_list", "part", "user", "car_generation", "build_log_post"]
+
+
+def _authorize_image_target(
+    entity_type: str,
+    entity_id: Optional[UUID],
+    current_user: DBUser,
+    repos: Repositories,
+) -> None:
+    """Validate the entity type and the caller's right to attach an image to it.
+
+    Shared by the byte upload and the server side fetch so the two routes cannot
+    drift apart on who may write an image where.
+    """
+    if entity_type not in ALLOWED_ENTITY_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid entity_type. Allowed types: {', '.join(ALLOWED_ENTITY_TYPES)}",
+        )
+
+    if not entity_id:
+        return
+
+    entity_owned = False
+    if entity_type == "build_list":
+        entity = repos.build_lists.get(entity_id)
+        if entity and entity.user_id == current_user.id:
+            entity_owned = True
+    elif entity_type == "part":
+        part = repos.parts.get(str(entity_id))
+        if part and part.user_id == current_user.id:
+            entity_owned = True
+    elif entity_type == "user":
+        if entity_id == current_user.id:
+            entity_owned = True
+    elif entity_type == "car_generation":
+        if not current_user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can upload images for cars",
+            )
+        entity_owned = True
+    elif entity_type == "build_log_post":
+        build_list = repos.build_lists.get(entity_id)
+        if build_list:
+            entity_owned = True
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Build list not found",
+            )
+
+    if not entity_owned:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Not authorized to upload images for this {entity_type}",
+        )
+
+    if entity_type == "part":
+        from app.api.schemas.part import MAX_IMAGES_PER_PART
+
+        part = repos.parts.get(str(entity_id))
+        if part and len(part.image_urls or []) >= MAX_IMAGES_PER_PART:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Part already has the maximum number of images ({MAX_IMAGES_PER_PART}).",
+            )
+
+
 @router.post("/upload")
 async def upload_image(
     entity_type: str,
@@ -59,63 +131,7 @@ async def upload_image(
     The file is validated for security (type, size, content) and stored
     in S3 bucket. Returns the file key which should be stored
     """
-    allowed_entity_types = ["build_list", "part", "user", "car_generation", "build_log_post"]
-    if entity_type not in allowed_entity_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid entity_type. Allowed types: {', '.join(allowed_entity_types)}",
-        )
-
-    if entity_id:
-        entity_owned = False
-        if entity_type == "build_list":
-            entity = repos.build_lists.get(entity_id)
-            if entity and entity.user_id == current_user.id:
-                entity_owned = True
-        elif entity_type == "part":
-            part = repos.parts.get(str(entity_id))
-            if part and part.user_id == current_user.id:
-                entity_owned = True
-        elif entity_type == "user":
-            if entity_id == current_user.id:
-                entity_owned = True
-        elif entity_type == "car_generation":
-            if not current_user.is_admin:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Only admins can upload images for cars",
-                )
-            entity_owned = True
-        elif entity_type == "build_log_post":
-            if entity_id:
-                build_list = repos.build_lists.get(entity_id)
-                if build_list:
-                    entity_owned = True
-                else:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Build list not found",
-                    )
-            else:
-                entity_owned = True
-
-        if not entity_owned:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Not authorized to upload images for this {entity_type}",
-            )
-
-        if entity_type == "part":
-            from app.api.schemas.part import MAX_IMAGES_PER_PART
-
-            part = repos.parts.get(str(entity_id))
-            if part:
-                current_count = len(part.image_urls or [])
-                if current_count >= MAX_IMAGES_PER_PART:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Part already has the maximum number of images ({MAX_IMAGES_PER_PART}).",
-                    )
+    _authorize_image_target(entity_type, entity_id, current_user, repos)
 
     try:
         if source_url and source_url.strip():
@@ -163,6 +179,79 @@ async def upload_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred during image upload",
+        )
+
+
+class FetchFromUrlRequest(BaseModel):
+    """The source image URL the server should fetch, and what it is attached to."""
+
+    source_url: str = Field(..., description="https URL of the image to fetch and store")
+    entity_type: str = Field(..., description="Type of entity the image belongs to")
+    entity_id: Optional[UUID] = Field(None, description="Optional id of the entity being updated")
+
+
+@router.post("/fetch-from-url")
+async def fetch_image_from_url(
+    body: FetchFromUrlRequest,
+    current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
+) -> dict[str, str]:
+    """Fetch an image from a public https URL server side and store it.
+
+    The extension cannot read these bytes itself, so the server fetches them
+    behind the same auth, authorization and validation as `/upload`.
+    """
+    _authorize_image_target(body.entity_type, body.entity_id, current_user, repos)
+
+    source_url = body.source_url.strip()
+    if not source_url:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="source_url is required")
+
+    canonical = get_canonical_image_url(source_url)
+    existing = repos.image_source_mappings.get_by_source_url(canonical)
+    if existing:
+        presigned_url = storage_service.get_presigned_url(existing.file_key)
+        logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")
+        return {
+            "file_key": existing.file_key,
+            "presigned_url": presigned_url,
+            "message": "Image already cached; reused existing",
+        }
+
+    assert_url_is_fetchable(source_url)
+    content, extension = fetch_remote_image(get_high_res_image_url(source_url))
+
+    upload = UploadFile(filename=f"image.{extension}", file=BytesIO(content))
+
+    try:
+        file_key = storage_service.upload_image(
+            file=upload,
+            entity_type=body.entity_type,
+            user_id=current_user.id,
+            entity_id=body.entity_id,
+            force_square=body.entity_type == "user",
+        )
+        presigned_url = storage_service.get_presigned_url(file_key)
+        logger.info(f"User {current_user.id} stored image fetched from source URL: {file_key}")
+
+        if body.entity_type == "part":
+            try:
+                repos.image_source_mappings.record(canonical, file_key)
+            except Exception as e:
+                logger.warning(f"Failed to store image source mapping: {e}")
+
+        return {
+            "file_key": file_key,
+            "presigned_url": presigned_url,
+            "message": "Image fetched and stored successfully",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error storing fetched image: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while storing the image",
         )
 
 

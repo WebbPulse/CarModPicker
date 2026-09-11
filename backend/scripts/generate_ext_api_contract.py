@@ -53,6 +53,7 @@ EXTENSION_ENDPOINTS: list[tuple[str, str]] = [
     ("GET", "/api/car-generations"),
     ("GET", "/api/images/by-source-url"),
     ("POST", "/api/images/upload"),
+    ("POST", "/api/images/fetch-from-url"),
     ("POST", "/api/crawled-pages/scrape"),
 ]
 

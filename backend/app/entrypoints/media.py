@@ -1,6 +1,6 @@
 """The media domain's entrypoint, run as `python -m app.entrypoints.media`.
 
-Image upload and serving through S3: 8 routes under `/api/images`. Every
+Image upload and serving through S3: 9 routes under `/api/images`. Every
 route verifies a token, so the domain needs `SECRET_KEY`.
 """
 

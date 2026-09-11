@@ -5,6 +5,7 @@ import os
 from typing import Any, Dict
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -711,3 +712,163 @@ class TestImages:
             )
 
             assert response.status_code in [200, 500, 503], f"Unexpected status: {response.text}"
+
+
+def png_bytes() -> bytes:
+    """Raw bytes of a small valid PNG."""
+    buffer = io.BytesIO()
+    Image.new("RGB", (20, 20), color="green").save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+class TestFetchImageFromUrl:
+    """`POST /images/fetch-from-url`, the route the extension uses instead of reading bytes itself."""
+
+    URL = f"{settings.API_STR}/images/fetch-from-url"
+
+    def test_requires_authentication(self, client: TestClient) -> None:
+        """Anonymous callers cannot make the server fetch anything."""
+        response = client.post(
+            self.URL,
+            json={"source_url": "https://cdn.example.com/a.jpg", "entity_type": "user"},
+        )
+        assert response.status_code == 401
+
+    def test_invalid_entity_type_rejected(self, client: TestClient, test_user: DBUser) -> None:
+        """The entity type allow-list is shared with the byte upload route."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
+        response = client.post(
+            self.URL,
+            json={"source_url": "https://cdn.example.com/a.jpg", "entity_type": "invalid_type"},
+            headers=headers,
+        )
+        assert response.status_code == 400
+
+    def test_http_scheme_rejected(self, client: TestClient, test_user: DBUser) -> None:
+        """Plain http is refused before any connection is attempted."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
+        response = client.post(
+            self.URL,
+            json={
+                "source_url": "http://cdn.example.com/a.jpg",
+                "entity_type": "user",
+                "entity_id": str(test_user.id),
+            },
+            headers=headers,
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize(
+        "host",
+        ["127.0.0.1", "10.0.0.5", "192.168.1.10", "169.254.169.254", "[::1]"],
+    )
+    def test_private_and_metadata_addresses_rejected(self, client: TestClient, test_user: DBUser, host: str) -> None:
+        """A private, loopback, link-local or metadata target is refused."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
+        response = client.post(
+            self.URL,
+            json={
+                "source_url": f"https://{host}/latest/meta-data/",
+                "entity_type": "user",
+                "entity_id": str(test_user.id),
+            },
+            headers=headers,
+        )
+        assert response.status_code == 400
+
+    def test_empty_source_url_rejected(self, client: TestClient, test_user: DBUser) -> None:
+        """An all-whitespace source URL is a 400, not a fetch."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
+        response = client.post(
+            self.URL,
+            json={"source_url": "   ", "entity_type": "user", "entity_id": str(test_user.id)},
+            headers=headers,
+        )
+        assert response.status_code == 400
+
+    def test_wrong_content_type_rejected(self, client: TestClient, test_user: DBUser) -> None:
+        """A source URL serving HTML is refused on content type."""
+        from app.api.utils.remote_image_fetch import RemoteImageError
+
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
+        with (
+            patch("app.api.endpoints.images.assert_url_is_fetchable"),
+            patch("app.api.endpoints.images.fetch_remote_image") as mock_fetch,
+        ):
+            mock_fetch.side_effect = RemoteImageError("Unsupported image content type: text/html")
+            response = client.post(
+                self.URL,
+                json={
+                    "source_url": "https://cdn.example.com/a.html",
+                    "entity_type": "user",
+                    "entity_id": str(test_user.id),
+                },
+                headers=headers,
+            )
+        assert response.status_code == 400
+
+    def test_oversize_image_rejected(self, client: TestClient, test_user: DBUser) -> None:
+        """An oversize source image surfaces as a 413."""
+        from app.api.utils.remote_image_fetch import RemoteImageError
+
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
+        with (
+            patch("app.api.endpoints.images.assert_url_is_fetchable"),
+            patch("app.api.endpoints.images.fetch_remote_image") as mock_fetch,
+        ):
+            mock_fetch.side_effect = RemoteImageError(
+                f"Image exceeds maximum size of {settings.MAX_IMAGE_SIZE_MB}MB", status_code=413
+            )
+            response = client.post(
+                self.URL,
+                json={
+                    "source_url": "https://cdn.example.com/huge.jpg",
+                    "entity_type": "user",
+                    "entity_id": str(test_user.id),
+                },
+                headers=headers,
+            )
+        assert response.status_code == 413
+
+    def test_public_image_is_stored(self, client: TestClient, test_user: DBUser) -> None:
+        """A public https image is fetched server side and stored through the normal pipeline."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
+        with (
+            patch("app.api.endpoints.images.assert_url_is_fetchable"),
+            patch("app.api.endpoints.images.fetch_remote_image", return_value=(png_bytes(), "png")),
+            patch(
+                "app.api.endpoints.images.storage_service.upload_image",
+                return_value="user/abcdef0123456789/img.png",
+            ),
+            patch(
+                "app.api.endpoints.images.storage_service.get_presigned_url",
+                return_value="https://example.com/presigned",
+            ),
+        ):
+            response = client.post(
+                self.URL,
+                json={
+                    "source_url": "https://cdn.example.com/part.jpg",
+                    "entity_type": "user",
+                    "entity_id": str(test_user.id),
+                },
+                headers=headers,
+            )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["file_key"] == "user/abcdef0123456789/img.png"
+        assert data["presigned_url"] == "https://example.com/presigned"
+
+    def test_not_authorized_for_another_users_entity(self, client: TestClient, test_user: DBUser) -> None:
+        """A caller cannot attach a fetched image to someone else's entity."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
+        response = client.post(
+            self.URL,
+            json={
+                "source_url": "https://cdn.example.com/a.jpg",
+                "entity_type": "user",
+                "entity_id": INVALID_UUID_STR,
+            },
+            headers=headers,
+        )
+        assert response.status_code == 403

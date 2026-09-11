@@ -1777,6 +1777,89 @@ in S3 bucket. Returns the file key which should be stored
 
 ---
 
+## `POST /api/images/fetch-from-url`
+
+**Summary:** Fetch Image From Url
+
+**Description:** Fetch an image from a public https URL server side and store it.
+
+The extension cannot read these bytes itself, so the server fetches them
+behind the same auth, authorization and validation as `/upload`.
+
+**Request body (`application/json`):**
+
+```json
+{
+  "description": "The source image URL the server should fetch, and what it is attached to.",
+  "properties": {
+    "entity_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional id of the entity being updated",
+      "title": "Entity Id"
+    },
+    "entity_type": {
+      "description": "Type of entity the image belongs to",
+      "title": "Entity Type",
+      "type": "string"
+    },
+    "source_url": {
+      "description": "https URL of the image to fetch and store",
+      "title": "Source Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_url",
+    "entity_type"
+  ],
+  "title": "FetchFromUrlRequest",
+  "type": "object"
+}
+```
+
+**Responses:**
+
+- `200` — Successful Response
+
+```json
+{
+  "additionalProperties": {
+    "type": "string"
+  },
+  "title": "Response Fetch Image From Url Api Images Fetch From Url Post",
+  "type": "object"
+}
+```
+
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
 ## `POST /api/crawled-pages/scrape`
 
 **Summary:** Scrape Page From Extension
