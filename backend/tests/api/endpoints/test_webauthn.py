@@ -1,16 +1,6 @@
-"""Tests for WebAuthn (passkey) endpoints.
+"""Tests for the WebAuthn passkey endpoints with the verifiers mocked.
 
-Real WebAuthn verification requires a signed attestation/assertion from an
-authenticator, which we can't produce cheaply in a unit test. We mock the two
-`verify_*` entry points from py_webauthn and focus on:
-
-- Options generation returns the spec-shaped payload + a challenge token.
-- Verify endpoints persist/update credentials and mint tokens on success.
-- Challenge tokens are purpose-scoped (a register token can't be used to log in).
-- Replay rejection: once sign_count decreases, InvalidAuthenticationResponse
-  is raised inside py_webauthn — we simulate it.
-- list/rename/delete ownership checks.
-- Unauthenticated requests are rejected where appropriate.
+Covers options shape, credential persistence, purpose scoped challenges and ownership.
 """
 
 import base64
@@ -28,11 +18,13 @@ from app.db.dynamo.users import UserRepository, WebAuthnCredential, WebAuthnCred
 
 
 def _unique(base: str) -> str:
+    """Make a name unique per worker and process so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
 
 def _create_user(db: Any, username: str, password: str = "testpassword") -> DBUser:
+    """Create a verified user with a password."""
     user = DBUser(
         username=username,
         email=f"{username}@example.com",
@@ -44,6 +36,7 @@ def _create_user(db: Any, username: str, password: str = "testpassword") -> DBUs
 
 
 def _login(client: TestClient, username: str, password: str = "testpassword") -> str:
+    """Log in with a password and return the access token."""
     resp = client.post(
         f"{settings.API_STR}/auth/token",
         data={"username": username, "password": password},
@@ -53,14 +46,17 @@ def _login(client: TestClient, username: str, password: str = "testpassword") ->
 
 
 def _auth_headers(token: str) -> dict[str, str]:
+    """Build the bearer authorization header for a token."""
     return {"Authorization": f"Bearer {token}"}
 
 
 def _b64url(raw: bytes) -> str:
+    """Encode bytes as unpadded base64url."""
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
 
 
 def test_register_options_requires_auth(client: TestClient) -> None:
+    """Registration options require an authenticated caller."""
     resp = client.post(
         f"{settings.API_STR}/auth/webauthn/register/options",
         json={"nickname": "my key"},
@@ -69,6 +65,7 @@ def test_register_options_requires_auth(client: TestClient) -> None:
 
 
 def test_register_options_returns_challenge_and_options(client: TestClient, db_session: Any) -> None:
+    """Registration options return the spec shaped payload and a challenge token."""
     username = _unique("passkey_opts_user")
     _create_user(db_session, username)
     token = _login(client, username)
@@ -89,6 +86,7 @@ def test_register_options_returns_challenge_and_options(client: TestClient, db_s
 
 
 def test_register_verify_persists_credential(client: TestClient, db_session: Any) -> None:
+    """A verified registration persists the credential."""
     username = _unique("passkey_reg_verify")
     user = _create_user(db_session, username)
     token = _login(client, username)
@@ -170,6 +168,7 @@ def test_register_verify_rejects_wrong_purpose_token(client: TestClient, db_sess
 
 
 def test_login_options_discoverable_has_no_allow_credentials(client: TestClient) -> None:
+    """Discoverable login options omit the allowed credentials list."""
     resp = client.post(
         f"{settings.API_STR}/auth/webauthn/login/options",
         json={},
@@ -180,6 +179,7 @@ def test_login_options_discoverable_has_no_allow_credentials(client: TestClient)
 
 
 def test_login_verify_issues_token(client: TestClient, db_session: Any) -> None:
+    """A verified assertion issues an access token."""
     username = _unique("passkey_login_verify")
     user = _create_user(db_session, username)
 
@@ -281,6 +281,7 @@ def test_login_verify_replay_rejected(client: TestClient, db_session: Any) -> No
 
 
 def test_login_verify_unknown_credential(client: TestClient) -> None:
+    """An assertion for an unknown credential is refused."""
     opts_resp = client.post(f"{settings.API_STR}/auth/webauthn/login/options", json={})
     challenge_token = opts_resp.json()["challenge_token"]
 
@@ -299,6 +300,7 @@ def test_login_verify_unknown_credential(client: TestClient) -> None:
 
 
 def test_list_rename_delete_flow(client: TestClient, db_session: Any) -> None:
+    """A credential can be listed, renamed and deleted by its owner."""
     username = _unique("passkey_crud")
     user = _create_user(db_session, username)
     token = _login(client, username)
@@ -344,6 +346,7 @@ def test_list_rename_delete_flow(client: TestClient, db_session: Any) -> None:
 
 
 def test_cannot_rename_other_users_credential(client: TestClient, db_session: Any) -> None:
+    """Renaming another user's credential is refused."""
     owner = _create_user(db_session, _unique("passkey_owner"))
     other = _create_user(db_session, _unique("passkey_other"))
 
@@ -367,11 +370,13 @@ def test_cannot_rename_other_users_credential(client: TestClient, db_session: An
 
 
 def test_list_credentials_requires_auth(client: TestClient) -> None:
+    """Listing credentials requires an authenticated caller."""
     resp = client.get(f"{settings.API_STR}/auth/webauthn/credentials")
     assert resp.status_code == 401
 
 
 def test_register_rejects_empty_nickname(client: TestClient, db_session: Any) -> None:
+    """An empty nickname is refused at registration."""
     username = _unique("passkey_empty_nick")
     _create_user(db_session, username)
     token = _login(client, username)

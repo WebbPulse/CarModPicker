@@ -1,49 +1,6 @@
-"""Row 12: the domain route keys that require an authenticated caller.
+"""Tests that the gateway's authenticated route keys match what the application enforces.
 
-`terraform/apigateway.tf` names 80 route keys in
-`local.domain_identity_jwt_route_paths`, one per `/api` route outside
-`/api/auth` whose FastAPI dependency tree reaches a resolver that refuses an
-anonymous caller. That list is a second spelling of something the application
-already knows, and the two can drift in the direction that matters: a route
-added to a router with `get_current_user` on it and not added to the Terraform
-is a route the gateway never checks, and nothing about it looks wrong from
-either side on its own.
-
-So this file recomputes the set from the application and asserts it is exactly
-the set the Terraform names. **The set is derived, never listed here.** There is
-no constant in this file enumerating the 80 keys, because a constant is a third
-copy that drifts from both. Portfolio's `test_gateway_routes.py` is the
-cautionary case: it subtracted one hand written constant per identity milestone,
-so a milestone nobody remembered to add was asserted in neither direction, and
-two of them shipped to staging with no route keys at all and answered the
-gateway's own 404. The assertion that does not have that shape is the one that
-builds the real application and compares against it, which is what every test
-below does.
-
-## What counts as requiring a caller
-
-Three resolvers in `app/api/dependencies/auth.py`, and the distinction is the
-whole subject of this row:
-
-- `get_current_user`, `get_current_admin_user` and `get_current_superuser` raise
-  401 when they cannot resolve a caller. A route behind one of them is already
-  closed inside the function, and a flagged route key states the same thing one
-  hop earlier at the gateway.
-- `get_optional_current_user` and `get_current_active_user_optional` return
-  `None` instead. A route behind one of those serves anonymous callers, usually
-  personalising its answer when a caller is signed in, so flagging its key would
-  turn a public page into a 401 for every signed out visitor. These are the trap
-  in this row: the two resolvers are one word apart in a router and a route key
-  cannot tell them apart.
-- `require_api_key_or_admin` accepts a shared `X-API-Key` with no bearer token
-  at all. Its one route is the Chrome extension's price history ingest, and
-  flagging it would lock out the only callers it has.
-
-## Why the Terraform is parsed rather than planned
-
-The same reason `test_route_split.py` reads it: the keys are static text, and a
-regex over them compares two sets of strings with no credentials, no workspace
-and no network. A plan would assert the same thing and could not run in CI.
+The set is recomputed from the real application, never listed here, so the two cannot drift.
 """
 
 from __future__ import annotations
@@ -89,28 +46,17 @@ GUARD_ENTRY = re.compile(
 
 
 def _terraform_source() -> str:
+    """Read the API Gateway Terraform file."""
     return APIGATEWAY_TF.read_text(encoding="utf-8")
 
 
 def _strip_comments(source: str) -> str:
-    """The file with whole-line `#` comments removed.
-
-    `apigateway.tf` carries a great deal of narrative, and this row's own
-    comment block quotes route keys in prose to explain why some of them are
-    written the way they are. A regex over the raw file would read those quoted
-    keys as configuration. Only whole-line comments are stripped, which is every
-    comment in that file.
-    """
+    """Drop whole line comments, so route keys quoted in prose are not read as configuration."""
     return "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("#"))
 
 
 def _block(source: str, name: str) -> str:
-    """The text of the `name = { ... }` local, by brace balance.
-
-    Taken by counting braces rather than by regex, because the value contains
-    nested braces in both directions: `{proxy+}` and `{user_id}` inside route
-    keys, and the `{ integration = ... }` objects themselves.
-    """
+    """Extract a named local's body by brace balance, since route keys contain braces."""
     start = source.index(f"{name} = {{")
     depth = 0
     for index in range(start, len(source)):
@@ -152,14 +98,7 @@ def terraform_domain_prefixes() -> Dict[str, str]:
 
 
 def _effective_routes(app: object) -> Iterator[Any]:
-    """Every route an application serves, flattened.
-
-    The same walk `test_route_split.py` documents at length: Starlette 1.x
-    stores one lazy `_IncludedRouter` per included router rather than copying
-    the sub-router's routes into the parent, so a naive walk of `app.routes`
-    finds 9 of this application's 180 routes. Both shapes are handled because
-    the suite has to pass on whichever version is installed.
-    """
+    """Flatten every route an application serves, across both Starlette router shapes."""
     for route in getattr(app, "routes", []):
         contexts = getattr(route, "effective_route_contexts", None)
         if callable(contexts):
@@ -169,13 +108,7 @@ def _effective_routes(app: object) -> Iterator[Any]:
 
 
 def _dependency_names(route: object) -> Set[str]:
-    """Every dependency callable's name in a route's flattened dependant tree.
-
-    Walked rather than read one level deep, because the resolvers this row cares
-    about are usually reached indirectly: `get_current_admin_user` itself
-    depends on `get_current_user`, and a router's own `dependencies=[...]` are
-    another level again.
-    """
+    """Every dependency callable name in a route's flattened dependant tree."""
     dependant = getattr(route, "dependant", None)
     if dependant is None:
         return set()
@@ -220,11 +153,7 @@ def _application_routes() -> Iterator[Tuple[str, str, Set[str]]]:
 
 
 def _in_scope(path: str) -> bool:
-    """Whether a path is this row's business.
-
-    `/api/auth` is row 8's, the root and documentation routes belong to no
-    domain, and everything else under `/api` is a domain route.
-    """
+    """Whether a path is a domain route this row governs."""
     if path in ROOT_PATHS or not path.startswith("/api"):
         return False
     return not (path == IDENTITY_PREFIX or path.startswith(IDENTITY_PREFIX + "/"))
@@ -249,13 +178,7 @@ def application_anonymous_route_keys() -> Set[str]:
 
 
 def test_terraform_names_exactly_the_routes_that_require_a_caller() -> None:
-    """The set in `apigateway.tf` equals the set the application enforces.
-
-    This is the assertion the row exists for, and it fails in both directions.
-    A route added behind `get_current_user` with no key is a route the gateway
-    will not check; a key naming a route the application serves anonymously is
-    a 401 for every signed out caller the moment the flag is turned on.
-    """
+    """The Terraform route keys equal the routes the application refuses anonymously."""
     expected = application_authenticated_route_keys()
     actual = set(terraform_domain_route_keys())
 
@@ -274,13 +197,7 @@ def test_terraform_names_exactly_the_routes_that_require_a_caller() -> None:
 
 
 def test_no_named_key_is_served_by_an_optional_resolver() -> None:
-    """No flagged key sits on a route that personalises for anonymous callers.
-
-    The complement of the test above, asserted against the optional resolvers by
-    name rather than by absence from the required set. A resolver that was
-    renamed would fall out of `REQUIRES_CALLER` and quietly stop being checked;
-    this fails instead, because the route would then be in neither set.
-    """
+    """No flagged key sits on a route that serves anonymous callers."""
     named = set(terraform_domain_route_keys())
     for method, path, names in _application_routes():
         if not _in_scope(path):
@@ -302,12 +219,7 @@ def test_no_named_key_is_served_by_an_optional_resolver() -> None:
 
 
 def test_every_named_key_points_at_the_domain_that_serves_its_prefix() -> None:
-    """A key's integration is the domain whose prefix its path falls under.
-
-    A key naming the wrong domain still plans and still applies: it routes the
-    request to a healthy function that does not serve that path, so it answers
-    that function's own 404 rather than anything that looks like a routing bug.
-    """
+    """Each key's integration is the domain whose prefix its path falls under."""
     prefixes = terraform_domain_prefixes()
     for key, domain in sorted(terraform_domain_route_keys().items()):
         path = key.split(" ", 1)[1]
@@ -321,14 +233,7 @@ def test_every_named_key_points_at_the_domain_that_serves_its_prefix() -> None:
 
 
 def test_no_route_key_ends_in_a_slash() -> None:
-    """Route keys cannot end in a slash.
-
-    API Gateway normalises a trailing slash onto the bare key and refuses the
-    other spelling with a `BadRequestException` at apply time, on a plan that
-    was green. Several of these routes are declared as `"/"` in their routers,
-    so this is the mistake the generator would make if `_route_key` stopped
-    stripping.
-    """
+    """No route key ends in a slash, which the gateway refuses at apply time."""
     for key in sorted(set(terraform_domain_route_keys()) | set(terraform_guard_route_keys())):
         path = key.split(" ", 1)[1]
         assert path == "/" or not path.endswith("/"), f"{key} ends in a slash and would fail at apply time"
@@ -376,24 +281,12 @@ def test_no_base_path_mixes_the_slashed_and_bare_spellings() -> None:
 
 
 def test_anonymous_routes_are_not_captured_by_a_named_path_parameter_key() -> None:
-    """No anonymous route is shadowed by a flagged key on the same method.
-
-    The hazard this row introduces, and the reason the two guard keys exist.
-    `GET /api/reports/{report_id}` and `GET /api/reports/count` are the same
-    shape to a gateway: `count` matches `{report_id}` as readily as a uuid does.
-    FastAPI resolves it by registration order, which does not exist at the
-    gateway; API Gateway resolves it by specificity, and a static segment beats
-    a path variable at the same depth. So an anonymous route colliding this way
-    is safe only when it has a literal key of its own.
-
-    Asserted over the whole application rather than over the two known cases, so
-    a `/count` style route added under any flagged `{id}` key in future fails
-    here instead of quietly becoming a 401 at the next flip.
-    """
+    """No anonymous route is shadowed by a flagged path parameter key on the same method."""
     named = set(terraform_domain_route_keys())
     guards = set(terraform_guard_route_keys())
 
     def captures(key_path: str, request_path: str) -> bool:
+        """Whether a route key path would match a request path segment by segment."""
         left = key_path.strip("/").split("/")
         right = request_path.strip("/").split("/")
         if len(left) != len(right):
@@ -416,12 +309,7 @@ def test_anonymous_routes_are_not_captured_by_a_named_path_parameter_key() -> No
 
 
 def test_guard_keys_are_anonymous_routes_the_application_serves() -> None:
-    """Every guard key is a real anonymous route, and none of them is flagged.
-
-    A guard key that named nothing would be harmless but dead, and a guard key
-    that drifted onto an authenticated route would be a hole rather than a
-    guard, so both directions are checked.
-    """
+    """Every guard key names a real anonymous route and none of them is flagged."""
     guards = terraform_guard_route_keys()
     assert guards, "local.domain_anonymous_guard_route_keys is empty; the two count keys are missing"
 
@@ -433,15 +321,7 @@ def test_guard_keys_are_anonymous_routes_the_application_serves() -> None:
 
 
 def test_the_flag_is_gated_on_the_variable_rather_than_hardcoded() -> None:
-    """The keys land unflagged until `var.domain_jwt_enforced` says otherwise.
-
-    The operational half of this row. In staging `identity_jwt_mode` is "gate",
-    so a flagged key demands a valid identity access token at the gateway the
-    moment it applies, while the frontend still sends the legacy session token.
-    Landing the keys already flagged would sign every staging user out of every
-    write path, so the flag reads the variable and the variable defaults to
-    false.
-    """
+    """The keys land unflagged until the enforcement variable turns them on."""
     source = _strip_comments(_terraform_source())
     assert "require_identity_jwt = var.domain_jwt_enforced" in source, (
         "local.domain_identity_jwt_route_keys must take require_identity_jwt from "

@@ -1,22 +1,6 @@
-"""`scripts/migrate_credentials_to_identity.py` against moto and the real store.
+"""Tests for migrating legacy password hashes into the package's credential store.
 
-The store under test is the package's `DynamoCredentialStore` over a moto-backed
-`credentials` table, not a fake. That is the point: the claim this migration
-rests on is that a hash written by the legacy path verifies through the identity
-flow, and a test against a stub store would prove only that the script can call
-`put`.
-
-`test_the_migrated_hash_verifies_through_the_package` is the load bearing one.
-It hashes a password the way `app/api/dependencies/auth.py` does, migrates it,
-and then verifies the plaintext against the migrated credential with
-`webbpulse.security.verify_password`, which is the function the identity login
-flow calls. If the two ever stop being the same bcrypt, that fails here rather
-than every account failing to sign in after a cutover.
-
-The `credentials` table is created by the fixture rather than by
-`app/db/dynamo/tables.py`, because it is not a product table: row 4's
-`module.identity` creates it in Terraform, and `TABLES` deliberately does not
-carry it.
+Runs against the real store over moto, so a migrated hash is verified by the real reader.
 """
 
 from __future__ import annotations
@@ -43,12 +27,7 @@ def store(credentials_table: Any) -> Any:
 
 @pytest.fixture
 def users(credentials_table: Any) -> Any:
-    """The raw moto `users` table, written to directly.
-
-    Directly rather than through `UserRepository` because several of these cases
-    are rows the model refuses to build: a non bcrypt hash in a field the model
-    types as a hash, and a `#unique#` sentinel that is not a user at all.
-    """
+    """The raw moto users table, written to directly so rows the model refuses can be built."""
     return dynamo_client.get_resource().Table(f"{PREFIX}-{USERS.suffix}")
 
 
@@ -70,10 +49,12 @@ def make_user(users: Any, password: str | None = "legacy-password", **overrides:
 
 
 def rows(prefix: str = PREFIX) -> list[dict[str, Any]]:
+    """Read back every user row the migration iterates."""
     return list(script.iter_user_rows(prefix))
 
 
 def test_a_dry_run_writes_nothing(store: Any, users: Any) -> None:
+    """A dry run reports the work and writes no credential."""
     user_id = make_user(users)
 
     summary, decisions = script.migrate(rows(), store)
@@ -84,6 +65,7 @@ def test_a_dry_run_writes_nothing(store: Any, users: Any) -> None:
 
 
 def test_apply_writes_the_credential_in_the_packages_shape(store: Any, users: Any) -> None:
+    """An applied run writes the credential in the shape the package reads."""
     user_id = make_user(users)
     legacy = users.get_item(Key={"id": user_id})["Item"]["hashed_password"]
 
@@ -100,13 +82,7 @@ def test_apply_writes_the_credential_in_the_packages_shape(store: Any, users: An
 
 
 def test_the_migrated_hash_verifies_through_the_package(store: Any, users: Any) -> None:
-    """The whole claim of the migration, end to end.
-
-    The legacy attribute is written by `webbpulse.security.hash_password` and
-    the identity login flow verifies with `webbpulse.security.verify_password`,
-    so the copied secret must accept the original plaintext and reject anything
-    else.
-    """
+    """A migrated hash accepts the original password through the package's verifier."""
     user_id = make_user(users, password="correct-horse-battery")
 
     script.migrate(rows(), store, apply=True)
@@ -117,6 +93,7 @@ def test_the_migrated_hash_verifies_through_the_package(store: Any, users: Any) 
 
 
 def test_a_rerun_is_idempotent_and_preserves_created_at(store: Any, users: Any) -> None:
+    """A rerun writes nothing new and leaves the creation time untouched."""
     user_id = make_user(users)
 
     script.migrate(rows(), store, apply=True)
@@ -176,6 +153,7 @@ def test_a_conflict_blocks_the_whole_run_before_any_write(store: Any, users: Any
 
 
 def test_replace_overwrites_a_conflict_but_keeps_created_at(store: Any, users: Any) -> None:
+    """Replace mode overwrites a conflicting credential while preserving its creation time."""
     user_id = make_user(users)
     legacy = users.get_item(Key={"id": user_id})["Item"]["hashed_password"]
     store.put(
@@ -196,11 +174,7 @@ def test_replace_overwrites_a_conflict_but_keeps_created_at(store: Any, users: A
 
 
 def test_an_oauth_only_account_is_its_own_skip_count(store: Any, users: Any) -> None:
-    """`hashed_password = None` is the ordinary Google-only account.
-
-    Counted apart from the unreadable-hash skips, because on a production run
-    these are most of the rows and a merged total would read as data loss.
-    """
+    """An account with no password is counted apart from unreadable hashes."""
     user_id = make_user(users, password=None)
 
     summary, decisions = script.migrate(rows(), store, apply=True)
@@ -225,12 +199,7 @@ def test_a_non_bcrypt_hash_is_a_skip_not_an_oauth_skip(store: Any, users: Any) -
 
 
 def test_a_disabled_user_still_migrates(store: Any, users: Any) -> None:
-    """`may_authenticate` is the gate, not this script.
-
-    Deciding who may sign in belongs to the hooks, and a migration that silently
-    dropped a disabled user's credential would make reactivating them a password
-    reset.
-    """
+    """A disabled user's credential still migrates, since the hooks decide who may sign in."""
     user_id = make_user(users, disabled=True)
 
     summary, _ = script.migrate(rows(), store, apply=True)
@@ -250,11 +219,7 @@ def test_a_tombstoned_user_still_migrates(store: Any, users: Any) -> None:
 
 
 def test_unique_sentinel_rows_are_not_users(store: Any, users: Any) -> None:
-    """`#unique#` rows share the table and are not accounts.
-
-    Counting them would inflate `skip_oauth_only` by two per user and make the
-    summary meaningless on a real run.
-    """
+    """Unique lookup sentinel rows are not counted as accounts."""
     make_user(users)
     users.put_item(Item={"id": unique_lookup_key("username", "someone")})
     users.put_item(Item={"id": unique_lookup_key("email", "someone@example.com")})
@@ -292,10 +257,12 @@ def test_the_report_never_prints_a_hash(store: Any, users: Any, capsys: Any) -> 
     ],
 )
 def test_is_supported_hash(value: Any, supported: bool) -> None:
+    """Only hashes the package can verify are treated as supported."""
     assert script.is_supported_hash(value) is supported
 
 
 def test_parse_args_requires_a_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A missing table prefix is an argument error."""
     monkeypatch.delenv("DYNAMODB_TABLE_PREFIX", raising=False)
     with pytest.raises(SystemExit):
         script.parse_args([])
@@ -304,6 +271,7 @@ def test_parse_args_requires_a_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_parse_args_defaults_the_prefix_from_the_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """The table prefix defaults from the environment when not passed."""
     monkeypatch.setenv("DYNAMODB_TABLE_PREFIX", "carmodpicker-staging")
     args = script.parse_args([])
     assert args.prefix == "carmodpicker-staging"
@@ -312,6 +280,7 @@ def test_parse_args_defaults_the_prefix_from_the_environment(
 
 
 def test_main_dry_runs_by_default_and_reports(store: Any, users: Any, capsys: Any) -> None:
+    """The entrypoint dry runs by default and reports the counts."""
     user_id = make_user(users)
 
     exit_code = script.main(["--prefix", PREFIX])
@@ -322,6 +291,7 @@ def test_main_dry_runs_by_default_and_reports(store: Any, users: Any, capsys: An
 
 
 def test_main_returns_one_on_a_conflict(store: Any, users: Any, capsys: Any) -> None:
+    """A conflict makes the entrypoint exit with the failure code."""
     user_id = make_user(users)
     store.put(
         CredentialRecord(
