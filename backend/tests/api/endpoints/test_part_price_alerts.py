@@ -1,9 +1,6 @@
-"""Endpoint coverage for `/api/part-price-alerts` (S07/T02).
+"""Endpoint tests for the per user price alert routes.
 
-Covers the full per-user CRUD surface: subscribe (with idempotent re-subscribe),
-list-mine (with cross-user isolation), patch threshold/active, delete (soft via
-active=False), and the four negative paths from the task plan: anon → 401,
-unknown part → 404, non-owner delete → 404, threshold_cents < 0 → 422.
+Covers subscribe, list, patch, soft delete and the authentication and validation refusals.
 """
 
 from __future__ import annotations
@@ -64,11 +61,13 @@ def test_subscribe_requires_auth(client: TestClient, db_session: Any) -> None:
 
 
 def test_list_me_requires_auth(client: TestClient) -> None:
+    """Listing my alerts requires an authenticated caller."""
     response = client.get(f"{ALERTS_PATH}/me")
     assert response.status_code == 401
 
 
 def test_patch_requires_auth(client: TestClient) -> None:
+    """Patching an alert requires an authenticated caller."""
     response = client.patch(
         f"{ALERTS_PATH}/{INVALID_UUID_STR}",
         json={"threshold_cents": 1000},
@@ -77,11 +76,13 @@ def test_patch_requires_auth(client: TestClient) -> None:
 
 
 def test_delete_requires_auth(client: TestClient) -> None:
+    """Deleting an alert requires an authenticated caller."""
     response = client.delete(f"{ALERTS_PATH}/{INVALID_UUID_STR}")
     assert response.status_code == 401
 
 
 def test_subscribe_creates_new_alert(client: TestClient, db_session: Any) -> None:
+    """Subscribing creates an active alert at the requested threshold."""
     _, token, part = _create_user_part_pair(client, db_session, "alerts_create_new")
     headers = get_auth_headers(token)
 
@@ -101,6 +102,7 @@ def test_subscribe_creates_new_alert(client: TestClient, db_session: Any) -> Non
 
 
 def test_subscribe_unknown_part_returns_404(client: TestClient, db_session: Any) -> None:
+    """Subscribing to an unknown part answers not found."""
     _, token = create_and_login_user(client, "alerts_unknown_part")
     headers = get_auth_headers(token)
 
@@ -115,6 +117,7 @@ def test_subscribe_unknown_part_returns_404(client: TestClient, db_session: Any)
 
 
 def test_subscribe_negative_threshold_returns_422(client: TestClient, db_session: Any) -> None:
+    """A negative threshold is a validation error."""
     _, token, part = _create_user_part_pair(client, db_session, "alerts_neg_threshold")
     headers = get_auth_headers(token)
 
@@ -220,6 +223,7 @@ def test_list_me_returns_only_current_users_alerts(client: TestClient, db_sessio
 
 
 def test_list_me_excludes_inactive_alerts(client: TestClient, db_session: Any) -> None:
+    """Listing my alerts omits inactive ones."""
     _, token, part = _create_user_part_pair(client, db_session, "alerts_list_excludes_inactive")
     headers = get_auth_headers(token)
 
@@ -238,6 +242,7 @@ def test_list_me_excludes_inactive_alerts(client: TestClient, db_session: Any) -
 
 
 def test_patch_threshold_updates_value(client: TestClient, db_session: Any) -> None:
+    """Patching the threshold stores the new value."""
     _, token, part = _create_user_part_pair(client, db_session, "alerts_patch_threshold")
     headers = get_auth_headers(token)
 
@@ -260,6 +265,7 @@ def test_patch_threshold_updates_value(client: TestClient, db_session: Any) -> N
 
 
 def test_patch_negative_threshold_returns_422(client: TestClient, db_session: Any) -> None:
+    """Patching to a negative threshold is a validation error."""
     _, token, part = _create_user_part_pair(client, db_session, "alerts_patch_neg")
     headers = get_auth_headers(token)
 
@@ -299,6 +305,7 @@ def test_patch_by_non_owner_returns_404(client: TestClient, db_session: Any) -> 
 
 
 def test_delete_sets_active_false(client: TestClient, db_session: Any) -> None:
+    """Deleting an alert deactivates it rather than removing the row."""
     _, token, part = _create_user_part_pair(client, db_session, "alerts_delete_soft")
     headers = get_auth_headers(token)
 
@@ -338,6 +345,7 @@ def test_delete_by_non_owner_returns_404(client: TestClient, db_session: Any) ->
 
 
 def test_delete_unknown_alert_returns_404(client: TestClient, db_session: Any) -> None:
+    """Deleting an unknown alert answers not found."""
     _, token = create_and_login_user(client, "alerts_del_unknown")
     headers = get_auth_headers(token)
     response = client.delete(f"{ALERTS_PATH}/{INVALID_UUID_STR}", headers=headers)
@@ -479,20 +487,7 @@ def test_unsubscribe_unknown_alert_id_redirects_to_error(client: TestClient, db_
 
 
 def test_unsubscribe_is_registered_before_parameterised_routes() -> None:
-    """`/unsubscribe` must be registered ahead of every `/{alert_id}` route.
-
-    FastAPI resolves in registration order, so a literal that is registered after a
-    parameterised sibling of the same shape is only reachable while no route with a
-    matching method exists on the parameter. Unsubscribe survived on that accident:
-    `/{alert_id}` carries PATCH and DELETE and there is no GET detail route, so a GET
-    for `/unsubscribe` fell through to the literal. Adding `GET /{alert_id}` would have
-    swallowed it silently, redirecting nothing and returning 422 for a token that is
-    not a UUID.
-
-    Asserting on registration order rather than on a live request is deliberate: a
-    request-level test passes either way today and would only start failing once the
-    GET detail route lands, which is exactly the silent break this guards against.
-    """
+    """The unsubscribe literal is registered ahead of every parameterised sibling route."""
     from app.api.endpoints.part_price_alerts import router
 
     paths = [route.path for route in router.routes if getattr(route, "path", None)]

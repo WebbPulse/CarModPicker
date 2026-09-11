@@ -11,11 +11,13 @@ from tests.conftest import create_car_in_db, login_user
 
 
 def _unique(base: str) -> str:
+    """Make a name unique per worker and process so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
 
 def _auth(token: str) -> dict[str, str]:
+    """Build the bearer authorization header for a token."""
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -25,6 +27,7 @@ def _create_build_list(
     db_session: Any,
     suffix: str = "",
 ) -> dict:
+    """Create a build list against a fresh car and return the response body."""
     gen_name = f"Gen {_unique('lbr')}{suffix}"
     car = create_car_in_db(db_session, generation_name=gen_name)
     body = {
@@ -38,7 +41,10 @@ def _create_build_list(
 
 
 class TestBuildListLaborEstimatesCRUD:
+    """Creating, listing, updating and deleting labor estimates, and who may."""
+
     def test_create_list_update_delete(self, client: TestClient, test_user: User, db_session: Any) -> None:
+        """A labor estimate round trips through create, list, update and delete."""
         token = login_user(client, test_user.username)
         headers = _auth(token)
         bl = _create_build_list(client, headers, db_session)
@@ -97,6 +103,7 @@ class TestBuildListLaborEstimatesCRUD:
         test_user: User,
         db_session: Any,
     ) -> None:
+        """A caller who does not own the build list cannot change its estimates."""
         owner_token = login_user(client, test_user.username)
         bl = _create_build_list(client, _auth(owner_token), db_session)
 
@@ -133,6 +140,7 @@ class TestBuildListLaborEstimatesCRUD:
         assert forbidden_del.status_code == 403
 
     def test_anonymous_cannot_mutate_but_can_list(self, client: TestClient, test_user: User, db_session: Any) -> None:
+        """An anonymous caller may list estimates but not change them."""
         token = login_user(client, test_user.username)
         bl = _create_build_list(client, _auth(token), db_session)
 
@@ -147,9 +155,12 @@ class TestBuildListLaborEstimatesCRUD:
 
 
 class TestBuildListLaborEstimatePhase:
+    """How an estimate relates to a build list phase."""
+
     def test_phase_must_belong_to_same_build_list(
         self, client: TestClient, premium_test_user: User, db_session: Any
     ) -> None:
+        """An estimate cannot name a phase from another build list."""
         token = login_user(client, premium_test_user.username)
         headers = _auth(token)
         bl_a = _create_build_list(client, headers, db_session, suffix="_a")
@@ -181,6 +192,7 @@ class TestBuildListLaborEstimatePhase:
         assert bad_upd.status_code == 400
 
     def test_phase_delete_nulls_labor_estimate_link(self, client: TestClient, test_user: User, db_session: Any) -> None:
+        """Deleting a phase clears the estimate's link to it."""
         token = login_user(client, test_user.username)
         headers = _auth(token)
         bl = _create_build_list(client, headers, db_session)
@@ -207,7 +219,10 @@ class TestBuildListLaborEstimatePhase:
 
 
 class TestBuildListLaborEstimateCostRollup:
+    """How labor estimates enter the build list cost rollup."""
+
     def test_with_votes_includes_labor_in_total(self, client: TestClient, test_user: User, db_session: Any) -> None:
+        """The rollup includes labor alongside part costs."""
         token = login_user(client, test_user.username)
         headers = _auth(token)
         bl = _create_build_list(client, headers, db_session)

@@ -1,31 +1,6 @@
-"""What row 8 took from the shared package, and what it deliberately did not.
+"""Tests for what the shared package supplies and what this product still owns.
 
-Adopting `webbpulse` moved logging, tracing, the settings base and the uvicorn
-entry into the package. Three things it did **not** move are load-bearing for
-CarModPicker's public contract, and each has a way of regressing quietly:
-
-- **The error envelope.** CarModPicker now renders the shared
-  `{"success", "status", "message", "request_id"}` envelope from
-  `webbpulse.http.register_error_handlers`, with `error_code` on every error and
-  `details` on a 422. It used to serve three shapes: a raw Starlette
-  `{"detail": "Not Found"}` for an unmatched route, its own
-  `{success, message, error_code}` for a handled one, and that plus `details`
-  for a 422. These tests pin the single shape so a regression to any of the
-  three is caught.
-- **The tracing gate.** `webbpulse.otel.configure_tracing` defaults to this
-  region's X-Ray OTLP endpoint when none is configured. Row 16 turned tracing on
-  in the deployed domain functions by setting
-  `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` in Terraform, but the gate itself stays,
-  and it is what keeps the test suite and a local run free of an exporter. "Off
-  when the variable is unset" therefore has to be asserted rather than assumed:
-  without it every test run would open a batch exporter to an endpoint that
-  answers 403 to an unsigned request and retries it in silence.
-- **The request context filter.** `request_id` and `user_id` come from
-  CarModPicker's ContextVars, not from the package, which merges trace ids
-  instead. OBS-04 depends on every record carrying both.
-
-`tests/test_log_propagation.py` covers the filter's behaviour during a request;
-this file covers the wiring that has to survive the package adoption.
+Pins the error envelope, the tracing gate, the log context filter and the settings base.
 """
 
 from __future__ import annotations
@@ -54,12 +29,7 @@ def media_client() -> TestClient:
 
 
 def test_unmatched_route_returns_the_envelope(media_client: TestClient) -> None:
-    """An unmatched path returns the envelope, never `{"detail": "Not Found"}`.
-
-    This is the shape that used to escape to the frontend, and it is the whole
-    reason the package registers for the Starlette exception rather than only
-    FastAPI's subclass.
-    """
+    """An unmatched path returns the envelope rather than a raw detail body."""
     response = media_client.get("/api/no-such-path-abc123")
     assert response.status_code == 404
     body = response.json()
@@ -72,12 +42,7 @@ def test_unmatched_route_returns_the_envelope(media_client: TestClient) -> None:
 
 
 def test_handled_error_returns_the_envelope(media_client: TestClient) -> None:
-    """An error raised inside a route carries the four base fields plus a code.
-
-    The message and `error_code` are unchanged from before the adoption; what is
-    new is `status` and `request_id` alongside them, which is what lets a user's
-    report be joined to a CloudWatch line.
-    """
+    """An error raised in a route carries the base fields plus an error code."""
     response = media_client.get("/api/images/by-source-url")
     assert response.status_code == 401
     body = response.json()
@@ -90,14 +55,7 @@ def test_handled_error_returns_the_envelope(media_client: TestClient) -> None:
 
 
 def test_validation_error_returns_the_envelope_with_details() -> None:
-    """A 422 keeps `error_code` and the `details` list of `field`/`message`/`type`.
-
-    `validation_details=True` is what preserves that list, which the frontend
-    renders per field. The package also carries its own `errors` list of
-    `loc`/`msg`/`type` alongside it; both are in the body. Asserted against
-    Root A because the route used here is a catalog route rather than a media
-    one.
-    """
+    """A validation error keeps the error code and the per field details list."""
     from app.composition.app import app
 
     client = TestClient(app, raise_server_exceptions=False)
@@ -114,11 +72,7 @@ def test_validation_error_returns_the_envelope_with_details() -> None:
 
 
 def test_domain_apps_declare_no_package_health_route(media_client: TestClient) -> None:
-    """`/health` stays CarModPicker's static dict, not `create_app`'s.
-
-    Both are I/O free, so the Web Adapter is happy either way, but the bodies
-    differ and `/health` is what the smoke test in section 4 asserts against.
-    """
+    """The health route stays this product's own rather than the package's."""
     response = media_client.get("/health")
     assert response.status_code == 200
     assert response.json() == {
@@ -129,25 +83,13 @@ def test_domain_apps_declare_no_package_health_route(media_client: TestClient) -
 
 
 def test_configure_tracing_is_a_noop_without_an_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No OTLP endpoint means no provider, which is every un-deployed process.
-
-    Terraform sets the variable on the deployed domain functions, so this is the
-    state a test, a local run and the monolith are in rather than the state
-    everything is in. Without the gate the package would fall back to the X-Ray
-    OTLP endpoint and export into a 403 forever, and the only symptom would be
-    traces never appearing.
-    """
+    """With no OTLP endpoint configured tracing installs no provider."""
     monkeypatch.delenv(OTLP_ENDPOINT_ENV, raising=False)
     assert configure_tracing(DOMAINS["media"]) is False
 
 
 def test_configure_tracing_does_not_import_the_otel_sdk_when_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The gate returns before reaching `webbpulse.otel`, so a cold start pays nothing.
-
-    Run in a fresh interpreter: `opentelemetry.sdk` may already be imported in
-    this one by an unrelated test, which would make an in-process assertion pass
-    for the wrong reason.
-    """
+    """With tracing off the SDK is never imported, so a cold start pays nothing."""
     code = (
         "import sys\n"
         "from app.composition.wiring import configure_tracing\n"
@@ -177,16 +119,7 @@ def test_configure_tracing_does_not_import_the_otel_sdk_when_off(monkeypatch: py
 
 
 def test_json_logging_carries_the_keys_lambda_and_the_alarms_need() -> None:
-    """A record renders with `level`, `timestamp`, `request_id` and `user_id`.
-
-    `level` and `timestamp` are what Lambda's JSON log filtering and the
-    `{ $.level = "ERROR" }` metric filter behind `api-alarms` select on; an
-    unparseable timestamp makes Lambda stamp its own and assign INFO, which
-    defeats both silently. `request_id` and `user_id` come from
-    `webbpulse.log_context`'s `LogContextFilter`, which 0.7.0 hoisted from
-    CarModPicker, so this is the assertion that it is still attached to the
-    package's handler.
-    """
+    """A rendered record carries the level, timestamp, request id and user id."""
     from webbpulse.log_context import LogContextFilter
     from webbpulse.logging import JsonFormatter
 
@@ -204,13 +137,7 @@ def test_json_logging_carries_the_keys_lambda_and_the_alarms_need() -> None:
 
 
 def test_app_logging_writes_to_stderr_not_stdout() -> None:
-    """Application logs stay off stdout, which is a data channel here.
-
-    `scripts/generate_ext_api_contract.py --stdout` and the OpenAPI snapshot
-    regeneration both write to stdout and are compared byte for byte, so a log
-    line on that stream corrupts them. The package logs to stdout by default,
-    and `configure_app_logging` moves the handler.
-    """
+    """Application logs go to stderr, keeping stdout free for generated output."""
     from app.core.logging import configure_app_logging
 
     configure_app_logging(level="INFO", service="CarModPicker", environment="test")
@@ -224,14 +151,7 @@ def test_app_logging_writes_to_stderr_not_stdout() -> None:
 
 
 def test_settings_inherit_the_package_base_and_keep_lazy_secrets() -> None:
-    """`Settings` is a `BaseServiceSettings`, and PR 7's lazy secrets survive.
-
-    The base contributes the field set; `_resolve_secret` and `require_secrets`
-    are CarModPicker's and are what let a read-only domain run with no
-    `secretsmanager:GetSecretValue`. Both halves are asserted because adopting
-    the base is exactly the change that could have replaced the second one with
-    `BaseServiceSettings.load_secrets`, which has different semantics.
-    """
+    """Settings inherit the package base while keeping this product's lazy secret reads."""
     from webbpulse.config import BaseServiceSettings
 
     from app.core.config import Settings, settings
@@ -243,12 +163,7 @@ def test_settings_inherit_the_package_base_and_keep_lazy_secrets() -> None:
 
 
 def test_settings_mirror_the_base_lower_case_fields() -> None:
-    """The base's lower case spellings are filled from CarModPicker's own.
-
-    `create_app` and `configure_logging` read `cors_allow_origins`,
-    `log_level` and `environment` off a settings object, so the two spellings
-    have to agree or anything reading the service through the base sees defaults.
-    """
+    """The base's lower case fields are filled from this product's own spellings."""
     from app.core.config import Settings
 
     resolved = Settings(APP_ENVIRONMENT="staging")
@@ -260,17 +175,7 @@ def test_settings_mirror_the_base_lower_case_fields() -> None:
 
 
 def test_case_sensitivity_override_keeps_the_secret_alias_intact() -> None:
-    """`case_sensitive=True` is CarModPicker's, overriding the base's `False`.
-
-    The two settings that make this necessary are asserted together. `SECRET_KEY`
-    is a read-only property resolving through `_resolve_secret`, and the field
-    behind it is `SECRET_KEY_SETTING` carrying `alias="SECRET_KEY"`, so the
-    environment variable and the property share a spelling that differs from the
-    field's own. `BaseServiceSettings` sets `case_sensitive=False`, which would
-    fold `SECRET_KEY` and `secret_key` together and let the alias collide with
-    its shadow field, and `populate_by_name` is what keeps the field's real name
-    usable alongside the alias. Both have to survive inheriting the base.
-    """
+    """Case sensitivity stays on, so the secret alias and its shadow field do not collide."""
     from app.core.config import Settings
 
     assert Settings.model_config["case_sensitive"] is True

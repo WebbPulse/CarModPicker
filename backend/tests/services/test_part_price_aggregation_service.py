@@ -1,15 +1,6 @@
-"""Unit coverage for `part_price_aggregation_service` (S05/T01).
+"""Tests for the part price aggregation service.
 
-Exercises:
-- single-part window slicing and DESC ordering of `history`
-- per-retailer breakdown ordering (by retailer_name ASC)
-- canonical link-group aggregation (duplicates' history surfaces on the canonical)
-- empty-history empty-shape contract
-- trend (up/down/flat) over a hand-seeded series
-- `parse_window` ValueError on unknown literals
-- batch returns one entry per requested id, even when empty
-- batch dedup across canonical link group
-- batch query-count budget (no N+1)
+Covers window slicing, ordering, retailer breakdown, trend, link group dedup and batching.
 """
 
 from __future__ import annotations
@@ -36,6 +27,7 @@ from tests.conftest import get_default_category_id, save_catalog
 
 
 def _make_retailer(db: Any, slug: str) -> DBRetailer:
+    """Create an active retailer with a unique name and domain."""
     retailer = DBRetailer(
         name=f"retailer_{slug}_{uuid.uuid4().hex[:8]}",
         domain=f"{slug}-{uuid.uuid4().hex[:8]}.example.com",
@@ -47,6 +39,7 @@ def _make_retailer(db: Any, slug: str) -> DBRetailer:
 
 
 def _make_manufacturer(db: Any, suffix: str) -> DBPartManufacturer:
+    """Create a part manufacturer with a unique name."""
     pm = DBPartManufacturer(
         name=f"mfr_{suffix}_{uuid.uuid4().hex[:8]}",
         description="test mfr",
@@ -63,6 +56,7 @@ def _make_part(
     canonical_part_id: uuid.UUID | None = None,
     name: str = "Test Part",
 ) -> DBPart:
+    """Create a part, optionally linked to a canonical part."""
     category_id = get_default_category_id(db)
     part = DBPart(
         name=name,
@@ -76,6 +70,7 @@ def _make_part(
 
 
 def _make_listing(db: Any, part: DBPart, retailer: DBRetailer) -> DBPartListing:
+    """Create a listing for a part at a retailer."""
     listing = DBPartListing(
         part_id=part.id,
         retailer_id=retailer.id,
@@ -92,6 +87,7 @@ def _add_history(
     price_cents: int,
     observed_at: datetime,
 ) -> DBPartPriceHistory:
+    """Add one price observation to a listing."""
     row = DBPartPriceHistory(
         part_listing_id=listing.id,
         price_cents=price_cents,
@@ -102,6 +98,7 @@ def _add_history(
 
 
 def test_aggregate_single_part_basic(db_session: Any, test_user: User) -> None:
+    """A single part aggregates to the expected summary and ordered history."""
     retailer = _make_retailer(db_session, "basic")
     part = _make_part(db_session, test_user, name="Basic Part")
     listing = _make_listing(db_session, part, retailer)
@@ -128,6 +125,7 @@ def test_aggregate_single_part_basic(db_session: Any, test_user: User) -> None:
 
 
 def test_aggregate_single_part_window_filters_old_observations(db_session: Any, test_user: User) -> None:
+    """Observations outside the window are excluded."""
     retailer = _make_retailer(db_session, "winfilter")
     part = _make_part(db_session, test_user, name="Window Part")
     listing = _make_listing(db_session, part, retailer)
@@ -148,6 +146,7 @@ def test_aggregate_single_part_window_filters_old_observations(db_session: Any, 
 
 
 def test_aggregate_single_part_empty_history(db_session: Any, test_user: User) -> None:
+    """A part with no history aggregates to the empty shape."""
     part = _make_part(db_session, test_user, name="Empty Part")
 
     result = aggregate_single_part(part.id, "90d")
@@ -174,6 +173,7 @@ def test_aggregate_single_part_empty_history(db_session: Any, test_user: User) -
 def test_aggregate_single_part_trend_up_down_flat(
     db_session: Any, test_user: User, series: list[int], expected: str
 ) -> None:
+    """The trend reflects whether the series rose, fell or held."""
     retailer = _make_retailer(db_session, f"trend-{expected}")
     part = _make_part(db_session, test_user, name=f"Trend {expected}")
     listing = _make_listing(db_session, part, retailer)
@@ -192,6 +192,7 @@ def test_aggregate_single_part_trend_up_down_flat(
 
 
 def test_aggregate_single_part_invalid_window_raises(db_session: Any, test_user: User) -> None:
+    """An unrecognised window raises."""
     part = _make_part(db_session, test_user, name="Bad Window Part")
     with pytest.raises(ValueError):
         aggregate_single_part(part.id, "99x")
@@ -200,6 +201,7 @@ def test_aggregate_single_part_invalid_window_raises(db_session: Any, test_user:
 
 
 def test_aggregate_batch_returns_entry_per_requested_id(db_session: Any, test_user: User) -> None:
+    """The batch returns one entry per requested id, empty ones included."""
     retailer = _make_retailer(db_session, "batch-entry")
     part_a = _make_part(db_session, test_user, name="Batch A")
     part_b = _make_part(db_session, test_user, name="Batch B")
@@ -231,6 +233,7 @@ def test_aggregate_batch_returns_entry_per_requested_id(db_session: Any, test_us
 
 
 def test_aggregate_batch_canonical_dedup(db_session: Any, test_user: User) -> None:
+    """Linked parts aggregate once onto their canonical part."""
     retailer_a = _make_retailer(db_session, "dedup-a")
     retailer_b = _make_retailer(db_session, "dedup-b")
     canonical = _make_part(db_session, test_user, name="Dedup Canon")
