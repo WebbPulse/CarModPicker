@@ -9,10 +9,12 @@ from app.db.dynamo.bug_reports import BugReport, BugReportRepository
 
 
 def _bug_report(**extra: Any) -> BugReport:
+    """Build a bug report with the required fields and any overrides."""
     return BugReport(title="Broken", description="It broke", **extra)
 
 
 def test_list_filtered_by_status_and_priority_newest_first(dynamo_tables: Any) -> None:
+    """Filtered listing honours status and priority and returns newest first."""
     repo = BugReportRepository()
     first = repo.create(_bug_report(priority="high"))
     second = repo.create(_bug_report(priority="low"))
@@ -26,6 +28,7 @@ def test_list_filtered_by_status_and_priority_newest_first(dynamo_tables: Any) -
 
 
 def test_anonymous_reports_have_no_user_and_purge_by_user(dynamo_tables: Any) -> None:
+    """An anonymous report carries no user id and is skipped by the per user purge."""
     repo = BugReportRepository()
     user_id = uuid7()
     anonymous = repo.create(_bug_report())
@@ -41,6 +44,7 @@ def test_anonymous_reports_have_no_user_and_purge_by_user(dynamo_tables: Any) ->
 
 
 def test_app_settings_singleton_round_trip(dynamo_tables: Any) -> None:
+    """The app settings singleton round trips through the repository."""
     repo = AppSettingsRepository()
     assert repo.premium_disabled() is False
 

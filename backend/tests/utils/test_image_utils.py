@@ -59,6 +59,5 @@ class TestImageUtils:
 
         with patch("app.api.utils.image_utils.storage_service") as mock_storage:
             mock_storage.get_presigned_url.side_effect = Exception("Storage error")
-            # Should return file key as fallback
             result = get_presigned_url_from_file_key(file_key)
             assert result == file_key

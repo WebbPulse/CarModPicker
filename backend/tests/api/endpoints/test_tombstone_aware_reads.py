@@ -1,15 +1,6 @@
-"""Tombstone-aware reads across the domains row 23 touches.
+"""Tests that every read path treats a tombstoned row as absent.
 
-Row 23 of `docs/migration/split-plan.md` adds the `deleted` / `deleted_at` pair
-and the reads that honour it. Nothing writes a tombstone yet, so every test here
-writes one directly through the repository, which is the point: the read paths
-have to be correct before rows 28 and 30 make the delete asynchronous.
-
-The split plan's own framing of this row ("build-lists, build-logs, moderation
-and vehicles all read `users` to attach an author") did not survive contact with
-the code. `build-lists` and `vehicles` read no users at all, and the real surface
-is the one covered below: the part join in build-lists, the author join in
-build-logs, the user and part reads in moderation, and search in vehicles.
+Tombstones are written directly through the repositories, since no delete writes one yet.
 """
 
 import os
@@ -29,11 +20,13 @@ from tests.conftest import create_car_in_db, login_user
 
 
 def _unique(base: str) -> str:
+    """Make a name unique per worker and process so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
 
 def _headers(token: str) -> dict[str, str]:
+    """Build the bearer authorization header for a token."""
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -48,6 +41,7 @@ def _tombstone_user(user_id: UUID) -> None:
 
 
 def _make_part(client: TestClient, headers: dict[str, str], category: Category, manufacturer: PartManufacturer) -> Any:
+    """Create a part through the API and return the response body."""
     response = client.post(
         f"{settings.API_STR}/parts/",
         json={
@@ -73,6 +67,7 @@ class TestBuildListsDropsTombstonedParts:
         category: Category,
         manufacturer: PartManufacturer,
     ) -> tuple[Any, Any]:
+        """Create a build list holding one part and return both."""
         car = create_car_in_db(db_session, "Honda", "Accord", "10th Gen", 2018, 2022)
         response = client.post(
             f"{settings.API_STR}/build-lists/",
@@ -99,6 +94,7 @@ class TestBuildListsDropsTombstonedParts:
         test_part_manufacturer: PartManufacturer,
         db_session: Any,
     ) -> None:
+        """A tombstoned part is dropped from the build list join."""
         token = login_user(client, test_user.username)
         headers = _headers(token)
         build_list, part = self._build_list_with_part(
@@ -123,12 +119,7 @@ class TestBuildListsDropsTombstonedParts:
         test_part_manufacturer: PartManufacturer,
         db_session: Any,
     ) -> None:
-        """Regression for the pre-existing, previously untested drop.
-
-        `build_list_parts.py` has always filtered rows whose part is missing
-        from the table. Row 23 adds the tombstone case beside it, so this locks
-        the hard-delete case that was carrying the behaviour on its own.
-        """
+        """A hard deleted part is dropped from the build list join."""
         token = login_user(client, test_user.username)
         headers = _headers(token)
         build_list, part = self._build_list_with_part(
@@ -150,6 +141,7 @@ class TestBuildListsDropsTombstonedParts:
         test_part_manufacturer: PartManufacturer,
         db_session: Any,
     ) -> None:
+        """A tombstoned part cannot be added to a build list."""
         token = login_user(client, test_user.username)
         headers = _headers(token)
         car = create_car_in_db(db_session, "Honda", "Civic", "11th Gen", 2022, 2025)
@@ -171,6 +163,8 @@ class TestBuildListsDropsTombstonedParts:
 
 
 class TestCatalogTreatsTombstonedPartsAsAbsent:
+    """Catalog reads treat a tombstoned part as absent."""
+
     def test_a_direct_fetch_of_a_tombstoned_part_is_404(
         self,
         client: TestClient,
@@ -178,6 +172,7 @@ class TestCatalogTreatsTombstonedPartsAsAbsent:
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
     ) -> None:
+        """Fetching a tombstoned part directly answers not found."""
         headers = _headers(login_user(client, test_user.username))
         part = _make_part(client, headers, test_category, test_part_manufacturer)
 
@@ -192,6 +187,7 @@ class TestCatalogTreatsTombstonedPartsAsAbsent:
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
     ) -> None:
+        """A tombstoned part is filtered out of the part listing."""
         headers = _headers(login_user(client, test_user.username))
         part = _make_part(client, headers, test_category, test_part_manufacturer)
 
@@ -214,6 +210,7 @@ class TestSearchExcludesTombstonedRows:
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
     ) -> None:
+        """A tombstoned part disappears from search results."""
         headers = _headers(login_user(client, test_user.username))
         part = _make_part(client, headers, test_category, test_part_manufacturer)
 
@@ -227,6 +224,7 @@ class TestSearchExcludesTombstonedRows:
         assert part["id"] not in [row["id"] for row in after.json()["parts"]["items"]]
 
     def test_a_tombstoned_user_disappears_from_search(self, client: TestClient, dynamo_tables: Any) -> None:
+        """A tombstoned user disappears from search results."""
         users = UserRepository()
         username = _unique("searchable")
         user = users.create_user(
@@ -254,6 +252,7 @@ class TestBuildLogsDropsTombstonedAuthors:
     def test_a_tombstoned_author_renders_as_absent(
         self, client: TestClient, test_user: User, db_session: Any, dynamo_tables: Any
     ) -> None:
+        """A build log whose author is tombstoned renders with no author."""
         headers = _headers(login_user(client, test_user.username))
         car = create_car_in_db(db_session, "Mazda", "MX-5", "ND", 2016, 2024)
         build_list = client.post(
@@ -291,6 +290,8 @@ class TestBuildLogsDropsTombstonedAuthors:
 
 
 class TestModerationTreatsTombstonesAsAbsent:
+    """Moderation reads and writes treat tombstoned rows as absent."""
+
     def test_a_report_on_a_tombstoned_part_falls_back_to_unknown(
         self,
         client: TestClient,
@@ -299,12 +300,12 @@ class TestModerationTreatsTombstonesAsAbsent:
         test_part_manufacturer: PartManufacturer,
         dynamo_tables: Any,
     ) -> None:
+        """A report on a tombstoned part renders an unknown subject rather than failing."""
         headers = _headers(login_user(client, test_user.username))
         part = _make_part(client, headers, test_category, test_part_manufacturer)
 
         from app.api.services.report_service import ReportService
 
-        # A user may not report their own part, so the reporter is a second account.
         reporter_name = _unique("reporter")
         UserRepository().create_user(
             User(
@@ -341,6 +342,7 @@ class TestModerationTreatsTombstonesAsAbsent:
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
     ) -> None:
+        """A tombstoned part cannot be reported."""
         headers = _headers(login_user(client, test_user.username))
         part = _make_part(client, headers, test_category, test_part_manufacturer)
         _tombstone_part(UUID(part["id"]))
@@ -359,6 +361,7 @@ class TestModerationTreatsTombstonesAsAbsent:
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
     ) -> None:
+        """A tombstoned part cannot be voted on."""
         headers = _headers(login_user(client, test_user.username))
         part = _make_part(client, headers, test_category, test_part_manufacturer)
         _tombstone_part(UUID(part["id"]))

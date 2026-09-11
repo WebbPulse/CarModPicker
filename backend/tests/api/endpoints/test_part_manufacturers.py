@@ -189,7 +189,6 @@ class TestPartManufacturers:
         first = create_part_manufacturer_via_api(client, token, name)
         first_id = first["id"]
 
-        # Create again with same name (case variation)
         second = create_part_manufacturer_via_api(client, token, name.upper())
         assert second["id"] == first_id
         assert second["name"] == first["name"]
@@ -238,7 +237,7 @@ class TestPartManufacturers:
         assert response.status_code == 403
 
     def test_update_part_manufacturer_curated_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
-        """Non-admin can't edit catalog manufacturers — edits are admin-only."""
+        """A non-admin cannot edit a curated catalog manufacturer."""
         curated = DBPartManufacturer(
             name=get_unique_name("CuratedNoEdit"),
             description="Curated",
@@ -433,14 +432,8 @@ class TestPartManufacturers:
         assert "count" in data
         assert isinstance(data["count"], int)
 
-    # --- name dedup + counts ---------------------------------------------
-
     def test_create_pm_dedups_into_existing(self, client: TestClient, db_session: Any) -> None:
-        """A user typing an existing brand name auto-links to that row (no dup).
-
-        Manufacturers live in a single global namespace, deduped
-        case-insensitively by name.
-        """
+        """Typing an existing brand name links to that row, since manufacturers dedupe case insensitively in one global namespace."""
         existing_name = get_unique_name("HKS")
         existing = DBPartManufacturer(
             name=existing_name,
@@ -449,7 +442,6 @@ class TestPartManufacturers:
         existing = save_catalog(existing)
 
         _, token = create_and_login_user(client, "dedup_into_existing")
-        # Use a case variant to also confirm case-insensitive match.
         result = create_part_manufacturer_via_api(client, token, existing_name.lower())
         assert result["id"] == str(existing.id)
 
@@ -477,7 +469,6 @@ class TestPartManufacturers:
         _, creator_token = create_and_login_user(client, "pm_readable_creator")
         created = create_part_manufacturer_via_api(client, creator_token, get_unique_name("PmReadable"))
 
-        # Anonymous fetch still works.
         client.cookies.clear()
         response = client.get(f"{settings.API_STR}/part-manufacturers/{created['id']}")
         assert response.status_code == 200
@@ -490,7 +481,6 @@ class TestPartManufacturers:
         pm = create_part_manufacturer_via_api(client, creator_token, get_unique_name("PmParts"))
         category_id = str(get_default_category_id(db_session))
 
-        # Creator adds a part.
         part_resp = client.post(
             f"{settings.API_STR}/parts/",
             json={

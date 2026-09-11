@@ -1,3 +1,5 @@
+"""Covers the shared DynamoDB search helpers: matching, scanning, cursor paging and sort keys."""
+
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -17,6 +19,8 @@ GADGETS = TableSpec(
 
 
 class Gadget(TimestampedDynamoModel):
+    """A throwaway model used to exercise the search helpers."""
+
     name: str
     owner_id: str
     price_cents: int | None = None
@@ -25,6 +29,7 @@ class Gadget(TimestampedDynamoModel):
 
 @pytest.fixture
 def gadgets(dynamo_tables: Any) -> DynamoRepository[Gadget]:
+    """A repository of 300 gadgets spread across families, owners, prices and timestamps."""
     dynamo_tables.create_table(**GADGETS.create_table_request(dynamo_client.table_name(GADGETS)))
     repo = DynamoRepository(Gadget, GADGETS)
     base = datetime(2024, 1, 1, tzinfo=UTC)
@@ -46,6 +51,7 @@ def gadgets(dynamo_tables: Any) -> DynamoRepository[Gadget]:
 
 
 def _collect(repo: DynamoRepository[Gadget], matched: list[Gadget], sort_key, limit: int) -> list[Gadget]:
+    """Walk every page of a cursor paginated result and return the items in order."""
     seen: list[Gadget] = []
     cursor = None
     while True:
@@ -60,6 +66,7 @@ def _collect(repo: DynamoRepository[Gadget], matched: list[Gadget], sort_key, li
 
 
 def test_contains_is_case_insensitive_substring(gadgets: DynamoRepository[Gadget]) -> None:
+    """contains matches a substring regardless of case, after term normalisation."""
     term = search.normalize_term("  tURBO ")
     matched = search.scan_matching(gadgets, lambda g: search.contains(term, g.name, g.note))
     assert len(matched) == 100
@@ -67,6 +74,7 @@ def test_contains_is_case_insensitive_substring(gadgets: DynamoRepository[Gadget
 
 
 def test_contains_matches_across_fields(gadgets: DynamoRepository[Gadget]) -> None:
+    """contains searches every field it is given, not just the first."""
     term = search.normalize_term("STAGE TWO")
     matched = search.scan_matching(gadgets, lambda g: search.contains(term, g.name, g.note))
     assert len(matched) == 30
@@ -74,6 +82,7 @@ def test_contains_matches_across_fields(gadgets: DynamoRepository[Gadget]) -> No
 
 
 def test_starts_with_and_empty_term(gadgets: DynamoRepository[Gadget]) -> None:
+    """starts_with anchors at the front, and an empty term matches everything."""
     matched = search.scan_matching(gadgets, lambda g: search.starts_with("brake", g.name))
     assert len(matched) == 100
     assert search.contains("", None) is True
@@ -82,6 +91,7 @@ def test_starts_with_and_empty_term(gadgets: DynamoRepository[Gadget]) -> None:
 
 
 def test_scan_page_limit_caps_pages_read(gadgets: DynamoRepository[Gadget]) -> None:
+    """page_limit bounds how many scan pages are read."""
     partial = search.scan_matching(gadgets, lambda g: True, page_limit=2, page_size=40)
     assert len(partial) == 80
     full = search.scan_matching(gadgets, lambda g: True, page_limit=100, page_size=40)
@@ -89,6 +99,7 @@ def test_scan_page_limit_caps_pages_read(gadgets: DynamoRepository[Gadget]) -> N
 
 
 def test_cursor_walk_is_complete_and_ordered_by_name(gadgets: DynamoRepository[Gadget]) -> None:
+    """A full cursor walk returns every item once, ordered case insensitively by name."""
     matched = search.scan_matching(gadgets, lambda g: True, page_size=50)
     walked = _collect(gadgets, matched, lambda g: search.text_key(g.name), limit=17)
     assert len(walked) == 300
@@ -98,6 +109,7 @@ def test_cursor_walk_is_complete_and_ordered_by_name(gadgets: DynamoRepository[G
 
 
 def test_numeric_sort_ascending_puts_missing_last(gadgets: DynamoRepository[Gadget]) -> None:
+    """Ascending numeric sort orders present values first and missing ones last."""
     matched = search.scan_matching(gadgets, lambda g: True)
     walked = _collect(gadgets, matched, lambda g: search.numeric_key(g.price_cents), limit=64)
     prices = [g.price_cents for g in walked]
@@ -107,6 +119,7 @@ def test_numeric_sort_ascending_puts_missing_last(gadgets: DynamoRepository[Gadg
 
 
 def test_numeric_sort_descending(gadgets: DynamoRepository[Gadget]) -> None:
+    """Descending numeric sort reverses the order and omits rows with no price."""
     matched = search.scan_matching(gadgets, lambda g: g.price_cents is not None)
     walked = _collect(gadgets, matched, lambda g: search.numeric_key(g.price_cents, descending=True), limit=50)
     prices = [g.price_cents for g in walked]
@@ -115,6 +128,7 @@ def test_numeric_sort_descending(gadgets: DynamoRepository[Gadget]) -> None:
 
 
 def test_datetime_sort_descending(gadgets: DynamoRepository[Gadget]) -> None:
+    """Datetime sort orders both directions correctly."""
     matched = search.scan_matching(gadgets, lambda g: True)
     walked = _collect(gadgets, matched, lambda g: search.datetime_key(g.created_at, descending=True), limit=99)
     stamps = [g.created_at for g in walked]
@@ -124,6 +138,7 @@ def test_datetime_sort_descending(gadgets: DynamoRepository[Gadget]) -> None:
 
 
 def test_compound_key_orders_by_primary_then_secondary(gadgets: DynamoRepository[Gadget]) -> None:
+    """A compound key orders by the primary key then the secondary one."""
     matched = search.scan_matching(gadgets, lambda g: True)
     walked = _collect(
         gadgets,

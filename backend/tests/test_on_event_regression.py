@@ -1,13 +1,4 @@
-"""QUAL-03 regression guard: no `@app.on_event(...)` — use lifespan context.
-
-FastAPI's `@app.on_event("startup"/"shutdown")` decorators are deprecated in
-favour of the `lifespan` context manager (see `backend/app/main.py::70`).
-This test fails if any file under `backend/app/` reintroduces `@<app>.on_event(`.
-
-Tree baseline (03-RESEARCH §D-30, verified 2026-04-22): zero `@app.on_event(`
-occurrences; the canonical pattern is the `lifespan` async context manager
-registered on the `FastAPI(...)` constructor.
-"""
+"""Fails if any module under backend/app reintroduces the deprecated @app.on_event decorator instead of a lifespan context manager."""
 
 from __future__ import annotations
 

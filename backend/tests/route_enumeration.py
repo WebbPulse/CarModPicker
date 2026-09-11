@@ -1,3 +1,5 @@
+"""Shared helper that reads the mounted route table out of the OpenAPI schema."""
+
 from __future__ import annotations
 
 from app.main import app
@@ -6,6 +8,7 @@ _HTTP_METHODS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "TRACE"})
 
 
 def schema_routes() -> list[tuple[str, str]]:
+    """Return every (method, path) pair the application's OpenAPI schema declares."""
     out: list[tuple[str, str]] = []
     for path, operations in app.openapi().get("paths", {}).items():
         for method in sorted(operations):

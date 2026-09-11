@@ -49,7 +49,7 @@ class TestAuthorization:
             category_id=uuid7(),
             name="Test Part",
             description="Test",
-            user_id=test_user.id,  # Owned by different user
+            user_id=test_user.id,
         )
         assert can_delete_part(admin_user, part) is True
 
@@ -71,7 +71,7 @@ class TestAuthorization:
             category_id=uuid7(),
             name="Test Part",
             description="Test",
-            user_id=test_user.id,  # Owned by different user
+            user_id=test_user.id,
         )
         assert can_delete_part(other_user, part) is False
 
@@ -133,7 +133,7 @@ class TestAuthorization:
         build_list_part = BuildListPart(
             build_list_id=uuid7(),
             part_id=uuid7(),
-            added_by=test_user.id,  # Added by different user
+            added_by=test_user.id,
         )
         assert can_delete_build_list_part(admin_user, build_list_part) is True
 
@@ -171,10 +171,9 @@ class TestAuthorization:
         build_list_part = BuildListPart(
             build_list_id=build_list.id,
             part_id=uuid7(),
-            added_by=other_user.id,  # Added by different user
+            added_by=other_user.id,
         )
 
-        # Build list owner should be able to edit
         assert can_edit_build_list_part(test_user, build_list_part, build_list=build_list) is True
 
     def test_require_part_delete_permission_raises(self, test_user: User) -> None:

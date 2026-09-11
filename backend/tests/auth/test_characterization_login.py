@@ -1,11 +1,6 @@
-"""SAFE-06 flow 2: email/password login.
+"""Characterization of email and password login.
 
-Asserts the login endpoint returns an access token and correct user details.
-Per D-19: HTTP status + response-key presence.  No DB state change (login
-is read-only).
-
-Pattern lifted from tests/api/endpoints/test_auth.py::test_login_for_access_token_success
-and adapted to the SAFE-06 characterization shape.
+Pins the status code and the response keys the token endpoint returns.
 """
 
 import os
@@ -20,6 +15,7 @@ from app.db.dynamo.users import UserRepository
 
 
 def _uniq(base: str) -> str:
+    """A name unique to this worker and process, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
@@ -30,8 +26,6 @@ def test_login_happy_path(client: TestClient, db_session: Any) -> None:
     password = "test_password_123!"
     email = f"{username}@example.com"
 
-    # Create a verified user directly in DB (avoids needing to go through
-    # the signup → verify-email flow here; that is covered by flow 1)
     user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -42,13 +36,11 @@ def test_login_happy_path(client: TestClient, db_session: Any) -> None:
         )
     )
 
-    # POST form-encoded credentials (OAuth2PasswordRequestForm)
     response = client.post(
         f"{settings.API_STR}/auth/token",
         data={"username": username, "password": password},
     )
 
-    # D-19: status + key presence
     assert response.status_code == 200, response.text
     body = response.json()
     assert "access_token" in body
@@ -56,5 +48,4 @@ def test_login_happy_path(client: TestClient, db_session: Any) -> None:
     assert "user" in body
     assert body["user"]["username"] == username
     assert body["user"]["email"] == email
-    # Security: hashed_password must never appear in login response
     assert "hashed_password" not in body["user"]

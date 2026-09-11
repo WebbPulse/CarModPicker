@@ -1,3 +1,5 @@
+"""Covers the cross entity search endpoint."""
+
 import os
 from typing import Any, Dict
 
@@ -40,7 +42,6 @@ def create_and_login_admin_user(
     email = f"admin_test_{username_suffix}@example.com"
     password = "testpassword"
 
-    # Create admin user directly in database
     admin_user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -53,7 +54,6 @@ def create_and_login_admin_user(
         )
     )
 
-    # Log in and get token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
@@ -77,10 +77,8 @@ class TestSearch:
 
     def test_search_build_lists_by_name(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test searching build lists by name."""
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
         build_list_name = get_unique_name("searchable_build_list")
@@ -92,8 +90,7 @@ class TestSearch:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
 
-        # Search for the build list
-        search_term = build_list_name.split("_")[0]  # Use part of the name
+        search_term = build_list_name.split("_")[0]
         response = client.get(f"{settings.API_STR}/search/?q={search_term}")
         assert response.status_code == 200
         data = response.json()
@@ -102,10 +99,8 @@ class TestSearch:
 
     def test_search_build_lists_by_car_make(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test searching build lists by associated car make."""
-        # Create a car in DB (cars are seeded from backend source; tests use create_car_in_db)
         car = create_car_in_db(db_session, "Honda", "Civic")
 
-        # Create a build list
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
         build_list_data = {
@@ -116,19 +111,15 @@ class TestSearch:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
 
-        # Search for "Honda"
         response = client.get(f"{settings.API_STR}/search/?q=Honda")
         assert response.status_code == 200
         data = response.json()
         assert len(data["build_lists"]["items"]) > 0
-        # Verify the build list was found (search by car make works)
-        # BuildListRead schema only includes car_id, not the full car object
         assert any(bl.get("car_id") == str(car["id"]) for bl in data["build_lists"]["items"])
 
     def test_search_users_by_username(self, client: TestClient, test_user: DBUser) -> None:
         """Test searching users by username."""
-        # Search for the test user's username
-        search_term = test_user.username.split("_")[0]  # Use part of the username
+        search_term = test_user.username.split("_")[0]
         response = client.get(f"{settings.API_STR}/search/?q={search_term}")
         assert response.status_code == 200
         data = response.json()
@@ -137,23 +128,18 @@ class TestSearch:
 
     def test_search_users_by_email(self, client: TestClient, test_user: DBUser) -> None:
         """Test searching users by email."""
-        # Search for part of the email
-        search_term = test_user.email.split("@")[0]  # Use part before @
+        search_term = test_user.email.split("@")[0]
         response = client.get(f"{settings.API_STR}/search/?q={search_term}")
         assert response.status_code == 200
         data = response.json()
-        # The backend still matches on the stored email, but PublicUserRead does
-        # not return it, so the assertion can only be that a result came back.
         assert len(data["users"]["items"]) > 0
 
     def test_search_parts_by_name(
         self, client: TestClient, test_user: DBUser, test_category, test_part_manufacturer, db_session: Any
     ) -> None:
         """Test searching global parts by name."""
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a global part
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
         part_name = get_unique_name("searchable_part")
@@ -167,8 +153,7 @@ class TestSearch:
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=headers)
         assert response.status_code == 200
 
-        # Search for the part
-        search_term = part_name.split("_")[0]  # Use part of the name
+        search_term = part_name.split("_")[0]
         response = client.get(f"{settings.API_STR}/search/?q={search_term}")
         assert response.status_code == 200
         data = response.json()
@@ -233,10 +218,8 @@ class TestSearch:
 
     def test_search_case_insensitive(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that search is case-insensitive."""
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list with lowercase name
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
         build_list_name = get_unique_name("lowercase_build_list")
@@ -248,20 +231,16 @@ class TestSearch:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
 
-        # Search with uppercase
         search_term = build_list_name.upper()
         response = client.get(f"{settings.API_STR}/search/?q={search_term}")
         assert response.status_code == 200
         data = response.json()
-        # Should find results (case-insensitive)
         assert len(data["build_lists"]["items"]) > 0
 
     def test_search_with_pagination(self, client: TestClient, premium_test_user: DBUser, db_session: Any) -> None:
         """Test search with pagination parameters."""
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Use premium user so we can create multiple build lists
         token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
         base_name = get_unique_name("paginated")
@@ -274,7 +253,6 @@ class TestSearch:
             response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
             assert response.status_code == 200
 
-        # Search with pagination
         response = client.get(f"{settings.API_STR}/search/?q={base_name}&limit=2")
         assert response.status_code == 200
         data = response.json()
@@ -293,10 +271,8 @@ class TestSearch:
 
     def test_search_partial_match(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that search supports partial matches."""
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list with a specific name
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
         build_list_name = get_unique_name("partial_match_test")
@@ -308,16 +284,13 @@ class TestSearch:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
 
-        # Search with partial match (just "partial")
         response = client.get(f"{settings.API_STR}/search/?q=partial")
         assert response.status_code == 200
         data = response.json()
-        # Should find the build list with partial match
         assert len(data["build_lists"]["items"]) > 0
 
     def test_search_sql_injection_attempt(self, client: TestClient) -> None:
         """Test that search handles SQL injection attempts safely."""
-        # Common SQL injection patterns
         sql_injection_attempts = [
             "'; DROP TABLE users; --",
             "' OR '1'='1",
@@ -327,7 +300,6 @@ class TestSearch:
 
         for attempt in sql_injection_attempts:
             response = client.get(f"{settings.API_STR}/search/?q={attempt}")
-            # Should not crash, return 200 with empty or safe results
             assert response.status_code == 200
             data = response.json()
             assert "build_lists" in data
@@ -348,10 +320,8 @@ class TestSearch:
 
     def test_search_unicode_characters(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test search with unicode and emoji characters."""
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list with unicode characters
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
         build_list_name = get_unique_name("unicode_test_🚗")
@@ -363,19 +333,15 @@ class TestSearch:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
 
-        # Search with unicode
         response = client.get(f"{settings.API_STR}/search/?q=🚗")
         assert response.status_code == 200
         data = response.json()
-        # Should handle unicode gracefully
         assert "build_lists" in data
 
     def test_search_very_long_query(self, client: TestClient) -> None:
         """Test search with very long query string."""
-        # Create a very long query (1000 characters)
         long_query = "a" * 1000
         response = client.get(f"{settings.API_STR}/search/?q={long_query}")
-        # Should handle gracefully, not crash
         assert response.status_code == 200
         data = response.json()
         assert "build_lists" in data
@@ -386,7 +352,6 @@ class TestSearch:
         """Test search with whitespace-only query."""
         from urllib.parse import quote
 
-        # Test with spaces, tabs, newlines (URL encode them)
         whitespace_queries = ["   ", "\t\t", "\n\n", "   \t\n   "]
 
         for query in whitespace_queries:
@@ -394,7 +359,6 @@ class TestSearch:
             response = client.get(f"{settings.API_STR}/search/?q={encoded_query}")
             assert response.status_code == 200
             data = response.json()
-            # Should return empty results or handle gracefully
             assert "build_lists" in data
             assert "users" in data
             assert "parts" in data
@@ -440,16 +404,13 @@ class TestSearch:
     def test_search_pagination_limit_zero(self, client: TestClient) -> None:
         """Test search with limit=0 (should validate and reject)."""
         response = client.get(f"{settings.API_STR}/search/?q=test&limit=0")
-        # Should validate and reject (400 or 422)
         assert response.status_code in [400, 422]
 
     def test_search_pagination_very_large_limit(self, client: TestClient) -> None:
         """Test search with very large limit value (should respect max limit)."""
         response = client.get(f"{settings.API_STR}/search/?q=test&limit=10000")
-        # Endpoint validates limit with le=100, so 10000 should be rejected with 422
         assert response.status_code == 422
         data = response.json()
-        # When validation fails, response is an error format, not search results
         assert "message" in data or "detail" in data
 
     def test_search_invalid_cursor(self, client: TestClient) -> None:
@@ -459,11 +420,9 @@ class TestSearch:
 
     def test_search_case_insensitive_matching(self, client: TestClient, test_user: DBUser, db_session: Any) -> None:
         """Test that search is case-insensitive."""
-        # Create a build list with mixed case
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
         build_list_name = get_unique_name("MiXeDcAsE")
@@ -475,33 +434,14 @@ class TestSearch:
         response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
         assert response.status_code == 200
 
-        # Search with different case variations
         for query in ["mixedcase", "MIXEDCASE", "MixedCase", "MiXeDcAsE"]:
             response = client.get(f"{settings.API_STR}/search/?q={query}")
             assert response.status_code == 200
             data = response.json()
-            # Should find the build list regardless of case
             found = any(item.get("name") == build_list_name for item in data["build_lists"]["items"])
             assert found, f"Search with '{query}' should find '{build_list_name}'"
 
 
-# Regression: `GET /api/search?q=...` returned 500 whenever a match's stored
-# email was undeliverable. Staging seeds its synthetic users as
-# `user-<n>@staging.invalid`, and `.invalid` is an IANA special-use reserved TLD
-# that `email-validator` rejects, so `PublicUserRead.email` (then an `EmailStr`)
-# failed revalidating a value it had only read back. The failure lands in
-# response serialisation, after the handler has already returned, so it is an
-# unhandled 500 rather than a 422.
-#
-# `PublicUserRead` now has no `email` field at all: nothing public needed it,
-# and carrying it meant any anonymous search could read the address of every
-# user whose name matched. Dropping it fixes the crash and closes the exposure
-# in one move. `test_users.py` covers the `UserRead` side, where the address is
-# still returned to the user themselves as a plain `str`.
-#
-# `UserRepository().create_user` is used directly so the address bypasses
-# `UserCreate`, which still rejects it. That is how the row gets there in
-# staging too: the seeder writes `email` as a plain `str`.
 RESERVED_TLD_SEARCH_EMAIL_DOMAIN = "staging.invalid"
 
 
@@ -509,6 +449,7 @@ class TestSearchReservedTldEmail:
     """A seeded `@staging.invalid` user must be searchable, not a 500."""
 
     def test_search_returns_user_with_reserved_tld_email(self, client: TestClient) -> None:
+        """A user whose email uses a reserved TLD is still returned rather than erroring the search."""
         username = get_unique_name("stagingseed")
         UserRepository().create_user(
             DBUser(
@@ -527,7 +468,6 @@ class TestSearchReservedTldEmail:
         matched = [u for u in items if u["username"] == username]
         assert matched, f"seeded user {username} missing from search results"
 
-        # The public shape must not carry the address it used to 500 on.
         assert "email" not in matched[0], "PublicUserRead must not expose email"
 
     def test_search_result_shape_omits_email_for_every_user(self, client: TestClient, test_user: DBUser) -> None:

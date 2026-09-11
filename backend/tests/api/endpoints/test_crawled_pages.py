@@ -1,3 +1,5 @@
+"""Covers the crawled page scrape endpoint: auth, parsing, and input limits."""
+
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
@@ -7,6 +9,7 @@ SCRAPE_URL = f"{settings.API_STR}/crawled-pages/scrape"
 
 
 def _auth_headers(client: TestClient, username: str) -> dict[str, str]:
+    """Create a user and return an Authorization header carrying their token."""
     create_and_login_user(client, username)
     return {"Authorization": f"Bearer {login_user(client, username)}"}
 
@@ -26,11 +29,13 @@ SAMPLE_HTML = """
 
 
 def test_scrape_requires_auth(client: TestClient):
+    """Scraping without a token is a 401."""
     response = client.post(SCRAPE_URL, json={"url": "https://example.com/p/1", "html": SAMPLE_HTML})
     assert response.status_code == 401
 
 
 def test_scrape_returns_parsed_page(client: TestClient):
+    """A scrape returns the canonicalised URL, adapter name and HTML digest."""
     headers = _auth_headers(client, "scrape_user")
     response = client.post(
         SCRAPE_URL,
@@ -48,6 +53,7 @@ def test_scrape_returns_parsed_page(client: TestClient):
 
 
 def test_scrape_rejects_blank_input(client: TestClient):
+    """A blank URL or empty HTML body is a 400."""
     headers = _auth_headers(client, "scrape_blank_user")
     response = client.post(SCRAPE_URL, json={"url": "  ", "html": SAMPLE_HTML}, headers=headers)
     assert response.status_code == 400
@@ -56,6 +62,7 @@ def test_scrape_rejects_blank_input(client: TestClient):
 
 
 def test_scrape_rejects_oversized_html(client: TestClient, monkeypatch):
+    """HTML beyond CRAWLED_PAGE_MAX_HTML_BYTES is a 413."""
     headers = _auth_headers(client, "scrape_big_user")
     monkeypatch.setattr(settings, "CRAWLED_PAGE_MAX_HTML_BYTES", 64)
     response = client.post(SCRAPE_URL, json={"url": "https://example.com/p/1", "html": "x" * 65}, headers=headers)

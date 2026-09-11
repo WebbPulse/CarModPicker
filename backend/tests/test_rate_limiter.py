@@ -153,17 +153,14 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/cars"
         request.method = "POST"
 
-        # First request should pass
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
-        # Second request should pass
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
-        # Third request should be limited
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert is_limited
         assert "Rate limit exceeded" in reason
@@ -178,17 +175,14 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/cars"
         request.method = "GET"
 
-        # First request should pass
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
-        # Second request should pass
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
-        # Third request should be limited
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert is_limited
         assert "Rate limit exceeded" in reason
@@ -203,17 +197,14 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/auth/login"
         request.method = "POST"
 
-        # First request should pass
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
-        # Second request should pass
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
         assert reason == ""
 
-        # Third request should be limited
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert is_limited
         assert "Rate limit exceeded" in reason
@@ -228,15 +219,12 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/cars"
         request.method = "POST"
 
-        # First request should pass
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
 
-        # Second request should pass
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert not is_limited
 
-        # Third request should be limited
         is_limited, reason, _ = limiter.is_rate_limited(request)
         assert is_limited
         assert "Rate limit exceeded" in reason
@@ -251,26 +239,20 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/cars"
         request.method = "POST"
 
-        # Use a fixed current time for testing
         current_time = time.time()
 
-        # Add some old requests (older than both 60 seconds and 3600 seconds)
-        old_time = current_time - 7200  # 2 hours ago
+        old_time = current_time - 7200
         limiter.minute_requests["default:192.168.1.1"] = [old_time, old_time]
         limiter.hour_requests["default:192.168.1.1"] = [old_time, old_time]
 
-        # Add a recent request (within 60 seconds)
-        recent_time = current_time - 30  # 30 seconds ago
+        recent_time = current_time - 30
         limiter.minute_requests["default:192.168.1.1"].append(recent_time)
         limiter.hour_requests["default:192.168.1.1"].append(recent_time)
 
-        # Verify initial state
         assert len(limiter.minute_requests["default:192.168.1.1"]) == 3
         assert len(limiter.hour_requests["default:192.168.1.1"]) == 3
 
-        # Mock time.time to return our fixed time
         with unittest.mock.patch("time.time", return_value=current_time):
-            # Cleanup should remove old requests
             limiter._cleanup_old_requests(  # pyright: ignore[reportPrivateUsage]
                 "default:192.168.1.1", 60, limiter.minute_requests
             )
@@ -278,7 +260,6 @@ class TestSophisticatedRateLimiter:
                 "default:192.168.1.1", 3600, limiter.hour_requests
             )
 
-        # After cleanup, only the recent request should remain
         assert len(limiter.minute_requests["default:192.168.1.1"]) == 1
         assert len(limiter.hour_requests["default:192.168.1.1"]) == 1
         assert limiter.minute_requests["default:192.168.1.1"][0] == recent_time
@@ -294,7 +275,6 @@ class TestSophisticatedRateLimiter:
         request.url.path = "/api/cars"
         request.method = "POST"
 
-        # Add some requests
         current_time = time.time()
         limiter.minute_requests["default:192.168.1.1"] = [
             current_time - 10,
@@ -307,8 +287,8 @@ class TestSophisticatedRateLimiter:
 
         remaining = limiter.get_remaining_requests(request)
 
-        assert remaining["minute_remaining"] == 8  # 10 - 2
-        assert remaining["hour_remaining"] == 98  # 100 - 2
+        assert remaining["minute_remaining"] == 8
+        assert remaining["hour_remaining"] == 98
         assert "minute_reset" in remaining
         assert "hour_reset" in remaining
         assert "minute_limit" in remaining
@@ -322,7 +302,6 @@ class TestRateLimitMiddleware:
         """Test that middleware skips rate limiting for health checks."""
         client = TestClient(app)
 
-        # Health check should not be rate limited
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
@@ -331,7 +310,6 @@ class TestRateLimitMiddleware:
         """Test that middleware skips rate limiting for docs."""
         client = TestClient(app)
 
-        # Docs should not be rate limited
         response = client.get("/docs")
         assert response.status_code == 200
 
@@ -339,13 +317,11 @@ class TestRateLimitMiddleware:
         """Test that middleware skips rate limiting for redoc."""
         client = TestClient(app)
 
-        # Redoc should not be rate limited
         response = client.get("/redoc")
         assert response.status_code == 200
 
     def test_middleware_rate_limiting(self) -> None:
         """Test that middleware properly rate limits requests."""
-        # Create a test app with very low limits for testing
         from fastapi import FastAPI
 
         from app.api.middleware.rate_limiter import (
@@ -357,7 +333,6 @@ class TestRateLimitMiddleware:
         config = RateLimitConfig(requests_per_minute=1, requests_per_hour=2)
         test_limiter = SophisticatedRateLimiter(config)
 
-        # Mock the global rate limiter
         import app.api.middleware.rate_limiter as rate_limiter_module
 
         original_limiter = rate_limiter_module.rate_limiter
@@ -368,30 +343,25 @@ class TestRateLimitMiddleware:
 
             @test_app.get("/test")
             def test_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+                """A route the middleware should limit."""
                 return {"message": "test"}
 
             client = TestClient(test_app)
 
-            # Since rate limiting is disabled in test environment, all requests should pass
-            # First request should pass
             response = client.get("/test")
             assert response.status_code == 200
 
-            # Second request should also pass (rate limiting disabled)
             response = client.get("/test")
             assert response.status_code == 200
 
         finally:
-            # Restore original rate limiter
             rate_limiter_module.rate_limiter = original_limiter
 
 
 class TestRateLimitExemptPaths:
-    """Test cases for the skip list used by the middleware.
+    """The middleware skip list, exact and prefix entries alike.
 
-    The skip list used to be tested with ``startswith`` against a list containing
-    "/", which is a prefix of every path. That exempted the whole API and disabled
-    the limiter in production, so these cases pin the exact/prefix split down.
+    A prefix of "/" would exempt the whole API and silently disable the limiter.
     """
 
     def test_root_is_exempt(self) -> None:
@@ -430,25 +400,26 @@ class TestRateLimitMiddlewareEnforcement:
 
         @test_app.get("/api/parts")
         def parts_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            """A non-exempt API route."""
             return {"message": "parts"}
 
         @test_app.get("/health")
         def health_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            """An exempt health route."""
             return {"status": "healthy"}
 
         @test_app.get("/docs/oauth2-redirect")
         def docs_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            """An exempt docs route."""
             return {"message": "docs"}
 
         return test_app, SophisticatedRateLimiter(config)
 
     @contextmanager
     def _limiter_enabled(self, limiter: object) -> Iterator[None]:
-        """Enable rate limiting and install ``limiter`` as the global limiter.
+        """Enable rate limiting and install the given limiter globally.
 
-        The test suite disables rate limiting globally via conftest, through both the
-        ENABLE_RATE_LIMITING environment variable and the settings object, so both
-        have to be overridden for the middleware to run at all.
+        The suite disables limiting through both the environment and settings, so both are overridden.
         """
         original_limiter = rate_limiter_module.rate_limiter
         rate_limiter_module.rate_limiter = limiter  # type: ignore[assignment]

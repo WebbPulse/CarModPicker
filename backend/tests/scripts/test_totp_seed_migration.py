@@ -1,23 +1,6 @@
-"""`scripts/migrate_totp_seeds_to_identity.py` against moto's DynamoDB and KMS.
+"""Tests for migrating legacy TOTP seeds into the package's factor store.
 
-The stores and the cipher under test are the package's own, over moto-backed
-tables and a moto KMS key. Nothing here is a fake, and that is the whole point:
-what this script has to get right is a **row shape and an encryption context**
-that another piece of code, `MfaService`, reads back after the cutover. A test
-against a stub store would prove the script can call `put` and nothing about
-whether MFA still works.
-
-`test_a_sealed_seed_verifies_through_the_packages_mfa_service` is the load
-bearing one. It seals a `pyotp`-compatible seed with the script, then satisfies a
-challenge through `MfaService.verify_challenge` with a code generated from the
-plaintext seed the way the legacy path does. If the row shape, the encryption
-context, the `activated_at` derivation or the base32 handling ever diverge, that
-test fails here rather than every enrolled user failing to sign in at cutover.
-
-`crypto.py`'s own docstring records that moto 5.2.3 is faithful for the symmetric
-KMS path: `GenerateDataKey` and `Decrypt` round trip, the encryption context is
-enforced as AAD, and a tampered ciphertext is rejected. That is what makes these
-tests meaningful rather than a rehearsal against a permissive fake.
+Runs against moto DynamoDB and KMS so the real reader exercises the row shape.
 """
 
 from __future__ import annotations
@@ -36,8 +19,6 @@ from app.db.dynamo.tables import USERS
 from scripts import migrate_totp_seeds_to_identity as script
 from tests.scripts.conftest import PREFIX, REGION
 
-#: A base32 seed in exactly the form `two_factor.py` stores: what
-#: `pyotp.random_base32()` produces, unpadded and uppercase.
 SEED = base64.b32encode(b"0123456789abcdefghij").decode("ascii").rstrip("=")
 OTHER_SEED = base64.b32encode(b"jihgfedcba9876543210").decode("ascii").rstrip("=")
 
@@ -56,6 +37,7 @@ def data_key_arn(kms: Any) -> str:
 
 @pytest.fixture
 def cipher(data_key_arn: str, kms: Any) -> Any:
+    """The real seed cipher over the moto identity data key."""
     return script.build_cipher(data_key_arn, kms)
 
 
@@ -95,15 +77,12 @@ def make_user(
 
 
 def rows() -> list[dict[str, Any]]:
+    """Read back every user row the migration iterates."""
     return list(script.iter_user_rows(PREFIX))
 
 
-# ---------------------------------------------------------------------------
-# Sealing
-# ---------------------------------------------------------------------------
-
-
 def test_a_dry_run_writes_nothing(store: Any, cipher: Any, users: Any) -> None:
+    """A dry run reports the work and writes no factor."""
     user_id = make_user(users)
 
     summary, decisions = script.migrate(rows(), store, cipher)
@@ -114,6 +93,7 @@ def test_a_dry_run_writes_nothing(store: Any, cipher: Any, users: Any) -> None:
 
 
 def test_apply_writes_the_factor_in_the_packages_shape(store: Any, cipher: Any, users: Any) -> None:
+    """An applied run writes the factor in the shape the package reads."""
     user_id = make_user(users)
 
     summary, _ = script.migrate(rows(), store, cipher, apply=True)
@@ -122,12 +102,10 @@ def test_apply_writes_the_factor_in_the_packages_shape(store: Any, cipher: Any, 
     factor = store.get(user_id)
     assert factor is not None
     assert factor.user_id == user_id
-    # The three envelope fields, all present and all base64.
     assert factor.secret_ciphertext and factor.secret_nonce and factor.wrapped_data_key
     for value in (factor.secret_ciphertext, factor.secret_nonce, factor.wrapped_data_key):
         base64.b64decode(value.encode("ascii"), validate=True)
     assert factor.created_at
-    # No watermark to carry: the legacy implementation keeps none.
     assert factor.last_used_step == 0
 
 
@@ -142,12 +120,7 @@ def test_the_sealed_seed_opens_back_to_the_plaintext(store: Any, cipher: Any, us
 
 
 def test_the_encryption_context_binds_the_ciphertext_to_the_user(store: Any, cipher: Any, users: Any) -> None:
-    """A ciphertext moved onto another user's row must not decrypt.
-
-    This is the property `encryption_context` exists for: without it an attacker
-    with a single write to `totp-factors` promotes their own seed onto a victim's
-    account and every code they generate is accepted.
-    """
+    """A ciphertext moved onto another user's row does not decrypt."""
     victim = make_user(users)
     attacker = make_user(users)
 
@@ -157,20 +130,10 @@ def test_the_encryption_context_binds_the_ciphertext_to_the_user(store: Any, cip
     assert script._open(stolen, victim, cipher) is None
 
 
-# ---------------------------------------------------------------------------
-# The shape must be one `MfaService` can read
-# ---------------------------------------------------------------------------
-
-
 def test_a_sealed_seed_verifies_through_the_packages_mfa_service(
     store: Any, cipher: Any, users: Any, data_key_arn: str, kms: Any
 ) -> None:
-    """The whole claim of the migration, end to end and through the real reader.
-
-    Sealed by this script, then satisfied through `MfaService.verify_challenge`
-    with a code generated from the plaintext the legacy path would have used. If
-    the row shape or the encryption context diverged, this is where it shows.
-    """
+    """A sealed seed satisfies a challenge through the package's MFA service."""
     import pyotp
     from webbpulse.identity import IdentityStores
     from webbpulse.identity.mfa import AMR_OTP, MfaService
@@ -182,8 +145,6 @@ def test_a_sealed_seed_verifies_through_the_packages_mfa_service(
     settings = IdentitySettings(
         issuer="https://api.example.com/api/auth",
         audience="carmodpicker-api",
-        # A signing key is required to construct the settings and is not used
-        # here: nothing in this test mints a token, only verifies a factor.
         signing_key_arns=["arn:aws:kms:us-east-1:1:key/signing-not-used-here"],
         data_key_arn=data_key_arn,
         product_name="CarModPicker",
@@ -195,10 +156,8 @@ def test_a_sealed_seed_verifies_through_the_packages_mfa_service(
         kms_client=kms,
     )
 
-    # The factor is active, so the login challenge would ask for it.
     assert service.factors_for(user_id) == ["totp"]
 
-    # A code from the plaintext seed, generated exactly as `two_factor.py` does.
     code = pyotp.TOTP(SEED).now()
     assert service.verify_challenge(user_id, code) == AMR_OTP
 
@@ -206,11 +165,7 @@ def test_a_sealed_seed_verifies_through_the_packages_mfa_service(
 def test_a_pending_enrolment_is_not_a_factor_the_service_challenges(
     store: Any, cipher: Any, users: Any, data_key_arn: str, kms: Any
 ) -> None:
-    """`totp_enabled = False` with a seed present must not gate login.
-
-    Activating it would challenge a user whose authenticator never received the
-    seed, which is a lockout with no way through.
-    """
+    """A seed present but not enabled is migrated inactive, so it cannot gate login."""
     from webbpulse.identity import IdentityStores
     from webbpulse.identity.mfa import MfaService
     from webbpulse.identity.settings import IdentitySettings
@@ -235,6 +190,7 @@ def test_a_pending_enrolment_is_not_a_factor_the_service_challenges(
 
 
 def test_an_enabled_seed_activates(store: Any, cipher: Any, users: Any) -> None:
+    """An enabled legacy seed becomes an active factor."""
     user_id = make_user(users, enabled=True)
 
     script.migrate(rows(), store, cipher, apply=True)
@@ -244,12 +200,8 @@ def test_an_enabled_seed_activates(store: Any, cipher: Any, users: Any) -> None:
     assert factor.is_active is True
 
 
-# ---------------------------------------------------------------------------
-# Idempotence and conflicts
-# ---------------------------------------------------------------------------
-
-
 def test_a_rerun_is_idempotent(store: Any, cipher: Any, users: Any) -> None:
+    """Running the migration twice leaves one factor per user."""
     make_user(users)
 
     script.migrate(rows(), store, cipher, apply=True)
@@ -260,6 +212,7 @@ def test_a_rerun_is_idempotent(store: Any, cipher: Any, users: Any) -> None:
 
 
 def test_a_rerun_does_not_reseal_and_so_does_not_move_created_at(store: Any, cipher: Any, users: Any) -> None:
+    """A rerun leaves the existing ciphertext and timestamp untouched."""
     user_id = make_user(users)
 
     script.migrate(rows(), store, cipher, apply=True)
@@ -294,6 +247,7 @@ def test_a_different_sealed_seed_is_a_conflict_and_nothing_is_written(store: Any
 
 
 def test_a_conflict_blocks_the_whole_run_before_any_write(store: Any, cipher: Any, users: Any) -> None:
+    """A conflicting existing factor aborts the run before anything is written."""
     clean = make_user(users)
     conflicted = make_user(users)
     sealed = cipher.seal(OTHER_SEED.encode("ascii"), user_id=conflicted)
@@ -314,6 +268,7 @@ def test_a_conflict_blocks_the_whole_run_before_any_write(store: Any, cipher: An
 
 
 def test_replace_overwrites_a_conflict_but_keeps_created_at(store: Any, cipher: Any, users: Any) -> None:
+    """Replace mode overwrites a conflicting factor while preserving its creation time."""
     user_id = make_user(users)
     sealed = cipher.seal(OTHER_SEED.encode("ascii"), user_id=user_id)
     store.put(
@@ -374,12 +329,8 @@ def test_the_same_seed_with_the_wrong_state_is_reset_not_a_conflict(store: Any, 
     assert store.get(user_id).is_active is True
 
 
-# ---------------------------------------------------------------------------
-# Skips
-# ---------------------------------------------------------------------------
-
-
 def test_a_user_with_no_seed_is_skipped(store: Any, cipher: Any, users: Any) -> None:
+    """A user with no legacy seed produces no factor."""
     user_id = make_user(users, seed=None, enabled=False)
 
     summary, decisions = script.migrate(rows(), store, cipher, apply=True)
@@ -390,6 +341,7 @@ def test_a_user_with_no_seed_is_skipped(store: Any, cipher: Any, users: Any) -> 
 
 
 def test_unique_sentinel_rows_are_not_users(store: Any, cipher: Any, users: Any) -> None:
+    """Unique lookup sentinel rows are not treated as users."""
     make_user(users)
     users.put_item(Item={"id": unique_lookup_key("username", "someone")})
 
@@ -397,11 +349,6 @@ def test_unique_sentinel_rows_are_not_users(store: Any, cipher: Any, users: Any)
 
     assert len(decisions) == 1
     assert summary["seal"] == 1
-
-
-# ---------------------------------------------------------------------------
-# The plaintext survives sealing, and only a later explicit pass removes it
-# ---------------------------------------------------------------------------
 
 
 def test_apply_leaves_the_plaintext_in_place(store: Any, cipher: Any, users: Any) -> None:
@@ -414,6 +361,7 @@ def test_apply_leaves_the_plaintext_in_place(store: Any, cipher: Any, users: Any
 
 
 def test_verify_passes_after_a_clean_apply(store: Any, cipher: Any, users: Any) -> None:
+    """Verification reports nothing outstanding after a clean apply."""
     make_user(users)
     script.migrate(rows(), store, cipher, apply=True)
 
@@ -427,6 +375,7 @@ def test_verify_passes_after_a_clean_apply(store: Any, cipher: Any, users: Any) 
 
 
 def test_verify_reports_a_user_whose_factor_was_never_sealed(store: Any, cipher: Any, users: Any) -> None:
+    """Verification reports a user whose factor is missing."""
     make_user(users)
 
     summary, _ = script.verify(rows(), store, cipher)
@@ -436,6 +385,7 @@ def test_verify_reports_a_user_whose_factor_was_never_sealed(store: Any, cipher:
 
 
 def test_verify_writes_nothing(store: Any, cipher: Any, users: Any) -> None:
+    """Verification is read only."""
     user_id = make_user(users)
     script.migrate(rows(), store, cipher, apply=True)
     before = store.get(user_id)
@@ -448,6 +398,7 @@ def test_verify_writes_nothing(store: Any, cipher: Any, users: Any) -> None:
 
 
 def test_clear_plaintext_is_a_dry_run_by_default(store: Any, cipher: Any, users: Any) -> None:
+    """Clearing the plaintext seed reports without writing unless applied."""
     user_id = make_user(users)
     script.migrate(rows(), store, cipher, apply=True)
 
@@ -458,15 +409,14 @@ def test_clear_plaintext_is_a_dry_run_by_default(store: Any, cipher: Any, users:
 
 
 def test_clear_plaintext_removes_the_attribute_once_applied(store: Any, cipher: Any, users: Any) -> None:
+    """An applied clear removes the legacy seed attribute from the user row."""
     user_id = make_user(users)
     script.migrate(rows(), store, cipher, apply=True)
 
     summary, _ = script.clear_plaintext(rows(), store, cipher, prefix=PREFIX, apply=True)
 
     assert summary["cleared"] == 1
-    # REMOVE rather than a null, so the attribute is simply gone.
     assert "totp_secret" not in users.get_item(Key={"id": user_id})["Item"]
-    # And the sealed copy, the only one left, still opens.
     assert script._open(store.get(user_id), user_id, cipher) == SEED
 
 
@@ -483,6 +433,7 @@ def test_clear_plaintext_refuses_a_user_whose_factor_is_missing(store: Any, ciph
 
 
 def test_clear_plaintext_refuses_a_factor_holding_a_different_seed(store: Any, cipher: Any, users: Any) -> None:
+    """A factor sealing a different seed blocks the plaintext from being cleared."""
     user_id = make_user(users)
     sealed = cipher.seal(OTHER_SEED.encode("ascii"), user_id=user_id)
     store.put(
@@ -499,11 +450,6 @@ def test_clear_plaintext_refuses_a_factor_holding_a_different_seed(store: Any, c
 
     assert summary["refused"] == 1
     assert users.get_item(Key={"id": user_id})["Item"]["totp_secret"] == SEED
-
-
-# ---------------------------------------------------------------------------
-# Nothing prints a seed, and the decisions cannot carry one
-# ---------------------------------------------------------------------------
 
 
 def test_no_output_contains_a_seed_or_any_envelope_field(store: Any, cipher: Any, users: Any, capsys: Any) -> None:
@@ -540,12 +486,8 @@ def test_a_decision_carries_no_seed_field(store: Any, cipher: Any, users: Any) -
         assert SEED not in "".join(str(value) for value in decision)
 
 
-# ---------------------------------------------------------------------------
-# The command line
-# ---------------------------------------------------------------------------
-
-
 def test_parse_args_requires_a_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A missing table prefix is an argument error."""
     monkeypatch.delenv("DYNAMODB_TABLE_PREFIX", raising=False)
     monkeypatch.setenv("IDENTITY_DATA_KEY_ARN", "arn:aws:kms:us-west-2:1:key/abc")
     with pytest.raises(SystemExit):
@@ -553,6 +495,7 @@ def test_parse_args_requires_a_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_parse_args_requires_a_data_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A missing data key is an argument error."""
     monkeypatch.delenv("IDENTITY_DATA_KEY_ARN", raising=False)
     with pytest.raises(SystemExit):
         script.parse_args(["--prefix", PREFIX])
@@ -561,6 +504,7 @@ def test_parse_args_requires_a_data_key(monkeypatch: pytest.MonkeyPatch) -> None
 def test_parse_args_defaults_both_from_the_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Prefix and data key default from the environment when not passed."""
     monkeypatch.setenv("DYNAMODB_TABLE_PREFIX", "carmodpicker-staging")
     monkeypatch.setenv("IDENTITY_DATA_KEY_ARN", "arn:aws:kms:us-west-2:1:key/abc")
     args = script.parse_args([])
@@ -572,6 +516,7 @@ def test_parse_args_defaults_both_from_the_environment(
 
 
 def test_verify_and_clear_plaintext_are_mutually_exclusive() -> None:
+    """Verify and clear plaintext cannot be requested together."""
     with pytest.raises(SystemExit):
         script.parse_args(["--prefix", PREFIX, "--data-key-arn", "k", "--verify", "--clear-plaintext"])
 
@@ -579,6 +524,7 @@ def test_verify_and_clear_plaintext_are_mutually_exclusive() -> None:
 def test_main_dry_runs_by_default(
     store: Any, cipher: Any, users: Any, data_key_arn: str, kms: Any, capsys: Any
 ) -> None:
+    """The entrypoint dry runs unless apply is requested."""
     user_id = make_user(users)
 
     exit_code = script.main(["--prefix", PREFIX, "--data-key-arn", data_key_arn], kms_client=kms)
@@ -591,6 +537,7 @@ def test_main_dry_runs_by_default(
 def test_main_returns_one_on_a_conflict(
     store: Any, cipher: Any, users: Any, data_key_arn: str, kms: Any, capsys: Any
 ) -> None:
+    """A conflict makes the entrypoint exit with the failure code."""
     user_id = make_user(users)
     sealed = cipher.seal(OTHER_SEED.encode("ascii"), user_id=user_id)
     store.put(
@@ -619,6 +566,7 @@ def test_main_verify_returns_one_when_a_factor_is_missing(store: Any, users: Any
 
 
 def test_main_verify_returns_zero_after_a_clean_apply(store: Any, users: Any, data_key_arn: str, kms: Any) -> None:
+    """Verification through the entrypoint succeeds after a clean apply."""
     make_user(users)
     script.main(["--prefix", PREFIX, "--data-key-arn", data_key_arn, "--apply"], kms_client=kms)
 

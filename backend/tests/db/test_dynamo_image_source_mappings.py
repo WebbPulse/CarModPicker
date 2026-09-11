@@ -8,10 +8,12 @@ from app.db.dynamo.tables import IMAGE_SOURCE_MAPPINGS
 
 
 def test_source_url_index_is_declared() -> None:
+    """The table declares the source URL index the lookups rely on."""
     assert [index.name for index in IMAGE_SOURCE_MAPPINGS.indexes] == [SOURCE_URL_INDEX]
 
 
 def test_lookup_by_source_url(dynamo_tables: Any) -> None:
+    """A recorded mapping is found by source URL and an unknown URL returns None."""
     repo = ImageSourceMappingRepository()
     created = repo.record("https://cdn.example.com/a.jpg", "parts/u1/a.jpg")
 
@@ -21,6 +23,7 @@ def test_lookup_by_source_url(dynamo_tables: Any) -> None:
 
 
 def test_record_keeps_the_first_mapping(dynamo_tables: Any) -> None:
+    """Recording the same source URL twice keeps the original file key rather than overwriting it."""
     repo = ImageSourceMappingRepository()
     first = repo.record("https://cdn.example.com/a.jpg", "parts/u1/a.jpg")
     second = repo.record("https://cdn.example.com/a.jpg", "parts/u2/other.jpg")
@@ -31,6 +34,7 @@ def test_record_keeps_the_first_mapping(dynamo_tables: Any) -> None:
 
 
 def test_all_file_keys_feed_orphan_detection(dynamo_tables: Any) -> None:
+    """Every mapped file key reaches the orphan detection sweep."""
     repo = ImageSourceMappingRepository()
     repo.record("https://cdn.example.com/a.jpg", "parts/u1/a.jpg")
     repo.record("https://cdn.example.com/b.jpg", "not a file key")

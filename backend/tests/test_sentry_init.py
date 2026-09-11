@@ -1,10 +1,4 @@
-"""OBS-01 unit + integration coverage for backend Sentry init.
-
-Decision refs: 02-CONTEXT.md D-01..D-15, D-49. Landmine refs: 02-RESEARCH.md
-§5 Landmine 1 (ignore_errors strings), Landmine 2 (StarletteIntegration
-MUST be explicit), Landmine 3 (capture_envelope 2.x API), Landmine 16
-(init is process-global; fixture tears down client).
-"""
+"""Tests for the backend Sentry initialisation: gating, kwargs, sampling and scope."""
 
 from __future__ import annotations
 
@@ -18,9 +12,10 @@ from app.core.sentry import _before_send, _traces_sampler, init_sentry
 
 
 class TestInitGating:
-    """D-01, D-13: init_sentry must no-op on three gate conditions."""
+    """The three conditions under which initialisation is skipped."""
 
     def test_testing_true_skips_init(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Initialisation is skipped while the testing flag is set."""
         mock_init = MagicMock()
         monkeypatch.setattr("app.core.sentry.sentry_sdk.init", mock_init)
         monkeypatch.setenv("TESTING", "true")
@@ -28,6 +23,7 @@ class TestInitGating:
         assert mock_init.call_count == 0
 
     def test_wrong_environment_skips_init(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Initialisation is skipped outside the enabled environments."""
         mock_init = MagicMock()
         monkeypatch.setattr("app.core.sentry.sentry_sdk.init", mock_init)
         monkeypatch.setenv("TESTING", "")
@@ -36,6 +32,7 @@ class TestInitGating:
         assert mock_init.call_count == 0
 
     def test_empty_dsn_skips_init(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Initialisation is skipped when no DSN is configured."""
         mock_init = MagicMock()
         monkeypatch.setattr("app.core.sentry.sentry_sdk.init", mock_init)
         monkeypatch.setenv("TESTING", "")
@@ -46,10 +43,11 @@ class TestInitGating:
 
 
 class TestInitKwargs:
-    """D-02, D-03, D-06, D-07, D-08, D-11: kwargs shape when init fires."""
+    """The arguments passed to the SDK when initialisation does fire."""
 
     @pytest.fixture
     def active_init(self, monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+        """Initialise Sentry against a mock SDK and return the mock."""
         mock_init = MagicMock()
         monkeypatch.setattr("app.core.sentry.sentry_sdk.init", mock_init)
         monkeypatch.setenv("TESTING", "")
@@ -61,33 +59,35 @@ class TestInitKwargs:
         return mock_init
 
     def test_send_default_pii_false(self, active_init: MagicMock) -> None:
+        """Personally identifiable information is not sent by default."""
         kwargs = active_init.call_args.kwargs
         assert kwargs["send_default_pii"] is False
 
     def test_server_name_passed(self, active_init: MagicMock) -> None:
+        """The server name reaches the SDK."""
         assert active_init.call_args.kwargs["server_name"] == "apprunner-backend"
 
     def test_release_from_env(self, active_init: MagicMock) -> None:
+        """The release is taken from the environment."""
         assert active_init.call_args.kwargs["release"] == "abc123"
 
     def test_environment_tag(self, active_init: MagicMock) -> None:
+        """The environment tag is taken from the settings."""
         assert active_init.call_args.kwargs["environment"] == "staging"
 
     def test_traces_sampler_is_callable(self, active_init: MagicMock) -> None:
+        """A traces sampler callable is supplied rather than a fixed rate."""
         assert callable(active_init.call_args.kwargs["traces_sampler"])
 
     def test_ignore_errors_strings(self, active_init: MagicMock) -> None:
-        """Landmine 1: ignore_errors uses STRING class names in 2.x (not class refs)."""
+        """Ignored errors are named as strings, which is what this SDK version matches on."""
         ignore = active_init.call_args.kwargs["ignore_errors"]
         assert "fastapi.exceptions.HTTPException" in ignore
         assert "starlette.exceptions.HTTPException" in ignore
-        # slowapi entry is defensive — rate_limiter.py currently returns JSONResponse
-        # directly rather than raising, but this future-proofs the suppression.
         assert "slowapi.errors.RateLimitExceeded" in ignore
 
     def test_all_three_integrations_loaded(self, active_init: MagicMock) -> None:
-        """Landmine 2: StarletteIntegration MUST be explicit — it is NOT auto-enabled
-        by FastApiIntegration despite what some older docs claim."""
+        """Starlette, FastAPI and logging integrations are all passed explicitly."""
         from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.logging import LoggingIntegration
         from sentry_sdk.integrations.starlette import StarletteIntegration
@@ -100,25 +100,28 @@ class TestInitKwargs:
 
 
 class TestTracesSampler:
-    """D-06: traces_sampler returns 0.0 for health noise, 0.05 otherwise."""
+    """The sampling rate the traces sampler returns per transaction."""
 
     @pytest.mark.parametrize("path", ["/health", "/ready", "/openapi.json", "health_check", "api/ready", "openapi"])
     def test_health_routes_zero(self, path: str) -> None:
+        """Health transactions are never sampled."""
         assert _traces_sampler({"transaction_context": {"name": path}}) == 0.0
 
     @pytest.mark.parametrize("path", ["/api/users/me", "users.read_user_by_id", "/api/cars/1"])
     def test_real_routes_sampled(self, path: str) -> None:
+        """Ordinary transactions are sampled at the default rate."""
         assert _traces_sampler({"transaction_context": {"name": path}}) == 0.05
 
     def test_empty_name_sampled(self) -> None:
-        """Missing / empty transaction name falls through to default sample rate."""
+        """A missing transaction name falls through to the default rate."""
         assert _traces_sampler({}) == 0.05
 
 
 class TestBeforeSend:
-    """D-09: scope processor attaches request_id + user_id from ContextVars."""
+    """The scope processor that attaches the request and user ids."""
 
     def test_attaches_request_id_when_set(self) -> None:
+        """A set request id is attached as a tag."""
         token = request_id_var.set("abc-123")
         try:
             event = _before_send({}, None)
@@ -127,6 +130,7 @@ class TestBeforeSend:
             request_id_var.reset(token)
 
     def test_attaches_user_id_when_set(self) -> None:
+        """A set user id is attached to the event's user."""
         token = user_id_var.set("42")
         try:
             event = _before_send({}, None)
@@ -135,18 +139,17 @@ class TestBeforeSend:
             user_id_var.reset(token)
 
     def test_no_tag_when_default(self) -> None:
-        """When ContextVars still hold sentinel '-', neither tag nor user is added."""
+        """With the context variables unset neither tag nor user is added."""
         event = _before_send({}, None)
         assert "tags" not in event or "request_id" not in event.get("tags", {})
         assert "user" not in event or "id" not in event.get("user", {})
 
 
 class TestIgnoreErrorsIntegration:
-    """Full-SDK integration: raise HTTPException and confirm no envelope captured."""
+    """Ignored errors through the real SDK and a capturing transport."""
 
     def test_http_exception_not_captured(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Landmine 1 runtime gate: if this fails, the string form of ignore_errors
-        isn't matching on this SDK version — switch to class refs in sentry.py."""
+        """An HTTP exception produces no envelope, so the ignore list matches."""
         import sentry_sdk
 
         from tests.conftest import _CapturingTransport
@@ -177,9 +180,7 @@ class TestIgnoreErrorsIntegration:
             client.close()
 
     def test_runtime_error_captured(self, sentry_events) -> None:
-        """Control: ensure the transport works in principle. Without this, a
-        broken transport could silently make `test_http_exception_not_captured`
-        pass for the wrong reason."""
+        """A runtime error does produce an envelope, proving the transport works."""
         import sentry_sdk
 
         try:
@@ -187,8 +188,6 @@ class TestIgnoreErrorsIntegration:
         except RuntimeError as exc:
             sentry_sdk.capture_exception(exc)
         sentry_sdk.flush(timeout=2.0)
-        # sentry_events fixture uses passthrough before_send; envelope should land
-        # on the shared _CapturingTransport.events list after flush.
         from tests.conftest import _CapturingTransport
 
         assert len(_CapturingTransport.events) >= 1 or len(sentry_events) >= 1

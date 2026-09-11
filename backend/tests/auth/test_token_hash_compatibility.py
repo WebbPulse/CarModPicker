@@ -1,25 +1,6 @@
-"""Adopting `webbpulse.security` must not log anybody out or invalidate a stored hash.
+"""Pins that adopting webbpulse.security reads what the deleted code wrote: live sessions stay valid and stored bcrypt hashes still verify.
 
-This deploys to a running service holding live sessions and a table of bcrypt
-hashes written by the code being replaced. Neither can be migrated: there is no
-way to re-hash a password nobody has typed yet, and no way to re-mint a token
-sitting in somebody's browser. So the swap is only safe if the new code reads
-what the old code wrote, and these tests pin both halves of that.
-
-The old primitives are reproduced here literally, as `_legacy_*`, rather than
-imported. Importing them would defeat the point once they are deleted; written
-out, they keep asserting against what production actually wrote even though that
-code no longer exists in the tree.
-
-The two facts that make this work:
-
-  - **Hashes.** The local `get_password_hash` passed `rounds=12` explicitly and
-    the package's `DEFAULT_ROUNDS` is also 12, so the stored value has the same
-    algorithm, cost and format. bcrypt hashes carry their own salt and cost, so
-    verification is a property of the string, not of who wrote it.
-  - **Tokens.** Both sign HS256 with `settings.SECRET_KEY` over the same claims.
-    The package additionally stamps `iat`, which is additive: nothing here
-    requires it to be absent, and a token minted without it still decodes.
+The old primitives are reproduced here as _legacy_* rather than imported, so they keep asserting once the originals are gone.
 """
 
 from __future__ import annotations
@@ -47,17 +28,10 @@ def _legacy_get_password_hash(password: str) -> str:
 
 
 def _legacy_create_access_token(data: dict[str, object], expires_delta: timedelta) -> str:
-    """The implementation this change deleted, kept to mint a pre-swap token.
-
-    Note what it does *not* set: no `iat`. A token in a browser right now looks
-    like this, so this is the shape the new decode has to accept.
-    """
+    """Mint a token in the pre-swap shape, which notably carries no iat claim."""
     to_encode = dict(data)
     to_encode["exp"] = datetime.now(timezone.utc) + expires_delta
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
-
-
-# ---- hashes ----------------------------------------------------------------------
 
 
 def test_a_hash_written_before_the_swap_still_verifies() -> None:
@@ -87,9 +61,6 @@ def test_an_account_with_no_password_at_all_verifies_false() -> None:
     assert verify_password(PASSWORD, "") is False
 
 
-# ---- tokens ----------------------------------------------------------------------
-
-
 def test_a_token_minted_before_the_swap_still_decodes() -> None:
     """The live-session case: issued by the old code, verified by the new."""
     legacy_token = _legacy_create_access_token({"sub": "alice"}, timedelta(minutes=60))
@@ -98,7 +69,6 @@ def test_a_token_minted_before_the_swap_still_decodes() -> None:
 
     assert claims["sub"] == "alice"
     assert "exp" in claims
-    # The old code never wrote `iat`, and decoding must not start requiring it.
     assert "iat" not in claims
 
 
@@ -132,6 +102,7 @@ def test_the_default_expiry_still_comes_from_settings() -> None:
 
 
 def test_a_token_signed_with_another_secret_is_refused() -> None:
+    """A token signed with the wrong secret raises TokenError."""
     from webbpulse.security import TokenError
 
     forged = jwt.encode(
@@ -144,11 +115,12 @@ def test_a_token_signed_with_another_secret_is_refused() -> None:
         decode_access_token(forged)
     except TokenError:
         pass
-    else:  # pragma: no cover - the assert below is the failure path
+    else:  # pragma: no cover
         raise AssertionError("a token signed with the wrong secret was accepted")
 
 
 def test_an_expired_token_is_refused() -> None:
+    """An expired token raises ExpiredToken."""
     from webbpulse.security import ExpiredToken
 
     expired = create_access_token({"sub": "alice"}, expires_delta=timedelta(minutes=-5))
@@ -157,5 +129,5 @@ def test_an_expired_token_is_refused() -> None:
         decode_access_token(expired)
     except ExpiredToken:
         pass
-    else:  # pragma: no cover - the assert below is the failure path
+    else:  # pragma: no cover
         raise AssertionError("an expired token was accepted")

@@ -1,13 +1,6 @@
-"""ADMIN-02 regression: every route under /api/admin requires admin auth.
+"""Every route under /api/admin requires admin authorization.
 
-D-27—D-30: parametrized over (method, path) extracted from the OpenAPI schema
-at collection time. Per-route assertions:
-  (a) no auth header -> 401 (or 401|403 for dual-auth cron-key routes)
-  (b) regular-user token -> 403
-
-D-30 drift guard: count-at-or-above check catches a disabled parametrized
-test or a route removal without test update. Combined with SAFE-05 OpenAPI
-snapshot, the drift surface is fully covered.
+Parametrized over the admin routes the OpenAPI schema declares at collection time.
 """
 
 from __future__ import annotations
@@ -20,10 +13,6 @@ from fastapi.testclient import TestClient
 from tests.conftest import create_and_login_user, login_user
 from tests.route_enumeration import schema_routes
 
-# D-28 + Risk 7: routes using Optional[DBUser] admin dep + X-Admin-Cron-Key.
-# These may return 403 (not 401) when no auth header + no cron key present
-# because the dependency doesn't raise; the body check does.
-# See admin.py:823-851 pattern.
 DUAL_AUTH_ROUTES = {
     ("POST", "/api/admin/crawlers/run"),
     ("POST", "/api/admin/crawlers/rescrape-archives"),
@@ -31,6 +20,7 @@ DUAL_AUTH_ROUTES = {
 
 
 def _admin_routes() -> list[tuple[str, str]]:
+    """Every (method, path) the schema declares under /api/admin."""
     out: list[tuple[str, str]] = []
     for method, path in schema_routes():
         if path.startswith("/api/admin"):
@@ -42,11 +32,13 @@ ADMIN_ROUTES = _admin_routes()
 
 
 def _fill_path_params(path: str) -> str:
+    """Replace each path parameter with a placeholder UUID."""
     return re.sub(r"\{[^}]+\}", "00000000-0000-0000-0000-000000000000", path)
 
 
 @pytest.mark.parametrize("method,path", ADMIN_ROUTES)
 def test_admin_route_requires_auth(method: str, path: str, client: TestClient) -> None:
+    """An unauthenticated request to an admin route is refused."""
     resp = client.request(method, _fill_path_params(path))
     if (method, path) in DUAL_AUTH_ROUTES:
         assert resp.status_code in (401, 403), f"{method} {path} -> {resp.status_code}"
@@ -56,6 +48,7 @@ def test_admin_route_requires_auth(method: str, path: str, client: TestClient) -
 
 @pytest.mark.parametrize("method,path", ADMIN_ROUTES)
 def test_admin_route_forbids_regular_user(method: str, path: str, client: TestClient) -> None:
+    """A regular user's token is forbidden on every admin route."""
     username = f"cov_user_{method.lower()}_{abs(hash(path)) & 0xFFFF:04x}"
     create_and_login_user(client, username=username)
     token = login_user(client, username)
@@ -64,5 +57,5 @@ def test_admin_route_forbids_regular_user(method: str, path: str, client: TestCl
 
 
 def test_admin_route_count_at_or_above_expected() -> None:
-    # Drift guard. Updated 2026-09-02 after the crawler job, migration, and crawl-bucket admin routes were removed.
+    """The admin route count stays at or above the expected floor, guarding against drift."""
     assert len(ADMIN_ROUTES) >= 6, f"Expected >=6 admin routes, got {len(ADMIN_ROUTES)}"

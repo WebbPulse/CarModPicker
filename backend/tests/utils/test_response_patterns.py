@@ -29,7 +29,6 @@ class TestResponsePatterns:
             assert False, "Should have raised HTTPException"
         except HTTPException as e:
             assert e.status_code == 401
-            # raise_unauthorized uses simple string detail for FastAPI compatibility
             assert isinstance(e.detail, str)
             assert "Authentication required" in e.detail
 
@@ -96,7 +95,4 @@ class TestResponsePatterns:
             assert "message" in e.detail
             assert "error_code" in e.detail
             assert "Server error" in e.detail["message"]
-            # `INTERNAL_ERROR` is the shared envelope's code for a 500. The old
-            # handler overrode every 5xx code, so the previous default never
-            # reached a client; the envelope honours a route's own code.
             assert e.detail["error_code"] == "INTERNAL_ERROR"

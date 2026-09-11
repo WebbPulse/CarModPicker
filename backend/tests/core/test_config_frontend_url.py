@@ -1,9 +1,15 @@
+"""settings.frontend_base_url and the WebAuthn values derived from it.
+
+Pins the SPA origin, relying party id and allowed origins per environment.
+"""
+
 import pytest
 
 from app.core.config import Settings
 
 
 def _settings(**overrides: object) -> Settings:
+    """Build a Settings instance from overrides with no env file."""
     return Settings(_env_file=None, SECRET_KEY="x", **overrides)  # type: ignore[call-arg]
 
 
@@ -37,6 +43,7 @@ def _settings(**overrides: object) -> Settings:
 def test_defaults_when_frontend_url_unset(
     app_environment: str, debug: bool, base_url: str, rp_id: str, origins: list[str]
 ) -> None:
+    """With no FRONTEND_URL, the base URL, relying party id and origins follow the environment."""
     s = _settings(APP_ENVIRONMENT=app_environment, DEBUG=debug, FRONTEND_URL="")
     assert s.frontend_base_url == base_url
     assert s.webauthn_rp_id == rp_id
@@ -100,6 +107,7 @@ def test_defaults_when_frontend_url_unset(
 def test_frontend_url_drives_base_url_rp_id_and_origins(
     frontend_url: str, app_environment: str, base_url: str, rp_id: str, origins: list[str]
 ) -> None:
+    """An explicit FRONTEND_URL drives the base URL, relying party id and origins."""
     s = _settings(APP_ENVIRONMENT=app_environment, DEBUG=False, FRONTEND_URL=frontend_url)
     assert s.frontend_base_url == base_url
     assert s.webauthn_rp_id == rp_id
@@ -107,6 +115,7 @@ def test_frontend_url_drives_base_url_rp_id_and_origins(
 
 
 def test_frontend_url_is_read_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """FRONTEND_URL is read from the environment."""
     monkeypatch.setenv("FRONTEND_URL", "https://d456.cloudfront.net")
     s = Settings(_env_file=None, SECRET_KEY="x", APP_ENVIRONMENT="staging", DEBUG=False)  # type: ignore[call-arg]
     assert s.frontend_base_url == "https://d456.cloudfront.net"

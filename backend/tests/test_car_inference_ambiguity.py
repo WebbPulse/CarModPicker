@@ -1,15 +1,6 @@
-"""PARTS-02 regression: pin current car_inference ambiguity-resolution behavior.
+"""Pinned car inference behaviour for ambiguous part titles.
 
-NOTE: these tests assert CURRENT BEHAVIOR, not CORRECTNESS. The ML-based
-rewrite (PARTS-V2-01) deferred to v2 will invert some of these expectations.
-Do NOT fix individual vectors to match intuition — file a v2 issue instead
-and update the vectors only when the behavior itself is intentionally changed.
-
-Each vector pins one (or zero) expected generation triple for a given
-(name, description) pair. The test fails if current behavior drifts from the
-pinned expectation. This gives us a CI-visible signal whenever changes to
-AMBIGUOUS_STANDALONE_CODES / PHRASE_TRIPLES / CAR_ALIASES shift ambiguity
-resolution for well-known collision cases.
+These vectors assert current behaviour, not correctness, so drift is visible in CI.
 """
 
 from __future__ import annotations
@@ -20,14 +11,7 @@ import pytest
 
 from app.core.car_inference import infer_car_generations
 
-# Each vector: (name, description, expected_tuple_if_should_match_or_None, rationale)
-#
-# When `expected` is None, the vector pins "no match for the collision code"
-# (the code is in AMBIGUOUS_STANDALONE_CODES and nothing disambiguates it).
-# When `expected` is a tuple, the vector pins that the tuple appears in the
-# result (other tuples may also appear — we assert containment, not equality).
 AMBIGUITY_VECTORS: list[tuple[str, Optional[str], Optional[tuple[str, str, str]], str]] = [
-    # --- Explicit disambiguation — SHOULD match ---
     (
         "Cusco Rear Chassis Power Brace MKV Supra GR A90 / A91",
         "Cusco Rear Chassis Power Brace for the 2020 GR Supra A90.",
@@ -70,7 +54,6 @@ AMBIGUITY_VECTORS: list[tuple[str, Optional[str], Optional[tuple[str, str, str]]
         ("BMW", "M3", "E46"),
         "E46 M3 explicit alias fires despite E46 in AMBIGUOUS_STANDALONE_CODES",
     ),
-    # --- Ambiguous-standalone codes WITHOUT adjacent make+model — should NOT fire ---
     (
         "HKS Hi Power Exhaust Universal",
         None,
@@ -188,15 +171,7 @@ AMBIGUITY_VECTORS: list[tuple[str, Optional[str], Optional[tuple[str, str, str]]
 ]
 
 
-# Negative-vector map: when a negative vector's input produces OTHER (allowed) matches
-# under current behavior, we only assert a specific triple does NOT appear, rather than
-# requiring the full result to be empty. Key: (name, desc). Value: forbidden triple.
-#
-# The 19 negative vectors not listed here must produce an EMPTY inference result.
 NEGATIVE_FORBIDDEN_TUPLES: dict[tuple[str, Optional[str]], tuple[str, str, str]] = {
-    # Bilstein EVO T1 — the "T1" token legitimately matches GM trucks. The ambiguity
-    # we're pinning is that EVO standalone does NOT fire Huracán EVO, not that the
-    # whole inference must be empty.
     ("Bilstein EVO T1 Coilover System", None): ("Lamborghini", "Huracán", "EVO"),
 }
 
@@ -211,14 +186,7 @@ def test_ambiguity_resolution_pins_current_behavior(
     expected: Optional[tuple[str, str, str]],
     rationale: str,
 ) -> None:
-    """pins current behavior — see module docstring for non-correctness caveat.
-
-    Vector semantics:
-    - `expected` is a tuple → that triple must appear in the result (other matches allowed).
-    - `expected` is None and the vector is in NEGATIVE_EXPECTING_EMPTY → result must be empty.
-    - `expected` is None and the vector is in NEGATIVE_FORBIDDEN_TUPLES → the mapped tuple
-      must NOT appear in the result (other matches are permitted).
-    """
+    """Each vector's expected triple is present, absent, or the result is empty."""
     result = infer_car_generations(name, desc)
     if expected is not None:
         assert expected in result, f"{rationale}: expected {expected} in result, got {result}"
@@ -236,24 +204,9 @@ def test_vector_count_meets_floor() -> None:
     assert len(AMBIGUITY_VECTORS) >= 20, f"Expected >=20 ambiguity vectors; got {len(AMBIGUITY_VECTORS)}"
 
 
-# ---------------------------------------------------------------------------
-# Tier-1 audit (2026-05) false-positive purge regression tests.
-#
-# The audit found ``_build_phrase_triples`` was splitting gen_name strings like
-# ``Turbo/Shelby``, ``BE/BH``, ``R/T Turbo``, ``E36/7 E36/8`` and ``V1`` into
-# 1-2 char tokens that matched English words and SKU fragments inside product
-# titles. The fix:
-#   * Adds the offending whole-gen-name strings + their generic alpha
-#     components to ``AMBIGUOUS_STANDALONE_CODES``.
-#   * Adds a ``_is_too_short_to_dispatch`` length filter that drops pure-alpha
-#     < 4 chars and pure-digit < 3 chars (always rejects single digits).
-#
-# These tests pin the post-fix behavior so the Tier-1 cleanup migration does
-# not silently regress.
-# ---------------------------------------------------------------------------
-
-
 class TestTier1AuditFalsePositivePurge:
+    """Generic product copy must not fire a car generation match."""
+
     def test_garrett_turbo_supercore_no_dodge_daytona(self) -> None:
         """'turbo' inside a generic part title must NOT fire Dodge Daytona Turbo/Shelby."""
         result = infer_car_generations(

@@ -1,17 +1,6 @@
-"""Gate-on-the-gate (M002/S05/T05).
+"""Tests the price history perf gate's own assertion logic against synthetic locust CSVs, so a buggy gate cannot hand out false passes.
 
-The price-history perf gate (`backend/scripts/perf/run_price_history_loadtest.sh`)
-is the falsifiable check that says "query-time aggregation is fast enough — don't
-open R036 (materialized part_price_summary) per D004." If the assertion logic in
-the gate is buggy, the gate gives false PASSes and we ship a slow backend.
-
-This test exercises the assertion logic against synthetic CSVs WITHOUT requiring
-a live uvicorn server or actual locust traffic. It uses the runner's
-``--csv-fixture <path>`` flag to bypass locust entirely and feed a known CSV
-into the parser.
-
-Default-skipped (locust install is heavy and not on every contributor's machine).
-The S05 verify command sets ``PERF_GATE_TEST=true`` to opt in.
+Skipped unless PERF_GATE_TEST is set, because locust is a heavy install.
 """
 
 from __future__ import annotations
@@ -37,11 +26,8 @@ pytestmark = pytest.mark.skipif(
 
 
 def _run_gate(csv_path: Path, evidence_dir: Path) -> subprocess.CompletedProcess[str]:
+    """Run the CSV parser against one fixture and return the completed process."""
     env = os.environ.copy()
-    # Route evidence files into the test-scoped tmp dir, not backend/.perf-runs/
-    # — keeps tests hermetic and prevents leftover files from poisoning future
-    # runs. The runner reads its evidence dir from a hardcoded path, so we
-    # invoke the parser directly here for the test-scoped redirect.
     parser = REPO_ROOT / "backend" / "scripts" / "perf" / "_parse_locust_csv.py"
     return subprocess.run(
         [
@@ -97,14 +83,11 @@ def test_failing_fixture_returns_one_and_writes_failed_evidence_with_remediation
     payload = json.loads(failed_files[0].read_text())
     assert payload["verdict"] == "FAILED"
     assert payload["failed_assertions"], "FAILED.json must list at least one failure"
-    # R036 reference is part of the gate's contract — guard it explicitly.
     assert "R036" in payload["remediation"]
     assert "D004" in payload["remediation"]
-    # Both budgets missed in this fixture — make sure both are flagged, not just one.
     failure_text = " ".join(payload["failed_assertions"])
     assert "GET" in failure_text
     assert "POST" in failure_text
-    # Failure count > 0 in the fixture should also be flagged.
     assert "error rate" in failure_text
 
 
@@ -119,7 +102,6 @@ def test_missing_csv_returns_four(tmp_path: Path) -> None:
 def test_empty_csv_returns_five(tmp_path: Path) -> None:
     """Q7 negative test: zero data rows → exit 5."""
     empty = tmp_path / "empty.csv"
-    # Header-only — parses cleanly but yields no rows.
     empty.write_text("Type,Name,Request Count,Failure Count,50%,95%,99%,100%,Average Response Time\n")
     result = _run_gate(empty, tmp_path)
     assert result.returncode == 5, (
@@ -128,12 +110,7 @@ def test_empty_csv_returns_five(tmp_path: Path) -> None:
 
 
 def test_csv_missing_endpoint_row_returns_six(tmp_path: Path) -> None:
-    """Q7 negative test: CSV present but missing the per-endpoint stats row → exit 6.
-
-    Locust always emits one row per (Type, Name) — if the GET/POST rows are
-    absent the gate can't assert anything and must surface a clear diagnostic
-    instead of silently passing or crashing.
-    """
+    """A CSV with no per endpoint row exits 6 rather than passing silently."""
     only_aggregated = tmp_path / "only_aggregated.csv"
     only_aggregated.write_text(
         "Type,Name,Request Count,Failure Count,Median Response Time,Average Response Time,"
@@ -148,15 +125,7 @@ def test_csv_missing_endpoint_row_returns_six(tmp_path: Path) -> None:
 
 
 def test_runner_csv_fixture_flag_invokes_parser(tmp_path: Path) -> None:
-    """Smoke test the bash runner's --csv-fixture branch end-to-end.
-
-    Confirms the runner's argument plumbing wires up to the parser cleanly —
-    no preflight, no locust, just: fixture CSV → exit 0 + PASSED.json under
-    the canonical evidence dir. We use a copied evidence dir to avoid mutating
-    the repo's backend/.perf-runs/ during tests.
-    """
-    # The runner writes evidence to backend/.perf-runs/ unconditionally. Snapshot
-    # the dir's pre-test contents and clean up only files this test created.
+    """The bash runner's --csv-fixture branch reaches the parser and writes PASSED.json."""
     evidence_dir = REPO_ROOT / "backend" / ".perf-runs"
     pre_existing = set(evidence_dir.glob("*")) if evidence_dir.exists() else set()
     try:
@@ -174,7 +143,6 @@ def test_runner_csv_fixture_flag_invokes_parser(tmp_path: Path) -> None:
         passed = [p for p in new_files if "PASSED" in p.name]
         assert passed, f"expected a PASSED.json under {evidence_dir}, new={new_files}"
     finally:
-        # Cleanup: remove only files this test created.
         if evidence_dir.exists():
             for p in set(evidence_dir.glob("*")) - pre_existing:
                 p.unlink(missing_ok=True)

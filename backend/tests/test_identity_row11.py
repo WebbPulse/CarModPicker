@@ -1,47 +1,6 @@
-"""Row 11: the domains read the authorizer's claims, and `sub` is the user id.
+"""Tests for resolving a caller from the authorizer's claims, where sub is the user id.
 
-Row 11 of `docs/identity-adoption.md`. Rows 8 and 9 put the identity access
-token in front of fifteen `/api/auth` route keys at the gateway; this row is
-where `app/api/dependencies/auth.py` turns a verified token into a `DBUser`,
-alongside the legacy HS256 session rather than instead of it.
-
-## What is worth testing here
-
-Three properties, and each one fails loudly if the code it covers is deleted.
-
-1. **The legacy session is untouched.** Row 12 is the cutover and row 13 is what
-   retires the legacy flow, so until then a dual-mode change that quietly
-   regressed the shipped path would be the worst outcome this row could have.
-   Every legacy assertion here is a restatement of behaviour that was already
-   true, on purpose: they are the ones that fail if the new branch swallowed the
-   old one.
-2. **Both authorizer shapes resolve, and to the same user.** Production's native
-   JWT authorizer puts claims at `authorizer.jwt.claims`; the staging access gate
-   publishes one JSON string at `authorizer.lambda["jwt.claims"]`. The whole
-   point of row 11's reader is that a caller sees one answer either way, so the
-   two shapes are driven through the same request and compared.
-3. **`sub` is the user id and not the username.** This is the mapping the row
-   turns on and it is the one thing that would be silently wrong if it were
-   guessed: the legacy session's `sub` is a **username**, the identity token's
-   `sub` is a **uuid7 user id**, and a reader that tried the wrong lookup would
-   still find a user on a system where someone's username happens to parse.
-
-## What is deliberately not tested
-
-**Not the signature.** Whether an RS256 token verifies is `webbpulse.identity`'s
-own test, and on a flagged route key the gateway has already checked it before
-this application runs. What is tested here is that a claim set reaches the
-resolver and that a user id comes out.
-
-**Not the gateway.** Which route keys are flagged is `terraform/apigateway.tf`
-and the staging access gate module's own tests. This file starts from the event
-those produce.
-
-**Not in-process verification on a domain function.** `verify_bearer_subject`
-answers `""` without `IDENTITY_SIGNING_KEY_ARNS` and a `kms:GetPublicKey` grant,
-which no domain but `identity` has. That is asserted as the deployment fact it
-is, rather than mocked into passing, because mocking it would test a
-configuration this estate does not have.
+Covers both authorizer shapes, the unchanged legacy session, and the id lookup.
 """
 
 from __future__ import annotations
@@ -71,25 +30,12 @@ from app.api.dependencies.identity_claims import (
 from app.api.dependencies.repositories import get_repositories
 from app.db.dynamo.users import User, UserRepository
 
-#: The issuer and audience `terraform/identity.tf` renders for staging. Spelled
-#: out rather than imported from row 5's fixture because this file never builds
-#: an `IdentitySettings`: what it needs is a claim set of the right shape, and
-#: the two strings are part of that shape.
 ISSUER = "https://api.staging.carmodpicker.com/api/auth"
 AUDIENCE = "carmodpicker-staging-api"
 
 
 def access_claims(subject: str, **overrides: Any) -> dict[str, str]:
-    """A claim set shaped exactly as an authorizer delivers one.
-
-    **Every value is a string, `exp` included, and that is the point rather than
-    laziness in the fixture.** API Gateway's native JWT authorizer flattens the
-    verified claims into a string map before putting them in the request
-    context, and the staging access gate stringifies every value for exactly
-    that reason, so that one reader works in both environments. A fixture using
-    real integers would test a shape neither environment produces and would hide
-    a coercion bug in the code under test.
-    """
+    """A claim set shaped as an authorizer delivers one, with every value a string."""
     claims = {
         "sub": subject,
         "iss": ISSUER,
@@ -106,24 +52,12 @@ def access_claims(subject: str, **overrides: Any) -> dict[str, str]:
 
 
 def native_context(subject: str, **overrides: Any) -> str:
-    """The `x-amzn-request-context` header production's JWT authorizer produces.
-
-    Plain JSON and never base64. The Lambda Web Adapter forwards the request
-    context as a JSON string, which is the fact `webbpulse.identity.claims`
-    exists to have exactly one implementation of.
-    """
+    """The request context header the native JWT authorizer produces, as plain JSON."""
     return json.dumps({"authorizer": {"jwt": {"claims": access_claims(subject, **overrides)}}})
 
 
 def gate_context(subject: str, **overrides: Any) -> str:
-    """The header the staging access gate's Lambda authorizer produces.
-
-    A Lambda authorizer's context always lands under `authorizer.lambda` and API
-    Gateway refuses a nested object there, so the gate publishes one string key
-    literally named `jwt.claims` holding the claims as JSON, plus the three it
-    lifts out. The lifted keys are included because the real event carries them
-    and a reader that accidentally depended on one would pass without them.
-    """
+    """The request context header the staging access gate's Lambda authorizer produces."""
     claims = access_claims(subject, **overrides)
     return json.dumps(
         {
@@ -141,11 +75,7 @@ def gate_context(subject: str, **overrides: Any) -> str:
 
 @pytest.fixture(autouse=True)
 def _clean_token_service() -> Iterator[None]:
-    """Drop the memoised `TokenService` around every test in this file.
-
-    It caches a failure as well as a success, so a test that ran with no
-    `IDENTITY_*` environment would otherwise poison one that sets it.
-    """
+    """Drop the memoised token service around every test, since it caches failures too."""
     reset_token_service()
     yield
     reset_token_service()
@@ -166,23 +96,13 @@ def identity_user(db_session: Any, dynamo_tables: Any) -> User:
 
 
 def _request(header_value: str | None = None, authorization: str | None = None) -> Request:
-    """A bare ASGI `Request` carrying the headers this row reads.
-
-    Built by hand rather than through a `TestClient` so that a unit test of the
-    reader is a unit test. The routes are exercised through the application in
-    the last section of this file.
-    """
+    """Build a bare ASGI request carrying the headers this resolver reads."""
     headers: list[tuple[bytes, bytes]] = []
     if header_value is not None:
         headers.append((REQUEST_CONTEXT_HEADER.encode(), header_value.encode()))
     if authorization is not None:
         headers.append((b"authorization", authorization.encode()))
     return Request({"type": "http", "method": "GET", "path": "/", "headers": headers})
-
-
-# ---------------------------------------------------------------------------
-# The reader: two shapes, one answer.
-# ---------------------------------------------------------------------------
 
 
 def test_the_native_authorizer_shape_is_read() -> None:
@@ -192,28 +112,13 @@ def test_the_native_authorizer_shape_is_read() -> None:
 
 
 def test_the_staging_gate_shape_is_read() -> None:
-    """Staging's `authorizer.lambda["jwt.claims"]` resolves too.
-
-    This is the half the package's own `read_authorizer_claims` does not do: it
-    raises `NoClaimsSection` on a context whose authorizer carries `lambda`
-    rather than `jwt`, and its message says so. Deleting the fallback in
-    `identity_claims.py` fails here and nowhere else, which is the whole reason
-    this test exists.
-    """
+    """The staging gate's claims key resolves, which the package alone does not handle."""
     subject = str(uuid4())
     assert identity_subject(_request(gate_context(subject))) == subject
 
 
 def test_both_shapes_coerce_to_the_same_claims() -> None:
-    """The two environments produce equal Python values and not merely equal subjects.
-
-    The gate stringifies every claim value on purpose so that this is possible,
-    and both paths run through the package's `coerce_claims`, so `exp` is an
-    `int` on both sides rather than an `int` on one and a string on the other. A
-    caller reading `exp` would otherwise work in production and raise a
-    `TypeError` in staging, which is the failure mode the gate's own comment
-    warns about.
-    """
+    """Both authorizer shapes coerce to equal Python values, not merely equal subjects."""
     subject = str(uuid4())
     native = identity_claims(_request(native_context(subject)))
     gate = identity_claims(_request(gate_context(subject)))
@@ -224,55 +129,24 @@ def test_both_shapes_coerce_to_the_same_claims() -> None:
 
 
 def test_a_request_with_no_authorizer_is_nobody_rather_than_an_error() -> None:
-    """An unflagged route key carries no claims, and that is not a failure.
-
-    Every `/api/v1` route key today is an `ANY` over a whole prefix, so no
-    authorizer claim ever arrives on one. Answering `""` rather than raising is
-    what lets those routes stay anonymous-readable.
-    """
+    """A request with no authorizer resolves to nobody rather than raising."""
     assert identity_subject(_request()) == ""
     assert identity_subject(_request(json.dumps({"http": {"sourceIp": "203.0.113.1"}}))) == ""
 
 
 def test_an_unparseable_gate_payload_is_refused_rather_than_guessed() -> None:
-    """A `jwt.claims` value that is not JSON resolves to nobody.
-
-    The gate writes it with `JSON.stringify` and nothing else writes it at all,
-    so a value that does not parse means the two sides disagree about the
-    encoding. Refusing is the only safe direction: inventing a subject from a
-    value this process could not read would be an authorization decision made on
-    a guess.
-    """
+    """A claims payload that does not parse resolves to nobody rather than a guess."""
     broken = json.dumps({"authorizer": {"lambda": {GATE_CLAIMS_KEY: "not json at all"}}})
     assert identity_subject(_request(broken)) == ""
 
 
 def test_in_process_verification_is_off_without_the_identity_environment() -> None:
-    """`verify_bearer_subject` answers `""` on a function with no signing key.
-
-    `terraform/lambda_domains.tf` sets the `IDENTITY_*` block on the identity
-    function alone and `terraform/identity.tf` attaches the signing policy to the
-    identity role alone, so a `catalog` or `build-lists` function can verify
-    nothing in process. That is a deployment fact rather than a code path being
-    skipped, and it is asserted here so that the report in the row 11 docs is
-    checked rather than merely written down.
-    """
+    """Without the identity environment in-process verification answers nobody."""
     assert verify_bearer_subject(_request(authorization="Bearer whatever")) == ""
 
 
-# ---------------------------------------------------------------------------
-# The mapping: `sub` is the user id.
-# ---------------------------------------------------------------------------
-
-
 def test_sub_resolves_to_the_user_row_by_id(identity_user: User) -> None:
-    """The identity `sub` is the CarModPicker `users.id`, with no link table.
-
-    `CarModPickerIdentityHooks.load_user_by_id` parses the `sub` to a `UUID` and
-    does one `GetItem`, so an identity user is the legacy user row under the id
-    it always had. This is the assertion that would fail if the mapping were a
-    stored link or a second id space.
-    """
+    """The subject is the user id and resolves by a single lookup, with no link table."""
     repos = get_repositories()
     resolved = resolve_identity_user(_request(native_context(str(identity_user.id))), repos)
     assert resolved is not None
@@ -281,13 +155,7 @@ def test_sub_resolves_to_the_user_row_by_id(identity_user: User) -> None:
 
 
 def test_a_username_in_sub_does_not_resolve(identity_user: User) -> None:
-    """A `sub` holding a username finds nobody, which is what keeps the two flows apart.
-
-    The legacy session's `sub` is the username and the identity token's is the
-    id. A resolver that tried a username lookup as a fallback would let a legacy
-    token minted for one flow satisfy the other, which is precisely the
-    confusion row 13 has to be able to rely on not existing.
-    """
+    """A username in the subject resolves to nobody, keeping the two flows apart."""
     repos = get_repositories()
     assert resolve_identity_user(_request(native_context(identity_user.username)), repos) is None
 
@@ -299,12 +167,7 @@ def test_a_sub_that_is_not_a_uuid_resolves_to_nobody() -> None:
 
 
 def test_a_disabled_account_is_refused_on_the_identity_path(identity_user: User) -> None:
-    """A token minted before an account was disabled stops working immediately.
-
-    The three account checks are the same three `may_authenticate` applies at the
-    package's door, and they are applied again here because an access token lives
-    for ten minutes and an account can be disabled inside one.
-    """
+    """A disabled account is refused even with a token minted before it was disabled."""
     UserRepository().update_user(identity_user.id, disabled=True)
     repos = get_repositories()
     assert resolve_identity_user(_request(native_context(str(identity_user.id))), repos) is None
@@ -317,38 +180,25 @@ def test_an_unverified_address_is_refused_on_the_identity_path(identity_user: Us
     assert resolve_identity_user(_request(native_context(str(identity_user.id))), repos) is None
 
 
-# ---------------------------------------------------------------------------
-# Dual mode, through a real application.
-# ---------------------------------------------------------------------------
-
-
 def _dual_mode_app() -> FastAPI:
-    """A minimal application carrying the two resolvers this row changed.
-
-    Two routes rather than the whole application, because what is under test is
-    the dependency and not any product endpoint. Building it here keeps the test
-    independent of which domain happens to own an authenticated route today.
-    """
+    """A minimal application carrying the two resolvers this change touches."""
     app = FastAPI()
 
     @app.get("/whoami")
     async def whoami(user: User = Depends(get_current_user)) -> dict[str, str]:
+        """Return the authenticated user's id and username."""
         return {"id": str(user.id), "username": user.username}
 
     @app.get("/maybe")
     async def maybe(user: User | None = Depends(get_optional_current_user)) -> dict[str, str]:
+        """Return the optional user's id, or an empty id when nobody is signed in."""
         return {"id": str(user.id)} if user is not None else {"id": ""}
 
     return app
 
 
 def test_the_legacy_session_still_resolves(identity_user: User, dynamo_tables: Any) -> None:
-    """The shipped HS256 path is unchanged, which is row 11's first requirement.
-
-    `sub` is the username and the token is signed with `SECRET_KEY`, exactly as
-    `POST /api/auth/token` mints one today. If the identity branch had swallowed
-    this path, this is the test that fails.
-    """
+    """The legacy HS256 session still resolves unchanged."""
     client = TestClient(_dual_mode_app())
     token = create_access_token({"sub": identity_user.username})
     response = client.get("/whoami", headers={"Authorization": f"Bearer {token}"})
@@ -357,13 +207,7 @@ def test_the_legacy_session_still_resolves(identity_user: User, dynamo_tables: A
 
 
 def test_an_identity_token_resolves_through_the_gate_context(identity_user: User, dynamo_tables: Any) -> None:
-    """Staging's shape resolves end to end, with no `Authorization` header at all.
-
-    The header is deliberately absent. On a flagged route key the gateway has
-    already verified the token and the claims arrive in the request context, so a
-    resolver that only ever looked at `Authorization` would answer 401 on exactly
-    the requests row 8 arranged to be verified.
-    """
+    """An identity caller resolves from the gate context with no authorization header."""
     client = TestClient(_dual_mode_app())
     response = client.get(
         "/whoami",
@@ -385,12 +229,7 @@ def test_an_identity_token_resolves_through_the_native_context(identity_user: Us
 
 
 def test_an_unknown_subject_is_a_401_and_not_a_500(dynamo_tables: Any) -> None:
-    """A well-formed id for a row that does not exist is refused, quietly.
-
-    One 401 whose body says nothing about which of the several possible reasons
-    applied. An expired token, a token for another issuer, a `sub` naming a
-    deleted user and no token at all are all simply "not signed in".
-    """
+    """A well formed subject naming no user is a quiet 401."""
     client = TestClient(_dual_mode_app())
     response = client.get(
         "/whoami",
@@ -420,15 +259,7 @@ def test_the_optional_resolver_reads_an_identity_token(identity_user: User, dyna
 
 
 def test_a_bare_request_still_gets_the_unchanged_401_body(dynamo_tables: Any) -> None:
-    """`IdentityAwareOAuth2` changes nothing for a request carrying no credential.
-
-    The scheme only declines to raise when `identity_subject` already found a
-    verified subject, so a request with neither a header nor an authorizer falls
-    through to the parent class and gets the same `Not authenticated` body,
-    produced by the same line of `OAuth2PasswordBearer`, that it always did. This
-    is the test that fails if the widening were ever made unconditional, which is
-    the only way the new scheme could weaken anything.
-    """
+    """A request carrying no credential gets the same 401 body it always did."""
     client = TestClient(_dual_mode_app())
     response = client.get("/whoami")
     assert response.status_code == 401

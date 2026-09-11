@@ -1,40 +1,6 @@
 """What the two delete cascades remove.
 
-Row 23 of `docs/migration/split-plan.md` wrote these tests against the two
-synchronous cascades, deliberately, so that rows 28 and 30 would have a
-reference to diff against rather than a description. Row 28 has now cut seam 2,
-and this is that diff.
-
-Both seams are now asynchronous, and the change to these tests is smaller than
-that makes it sound. `PartService.purge` writes a tombstone and removes everything
-`catalog` owns; the four cross domain deletes moved to
-`app/consumers/part_purge.py`, off the `parts` stream and through the
-`part-purge` work queue. The end state is identical, so the assertions about
-what does not survive are identical too. What changed is only that the cascade
-is driven by draining the queue rather than by a function call, which is what
-`_drain_part_purge` below stands in for.
-
-Seam 1, row 30. `_delete_user_everywhere` in `app/api/endpoints/users.py` now
-writes a tombstone, hard deletes the user row and its two unique reservations,
-and returns. Everything else it used to do moved to
-`app/consumers/user_delete.py`, off the `users` stream and through the
-`user-delete` work queue, which is what `_drain_user_delete` below stands in
-for. The end state is again identical, so the assertions about what does not
-survive are again identical.
-
-The one assertion that deliberately runs *before* any drain is the reservation
-one: a user who deletes an account can register the same username and email
-immediately, on the next request, without the consumer having run. That is the
-decision row 30 made and it is asserted here rather than described, because it
-is the half of the cascade that did not move.
-
-The test that did not change at all is the one that matters most:
-`test_deleting_a_part_through_the_api_removes_it_from_build_lists` still passes
-unmodified. A tombstoned part reads as absent everywhere the moment the delete
-returns, because row 23 put `is_tombstoned` on every join that reaches a part,
-so a build list drops the row without waiting for the consumer. That is the
-property that makes the asynchrony invisible to a caller, and leaving that test
-untouched is the proof of it.
+Both seams are asynchronous, so each test drains the relevant consumer.
 """
 
 import os
@@ -54,15 +20,18 @@ from tests.conftest import create_car_in_db, login_user
 
 
 def _unique(base: str) -> str:
+    """A name unique to this worker and process, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
 
 def _headers(token: str) -> dict[str, str]:
+    """Bearer authorization headers for a token."""
     return {"Authorization": f"Bearer {token}"}
 
 
 def _make_user(name: str) -> User:
+    """Create a verified user directly in the repository."""
     return UserRepository().create_user(
         User(
             username=name,
@@ -74,6 +43,7 @@ def _make_user(name: str) -> User:
 
 
 def _make_part(client: TestClient, headers: dict[str, str], category: Category, manufacturer: PartManufacturer) -> Any:
+    """Create a part through the API and return the response body."""
     response = client.post(
         f"{settings.API_STR}/parts/",
         json={
@@ -89,38 +59,16 @@ def _make_part(client: TestClient, headers: dict[str, str], category: Category, 
 
 
 def _drain_part_purge(repos: Any, part_id: UUID) -> None:
-    """Run the cascade the way production runs it, minus the transport.
-
-    In production the tombstone `PartService.purge` writes reaches
-    `app/consumers/part_purge.py` over the `parts` stream, is enqueued on the
-    `part-purge` work queue, and comes back to the same function to be drained.
-    Here the handler is called directly with the part id, because what these
-    tests pin is which rows the cascade removes and that is a property of the
-    handler rather than of the two mappings in front of it. The mappings, the
-    record parsing and the idempotency of a redelivery are covered in
-    `tests/consumers/test_part_purge_consumer.py`.
-    """
+    """Run the part purge cascade directly, standing in for the stream and queue."""
     from app.consumers.part_purge import purge_related_rows
 
     purge_related_rows(repos, part_id)
 
 
 def _drain_user_delete(repos: Any, user_id: UUID) -> None:
-    """Run seam 1's cascade the way production runs it, minus the transport.
+    """Run the user delete cascade directly, standing in for the stream and queue.
 
-    The same stand-in `_drain_part_purge` is, for the same reason. In production
-    the tombstone `_delete_user_everywhere` writes reaches
-    `app/consumers/user_delete.py` over the `users` stream, is enqueued on the
-    `user-delete` work queue, and comes back to the same function to be drained.
-    Here the handler is called directly with the user id, because what these
-    tests pin is which rows the cascade removes, and that is a property of the
-    handler rather than of the two mappings in front of it. The mappings, the
-    record parsing and the idempotency of a redelivery are covered in
-    `tests/consumers/test_user_delete_consumer.py`.
-
-    Note that this drains seam 1 only. A user with parts leaves a part tombstone
-    per part, and seam 2's cascade is a separate drain; the tests below that
-    need both call both, which is exactly what production does with two queues.
+    Drains seam one only; a user with parts needs the part purge drain as well.
     """
     from app.consumers.user_delete import cascade_user_delete
 
@@ -139,6 +87,7 @@ class TestPartPurgeCascade:
         db_session: Any,
         dynamo_tables: Any,
     ) -> None:
+        """Purging a part removes its votes, reports, build list usages and price alerts."""
         headers = _headers(login_user(client, test_user.username))
         part = _make_part(client, headers, test_category, test_part_manufacturer)
         part_id = UUID(part["id"])
@@ -220,6 +169,7 @@ class TestUserDeleteCascade:
         db_session: Any,
         dynamo_tables: Any,
     ) -> None:
+        """Deleting a user purges their parts and build lists and frees their username and email."""
         name = _unique("doomed")
         user = _make_user(name)
         headers = _headers(login_user(client, name))
@@ -239,16 +189,8 @@ class TestUserDeleteCascade:
         response = client.delete(f"{settings.API_STR}/users/{user.id}", headers=headers)
         assert response.status_code == 200
 
-        # Synchronous, before any drain: the row, and with it the two unique
-        # reservations, are gone the moment the request returns.
         assert repos.users.get(user.id) is None, "the user row itself is hard deleted"
 
-        # The uniqueness reservations are released in the same transaction, so the
-        # username and email are immediately reusable. Asserted here, ahead of the
-        # drain, because that ordering is the decision row 30 made: a reservation
-        # held until a queue drains is an account holder who cannot re-register
-        # with the address they just freed, failing closed, for as long as the
-        # backlog lasts.
         reborn = _make_user(name)
         assert reborn.id != user.id
 
@@ -256,8 +198,6 @@ class TestUserDeleteCascade:
 
         assert repos.build_lists.get(build_list["id"]) is None, "their build lists are purged"
 
-        # Two queues, so two drains. Seam 1 tombstones the part and seam 2 removes
-        # it, which is what the chained cascade looks like from outside.
         _drain_part_purge(repos, UUID(part["id"]))
         assert repos.parts.get(part["id"]) is None, "their parts are purged, not orphaned"
 
@@ -269,6 +209,7 @@ class TestUserDeleteCascade:
         test_part_manufacturer: PartManufacturer,
         dynamo_tables: Any,
     ) -> None:
+        """Deleting a user removes the votes and reports they authored."""
         owner_headers = _headers(login_user(client, test_user.username))
         part = _make_part(client, owner_headers, test_category, test_part_manufacturer)
         part_id = UUID(part["id"])

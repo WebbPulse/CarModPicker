@@ -1,3 +1,5 @@
+"""Covers the admin only category management endpoints."""
+
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -10,7 +12,6 @@ from app.db.dynamo.users import UserRepository
 from tests.conftest import save_catalog
 
 
-# Helper function to create and login an admin user
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
@@ -19,7 +20,6 @@ def create_and_login_admin_user(
     email = f"admin_test_{username_suffix}@example.com"
     password = "testpassword"
 
-    # Create admin user directly in database
     admin_user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -32,7 +32,6 @@ def create_and_login_admin_user(
         )
     )
 
-    # Log in and get token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
@@ -41,7 +40,6 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-# Helper function to create and login a regular user
 def create_and_login_regular_user(
     client: TestClient, db_session: Any, username_suffix: str = "regular"
 ) -> tuple[dict[str, Any], str]:
@@ -50,7 +48,6 @@ def create_and_login_regular_user(
     email = f"regular_test_{username_suffix}@example.com"
     password = "testpassword"
 
-    # Create regular user directly in database
     regular_user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -63,7 +60,6 @@ def create_and_login_regular_user(
         )
     )
 
-    # Log in and get token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login regular user: {token_response.text}"
@@ -278,7 +274,6 @@ class TestCategoriesAdminAuthentication:
 
     def test_public_category_endpoints_remain_public(self, client: TestClient, db_session: Any) -> None:
         """Test that public category endpoints remain accessible without authentication."""
-        # Create a category first
         category = DBCategory(
             name="test_public_category",
             display_name="Test Public Category",
@@ -288,21 +283,18 @@ class TestCategoriesAdminAuthentication:
         )
         category = save_catalog(category)
 
-        # Test GET /categories/ (public)
         response = client.get(f"{settings.API_STR}/categories/")
         assert response.status_code == 200, "Categories list should be public"
 
         categories = response.json()
         assert len(categories) > 0, "Should return categories"
 
-        # Test GET /categories/{id} (public)
         response = client.get(f"{settings.API_STR}/categories/{category.id}")
         assert response.status_code == 200, "Individual category should be public"
 
         category_data = response.json()
         assert category_data["name"] == category.name
 
-        # Test GET /categories/{id}/parts (public)
         response = client.get(f"{settings.API_STR}/categories/{category.id}/parts")
         assert response.status_code == 200, "Category global parts should be public"
 

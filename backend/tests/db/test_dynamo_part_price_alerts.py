@@ -14,10 +14,12 @@ from app.db.dynamo.part_price_alerts import PartPriceAlert, PartPriceAlertReposi
 
 
 def _alert(user_id: UUID, part_id: UUID, threshold_cents: int = 100, **extra: Any) -> PartPriceAlert:
+    """Build a price alert for the given user and part."""
     return PartPriceAlert(user_id=user_id, part_id=part_id, threshold_cents=threshold_cents, **extra)
 
 
 def test_defaults_active_and_no_last_fired(dynamo_tables: Any) -> None:
+    """A new alert is active, has never fired and round trips through the read schema."""
     repo = PartPriceAlertRepository()
     created = repo.create(_alert(uuid7(), uuid7(), 1500))
     stored = repo.get_or_raise(created.id)
@@ -30,6 +32,7 @@ def test_defaults_active_and_no_last_fired(dynamo_tables: Any) -> None:
 
 
 def test_upsert_reuses_the_user_part_pair(dynamo_tables: Any) -> None:
+    """Creating an alert for an existing user and part pair updates that row and reactivates it."""
     repo = PartPriceAlertRepository()
     user_id, part_id = uuid7(), uuid7()
 
@@ -45,6 +48,7 @@ def test_upsert_reuses_the_user_part_pair(dynamo_tables: Any) -> None:
 
 
 def test_same_user_different_parts_and_different_users_same_part(dynamo_tables: Any) -> None:
+    """Alerts are indexed by user and by part independently."""
     repo = PartPriceAlertRepository()
     alice, bob, part_a, part_b = uuid7(), uuid7(), uuid7(), uuid7()
     a1 = repo.create(_alert(alice, part_a, 1))
@@ -57,6 +61,7 @@ def test_same_user_different_parts_and_different_users_same_part(dynamo_tables: 
 
 
 def test_active_at_or_below_and_last_fired_at_round_trip(dynamo_tables: Any) -> None:
+    """The threshold query returns only active alerts at or above the price, and last_fired_at round trips."""
     repo = PartPriceAlertRepository()
     part_id = uuid7()
     cheap = repo.create(_alert(uuid7(), part_id, 5000))
@@ -72,6 +77,7 @@ def test_active_at_or_below_and_last_fired_at_round_trip(dynamo_tables: Any) -> 
 
 
 def test_owner_checks_and_purges(dynamo_tables: Any) -> None:
+    """Ownership is enforced on read and deactivate, and the purge helpers scope by part and by user."""
     repo = PartPriceAlertRepository()
     alice, bob, part_id = uuid7(), uuid7(), uuid7()
     alert = repo.create(_alert(alice, part_id))
@@ -91,6 +97,7 @@ def test_owner_checks_and_purges(dynamo_tables: Any) -> None:
 
 
 def test_schemas_enforce_non_negative_threshold() -> None:
+    """A negative threshold is rejected by every schema and by the model itself."""
     with pytest.raises(ValidationError):
         PartPriceAlertCreate(part_id=uuid7(), threshold_cents=-1)
     assert PartPriceAlertCreate(part_id=uuid7(), threshold_cents=0).threshold_cents == 0
