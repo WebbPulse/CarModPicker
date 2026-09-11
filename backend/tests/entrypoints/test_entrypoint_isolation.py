@@ -1,27 +1,6 @@
 """What each entrypoint may import, and what it may need to start.
 
-Two properties, and both are about the deployed image rather than about the
-response a route returns.
-
-**A domain image carries one domain.** A single module-scope import in the
-composition wiring would pull all nine domains into every image: every route
-would still answer, the whole suite would still pass, and the only symptom would
-be that the `media` function pays `catalog`'s import on every cold start and
-ships code it has no IAM to use. Reading the source cannot see that; only
-reading `sys.modules` after the fact can, so these tests run each entrypoint in a
-fresh interpreter and inspect what actually got imported.
-
-**A domain image starts with nothing.** The functions run with no AWS
-credentials during a cold start's import phase, and `vehicles` is meant to run
-with no `secretsmanager:GetSecretValue` grant at all. If building the application
-reads a secret, the function does not start, and it does not start in a way that
-produces no application logs, because it fails before logging is configured.
-
-So the subprocesses run under a stripped environment: no `AWS_*`, no
-credentials, no region, nothing but what the settings class defaults. They also
-run with `APP_SECRETS_ARN` pointing at an ARN that cannot be read, which is the
-sharper version of the same test: a build that tried to resolve a secret would
-not merely find nothing, it would attempt a network call and fail.
+Each domain image carries only its own domain and builds with no credentials.
 """
 
 from __future__ import annotations
@@ -63,9 +42,7 @@ print(json.dumps({{
 def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """Run one snippet in a fresh interpreter with an all but empty environment.
 
-    The stripped environment is the point of the test, so the only variables set
-    are the ones the interpreter itself needs: `PATH`, and `PYTHONPATH` so `app`
-    is importable without an installed distribution.
+    The stripped environment is the point, so only PATH and PYTHONPATH are set.
     """
     environment = {
         "PATH": "/usr/bin:/bin",
@@ -99,11 +76,7 @@ def probes() -> Dict[str, Dict[str, Any]]:
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_builds_with_no_credentials(domain: str, probes: Dict[str, Dict[str, Any]]) -> None:
-    """The stripped run already asserted this by not raising; this names it.
-
-    A failure here is a function that cannot cold start, which is worth being
-    its own test rather than an implicit precondition of the next one.
-    """
+    """Every entrypoint builds its application with no AWS credentials available."""
     assert probes[domain]["routes"] > 0
     assert probes[domain]["domain"] == domain
 
@@ -129,18 +102,12 @@ def test_an_entrypoint_imports_only_its_own_endpoint_modules(domain: str, probes
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_reports_its_own_service_name(domain: str, probes: Dict[str, Dict[str, Any]]) -> None:
+    """Each entrypoint reports the service name of its own domain."""
     assert probes[domain]["service_name"] == f"carmodpicker-{domain}"
 
 
 def test_vehicles_is_the_domain_that_needs_no_secret(probes: Dict[str, Dict[str, Any]]) -> None:
-    """The least-privilege claim the split rests on, asserted rather than assumed.
-
-    Every route under `/api/car-generations` and `/api/search` is a public read,
-    because `car_generations` disables the writing endpoints of its
-    `BaseDynamoEndpointRouter`, so the generated routes that would depend on
-    `get_current_user` are never registered. If a route that verifies a token
-    ever lands in `vehicles`, this fails and the Terraform grant has to follow.
-    """
+    """The vehicles domain serves only public reads, so it needs no secret grant."""
     assert probes["vehicles"]["requires_secrets"] == []
     for domain in DOMAIN_NAMES:
         if domain != "vehicles":
@@ -150,11 +117,9 @@ def test_vehicles_is_the_domain_that_needs_no_secret(probes: Dict[str, Dict[str,
 
 
 def test_importing_the_descriptors_imports_no_endpoint_module() -> None:
-    """`load_routers` is a callable so that this stays true.
+    """Importing the domain descriptors imports no endpoint module.
 
-    If any descriptor's routers were imported at module scope, every entrypoint
-    would import all nine domains through `app.composition.domains` and the
-    isolation above would be accidental rather than structural.
+    Routers load through a callable so no entrypoint pulls in all nine domains.
     """
     result = _run(
         "import json, sys\n"
@@ -165,12 +130,7 @@ def test_importing_the_descriptors_imports_no_endpoint_module() -> None:
 
 
 def test_no_entrypoint_imports_the_monolith_composition_root() -> None:
-    """The split does not run through `app.main`.
-
-    `app.main` is the whole-surface application the monolith serves. If an
-    entrypoint imported it, every domain image would build all nine domains at
-    import time.
-    """
+    """No entrypoint imports app.main, which would build every domain at import."""
     for domain in DOMAIN_NAMES:
         source = (BACKEND / "app" / "entrypoints" / f"{ENTRYPOINT_MODULES[domain]}.py").read_text()
         assert "app.main" not in source
@@ -179,11 +139,9 @@ def test_no_entrypoint_imports_the_monolith_composition_root() -> None:
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:
-    """`main` is what the process runs, and `handler` is what Lambda calls.
+    """Every entrypoint exposes a main for the process and a handler for Lambda.
 
-    Asserted by reading the module rather than by calling `main`, because it
-    binds a port and replaces the root log handlers, and a test that ran it
-    would leave both in place for every test after it.
+    Read from the source tree, since calling main would bind a port.
     """
     module = __import__(f"app.entrypoints.{ENTRYPOINT_MODULES[domain]}", fromlist=["main"])
     assert callable(module.build_app)

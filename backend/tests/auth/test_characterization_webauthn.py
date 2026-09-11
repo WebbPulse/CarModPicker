@@ -1,21 +1,6 @@
-"""SAFE-06 flow 4: WebAuthn passkey registration + authentication.
+"""Characterization of WebAuthn passkey registration and authentication.
 
-Per D-18 the cryptographic boundary is stubbed at the `webauthn` library
-boundary — NOT over HTTP. Real attestation signing requires a hardware
-authenticator we cannot cheaply reproduce in CI.
-
-The four library functions patched at the `app.api.endpoints.auth` import
-boundary (T-06-06 mitigation — pin the exact import targets so a Phase-5
-refactor that moves the imports will be caught by these patches failing):
-
-  @patch("app.api.endpoints.auth.webauthn.generate_registration_options")
-  @patch("app.api.endpoints.auth.webauthn.verify_registration_response")
-  @patch("app.api.endpoints.auth.webauthn.generate_authentication_options")
-  @patch("app.api.endpoints.auth.webauthn.verify_authentication_response")
-
-Note: generate_* functions do not hit external HTTP (local PRNG only), but
-we pin them here so that a future refactor breaking the import path causes an
-explicit test failure rather than a silent stub miss.
+The webauthn library is stubbed at the import boundary, since CI has no authenticator.
 """
 
 import base64
@@ -33,15 +18,18 @@ from app.db.dynamo.users import UserRepository, WebAuthnCredential, WebAuthnCred
 
 
 def _uniq(base: str) -> str:
+    """A name unique to this worker and process, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
 
 def _b64url(raw: bytes) -> str:
+    """Unpadded base64url encoding of raw bytes."""
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
 
 
 def _create_verified_user(db: Any) -> DBUser:
+    """Create a verified, enabled user with a known password."""
     username = _uniq("wa_char")
     user = DBUser(
         username=username,
@@ -54,6 +42,7 @@ def _create_verified_user(db: Any) -> DBUser:
 
 
 def _login(client: TestClient, user: DBUser) -> str:
+    """Log the user in with their password and return the access token."""
     r = client.post(
         f"{settings.API_STR}/auth/token",
         data={"username": user.username, "password": "testpass123!"},
@@ -74,14 +63,7 @@ def test_webauthn_register_and_authenticate(
     client: TestClient,
     db_session: Any,
 ) -> None:
-    """Flow 4: WebAuthn registration round-trip then authentication round-trip.
-
-    Patch decorator order (outermost first, args innermost-first):
-      @patch verify_authentication_response → mock_ver_auth (last arg)
-      @patch generate_authentication_options → mock_gen_auth
-      @patch verify_registration_response   → mock_ver_reg
-      @patch generate_registration_options  → mock_gen_reg (first arg)
-    """
+    """A passkey registers and then authenticates through the full round trip."""
     user = _create_verified_user(db_session)
     token = _login(client, user)
     headers = {"Authorization": f"Bearer {token}"}

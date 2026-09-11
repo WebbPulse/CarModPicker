@@ -1,3 +1,5 @@
+"""Coverage for the build list endpoints: CRUD, ownership, copying and tier caps."""
+
 import os
 from typing import Any, Dict
 
@@ -507,12 +509,9 @@ class TestBuildLists:
         assert response.status_code == 401
 
     def test_copy_build_list_success(self, client: TestClient, premium_test_user: User, db_session: Any) -> None:
-        """Test successfully copying a build list.
+        """Copying a build list duplicates it for a premium user.
 
-        Uses premium_test_user: IN-02 closed the free-tier cap bypass on the copy
-        path, so a free user who already has 1 build list (the source of the copy)
-        hits the cap on the POST /copy call. Premium bypasses the cap entirely,
-        which is the scenario this test actually cares about.
+        A premium user is required because the free tier cap applies to the copy path.
         """
         token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
@@ -702,16 +701,7 @@ class TestBuildLists:
         assert copied_build_list["user_id"] != str(original_owner.id)
 
     def test_copy_free_tier_cap(self, client: TestClient, test_user: User, db_session: Any) -> None:
-        """IN-02 regression — free-tier user at the 1-list cap cannot copy to
-        create a second list.
-
-        Before IN-02 landed, ``copy_build_list`` bypassed the cap enforcement
-        that ``create`` already applied — a free user could press Copy to grow
-        unbounded. The service now raises 402 at the copy path too
-        (``build_list_service.copy_build_list`` — see the ``Free accounts are
-        limited`` block). This test pins the 402 so a future PR that removes
-        or relaxes the check fails CI.
-        """
+        """A free user at the one list cap is refused a copy with 402."""
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 

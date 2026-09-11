@@ -1,11 +1,6 @@
-"""SAFE-06 flow 2: email/password login.
+"""Characterization of email and password login.
 
-Asserts the login endpoint returns an access token and correct user details.
-Per D-19: HTTP status + response-key presence.  No DB state change (login
-is read-only).
-
-Pattern lifted from tests/api/endpoints/test_auth.py::test_login_for_access_token_success
-and adapted to the SAFE-06 characterization shape.
+Pins the status code and the response keys the token endpoint returns.
 """
 
 import os
@@ -20,6 +15,7 @@ from app.db.dynamo.users import UserRepository
 
 
 def _uniq(base: str) -> str:
+    """A name unique to this worker and process, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 

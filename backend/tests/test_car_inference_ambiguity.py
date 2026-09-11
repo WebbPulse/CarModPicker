@@ -1,15 +1,6 @@
-"""PARTS-02 regression: pin current car_inference ambiguity-resolution behavior.
+"""Pinned car inference behaviour for ambiguous part titles.
 
-NOTE: these tests assert CURRENT BEHAVIOR, not CORRECTNESS. The ML-based
-rewrite (PARTS-V2-01) deferred to v2 will invert some of these expectations.
-Do NOT fix individual vectors to match intuition — file a v2 issue instead
-and update the vectors only when the behavior itself is intentionally changed.
-
-Each vector pins one (or zero) expected generation triple for a given
-(name, description) pair. The test fails if current behavior drifts from the
-pinned expectation. This gives us a CI-visible signal whenever changes to
-AMBIGUOUS_STANDALONE_CODES / PHRASE_TRIPLES / CAR_ALIASES shift ambiguity
-resolution for well-known collision cases.
+These vectors assert current behaviour, not correctness, so drift is visible in CI.
 """
 
 from __future__ import annotations
@@ -195,14 +186,7 @@ def test_ambiguity_resolution_pins_current_behavior(
     expected: Optional[tuple[str, str, str]],
     rationale: str,
 ) -> None:
-    """pins current behavior — see module docstring for non-correctness caveat.
-
-    Vector semantics:
-    - `expected` is a tuple → that triple must appear in the result (other matches allowed).
-    - `expected` is None and the vector is in NEGATIVE_EXPECTING_EMPTY → result must be empty.
-    - `expected` is None and the vector is in NEGATIVE_FORBIDDEN_TUPLES → the mapped tuple
-      must NOT appear in the result (other matches are permitted).
-    """
+    """Each vector's expected triple is present, absent, or the result is empty."""
     result = infer_car_generations(name, desc)
     if expected is not None:
         assert expected in result, f"{rationale}: expected {expected} in result, got {result}"
@@ -221,6 +205,8 @@ def test_vector_count_meets_floor() -> None:
 
 
 class TestTier1AuditFalsePositivePurge:
+    """Generic product copy must not fire a car generation match."""
+
     def test_garrett_turbo_supercore_no_dodge_daytona(self) -> None:
         """'turbo' inside a generic part title must NOT fire Dodge Daytona Turbo/Shelby."""
         result = infer_car_generations(

@@ -30,6 +30,7 @@ def test_verify_password_correct() -> None:
 
 
 def test_verify_password_incorrect() -> None:
+    """A wrong password does not verify against the hash."""
     password = "testpassword123"
     wrong_password = "wrongpassword"
     hashed_password = get_password_hash(password)
@@ -37,6 +38,7 @@ def test_verify_password_incorrect() -> None:
 
 
 def test_verify_password_with_different_hashes() -> None:
+    """Hashing is salted, and both hashes verify the same password."""
     password = "anotherpassword"
     hashed1 = get_password_hash(password)
     hashed2 = get_password_hash(password)
@@ -46,6 +48,7 @@ def test_verify_password_with_different_hashes() -> None:
 
 
 def test_create_access_token() -> None:
+    """An access token carries the subject and expires at the configured horizon."""
     data = {"sub": "testuser"}
     token = create_access_token(data)
     assert token is not None
@@ -61,6 +64,7 @@ def test_create_access_token() -> None:
 
 
 def test_create_access_token_custom_expiry() -> None:
+    """An explicit expiry delta sets the token's expiry."""
     data = {"sub": "testuser_custom_exp"}
     custom_delta = timedelta(minutes=10)
     token = create_access_token(data, expires_delta=custom_delta)

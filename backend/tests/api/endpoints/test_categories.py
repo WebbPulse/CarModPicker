@@ -112,6 +112,7 @@ def create_car_for_categories_test(
 def create_build_list_for_car_cookie_auth(
     client: TestClient, token: str, car_id: UUID, bl_name: str = "TestBLCategory"
 ) -> UUID:
+    """Create a build list for a car and return its id."""
     headers = {"Authorization": f"Bearer {token}"}
     build_list_data = {
         "name": bl_name,

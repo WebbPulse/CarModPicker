@@ -150,7 +150,7 @@ class TestAdminDeleteAllPartManufacturers:
 
 
 class TestAdminTableCounts:
-    """GET /admin/stats/table-counts — supplemental DB counts (admin only)."""
+    """GET /admin/stats/table-counts returns supplemental table counts to admins only."""
 
     def test_table_counts_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
         """A non-admin is refused the supplemental table counts."""

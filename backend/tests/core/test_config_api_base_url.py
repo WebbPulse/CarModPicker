@@ -1,9 +1,6 @@
-"""`settings.api_base_url` per environment.
+"""settings.api_base_url per environment.
 
-The verification email link used to be a DEBUG/else branch that produced either
-`http://localhost:8000/...` or `https://api.carmodpicker.com/...`, so staging
-mailed production links. These tests pin the per-environment value the way
-`test_config_frontend_url.py` pins the SPA origin.
+Staging must not mail production API links.
 """
 
 import pytest
@@ -12,6 +9,7 @@ from app.core.config import Settings
 
 
 def _settings(**overrides: object) -> Settings:
+    """Build a Settings instance from overrides with no env file."""
     return Settings(_env_file=None, SECRET_KEY="x", **overrides)  # type: ignore[call-arg]
 
 
@@ -27,6 +25,7 @@ def _settings(**overrides: object) -> Settings:
     ],
 )
 def test_defaults_when_api_url_unset(app_environment: str, debug: bool, expected: str) -> None:
+    """With no API_URL, the base URL follows the environment and debug flag."""
     s = _settings(APP_ENVIRONMENT=app_environment, DEBUG=debug, API_URL="")
     assert s.api_base_url == expected
 
@@ -49,17 +48,20 @@ def test_staging_does_not_use_the_production_api_host() -> None:
     ],
 )
 def test_api_url_override_wins_and_is_normalized(api_url: str, expected: str) -> None:
+    """An explicit API_URL wins and is trimmed of whitespace and a trailing slash."""
     s = _settings(APP_ENVIRONMENT="staging", DEBUG=False, API_URL=api_url)
     assert s.api_base_url == expected
 
 
 def test_api_url_is_read_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """API_URL is read from the environment."""
     monkeypatch.setenv("API_URL", "https://api.d456.example.com")
     s = Settings(_env_file=None, SECRET_KEY="x", APP_ENVIRONMENT="staging", DEBUG=False)  # type: ignore[call-arg]
     assert s.api_base_url == "https://api.d456.example.com"
 
 
 def test_local_api_base_url_follows_port() -> None:
+    """The local base URL uses the configured port."""
     s = _settings(APP_ENVIRONMENT="development", DEBUG=True, API_URL="", PORT=9001)
     assert s.api_base_url == "http://localhost:9001"
 

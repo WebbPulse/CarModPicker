@@ -1,17 +1,6 @@
-"""SAFE-06 flow 7: password-reset request → reset.
+"""Characterization of the password reset confirmation flow.
 
-Asserts the 2-step password-reset flow:
-  1. POST /api/auth/reset-password/confirm — token + new_password, resets hash.
-  2. Login with new password succeeds (200 + access_token).
-  3. Login with old password fails (401).
-
-Per D-19: HTTP status + key presence + DB state change (hashed_password changed).
-
-The POST /api/auth/reset-password endpoint tries to send an SES email; in the
-test environment email sending is disabled and returns False, causing a 500.
-We characterize the token-confirmation path directly by generating the reset
-token using the same create_access_token call that auth.py uses — identical to
-the pattern in tests/api/endpoints/test_auth.py::test_reset_password_confirm_success.
+Drives the confirm endpoint directly, since sending the reset email is disabled in tests.
 """
 
 import os
@@ -27,6 +16,7 @@ from app.db.dynamo.users import UserRepository
 
 
 def _uniq(base: str) -> str:
+    """A name unique to this worker and process, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 

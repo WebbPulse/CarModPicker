@@ -1,29 +1,6 @@
-"""Regression: a password over bcrypt's 72 byte limit must not 500.
+"""Regression: a password over bcrypt's 72 byte limit must not fault.
 
-bcrypt reads at most 72 bytes of a password and ignores the rest. What differs
-between library versions is what happens when it is handed more: bcrypt 4.x
-truncates silently, and bcrypt 5.0.0, which this app pins, raises
-
-    ValueError: password cannot be longer than 72 bytes
-
-The schemas cap a password at `PASSWORD_MAX_LENGTH` characters, and the comment
-there says the cap exists because of that bcrypt limit. But a character is not a
-byte. The cap is enforced by pydantic's `max_length`, which counts characters, so
-72 accented, CJK or emoji characters are 144 bytes or more, pass validation
-cleanly, and then reached `bcrypt.hashpw` and became a 500. Signup, password
-reset and password change were all affected, and login against such an account
-was unreachable because the account could never be created in the first place.
-
-`webbpulse.security` truncates to 72 **bytes** before bcrypt sees the value, on a
-byte boundary rather than a character boundary, so these now hash and verify like
-any other password. Byte truncation is what keeps the hash identical to what any
-other implementation writes for the same input; trimming back to the last whole
-character would feed bcrypt different bytes.
-
-These tests use a multi-byte password rather than a long ASCII one on purpose.
-An ASCII password of 73 characters is rejected by the schema with a 422, which is
-correct behaviour and not the bug. The multi-byte case is the one that got past
-validation, and it is the case that regressed.
+Multi-byte passwords pass the character cap, so they are truncated by byte before hashing.
 """
 
 from __future__ import annotations
@@ -43,6 +20,7 @@ OVER_LIMIT_PASSWORD = "é" * PASSWORD_MAX_LENGTH
 
 
 def _uniq(base: str) -> str:
+    """A name unique to this worker and process, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
@@ -153,11 +131,7 @@ def test_password_reset_to_a_password_over_72_bytes(client: TestClient, db_sessi
 
 
 def test_an_ascii_password_past_the_char_cap_is_still_a_422(client: TestClient, db_session: Any) -> None:
-    """The schema cap is unchanged. Over-long ASCII is a validation error, not a 500.
-
-    Pinned so that adopting a module which truncates internally is not mistaken
-    for permission to drop the app's own maximum length.
-    """
+    """Over-long ASCII is still a validation error, so the schema cap is unchanged."""
     username = _uniq("longpw_ascii")
 
     signup = client.post(

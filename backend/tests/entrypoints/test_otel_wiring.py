@@ -1,31 +1,6 @@
-"""Row 16: OpenTelemetry on in the domain functions, Sentry out of them.
+"""OpenTelemetry on in the domain functions, Sentry out of them.
 
-Three properties, and each one fails quietly rather than loudly, which is why
-each is asserted here rather than left to a smoke test against a deployed
-function.
-
-**Sentry is gone from the entrypoints.** Not from `app.main`: the monolith still
-serves production until row 31 and keeps reporting through Sentry, so this is a
-per-file assertion rather than a repository-wide one. A domain function that
-still called `init_sentry` would work, and the only symptom would be two
-reporting paths for the same request and a Sentry project that keeps looking
-alive after the traffic behind it has moved.
-
-**Tracing is configured before the application is built.** This is the one that
-would have shipped broken. Every entrypoint carries a module-level
-`app = build_app()` for Mangum, and that line runs at import, which is before
-`main` has called `configure_tracing`. `build_domain_app` only attaches the
-FastAPI instrumentation when a provider already exists, so instrumenting the
-module-level application is impossible by construction, and `main` has to build
-its own after configuring tracing. `instrument_app` can only inject its server
-span middleware while the middleware stack is unbuilt, so getting this order
-wrong produces a function that looks instrumented, logs nothing, and exports no
-request spans at all.
-
-**The gate still holds when the endpoint is unset.** Terraform sets
-`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` on the deployed functions and nothing sets
-it in a test or a local run, so the gate is what keeps this suite from opening a
-batch exporter against the real X-Ray endpoint.
+Each property fails silently in production, so each is asserted on the source.
 """
 
 from __future__ import annotations
@@ -42,6 +17,7 @@ ENTRYPOINTS = BACKEND / "app" / "entrypoints"
 
 
 def _source(domain: str) -> str:
+    """The source text of one domain's entrypoint module."""
     return (ENTRYPOINTS / f"{ENTRYPOINT_MODULES[domain]}.py").read_text()
 
 
@@ -70,11 +46,7 @@ def _called_names(body: list[ast.stmt]) -> list[str]:
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_does_not_initialise_sentry(domain: str) -> None:
-    """No `init_sentry` import and no call, in any of the nine.
-
-    Asserted on the parsed tree rather than on the text, so the prose in these
-    modules can go on explaining why Sentry is absent without tripping it.
-    """
+    """No entrypoint imports or calls init_sentry."""
     tree = ast.parse(_source(domain))
 
     imported: list[str] = []
@@ -95,25 +67,14 @@ def test_an_entrypoint_does_not_initialise_sentry(domain: str) -> None:
 
 
 def test_the_monolith_still_initialises_sentry() -> None:
-    """The other half of the row, and the reason the check above is per-file.
-
-    Row 16 removes Sentry from the domain functions only. The monolith serves
-    every route in production until row 31, and dropping its error reporting
-    here would be an outage in observability rather than a migration step.
-    """
+    """The monolith keeps its Sentry initialisation while it serves production."""
     source = (BACKEND / "app" / "composition" / "app.py").read_text()
     assert "init_sentry" in source
 
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_main_configures_tracing_before_it_builds_the_app(domain: str) -> None:
-    """`configure_tracing` precedes the `build_app` that `run_uvicorn` serves.
-
-    The ordering is the whole delivery. `build_domain_app` reads the tracing
-    flag when it builds, so an application built first is an application that is
-    never instrumented, and the failure is silent: the function serves normally
-    and exports no request spans.
-    """
+    """Tracing is configured before the application is built, or it is never instrumented."""
     called = _called_names(_main_body(domain))
 
     assert "configure_tracing" in called, f"{domain}: main does not configure tracing"
@@ -126,12 +87,7 @@ def test_main_configures_tracing_before_it_builds_the_app(domain: str) -> None:
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_main_configures_logging_before_tracing(domain: str) -> None:
-    """`configure_tracing` logs its own warnings, so the format must exist first.
-
-    A missing `aws-otel` extra warns rather than raising, and that warning is
-    the only signal that a function is about to export unsigned. It has to land
-    in the shared JSON format to be selectable by the log based alarms.
-    """
+    """Logging is configured before tracing, so tracing warnings land in the JSON format."""
     called = _called_names(_main_body(domain))
 
     assert called.index("configure_logging") < called.index("configure_tracing"), (
@@ -142,13 +98,7 @@ def test_main_configures_logging_before_tracing(domain: str) -> None:
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_the_module_level_app_is_not_the_one_main_serves(domain: str) -> None:
-    """`main` builds its own, because the module-level one predates the provider.
-
-    The module-level `app` exists for Mangum and is constructed at import, which
-    is before any of `main` has run. If `main` served that object instead of
-    building a fresh one, no amount of correct ordering inside `main` would
-    instrument it.
-    """
+    """main builds its own application, since the module-level one predates the provider."""
     body = _main_body(domain)
     called = _called_names(body)
 
@@ -176,18 +126,7 @@ def test_the_module_level_app_is_not_the_one_main_serves(domain: str) -> None:
 
 @pytest.mark.parametrize("filename", ["requirements.txt", "requirements-lambda.txt"])
 def test_both_requirements_files_carry_the_aws_otel_extra(filename: str) -> None:
-    """`aws-otel` is what signs the export, and it is needed in both files.
-
-    The X-Ray OTLP endpoint authenticates with SigV4 and answers 403 to an
-    unsigned POST, which the exporter retries in silence. `webbpulse.otel` warns
-    and falls back to the unsigned exporter when the extra is missing rather
-    than failing a cold start, so leaving it out of the file the *image*
-    installs produces a function that starts, serves, and exports nothing.
-
-    `tests/test_requirements_lambda_subset.py` already pins the two specifiers
-    to each other character for character; this asserts what that string has to
-    contain now that tracing is on.
-    """
+    """Both requirements files carry the aws-otel extra that signs the OTLP export."""
     line = next(
         raw.strip() for raw in (BACKEND / filename).read_text().splitlines() if raw.strip().startswith("webbpulse[")
     )

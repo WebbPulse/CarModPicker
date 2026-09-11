@@ -772,8 +772,10 @@ class TestUniversalPipelineYearNarrowing:
 
 
 class TestMergeYearRanges:
-    """Pin the merge policy in isolation — it's the lever that decides whether a
-    title is one fitment span or many."""
+    """The merge policy in isolation.
+
+    It decides whether a title is one fitment span or several.
+    """
 
     def test_overlapping_ranges_merge(self) -> None:
         """Overlapping ranges merge into one."""

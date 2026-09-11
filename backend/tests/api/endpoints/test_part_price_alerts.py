@@ -25,8 +25,7 @@ ALERTS_PATH = f"{settings.API_STR}/part-price-alerts"
 
 
 def _make_part(db: Any, owner: DBUser, *, name: str = "Brake Disc") -> DBPart:
-    """Build a minimal Part owned by `owner`. Mirrors the seeding pattern from
-    test_parts_price_history.py — no listings or history needed for T02."""
+    """Build a minimal part owned by the given user, with no listings or history."""
     part = DBPart(
         name=f"{name}_{uuid.uuid4().hex[:8]}",
         category_id=get_default_category_id(db),
@@ -158,8 +157,10 @@ def test_resubscribe_updates_threshold_idempotent(client: TestClient, db_session
 
 
 def test_resubscribe_reactivates_soft_deleted_alert(client: TestClient, db_session: Any) -> None:
-    """If a prior alert was soft-deleted (active=False), re-subscribing flips
-    active back on and updates the threshold — same row, no duplicate."""
+    """Resubscribing reactivates a soft deleted alert and updates its threshold.
+
+    The same row is reused rather than a duplicate created.
+    """
     _, token, part = _create_user_part_pair(client, db_session, "alerts_reactivate")
     headers = get_auth_headers(token)
 

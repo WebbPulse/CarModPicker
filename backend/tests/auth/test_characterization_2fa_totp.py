@@ -1,12 +1,6 @@
-"""SAFE-06 flow 3: 2FA-TOTP enrollment + challenge.
+"""Characterization of TOTP enrollment and the two-factor login challenge.
 
-Asserts the TOTP enrollment round-trip:
-  1. POST /api/auth/2fa/setup   — generates a TOTP secret for the logged-in user.
-  2. POST /api/auth/2fa/verify  — verifies the OTP and flips totp_enabled=True.
-  3. POST /api/auth/token       — login now returns requires_2fa=True (not a token).
-  4. POST /api/auth/token/2fa   — complete login with username + password + OTP.
-
-Per D-19: HTTP status + key presence + DB state change (totp_enabled flipped to True).
+Pins the status codes, response keys and the enabled flag on the user row.
 """
 
 import os
@@ -22,6 +16,7 @@ from app.db.dynamo.users import UserRepository
 
 
 def _uniq(base: str) -> str:
+    """A name unique to this worker and process, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 

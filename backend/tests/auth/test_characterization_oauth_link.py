@@ -1,28 +1,6 @@
-"""SAFE-06 flow 6: link Google OAuth account to an existing email/password user.
+"""Characterization of linking Google OAuth to an existing password user.
 
-Uses pytest-recording: the cassette at:
-
-    backend/tests/auth/cassettes/test_characterization_oauth_link/
-        test_google_oauth_link_existing_user.yaml
-
-records the JWKS HTTPS roundtrip to Google. Cassette regeneration:
-
-    cd backend
-    rm -rf tests/auth/cassettes/test_characterization_oauth_link
-    pytest -n 0 --record-mode=once tests/auth/test_characterization_oauth_link.py::test_google_oauth_link_existing_user
-
-MUST use -n 0 to avoid pytest-xdist write races (Pitfall 3).
-
-The Google link flow for EXISTING users (email already matches) uses
-POST /api/auth/google → returns link_token → POST /api/auth/google/link.
-The link_token encodes the google_sub from the verified ID token.
-
-After recording, run:
-    cd backend && pytest -n auto tests/auth/test_characterization_oauth_link.py -v
-and confirm the test reports PASSED (not SKIPPED).
-
-pytest-recording default cassette layout:
-    <test-file-dir>/cassettes/<test-module-basename>/<test-function-name>.yaml
+The JWKS fetch replays from a pytest-recording cassette beside this module.
 """
 
 import os
@@ -53,24 +31,14 @@ pytestmark = pytest.mark.skipif(
 
 
 def _uniq(base: str) -> str:
+    """A name unique to this worker and process, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
 
 @pytest.mark.vcr
 def test_google_oauth_link_existing_user(client: TestClient, db_session: Any) -> None:
-    """Flow 6: link Google to an EXISTING email/password user.
-
-    The Google link flow:
-      1. POST /api/auth/google with the Google id_token — because the user's
-         email already exists, the endpoint returns a link_token (not an access_token).
-      2. POST /api/auth/google/link with {link_token, password} — verifies password,
-         creates the OAuthAccount row, returns access_token.
-
-    The id_token, nonce, and email below must match the values captured in the
-    cassette. The email MUST be the same as the email on the Google sandbox account
-    used during recording. Update these placeholders after recording.
-    """
+    """An existing user exchanges a link token and password for a linked Google account."""
     id_token_from_cassette = "<ID_TOKEN_FROM_CASSETTE>"
     nonce_from_cassette = "<NONCE_FROM_CASSETTE>"
     email_from_cassette = "<EMAIL_FROM_CASSETTE>"

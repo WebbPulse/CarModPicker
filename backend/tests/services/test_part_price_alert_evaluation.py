@@ -268,7 +268,7 @@ def test_send_failure_leaves_last_fired_at_unchanged(db_session: Any, monkeypatc
 
 
 def test_exception_in_one_alert_does_not_block_another(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Two alerts on the same part — the first send raises, the second still fires."""
+    """When one alert's send raises, the other alert on the same part still fires."""
     alice = _make_user(db_session, "exc_alice")
     bob = _make_user(db_session, "exc_bob")
     part = _make_part(db_session, alice)

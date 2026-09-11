@@ -237,7 +237,7 @@ class TestPartManufacturers:
         assert response.status_code == 403
 
     def test_update_part_manufacturer_curated_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
-        """Non-admin can't edit catalog manufacturers — edits are admin-only."""
+        """A non-admin cannot edit a curated catalog manufacturer."""
         curated = DBPartManufacturer(
             name=get_unique_name("CuratedNoEdit"),
             description="Curated",

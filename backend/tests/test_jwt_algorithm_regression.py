@@ -1,11 +1,6 @@
-"""AUTH-04 D-04 regression: every jwt.decode() call MUST specify algorithms=[].
+"""Every JWT decode in the application names its allowed algorithms.
 
-Scoped to backend/app/ per Phase 3/4 precedent (test_session_query_regression.py).
-Guards against the CWE-327 / "alg: none" vulnerability class — if a future PR
-adds a bare jwt.decode(token, key) call, this test fails at CI.
-
-Companion tests: test_session_query_regression.py, test_pydantic_v1_regression.py,
-test_logger_migration_regression.py.
+Guards against an unsigned or attacker-chosen algorithm being accepted.
 """
 
 from __future__ import annotations
@@ -20,6 +15,7 @@ _ALG_PATTERN = re.compile(r"algorithms\s*=\s*\[")
 
 
 def test_every_jwt_decode_specifies_algorithms() -> None:
+    """No jwt.decode call in the application omits an algorithms argument."""
     offenders: list[tuple[str, int, str]] = []
     for pyfile in APP_DIR.rglob("*.py"):
         lines = pyfile.read_text(encoding="utf-8").splitlines()
@@ -34,16 +30,7 @@ def test_every_jwt_decode_specifies_algorithms() -> None:
 
 
 def test_the_app_decodes_only_through_decode_access_token() -> None:
-    """After the `webbpulse.security` swap there are no raw `jwt.decode` calls left.
-
-    The test above guards the shape of a call that no longer exists in `app/`:
-    every decode now goes through `app.api.dependencies.auth.decode_access_token`,
-    which passes `algorithms=[ALGORITHM]` in exactly one place. That is a stronger
-    position than auditing call sites, but only while it stays true, so this pins
-    it. A new bare `jwt.decode` would be caught by the test above; a new *decode
-    helper* that forgets the algorithm list would not, and this is what notices
-    the import reappearing at all.
-    """
+    """Every decode goes through the single helper that names the algorithm."""
     offenders: list[str] = []
     for pyfile in APP_DIR.rglob("*.py"):
         for lineno, line in enumerate(pyfile.read_text(encoding="utf-8").splitlines(), start=1):

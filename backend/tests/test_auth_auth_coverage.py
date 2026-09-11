@@ -1,11 +1,6 @@
-"""AUTH-03 regression: every protected route under /api/auth requires a valid JWT.
+"""Every protected route under /api/auth requires a valid token.
 
-Public auth routes (login, email verify, reset, Google sign-in, WebAuthn login
-ceremonies) are excluded via the PUBLIC_ROUTES allow-list below — any new public
-route is a deliberate review-gated addition.
-
-D-30 drift guard: count-at-or-above check catches a disabled parametrized test
-or a route removal without test update.
+Public auth routes are listed explicitly, so a new one is a deliberate addition.
 """
 
 from __future__ import annotations
@@ -35,6 +30,7 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
 
 
 def _protected_auth_routes() -> list[tuple[str, str]]:
+    """Every (method, path) under /api/auth that is not on the public allow list."""
     out: list[tuple[str, str]] = []
     for method, path in schema_routes():
         if path.startswith("/api/auth") and (method, path) not in PUBLIC_ROUTES:
@@ -46,16 +42,19 @@ AUTH_PROTECTED_ROUTES = _protected_auth_routes()
 
 
 def _fill_path_params(path: str) -> str:
+    """Replace each path parameter with a placeholder UUID."""
     return re.sub(r"\{[^}]+\}", "00000000-0000-0000-0000-000000000000", path)
 
 
 @pytest.mark.parametrize("method,path", AUTH_PROTECTED_ROUTES)
 def test_auth_route_requires_token(method: str, path: str, client: TestClient) -> None:
+    """An unauthenticated request to a protected auth route returns 401."""
     resp = client.request(method, _fill_path_params(path))
     assert resp.status_code == 401, f"{method} {path} -> {resp.status_code} (expected 401)"
 
 
 def test_auth_protected_route_count_at_or_above_expected() -> None:
+    """The protected route count stays at or above the expected floor, guarding against drift."""
     assert len(AUTH_PROTECTED_ROUTES) >= 12, (
         f"Too few protected auth routes: {len(AUTH_PROTECTED_ROUTES)} (expected >=12). "
         f"Check PUBLIC_ROUTES allow-list drift or accidental route removal."
@@ -63,8 +62,7 @@ def test_auth_protected_route_count_at_or_above_expected() -> None:
 
 
 def test_public_routes_still_return_non_401() -> None:
-    """Public routes must NOT return 401 on unauthenticated hit (they may return 422 for
-    bad body, 400 for missing data, 404 for invalid token, etc. — but NEVER 401)."""
+    """A public route never answers 401 unauthenticated, whatever else it rejects."""
     client = TestClient(app)
     for method, path in sorted(PUBLIC_ROUTES):
         resolved = _fill_path_params(path)

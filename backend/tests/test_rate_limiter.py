@@ -343,6 +343,7 @@ class TestRateLimitMiddleware:
 
             @test_app.get("/test")
             def test_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+                """A route the middleware should limit."""
                 return {"message": "test"}
 
             client = TestClient(test_app)
@@ -358,11 +359,9 @@ class TestRateLimitMiddleware:
 
 
 class TestRateLimitExemptPaths:
-    """Test cases for the skip list used by the middleware.
+    """The middleware skip list, exact and prefix entries alike.
 
-    The skip list used to be tested with ``startswith`` against a list containing
-    "/", which is a prefix of every path. That exempted the whole API and disabled
-    the limiter in production, so these cases pin the exact/prefix split down.
+    A prefix of "/" would exempt the whole API and silently disable the limiter.
     """
 
     def test_root_is_exempt(self) -> None:
@@ -401,25 +400,26 @@ class TestRateLimitMiddlewareEnforcement:
 
         @test_app.get("/api/parts")
         def parts_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            """A non-exempt API route."""
             return {"message": "parts"}
 
         @test_app.get("/health")
         def health_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            """An exempt health route."""
             return {"status": "healthy"}
 
         @test_app.get("/docs/oauth2-redirect")
         def docs_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            """An exempt docs route."""
             return {"message": "docs"}
 
         return test_app, SophisticatedRateLimiter(config)
 
     @contextmanager
     def _limiter_enabled(self, limiter: object) -> Iterator[None]:
-        """Enable rate limiting and install ``limiter`` as the global limiter.
+        """Enable rate limiting and install the given limiter globally.
 
-        The test suite disables rate limiting globally via conftest, through both the
-        ENABLE_RATE_LIMITING environment variable and the settings object, so both
-        have to be overridden for the middleware to run at all.
+        The suite disables limiting through both the environment and settings, so both are overridden.
         """
         original_limiter = rate_limiter_module.rate_limiter
         rate_limiter_module.rate_limiter = limiter  # type: ignore[assignment]

@@ -1,18 +1,6 @@
-"""SAFE-06 flow 1: signup → email verification.
+"""Characterization of signup followed by email verification.
 
-Asserts the 2-step flow completes end-to-end with the committed DB effects.
-Per D-19 we pin HTTP status, response-key presence, and DB state change
-(user created + email_verified flipped to True).
-
-The verify-email flow in this codebase works in two steps:
-  1. POST /api/users/                              — creates user (email_verified=False in prod)
-  2. GET  /api/auth/verify-email/confirm?token=<jwt>  — flips email_verified=True
-
-In the TESTING environment, /api/users/ auto-sets email_verified=True (CLAUDE.md
-explains tests use TESTING=true).  To characterize the full 2-step confirmation
-path we create the user directly in the DB with email_verified=False, then drive
-the confirm endpoint with a real JWT token — identical to the pattern already
-used in tests/api/endpoints/test_auth.py::test_verify_email_confirm_success.
+The user is created unverified directly, since signup auto-verifies in tests.
 """
 
 import os
@@ -28,6 +16,7 @@ from app.db.dynamo.users import UserRepository
 
 
 def _uniq(base: str) -> str:
+    """A name unique to this worker and process, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
