@@ -120,6 +120,7 @@ locals {
       "POST /api/images/admin/purge-orphaned",
       "GET /api/images/by-source-url",
       "DELETE /api/images/delete",
+      "POST /api/images/fetch-from-url",
       "POST /api/images/upload",
     ]
 

@@ -150,6 +150,10 @@ jobs:
         working-directory: chrome-extension
         run: npm run type-check
 
+      - name: Unit tests
+        working-directory: chrome-extension
+        run: npm test
+
       - name: Audit dependencies for vulnerabilities
         working-directory: chrome-extension
         run: npm audit --audit-level=moderate

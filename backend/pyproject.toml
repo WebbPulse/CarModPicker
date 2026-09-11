@@ -142,6 +142,7 @@ media = [
     "tests/api/endpoints/test_images.py",
     "tests/services/test_storage_service_lazy_init.py",
     "tests/utils/test_image_utils.py",
+    "tests/utils/test_remote_image_fetch.py",
 ]
 
 admin = [

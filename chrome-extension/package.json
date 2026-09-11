@@ -8,7 +8,9 @@
     "build:dev": "vite build && node scripts/inline-content.js",
     "watch": "vite build --watch",
     "dev": "vite build --watch",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -24,6 +26,7 @@
     "canvas": "^3.2.3",
     "sharp": "^0.35.3",
     "typescript": "~7.0.2",
-    "vite": "^6.4.2"
+    "vite": "^6.4.2",
+    "vitest": "^5.0.0"
   }
 }

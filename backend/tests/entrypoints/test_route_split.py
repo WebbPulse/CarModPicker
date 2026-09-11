@@ -31,7 +31,7 @@ DOCS_ROUTES: Set[Tuple[str, str]] = {
     ("GET", "/api/openapi.json"),
 }
 
-DOMAIN_ROUTE_COUNT = 171
+DOMAIN_ROUTE_COUNT = 172
 ROOT_ROUTE_COUNT = 5
 DEPLOYED_ROUTE_COUNT = DOMAIN_ROUTE_COUNT + ROOT_ROUTE_COUNT
 TOTAL_WITH_DOCS = DEPLOYED_ROUTE_COUNT + len(DOCS_ROUTES)
@@ -44,7 +44,7 @@ EXPECTED_DOMAIN_ROUTES = {
     "build-lists": 34,
     "build-logs": 5,
     "moderation": 20,
-    "media": 8,
+    "media": 9,
     "admin": 12,
 }
 

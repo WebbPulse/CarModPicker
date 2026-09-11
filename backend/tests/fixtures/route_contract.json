@@ -613,6 +613,10 @@
   ],
   [
     "POST",
+    "/api/images/fetch-from-url"
+  ],
+  [
+    "POST",
     "/api/images/upload"
   ],
   [

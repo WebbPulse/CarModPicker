@@ -2401,6 +2401,40 @@
         "title": "DeleteAllPartsResponse",
         "type": "object"
       },
+      "FetchFromUrlRequest": {
+        "description": "The source image URL the server should fetch, and what it is attached to.",
+        "properties": {
+          "entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional id of the entity being updated",
+            "title": "Entity Id"
+          },
+          "entity_type": {
+            "description": "Type of entity the image belongs to",
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "source_url": {
+            "description": "https URL of the image to fetch and store",
+            "title": "Source Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_url",
+          "entity_type"
+        ],
+        "title": "FetchFromUrlRequest",
+        "type": "object"
+      },
       "FlaggedEntitySummary": {
         "description": "An entity surfaced to moderators by its downvote pattern.",
         "properties": {
@@ -11167,6 +11201,57 @@
           }
         ],
         "summary": "Delete Image",
+        "tags": [
+          "images"
+        ]
+      }
+    },
+    "/api/images/fetch-from-url": {
+      "post": {
+        "description": "Fetch an image from a public https URL server side and store it.\n\nThe extension cannot read these bytes itself, so the server fetches them\nbehind the same auth, authorization and validation as `/upload`.",
+        "operationId": "fetch_image_from_url_api_images_fetch_from_url_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FetchFromUrlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Fetch Image From Url Api Images Fetch From Url Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Fetch Image From Url",
         "tags": [
           "images"
         ]
