@@ -1,3 +1,5 @@
+"""Covers the build log endpoints and their posts."""
+
 import os
 from typing import Any, Dict
 from uuid import UUID

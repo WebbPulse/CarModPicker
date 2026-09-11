@@ -1,21 +1,6 @@
-"""SAFE-06 guardrail: audit committed VCR cassettes for un-scrubbed secrets.
+"""Fails a committed VCR cassette that still carries a real bearer token, cookie, client secret or provider key.
 
-Reads every backend/tests/cassettes/**/*.yaml file (and every
-backend/tests/auth/cassettes/**/*.yaml file produced by pytest-recording's
-default layout) and fails if any of the following BANNED patterns appear
-in the file body:
-
-  - `authorization: Bearer `  (case-insensitive) — real Bearer token leaked
-  - `set-cookie:` with content longer than 16 chars (real session cookie leaked)
-  - `client_secret` with a value that is not `REDACTED`
-  - `refresh_token` with a value that is not `REDACTED`
-  - OAuth access-token-like strings: `ya29.` (Google access-token prefix),
-    `ghp_`/`gho_` (GitHub), `sk-` (OpenAI) — catch-all for common providers
-
-If cassettes are absent (none committed yet), the test PASSES trivially —
-presence of the audit enforces scrubbing AS SOON AS any cassette lands.
-
-Defense against T-06-01 (secret leakage via committed cassette YAML).
+Passes trivially when no cassette is committed, so the guard is in place before the first one lands.
 """
 
 from __future__ import annotations
@@ -44,6 +29,7 @@ BANNED_PATTERNS: dict[str, re.Pattern[str]] = {
 
 
 def _all_cassettes() -> list[Path]:
+    """Collect every committed cassette from the shared and per module layouts."""
     cassettes: list[Path] = []
     for root in CASSETTE_ROOTS:
         if root.is_dir():
@@ -69,12 +55,7 @@ def test_cassette_contains_no_unscrubbed_secrets(cassette_path: Path) -> None:
 
 
 def test_cassette_audit_detection_works_with_leaked_token(tmp_path: Path) -> None:
-    """Meta-guard: prove the audit DETECTS a leaked token.
-
-    Creates an in-memory cassette file containing a banned pattern and asserts
-    that the regex catches it.  This test is always green — it validates the
-    detection logic independently of whether any real cassettes are committed.
-    """
+    """A synthetic cassette carrying a leaked token trips the banned patterns."""
     fake_cassette = tmp_path / "leaked_token_test.yaml"
     fake_cassette.write_text(
         "interactions:\n"
@@ -101,12 +82,7 @@ def test_cassette_audit_detection_works_with_leaked_token(tmp_path: Path) -> Non
 
 
 def test_cassette_audit_passes_for_redacted_cassette(tmp_path: Path) -> None:
-    """Meta-guard: prove the audit PASSES for a properly scrubbed cassette.
-
-    Creates an in-memory cassette with REDACTED markers (the vcr_config output)
-    and asserts no hits.  Validates the negative path: scrubbed cassettes must
-    not false-positive.
-    """
+    """A properly scrubbed cassette does not false positive."""
     scrubbed_cassette = tmp_path / "scrubbed_test.yaml"
     scrubbed_cassette.write_text(
         "interactions:\n"
@@ -135,16 +111,7 @@ def test_cassette_audit_passes_for_redacted_cassette(tmp_path: Path) -> None:
 
 
 def test_cassette_audit_redacted_markers_present_when_cassettes_exist() -> None:
-    """Meta-guard: if any cassettes exist AND contain scrub-eligible fields,
-    at least one REDACTED must appear across the committed cassette tree
-    (proving filter_headers / filter_post_data_parameters are actually running).
-
-    Passes trivially when:
-    - no cassettes are committed yet, OR
-    - committed cassettes contain no scrub-eligible fields (e.g. a JWKS-only
-      GET that returns only public keys — no auth headers, no cookies, no
-      client_secret, etc.) — such cassettes are safe without REDACTED markers.
-    """
+    """When committed cassettes carry scrub eligible fields, at least one REDACTED marker appears, proving the filters ran."""
     cassettes = _all_cassettes()
     if not cassettes:
         pytest.skip("No cassettes committed yet — audit-meta guard trivially OK")

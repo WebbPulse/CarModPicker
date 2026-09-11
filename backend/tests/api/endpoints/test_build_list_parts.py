@@ -1,3 +1,5 @@
+"""Covers the build list part endpoints: adding, updating, reordering and removing parts."""
+
 import os
 from typing import Any
 

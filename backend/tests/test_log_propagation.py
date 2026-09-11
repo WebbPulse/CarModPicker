@@ -1,19 +1,6 @@
-"""OBS-04 regression guard — every log record during a request scope MUST have
-non-default request_id + user_id. Fails CI if a future dev adds a handler that
-drops LogContextFilter coverage or uses print() instead of logger.
+"""Pins that every log record emitted inside a request or task scope carries a real request_id and user_id.
 
-Decision refs: 02-CONTEXT.md D-44 (audit, not redesign), D-45 (regression guard),
-D-46 (background task context), D-47 (CLI context).
-
-`task_context` is `webbpulse.log_context`'s name for what used to be
-CarModPicker's `bg_log_context`; the package emits the identical
-`bg:{task}:{job or "-"}` request id and `user_id="bg"`, so the CloudWatch
-Insights queries and the assertions below are unchanged.
-
-Landmine: pytest caplog does NOT inherit root-logger filters — the
-`caplog_with_context` fixture (conftest.py) attaches `LogContextFilter`
-to caplog.handler so records carry request_id + user_id attributes.
-Without this fixture, every assertion below AttributeErrors.
+caplog does not inherit root logger filters, so these tests take the caplog_with_context fixture rather than caplog.
 """
 
 from __future__ import annotations
@@ -53,17 +40,7 @@ def test_log_propagation_request_scope(
     test_user: User,
     caplog_with_context,
 ) -> None:
-    """Every in-scope log record during an authenticated request has non-default
-    request_id + user_id.  We inject a dependency override on get_current_user
-    that calls the original dependency (so user_id_var.set runs) and THEN emits
-    an app-logger record from inside the request scope.  This proves:
-
-      * request_context_middleware populated request_id_var (per-request UUID)
-      * get_current_user populated user_id_var (authenticated user UUID)
-      * LogContextFilter wired both ContextVars into the LogRecord
-
-    "In-scope" = records emitted by application code (not TestClient plumbing).
-    """
+    """Records emitted inside an authenticated request carry the per request id and the authenticated user id."""
     from fastapi import Depends
 
     from app.api.dependencies.auth import get_current_user, oauth2_scheme
@@ -78,6 +55,7 @@ def test_log_propagation_request_scope(
         token: str = Depends(oauth2_scheme),
         repos: Repositories = Depends(get_repositories),
     ) -> User:
+        """Resolve the real dependency, then emit a record from inside the request scope."""
         result = await get_current_user(request=request, token=token, repos=repos)
         test_logger = logging.getLogger("app.tests.log_propagation")
         test_logger.info("post-auth request scope log emit")
@@ -135,13 +113,7 @@ def test_task_context_job_id_none(caplog_with_context) -> None:
 
 
 def test_task_context_resets(caplog_with_context) -> None:
-    """Token-based reset restores whatever the ContextVars held before entry.
-
-    The baseline is pinned explicitly rather than assumed to be the `"-"`
-    default. Under xdist another test on the same worker can leave a request
-    id behind, and `task_context` restores the previous value by token, so
-    asserting the module default made this test depend on scheduling order.
-    """
+    """Leaving a task context restores the previous values by token, not the module defaults, so xdist ordering cannot affect it."""
     rid_token = request_id_var.set("before-rid")
     uid_token = user_id_var.set("before-uid")
     try:

@@ -1,17 +1,6 @@
-"""Gate-on-the-gate (M002/S05/T05).
+"""Tests the price history perf gate's own assertion logic against synthetic locust CSVs, so a buggy gate cannot hand out false passes.
 
-The price-history perf gate (`backend/scripts/perf/run_price_history_loadtest.sh`)
-is the falsifiable check that says "query-time aggregation is fast enough — don't
-open R036 (materialized part_price_summary) per D004." If the assertion logic in
-the gate is buggy, the gate gives false PASSes and we ship a slow backend.
-
-This test exercises the assertion logic against synthetic CSVs WITHOUT requiring
-a live uvicorn server or actual locust traffic. It uses the runner's
-``--csv-fixture <path>`` flag to bypass locust entirely and feed a known CSV
-into the parser.
-
-Default-skipped (locust install is heavy and not on every contributor's machine).
-The S05 verify command sets ``PERF_GATE_TEST=true`` to opt in.
+Skipped unless PERF_GATE_TEST is set, because locust is a heavy install.
 """
 
 from __future__ import annotations
@@ -37,6 +26,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _run_gate(csv_path: Path, evidence_dir: Path) -> subprocess.CompletedProcess[str]:
+    """Run the CSV parser against one fixture and return the completed process."""
     env = os.environ.copy()
     parser = REPO_ROOT / "backend" / "scripts" / "perf" / "_parse_locust_csv.py"
     return subprocess.run(
@@ -120,12 +110,7 @@ def test_empty_csv_returns_five(tmp_path: Path) -> None:
 
 
 def test_csv_missing_endpoint_row_returns_six(tmp_path: Path) -> None:
-    """Q7 negative test: CSV present but missing the per-endpoint stats row → exit 6.
-
-    Locust always emits one row per (Type, Name) — if the GET/POST rows are
-    absent the gate can't assert anything and must surface a clear diagnostic
-    instead of silently passing or crashing.
-    """
+    """A CSV with no per endpoint row exits 6 rather than passing silently."""
     only_aggregated = tmp_path / "only_aggregated.csv"
     only_aggregated.write_text(
         "Type,Name,Request Count,Failure Count,Median Response Time,Average Response Time,"
@@ -140,13 +125,7 @@ def test_csv_missing_endpoint_row_returns_six(tmp_path: Path) -> None:
 
 
 def test_runner_csv_fixture_flag_invokes_parser(tmp_path: Path) -> None:
-    """Smoke test the bash runner's --csv-fixture branch end-to-end.
-
-    Confirms the runner's argument plumbing wires up to the parser cleanly —
-    no preflight, no locust, just: fixture CSV → exit 0 + PASSED.json under
-    the canonical evidence dir. We use a copied evidence dir to avoid mutating
-    the repo's backend/.perf-runs/ during tests.
-    """
+    """The bash runner's --csv-fixture branch reaches the parser and writes PASSED.json."""
     evidence_dir = REPO_ROOT / "backend" / ".perf-runs"
     pre_existing = set(evidence_dir.glob("*")) if evidence_dir.exists() else set()
     try:

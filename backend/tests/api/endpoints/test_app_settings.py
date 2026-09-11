@@ -12,6 +12,7 @@ class TestAppSettings:
     """GET is public; PUT is admin-only. Row is lazily created with defaults on first read."""
 
     def test_get_public_returns_defaults(self, client: TestClient) -> None:
+        """An unauthenticated read lazily creates the row and returns the defaults."""
         response = client.get(f"{settings.API_STR}/app-settings/")
         assert response.status_code == 200, response.text
         body = response.json()
@@ -19,6 +20,7 @@ class TestAppSettings:
         assert "updated_at" in body
 
     def test_put_unauthorized(self, client: TestClient) -> None:
+        """Writing the settings without a token is a 401."""
         response = client.put(
             f"{settings.API_STR}/app-settings/",
             json={"premium_disabled": True},
@@ -26,6 +28,7 @@ class TestAppSettings:
         assert response.status_code == 401
 
     def test_put_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
+        """Writing the settings as a signed in non-admin is a 403."""
         token = create_and_login_user(client, db_session, "app_settings_forbidden")
         response = client.put(
             f"{settings.API_STR}/app-settings/",
@@ -35,6 +38,7 @@ class TestAppSettings:
         assert response.status_code == 403
 
     def test_put_admin_toggles_premium_disabled(self, client: TestClient, db_session: Any) -> None:
+        """An admin can toggle premium_disabled in both directions and the public read follows."""
         token = create_and_login_admin_user(client, db_session, "app_settings_toggle")
         headers = {"Authorization": f"Bearer {token}"}
 

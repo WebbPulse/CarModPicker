@@ -1,3 +1,5 @@
+"""Covers the cross entity search endpoint."""
+
 import os
 from typing import Any, Dict
 
@@ -447,6 +449,7 @@ class TestSearchReservedTldEmail:
     """A seeded `@staging.invalid` user must be searchable, not a 500."""
 
     def test_search_returns_user_with_reserved_tld_email(self, client: TestClient) -> None:
+        """A user whose email uses a reserved TLD is still returned rather than erroring the search."""
         username = get_unique_name("stagingseed")
         UserRepository().create_user(
             DBUser(

@@ -1,3 +1,5 @@
+"""Covers the image upload, presign and deletion endpoints."""
+
 import io
 import os
 from typing import Any, Dict

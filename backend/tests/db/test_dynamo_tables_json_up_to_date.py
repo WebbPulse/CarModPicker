@@ -1,11 +1,6 @@
 """Pins terraform/dynamodb_tables.json against app/db/dynamo/tables.py.
 
-Regenerate on an intentional table change:
-
-    cd backend
-    python scripts/export_dynamo_tables.py
-
-Then commit the regenerated file alongside the spec change that produced it.
+Regenerate with python scripts/export_dynamo_tables.py and commit the result alongside the spec change.
 """
 
 from __future__ import annotations
@@ -19,6 +14,7 @@ SNAPSHOT_PATH = BACKEND_DIR.parent / "terraform" / "dynamodb_tables.json"
 
 
 def _render() -> str:
+    """Render the exporter's current output by importing it from backend/scripts."""
     scripts_dir = str(BACKEND_DIR / "scripts")
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
@@ -28,6 +24,7 @@ def _render() -> str:
 
 
 def test_dynamodb_tables_json_matches_specs() -> None:
+    """The committed JSON matches what the exporter renders today."""
     actual = _render()
     expected = SNAPSHOT_PATH.read_text(encoding="utf-8")
 
@@ -43,6 +40,7 @@ def test_dynamodb_tables_json_matches_specs() -> None:
 
 
 def test_dynamodb_tables_json_covers_every_spec() -> None:
+    """Every declared table appears in the export with the right hash key and index names."""
     from app.db.dynamo.tables import TABLES
 
     exported = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))

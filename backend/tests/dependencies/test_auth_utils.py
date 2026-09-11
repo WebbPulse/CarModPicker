@@ -1,3 +1,5 @@
+"""Covers password hashing, verification and access token minting in the auth dependency."""
+
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -12,6 +14,7 @@ from app.core.config import settings
 
 
 def test_get_password_hash() -> None:
+    """Hashing returns a string that is not the plaintext password."""
     password = "testpassword"
     hashed_password = get_password_hash(password)
     assert hashed_password is not None
@@ -20,6 +23,7 @@ def test_get_password_hash() -> None:
 
 
 def test_verify_password_correct() -> None:
+    """The correct password verifies against its own hash."""
     password = "testpassword123"
     hashed_password = get_password_hash(password)
     assert verify_password(password, hashed_password) is True

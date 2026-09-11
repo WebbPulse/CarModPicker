@@ -1,8 +1,4 @@
-"""DATA-08 invariant: every build list has a build log (eager-create).
-
-Exercises the eager-create path in app/api/services/build_list_service.py and
-the invariant asserted by D-27: no build list exists without a build log.
-"""
+"""Pins the invariant that every build list is created with a build log."""
 
 from __future__ import annotations
 
@@ -41,11 +37,7 @@ def test_new_build_list_has_eager_build_log(db_session: Any, test_user: User) ->
 
 
 def test_no_orphan_build_lists(db_session: Any, premium_test_user: User) -> None:
-    """The DATA-08 invariant (D-27): no build_list lacks a build_log.
-
-    Uses premium_test_user to bypass the free-tier single-build-list cap so we
-    can seed multiple build_lists in a single test.
-    """
+    """No build list exists without a build log, checked across several seeded lists."""
     car = create_car_orm_in_db(
         db_session,
         make="Toyota",

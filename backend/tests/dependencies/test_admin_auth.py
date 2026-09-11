@@ -1,3 +1,5 @@
+"""Covers the admin and superuser authorization dependencies."""
+
 from typing import Any
 
 import pytest

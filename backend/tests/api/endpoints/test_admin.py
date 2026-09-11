@@ -153,12 +153,14 @@ class TestAdminTableCounts:
     """GET /admin/stats/table-counts — supplemental DB counts (admin only)."""
 
     def test_table_counts_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
+        """A non-admin is refused the supplemental table counts."""
         token = create_and_login_user(client, db_session, "table_counts_forbidden")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.get(f"{settings.API_STR}/admin/stats/table-counts", headers=headers)
         assert response.status_code == 403
 
     def test_table_counts_admin_ok(self, client: TestClient, db_session: Any) -> None:
+        """An admin gets a count for every supplemental table, scalars and per type maps alike."""
         token = create_and_login_admin_user(client, db_session, "table_counts_ok")
         headers = {"Authorization": f"Bearer {token}"}
         response = client.get(f"{settings.API_STR}/admin/stats/table-counts", headers=headers)

@@ -433,11 +433,7 @@ class TestPartManufacturers:
         assert isinstance(data["count"], int)
 
     def test_create_pm_dedups_into_existing(self, client: TestClient, db_session: Any) -> None:
-        """A user typing an existing brand name auto-links to that row (no dup).
-
-        Manufacturers live in a single global namespace, deduped
-        case-insensitively by name.
-        """
+        """Typing an existing brand name links to that row, since manufacturers dedupe case insensitively in one global namespace."""
         existing_name = get_unique_name("HKS")
         existing = DBPartManufacturer(
             name=existing_name,

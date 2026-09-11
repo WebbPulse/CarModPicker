@@ -1,3 +1,5 @@
+"""Covers the vote endpoints: casting, changing and clearing votes on each entity type."""
+
 import os
 from typing import Any
 

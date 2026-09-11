@@ -1,3 +1,5 @@
+"""Covers the admin only category management endpoints."""
+
 from typing import Any
 
 from fastapi.testclient import TestClient

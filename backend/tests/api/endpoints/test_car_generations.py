@@ -1,3 +1,5 @@
+"""Covers the car generation endpoints for readers and admins."""
+
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -38,6 +40,7 @@ def create_and_login_admin_user(
 
 
 def create_and_login_user(client: TestClient, username_suffix: str, db_session: Any | None = None) -> tuple[int, str]:
+    """Create a regular user and log them in; returns the user dict and token."""
     username = f"car_test_user_{username_suffix}"
     email = f"car_test_user_{username_suffix}@example.com"
     password = "testpassword"

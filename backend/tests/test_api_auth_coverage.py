@@ -1,25 +1,6 @@
-"""RBAC sweep: every protected route under /api/ (excluding /api/admin and /api/auth,
-which have their own coverage suites) requires authentication.
+"""Sweeps every protected route under /api/ outside /api/admin and /api/auth and asserts anonymous requests get a 401.
 
-Companion to:
-  - tests/test_admin_auth_coverage.py — covers /api/admin/* (anon 401, regular-user 403)
-  - tests/test_auth_auth_coverage.py — covers /api/auth/* (anon 401, public allow-list)
-
-This file closes the gap on the rest of the API surface (~115 routes spanning
-build_lists, parts, votes, reports, images, etc.). It catches accidental
-removal of auth dependencies on owner-scoped routes — the most likely place
-RBAC drift can sneak in.
-
-Public routes are explicitly allow-listed below. Adding a new public route
-is a deliberate, review-gated change. Drift in either direction trips CI:
-  - A protected route losing its auth dep → fails the 401 sweep
-  - A public route gaining an auth dep → fails the public sanity check
-  - A new route added without a test update → fails the count drift guard
-
-NOTE: This sweep covers anonymous → 401 only. Non-owner → 403 (the harder
-boundary, since each domain has its own owner concept and fixture wiring) is
-not covered here; per-domain tests carry that load (e.g. test_authorization.py,
-test_build_list_labor_estimates.py).
+Public routes are allow-listed, so drift in either direction fails: a lost auth dependency, a leaked one, or a new route nobody classified.
 """
 
 from __future__ import annotations
@@ -118,29 +99,19 @@ PROTECTED_ROUTES = [r for r in API_ROUTES if r not in PUBLIC_ROUTES]
 
 
 def _fill_path_params(path: str) -> str:
+    """Substitute a placeholder UUID for every path parameter in a route template."""
     return re.sub(r"\{[^}]+\}", "00000000-0000-0000-0000-000000000000", path)
 
 
 @pytest.mark.parametrize("method,path", PROTECTED_ROUTES)
 def test_api_route_requires_auth(method: str, path: str, client: TestClient) -> None:
-    """Anonymous requests to protected routes must 401.
-
-    A 422 (validation error) here means FastAPI parsed the body before reaching
-    the auth dependency — usually fine, but if you see 422 on a method that
-    should be auth-gated, check whether the auth dep is wired correctly.
-    """
+    """An anonymous request to a protected route is a 401."""
     resp = client.request(method, _fill_path_params(path))
     assert resp.status_code == 401, f"{method} {path} -> {resp.status_code} (expected 401)"
 
 
 def test_public_routes_do_not_return_401(client: TestClient) -> None:
-    """Public allow-list sanity check: no public route should leak an auth dep.
-
-    If this fails for a route, either:
-      (a) a Depends(get_current_user) was added — remove it, or
-      (b) the route is no longer intended to be public — remove it from
-          PUBLIC_ROUTES and let the protected sweep cover it.
-    """
+    """No allow-listed public route has picked up an auth dependency."""
     for method, path in sorted(PUBLIC_ROUTES):
         if (method, path) not in API_ROUTES:
             continue

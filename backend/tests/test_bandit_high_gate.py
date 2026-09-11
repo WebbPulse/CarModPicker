@@ -1,12 +1,4 @@
-"""QUAL-04: bandit HIGH-severity regression test.
-
-Pins the current CI invocation (`bandit -r app -ll`) from silently regressing
-to a config that would pass HIGH findings through. Uses a synthetic B602 fixture.
-
-D-18 path A applies: current `-ll` flag empirically exits 1 on HIGH (verified
-2026-04-23 on bandit 1.9.4). This test guards that behavior; no CI flag change
-was made.
-"""
+"""Pins the CI bandit invocation so a HIGH severity finding still fails the run."""
 
 from __future__ import annotations
 

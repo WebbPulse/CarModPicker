@@ -1,22 +1,6 @@
-"""SAFE-05: OpenAPI schema snapshot test.
+"""Pins the OpenAPI schema against a formatted JSON snapshot, so the diff is the schema review.
 
-Catches unintended route / schema drift. The snapshot is formatted JSON
-(indent=2, sort_keys=True) so the diff in PR review IS the schema change
-— per D-27 we do NOT use hash comparison.
-
-Regenerate on intentional schema change:
-
-    cd backend
-    TESTING=true ENABLE_RATE_LIMITING=false \
-      python -c "import json, sys; from app.main import app; sys.stdout.write(json.dumps(app.openapi(), indent=2, sort_keys=True))" \
-      > tests/fixtures/openapi_snapshot.json
-
-IMPORTANT: Use only TESTING=true ENABLE_RATE_LIMITING=false — no extra env overrides.
-conftest.py imports app at module scope so Settings reads the defaults; the snapshot
-must be generated under the same conditions or the title/paths will diverge.
-
-Then commit the regenerated file alongside the code change that produced the
-drift. The diff on that file is the review artifact.
+Regenerate under TESTING=true ENABLE_RATE_LIMITING=false only; other overrides change the title and paths.
 """
 
 from __future__ import annotations
@@ -28,12 +12,9 @@ SNAPSHOT_PATH = Path(__file__).parent / "fixtures" / "openapi_snapshot.json"
 
 
 def test_openapi_snapshot_matches() -> None:
-    """Pin the full OpenAPI schema against the committed snapshot file.
+    """The live schema matches the committed snapshot.
 
-    Pitfall 8: import `app` at FUNCTION scope so conftest.py's env-var setup
-    runs first. Importing `app.main` at module top-level wires the rate
-    limiter into the OpenAPI schema and leaks rate-limit response codes
-    into the snapshot.
+    app is imported inside the function so conftest's env setup lands first; a module level import leaks rate limit responses into the schema.
     """
     from app.main import app
 

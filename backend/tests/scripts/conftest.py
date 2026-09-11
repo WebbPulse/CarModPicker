@@ -1,27 +1,6 @@
-"""Fixtures shared by the identity migration script tests.
+"""Fixtures for the identity migration script tests.
 
-The two migration scripts reach DynamoDB through `webbpulse.dynamodb.Repository`
-rather than through `app.db.dynamo.client`, because that is the repository the
-package's own stores are built on and the scripts must write through those
-stores rather than around them. That means two things this module has to settle
-before a moto test can work.
-
-**The region.** `conftest.py`'s `dynamo_tables` fixture creates its tables in
-`us-east-1` by patching `settings.AWS_REGION`, which only `app.db.dynamo.client`
-reads. `Repository` takes its region from boto3's own resolution, so without
-`AWS_DEFAULT_REGION` set to the same value it builds a resource pointed
-somewhere else and every call comes back `ResourceNotFoundException`.
-
-**The cache.** `webbpulse.dynamodb._resource` is `lru_cache`d per region and
-endpoint, so a resource built inside one test's `mock_aws` block would be reused
-by the next test, outside the moto patch it was created under.
-`reset_resource_cache` is the package's own way out and is called on both sides
-of each test.
-
-The identity tables are created here rather than in `app/db/dynamo/tables.py`
-because they are not product tables: row 4's `module.identity` creates them in
-Terraform, and `TABLES` deliberately does not carry them. Their shapes are the
-package's, stated in `CredentialStore` and `TotpFactorStore`.
+The scripts reach DynamoDB through webbpulse.dynamodb.Repository, so this module pins AWS_DEFAULT_REGION to match the moto tables and resets the package's cached resource around every test.
 """
 
 from __future__ import annotations
@@ -70,12 +49,9 @@ def credentials_table(dynamo_tables: Any) -> Any:
 
 @pytest.fixture
 def totp_factors_table(dynamo_tables: Any) -> Any:
-    """The identity `totp-factors` table: hash `user_id`, no range, and never a TTL.
+    """The identity totp-factors table: hash user_id, no range key, and deliberately no TTL.
 
-    The absence of a TTL is the load bearing part, not an omission.
-    `TotpFactorStore`'s docstring is explicit: a TTL attribute on this table that
-    some future code sets by accident silently removes a user's second factor and
-    the account quietly drops to one.
+    A TTL here would silently drop a user's second factor.
     """
     resource = dynamo_tables
     resource.create_table(

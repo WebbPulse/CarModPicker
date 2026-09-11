@@ -1,3 +1,5 @@
+"""Covers the moderation report endpoints for users and admins."""
+
 import os
 from typing import Any
 

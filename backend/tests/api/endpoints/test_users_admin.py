@@ -1,3 +1,5 @@
+"""Covers the admin facing half of the /api/users router."""
+
 from typing import Any, List
 
 from fastapi.testclient import TestClient

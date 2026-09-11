@@ -1,24 +1,4 @@
-"""QUAL-07 regression guard: zero `Depends(get_logger)` in backend/app/ (D-37).
-
-Phase 3 Plan 05 migrated every endpoint signature from the FastAPI-DI logger
-pattern:
-
-    async def handler(..., logger: logging.Logger = Depends(get_logger)):
-        ...
-
-to the module-level idiom:
-
-    logger = logging.getLogger(__name__)   # at module top, after imports
-
-    async def handler(...):
-        logger.info(...)   # resolves to the module-level logger via closure
-
-This test fails if any future PR reintroduces `Depends(get_logger)` on a
-function signature in `backend/app/`. Per 03-CONTEXT §D-36, `get_logger` is
-still exported from `backend/app/core/logging.py` through Phase 5 — removal
-of the export is a separate late-phase task. This test only asserts absence
-of the call-site pattern, not absence of the export.
-"""
+"""Fails if any endpoint signature under backend/app reintroduces Depends(get_logger) instead of a module level logger."""
 
 from __future__ import annotations
 

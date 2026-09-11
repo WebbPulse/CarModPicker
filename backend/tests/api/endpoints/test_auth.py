@@ -1,3 +1,5 @@
+"""Covers the /api/auth router: token issuance, email verification and password reset."""
+
 import os
 from typing import Any
 
@@ -17,6 +19,7 @@ def get_unique_username(base_name: str) -> str:
 
 
 def create_test_user_direct_db(db: Any, username: str, email: str, password: str, disabled: bool = False) -> DBUser:
+    """Insert a user straight into the repository, bypassing the signup route."""
     hashed_password = get_password_hash(password)
     db_user = DBUser(
         username=username,
@@ -28,6 +31,7 @@ def create_test_user_direct_db(db: Any, username: str, email: str, password: str
 
 
 def test_login_for_access_token_success(client: TestClient) -> None:
+    """Valid credentials return an access token and set the cookie."""
     username = get_unique_username("auth_test_user")
     password = "auth_test_password"
     email = f"{username}@example.com"
@@ -62,6 +66,7 @@ def test_login_for_access_token_success(client: TestClient) -> None:
 
 
 def test_login_for_access_token_incorrect_username(client: TestClient) -> None:
+    """An unknown username is a 401 with no token issued."""
     login_data = {"username": "wronguser", "password": "password123"}
     response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert response.status_code == 401
@@ -72,6 +77,7 @@ def test_login_for_access_token_incorrect_username(client: TestClient) -> None:
 
 
 def test_login_for_access_token_incorrect_password(client: TestClient, db_session: Any) -> None:
+    """A wrong password is a 401 with no token issued."""
     username = get_unique_username("auth_test_user_wrong_pass")
     password = "correct_password"
     email = f"{username}@example.com"
@@ -90,6 +96,7 @@ def test_login_for_access_token_incorrect_password(client: TestClient, db_sessio
 
 
 def test_login_for_access_token_disabled_user(client: TestClient, db_session: Any) -> None:
+    """A disabled account cannot obtain a token."""
     username = get_unique_username("disabled_user")
     password = "password123"
     email = f"{username}@example.com"

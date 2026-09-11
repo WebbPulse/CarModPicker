@@ -1,3 +1,5 @@
+"""Covers the public category endpoints."""
+
 import os
 from typing import Any
 from uuid import UUID
@@ -54,6 +56,7 @@ def create_and_login_admin_user(
 
 
 def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[UUID, str]:
+    """Create a regular user and log them in; returns the user dict and token."""
     username = f"category_test_user_{username_suffix}"
     email = f"category_test_user_{username_suffix}@example.com"
     password = "testpassword"

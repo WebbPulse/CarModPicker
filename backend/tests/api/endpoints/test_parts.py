@@ -1,3 +1,5 @@
+"""Covers the part endpoints and the part listing routes hanging off them."""
+
 import os
 import uuid
 from typing import Any
@@ -630,6 +632,7 @@ class TestPartListingsAuth:
     line with every other mutating route and put behind `get_current_user`."""
 
     def _make_retailer(self) -> Retailer:
+        """Create and persist a retailer with a unique name and domain."""
         retailer = Retailer(
             name=get_unique_name(f"retailer_{uuid.uuid4().hex[:8]}"),
             domain=f"{uuid.uuid4().hex[:8]}.example.com",
@@ -645,6 +648,7 @@ class TestPartListingsAuth:
         test_category: Category,
         test_part_manufacturer: PartManufacturer,
     ) -> dict[str, Any]:
+        """Create a part through the API as the given user and return the response body."""
         headers = get_auth_token_and_headers(client, test_user.username)
         part_data = {
             "name": get_unique_name(f"listing_part_{uuid.uuid4().hex[:8]}"),
