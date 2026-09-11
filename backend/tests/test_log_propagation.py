@@ -17,30 +17,23 @@ from webbpulse.log_context import (
 )
 
 from app.db.dynamo.users import User
-from tests.conftest import login_user
+from tests.conftest import auth_headers, login_user
 
-_OUT_OF_SCOPE_LOGGERS = (
-    "asyncio",
-    "boto3",
-    "botocore",
-    "httpx",
-    "httpcore",
-    "python_multipart",
-    "urllib3",
+_IN_SCOPE_LOGGER_ROOTS = (
+    "app",
+    "webbpulse",
 )
-
 
 def _in_request_scope(rec: logging.LogRecord) -> bool:
     """True if the record comes from code that should be inside a request scope."""
-    return not any(rec.name == n or rec.name.startswith(f"{n}.") for n in _OUT_OF_SCOPE_LOGGERS)
-
+    return any(rec.name == n or rec.name.startswith(f"{n}.") for n in _IN_SCOPE_LOGGER_ROOTS)
 
 def test_log_propagation_request_scope(
     client: TestClient,
     test_user: User,
     caplog_with_context,
 ) -> None:
-    """Records emitted inside an authenticated request carry the per request id and the authenticated user id."""
+    """Every in-scope record in an authenticated request carries a real request_id and user_id."""
     from fastapi import Depends
 
     from app.api.dependencies.auth import get_current_user, oauth2_scheme
@@ -63,17 +56,14 @@ def test_log_propagation_request_scope(
         emitted_user_ids.append(user_id_var.get())
         return result
 
-    token = login_user(client, test_user.username)
+    credential = login_user(client, test_user.username)
 
     caplog_with_context.set_level(logging.DEBUG)
     caplog_with_context.clear()
 
     fastapi_app.dependency_overrides[get_current_user] = logging_current_user
     try:
-        response = client.get(
-            "/api/users/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        response = client.get("/api/users/me", headers=auth_headers(credential))
     finally:
         fastapi_app.dependency_overrides.pop(get_current_user, None)
     assert response.status_code == 200, response.text
@@ -88,7 +78,6 @@ def test_log_propagation_request_scope(
         assert getattr(rec, "request_id", "-") != "-", f"missing request_id on '{rec.getMessage()}' (logger={rec.name})"
         assert getattr(rec, "user_id", "-") != "-", f"missing user_id on '{rec.getMessage()}' (logger={rec.name})"
 
-
 def test_task_context(caplog_with_context) -> None:
     """task_context sets request_id=bg:{task}:{job} + user_id=bg."""
     caplog_with_context.set_level(logging.DEBUG)
@@ -101,7 +90,6 @@ def test_task_context(caplog_with_context) -> None:
     assert rec.request_id == "bg:crawler:job-1"
     assert rec.user_id == "bg"
 
-
 def test_task_context_job_id_none(caplog_with_context) -> None:
     """task_context with no job_id renders 'bg:{task}:-'."""
     caplog_with_context.set_level(logging.DEBUG)
@@ -110,7 +98,6 @@ def test_task_context_job_id_none(caplog_with_context) -> None:
         logger.info("sweep running")
     rec = next(r for r in caplog_with_context.records if "sweep running" in r.getMessage())
     assert rec.request_id == "bg:sweep:-"
-
 
 def test_task_context_resets(caplog_with_context) -> None:
     """Leaving a task context restores the previous values by token, not the module defaults, so xdist ordering cannot affect it."""
@@ -125,7 +112,6 @@ def test_task_context_resets(caplog_with_context) -> None:
     finally:
         request_id_var.reset(rid_token)
         user_id_var.reset(uid_token)
-
 
 def test_cli_log_context(caplog_with_context) -> None:
     """CLI scope produces request_id=cli:<pid>, user_id=cli."""

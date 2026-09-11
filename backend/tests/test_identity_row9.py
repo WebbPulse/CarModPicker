@@ -347,7 +347,6 @@ def _user(**overrides: Any) -> User:
         "username": f"user{uuid4().hex[:8]}",
         "email": f"{uuid4().hex[:8]}@example.com",
         "email_verified": True,
-        "hashed_password": None,
         "disabled": False,
         "is_superuser": False,
         "is_admin": False,
@@ -447,14 +446,28 @@ def test_absent_package_stores_read_as_no_rows(dynamo_tables: Any) -> None:
     assert hooks.has_other_sign_in_method(str(created.id)) is False
 
 
-def test_a_legacy_password_still_counts_with_the_package_stores_present(
+def test_a_legacy_password_no_longer_counts_with_the_package_stores_present(
     hooks_with_package_stores: CarModPickerIdentityHooks, dynamo_tables: Any
 ) -> None:
-    """The legacy credential sources still count once the package stores are supplied."""
-    user = _user(hashed_password="$2b$12$" + "x" * 53)
-    created = hooks_with_package_stores._users.create_user(user)
+    """Row 9's two additions are unchanged by row 13 removing the password source.
 
-    assert hooks_with_package_stores.has_other_sign_in_method(str(created.id)) is True
+    This asserted the opposite through row 12: `users.hashed_password` was one of
+    row 5's three legacy sources, and the cheapest of the three, so it was the
+    one checked here to say the legacy half of a short-circuiting chain still
+    answered after row 9 added to the end of it.
+
+    Row 13 removed the password check from `has_other_sign_in_method`. Every
+    password that could be migrated moved into the package's `credentials` table
+    in row 7, and `OAuthService.unlink` counts that row itself, so counting a
+    stale attribute here would double count the credential and refuse
+    legitimate unlinks. The assertion is inverted rather than deleted, because
+    what it now protects is that removing the source did not also disturb the two
+    stores row 9 added: the passkey and link tests either side of this one are
+    the other half of that statement.
+    """
+    created = hooks_with_package_stores._users.create_user(_user())
+
+    assert hooks_with_package_stores.has_other_sign_in_method(str(created.id)) is False
 
 
 def test_an_unparseable_subject_still_answers_false(

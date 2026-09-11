@@ -1,7 +1,3 @@
-/**
- * Tests for identity client construction and origin resolution.
- */
-
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { identityOriginFrom, getIdentityClient } from './identityClient';
 
@@ -55,22 +51,7 @@ describe('identityOriginFrom', () => {
 });
 
 describe('getIdentityClient', () => {
-  it('returns null in bearer mode', async () => {
-    vi.stubEnv('VITE_AUTH_MODE', '');
-    vi.resetModules();
-    const { getIdentityClient: fresh } = await import('./identityClient');
-    expect(fresh()).toBeNull();
-  });
-
-  it('returns null when the mode is explicitly bearer', async () => {
-    vi.stubEnv('VITE_AUTH_MODE', 'bearer');
-    vi.resetModules();
-    const { getIdentityClient: fresh } = await import('./identityClient');
-    expect(fresh()).toBeNull();
-  });
-
-  it('builds a client in identity mode and caches it', async () => {
-    vi.stubEnv('VITE_AUTH_MODE', 'identity');
+  it('builds a client and caches it', async () => {
     vi.resetModules();
     const { getIdentityClient: fresh } = await import('./identityClient');
     const first = fresh();
@@ -78,7 +59,7 @@ describe('getIdentityClient', () => {
     expect(fresh()).toBe(first);
   });
 
-  it('is a no-op to call repeatedly in bearer mode', () => {
+  it('hands out the same instance to the module-level import too', () => {
     expect(getIdentityClient()).toBe(getIdentityClient());
   });
 });

@@ -318,18 +318,19 @@ type PendingIdentityAuth = {
 
 /**
  * Which sign in the popup offers. A runtime setting rather than a build flag,
- * because the extension ships one artifact to the store.
+ * because the extension ships one artifact to the store. Defaults to identity
+ * since row 13; only the exact string `legacy` selects the legacy flow.
  */
 type AuthMode = "legacy" | "identity";
 
 const AUTH_MODE_STORAGE_KEY = "authMode";
-const DEFAULT_AUTH_MODE: AuthMode = "legacy";
+const DEFAULT_AUTH_MODE: AuthMode = "identity";
 
-/** The configured sign in mode, defaulting to legacy on any other value. */
+/** The configured sign in mode, defaulting to identity on any other value. */
 async function getAuthMode(): Promise<AuthMode> {
   const result = await chrome.storage.sync.get([AUTH_MODE_STORAGE_KEY]);
-  return result[AUTH_MODE_STORAGE_KEY] === "identity"
-    ? "identity"
+  return result[AUTH_MODE_STORAGE_KEY] === "legacy"
+    ? "legacy"
     : DEFAULT_AUTH_MODE;
 }
 

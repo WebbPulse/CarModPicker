@@ -1,7 +1,8 @@
 """The identity domain's entrypoint, run as `python -m app.entrypoints.identity`.
 
 Login, refresh, email verification, password reset, TOTP, WebAuthn and Google
-OAuth: 24 routes under `/api/auth`. Mints tokens, so it signs with `SECRET_KEY`.
+OAuth under `/api/auth`, all served by the `webbpulse.identity` package. Tokens
+are RS256 signed in KMS, so it holds no `SECRET_KEY`.
 """
 
 from typing import TYPE_CHECKING

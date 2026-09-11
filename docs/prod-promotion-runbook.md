@@ -41,8 +41,8 @@ Verified against the live accounts and the live workspaces rather than assumed.
 | Gateway authorizers | gate REQUEST authorizer | **none**, `get-authorizers` returns `[]` |
 | `/api/auth` route keys | the generated pair plus row 8's fifteen | **none at all**, auth falls through `$default` to the monolith |
 | Discovery document | `200` at the staging API host | **`404`** at `https://api.carmodpicker.com/api/auth/.well-known/openid-configuration` |
-| Frontend `AUTH_MODE` | **unset**, so `bearer` | **unset**, so `bearer` |
-| Extension `authMode` | runtime setting, default `legacy` | runtime setting, default `legacy` |
+| Frontend `AUTH_MODE` | removed by row 13, the bundle is identity only | removed by row 13, the bundle is identity only |
+| Extension `authMode` | runtime setting, default `identity` since row 13 | runtime setting, default `identity` since row 13 |
 | SES sandbox | in sandbox | in sandbox, `ProductionAccessEnabled: false` |
 | Legacy users | synthetic plus the owner's row | **174 real user rows** |
 
@@ -76,8 +76,8 @@ rows 25 to 32 of the domain split. Concretely, promoting lands all of:
 - Row 8's fifteen explicit `/api/auth` route keys, marked `require_identity_jwt`.
 - Row 12a's eighty explicit domain route keys plus two anonymous guard keys,
   landing unmarked because `var.domain_jwt_enforced` defaults to `false`.
-- The frontend `AuthClient` behind `VITE_AUTH_MODE` and the Chrome extension
-  sign-in handoff.
+- The frontend `AuthClient`, now unconditional since row 13 removed
+  `VITE_AUTH_MODE`, and the Chrome extension sign-in handoff.
 
 ## Blockers, to be settled before anything is merged
 
@@ -436,17 +436,17 @@ irreversible.
 The locked decision of 2026-09-11 is: publish the extension **after the
 production cutover, with the identity default flipped in the same release.**
 The extension ships one artifact to the store and has no build-time environment
-plumbing, so its equivalent of `VITE_AUTH_MODE` is a runtime setting in
-`chrome.storage.sync` under `authMode`, read by `getAuthMode()` in
-`background.ts`, with `DEFAULT_AUTH_MODE` currently `"legacy"`.
+plumbing, so its sign-in mode is a runtime setting in `chrome.storage.sync`
+under `authMode`, read by `getAuthMode()` in `background.ts`. Row 13 flipped
+`DEFAULT_AUTH_MODE` to `"identity"` and kept the setting as the backout lever.
 
 Two consequences, and they pull in opposite directions:
 
-- The merge publishes an extension whose default is still `legacy`. That is
-  safe, and it is the shape an existing install expects.
-- But it burns the release. Flipping `DEFAULT_AUTH_MODE` to `"identity"` later
-  is a second store publish and a second review, which is exactly what the
-  locked decision says to avoid.
+- The merge would publish an extension whose default is now `identity`, which
+  an install talking to a pre-cutover production would not expect.
+- The gate is what keeps that from happening: with
+  `CHROME_EXTENSION_AUTO_RELEASE` unset the merge publishes nothing, so the
+  one store publish still lands at step 12, after the cutover.
 
 **So the decision to take before the merge was whether `chrome-extension/` ships
 in the promotion at all.** Two workable orders, both now reachable without a
@@ -454,18 +454,17 @@ revert because the gate holds the publish either way:
 
 1. **Revert `chrome-extension/` out of the promotion branch**, promote the
    backend and frontend, complete the cutover through step 11, then land the
-   extension with `DEFAULT_AUTH_MODE = "identity"` as its own pull request to
-   `main`. One store publish, correct default, matches the locked decision.
-2. **Let it publish on the merge** with `legacy` default, and accept a second
-   publish at step 12 for the flip. Two reviews, and the first one ships a
-   default that is wrong within a day.
+   extension as its own pull request to `main`. One store publish, correct
+   default, matches the locked decision.
+2. **Let it publish on the merge**, which ships the identity default to installs
+   still talking to a pre-cutover production. That is the order to avoid.
 
 **Recommendation: order 1's outcome, reached the cheap way.** With the gate in
 place, let `chrome-extension/` ride the promotion merge with
-`CHROME_EXTENSION_AUTO_RELEASE` unset. The merge publishes nothing. Then flip
-`DEFAULT_AUTH_MODE` to `"identity"` and publish once at step 12. One store
-publish, correct default, matches the locked decision, and no revert to carry
-and re-land.
+`CHROME_EXTENSION_AUTO_RELEASE` unset. The merge publishes nothing. Row 13
+already carries `DEFAULT_AUTH_MODE = "identity"`, so step 12 is a publish rather
+than a publish plus a flip. One store publish, correct default, matches the
+locked decision, and no revert to carry and re-land.
 
 Also confirm before merging that `main` still carries the fixed workflow, the
 one that derives the version from the last `chrome-extension-v*` tag and opens a

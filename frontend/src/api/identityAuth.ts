@@ -1,23 +1,25 @@
 /**
- * Sign in and sign out in one shape for both the legacy bearer flow and the
- * identity service, so pages render a result without knowing which ran. An MFA
- * challenge is a successful outcome here, not a thrown error.
+ * Sign in and sign out in the shape the pages render, over `AuthClient` since
+ * row 13 removed the legacy mechanism. An MFA challenge is a successful outcome
+ * here rather than a thrown error, and a null client is a refusal to show.
  */
 import { describeAuthError, getAuthErrorCode } from '@webbpulse/auth';
-import { AUTH_MODE } from './authMode';
 import { getIdentityClient } from './identityClient';
-import { authApi } from './auth';
-import { apiClient } from './client';
 import type { UserRead } from '../types/Api';
-import { getApiErrorMessage } from '../utils/apiError';
+
+/** Shown when the identity client could not be built. One wording, one cause. */
+const CLIENT_UNAVAILABLE = 'Sign in is unavailable in this deployment.';
 
 /**
- * Opaque carrier for the second sign in leg: a server ticket in identity mode,
- * the credentials in bearer mode, so the login form needs no mode branch.
+ * What the second leg of a sign in needs. The `kind` discriminator is kept so a
+ * second challenge type can be added without every construction site becoming
+ * ambiguous.
  */
-export type LoginChallenge =
-  | { kind: 'identity-ticket'; ticket: string; factors: string[] }
-  | { kind: 'legacy-credentials'; username: string; password: string };
+export type LoginChallenge = {
+  kind: 'identity-ticket';
+  ticket: string;
+  factors: string[];
+};
 
 /** What a sign in attempt produced. */
 export type LoginResult =
@@ -26,115 +28,80 @@ export type LoginResult =
   | { status: 'failed'; error: string };
 
 /**
- * True when the code field should also accept a recovery code, which only the
- * identity service issues. A function so tests can drive both modes.
+ * True when the code field should also accept a recovery code. A function, not
+ * an inlined `true`, so a deployment that answers differently changes one place.
  */
-export const acceptsRecoveryCodes = (): boolean => AUTH_MODE === 'identity';
+export const acceptsRecoveryCodes = (): boolean => true;
 
 /**
- * Runs the first leg of a sign in. Returns no user in identity mode, so the
- * caller follows a success with `checkAuthStatus()` in both modes.
+ * Runs the first leg of a sign in. Returns no user, so the caller follows a
+ * success with `checkAuthStatus()`.
  */
 export const signIn = async (
   username: string,
   password: string
 ): Promise<LoginResult> => {
   const identity = getIdentityClient();
-  if (identity !== null) {
-    try {
-      const outcome = await identity.login({ email: username, password });
-      if (outcome.mfaRequired) {
-        return {
-          status: 'mfa-required',
-          challenge: {
-            kind: 'identity-ticket',
-            ticket: outcome.ticket,
-            factors: outcome.factors,
-          },
-        };
-      }
-      return { status: 'authenticated', user: null };
-    } catch (error) {
-      return { status: 'failed', error: describeIdentityFailure(error) };
-    }
+  if (identity === null) {
+    return { status: 'failed', error: CLIENT_UNAVAILABLE };
   }
-
   try {
-    const response = await authApi.login({ username, password });
-    const body = response.data;
-    if ('requires_2fa' in body && body.requires_2fa === true) {
+    const outcome = await identity.login({ email: username, password });
+    if (outcome.mfaRequired) {
       return {
         status: 'mfa-required',
-        challenge: { kind: 'legacy-credentials', username, password },
+        challenge: {
+          kind: 'identity-ticket',
+          ticket: outcome.ticket,
+          factors: outcome.factors,
+        },
       };
     }
-    return { status: 'authenticated', user: body as UserRead };
+    return { status: 'authenticated', user: null };
   } catch (error) {
-    return {
-      status: 'failed',
-      error: getApiErrorMessage(error, 'Sign in failed. Please try again.'),
-    };
+    return { status: 'failed', error: describeIdentityFailure(error) };
   }
 };
 
 /**
- * Runs the second leg with a TOTP code or, in identity mode, a recovery code.
- * The server tells them apart, so the form needs one field rather than a choice.
+ * Runs the second leg with a TOTP code or a recovery code. The server tells the
+ * two apart, so the form needs one field rather than a choice.
  */
 export const completeMfa = async (
   challenge: LoginChallenge,
   code: string
 ): Promise<LoginResult> => {
-  if (challenge.kind === 'identity-ticket') {
-    const identity = getIdentityClient();
-    if (identity === null) {
-      return { status: 'failed', error: 'Two factor sign in is unavailable.' };
-    }
-    try {
-      const outcome = await identity.completeTotp({
-        ticket: challenge.ticket,
-        code,
-      });
-      if (outcome.mfaRequired) {
-        return { status: 'failed', error: 'That code was not accepted.' };
-      }
-      return { status: 'authenticated', user: null };
-    } catch (error) {
-      return { status: 'failed', error: describeIdentityFailure(error) };
-    }
+  const identity = getIdentityClient();
+  if (identity === null) {
+    return { status: 'failed', error: 'Two factor sign in is unavailable.' };
   }
-
   try {
-    const response = await authApi.loginWith2FA({
-      username: challenge.username,
-      password: challenge.password,
-      otp: code,
+    const outcome = await identity.completeTotp({
+      ticket: challenge.ticket,
+      code,
     });
-    return { status: 'authenticated', user: response.data };
+    if (outcome.mfaRequired) {
+      return { status: 'failed', error: 'That code was not accepted.' };
+    }
+    return { status: 'authenticated', user: null };
   } catch (error) {
-    return {
-      status: 'failed',
-      error: getApiErrorMessage(error, 'That code was not accepted.'),
-    };
+    return { status: 'failed', error: describeIdentityFailure(error) };
   }
 };
 
 /**
- * Ends the session. A server call in both modes, since the session itself lives
- * server side as a revocable token or an httpOnly refresh cookie.
+ * Ends the session. A server call, since the httpOnly refresh cookie is what
+ * holds it; a null client resolves rather than refusing.
  */
 export const signOut = async (): Promise<void> => {
   const identity = getIdentityClient();
-  if (identity !== null) {
-    await identity.logout();
-    return;
-  }
-  await authApi.logout();
+  if (identity === null) return;
+  await identity.logout();
 };
 
 /**
- * Spends the refresh cookie for an access token at startup, identity mode only.
- * Resolves false rather than throwing, since arriving signed out is normal.
+ * Spends the refresh cookie for an access token at startup. Resolves false
+ * rather than throwing, since arriving signed out is normal.
  */
 export const restoreSession = async (): Promise<boolean> => {
   const identity = getIdentityClient();
@@ -148,8 +115,8 @@ export const restoreSession = async (): Promise<boolean> => {
 };
 
 /**
- * Turns a thrown identity error into a sentence for a form, replacing the two
- * deliberately vague enumeration-resistant messages with a concrete next step.
+ * Turns a thrown identity error into a sentence for a form. The two named codes
+ * are the ones whose server wording is deliberately vague.
  */
 export const describeIdentityFailure = (error: unknown): string => {
   switch (getAuthErrorCode(error)) {
@@ -163,50 +130,40 @@ export const describeIdentityFailure = (error: unknown): string => {
 };
 
 /**
- * Requests a verification email. Both modes answer identically whether or not
- * the address has an account.
+ * Requests a verification email. Answers identically whether or not the address
+ * has an account, so the caller gets no way to tell.
  */
 export const requestVerificationEmail = async (
   email: string
 ): Promise<{ ok: boolean; message: string }> => {
   const identity = getIdentityClient();
-  if (identity !== null) {
-    const outcome = await identity.requestEmailVerification({ email });
-    return outcome.ok
-      ? {
-          ok: true,
-          message: outcome.detail ?? 'Verification email sent.',
-        }
-      : { ok: false, message: outcome.message };
+  if (identity === null) {
+    return { ok: false, message: CLIENT_UNAVAILABLE };
   }
-  await apiClient.post('/auth/verify-email', { email });
-  return { ok: true, message: 'Verification email sent.' };
+  const outcome = await identity.requestEmailVerification({ email });
+  return outcome.ok
+    ? { ok: true, message: outcome.detail ?? 'Verification email sent.' }
+    : { ok: false, message: outcome.message };
 };
 
 /**
- * Requests a password reset email. Follows the auth mode because the service
- * that sends the mail also builds and confirms the link it carries; splitting
- * the two halves across mechanisms yields a link that always fails.
+ * Requests a password reset email. The mail points at `RESET_PASSWORD_PATH`,
+ * and the answer is identical whether or not the address has an account.
  */
 export const requestPasswordReset = async (
   email: string
 ): Promise<{ ok: boolean; message: string }> => {
   const identity = getIdentityClient();
-  if (identity !== null) {
-    const outcome = await identity.requestPasswordReset({ email });
-    return outcome.ok
-      ? {
-          ok: true,
-          message:
-            outcome.detail ??
-            'If an account with that email exists, a password reset link has been sent.',
-        }
-      : { ok: false, message: outcome.message };
+  if (identity === null) {
+    return { ok: false, message: CLIENT_UNAVAILABLE };
   }
-  await authApi.resetPassword({ email });
-  return {
-    ok: true,
-    message:
-      'If an account with that email exists, a password reset link has been sent.',
-  };
+  const outcome = await identity.requestPasswordReset({ email });
+  return outcome.ok
+    ? {
+        ok: true,
+        message:
+          outcome.detail ??
+          'If an account with that email exists, a password reset link has been sent.',
+      }
+    : { ok: false, message: outcome.message };
 };

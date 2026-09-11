@@ -2,6 +2,8 @@
 
 Accepts the gateway JWT authorizer's flat claim map and the staging access gate's
 JSON `jwt.claims` string, normalising both to the same values. Answers None for
+every way the answer can be nobody, and since row 13 it is the only resolver
+`app/api/dependencies/auth.py` calls.
 """
 
 from __future__ import annotations

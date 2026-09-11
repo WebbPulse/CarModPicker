@@ -4,13 +4,11 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
 from app.db.dynamo.catalog import Category as DBCategory
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import save_catalog
-
+from tests.conftest import auth_headers, login_user, save_catalog
 
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
@@ -24,7 +22,6 @@ def create_and_login_admin_user(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=True,
             is_superuser=False,
             email_verified=True,
@@ -32,13 +29,9 @@ def create_and_login_admin_user(
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
-    token = token_response.json()["access_token"]
+    token = login_user(client, username)
 
     return admin_user.__dict__, token
-
 
 def create_and_login_regular_user(
     client: TestClient, db_session: Any, username_suffix: str = "regular"
@@ -52,7 +45,6 @@ def create_and_login_regular_user(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=False,
             is_superuser=False,
             email_verified=True,
@@ -60,13 +52,9 @@ def create_and_login_regular_user(
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login regular user: {token_response.text}"
-    token = token_response.json()["access_token"]
+    token = login_user(client, username)
 
     return regular_user.__dict__, token
-
 
 class TestCategoriesAdminAuthentication:
     """Category create/update/delete are removed; categories are seeded from backend source.
@@ -88,7 +76,7 @@ class TestCategoriesAdminAuthentication:
     def test_create_category_with_regular_user(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; create endpoint is removed (404/405)."""
         _, token = create_and_login_regular_user(client, db_session, "create_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         category_data = {
             "name": "test_category",
             "display_name": "Test Category",
@@ -102,7 +90,7 @@ class TestCategoriesAdminAuthentication:
     def test_create_category_with_admin_user(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; create endpoint is removed (404/405)."""
         _, token = create_and_login_admin_user(client, db_session, "create_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         category_data = {
             "name": "test_category_admin",
             "display_name": "Test Category Admin",
@@ -122,18 +110,14 @@ class TestCategoriesAdminAuthentication:
             DBUser(
                 username=username,
                 email=email,
-                hashed_password=get_password_hash(password),
                 is_admin=False,
                 is_superuser=True,
                 email_verified=True,
                 disabled=False,
             )
         )
-        login_data = {"username": username, "password": password}
-        token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert token_response.status_code == 200
-        token = token_response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
+        token = login_user(client, username)
+        headers = auth_headers(token)
         category_data = {
             "name": "test_category_superuser",
             "display_name": "Test Category Superuser",
@@ -169,7 +153,7 @@ class TestCategoriesAdminAuthentication:
         )
         category = save_catalog(category)
         _, token = create_and_login_regular_user(client, db_session, "update_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         update_data = {"display_name": "Updated Category Name", "description": "Updated description"}
         response = client.put(f"{settings.API_STR}/categories/{category.id}", json=update_data, headers=headers)
         assert response.status_code in (404, 405), "Update endpoint is removed"
@@ -185,7 +169,7 @@ class TestCategoriesAdminAuthentication:
         )
         category = save_catalog(category)
         _, token = create_and_login_admin_user(client, db_session, "update_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         update_data = {
             "display_name": "Updated Category Name by Admin",
             "description": "Updated description by admin",
@@ -218,7 +202,7 @@ class TestCategoriesAdminAuthentication:
         )
         category = save_catalog(category)
         _, token = create_and_login_regular_user(client, db_session, "delete_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert response.status_code in (404, 405), "Delete endpoint is removed"
 
@@ -233,7 +217,7 @@ class TestCategoriesAdminAuthentication:
         )
         category = save_catalog(category)
         _, token = create_and_login_admin_user(client, db_session, "delete_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert response.status_code in (404, 405), "Delete endpoint is removed"
 
@@ -245,7 +229,6 @@ class TestCategoriesAdminAuthentication:
             DBUser(
                 username="test_user_for_part",
                 email="test_user_for_part@example.com",
-                hashed_password="hashed_password",
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -268,7 +251,7 @@ class TestCategoriesAdminAuthentication:
         )
         part = save_catalog(part)
         _, token = create_and_login_admin_user(client, db_session, "delete_cat_parts")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.delete(f"{settings.API_STR}/categories/{category.id}", headers=headers)
         assert response.status_code in (404, 405), "Delete endpoint is removed"
 
@@ -304,7 +287,7 @@ class TestCategoriesAdminAuthentication:
     def test_duplicate_category_name_fails(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; create endpoint is removed (404/405)."""
         _, token = create_and_login_admin_user(client, db_session, "duplicate_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         category_data_1 = {
             "name": "duplicate_test_category",
             "display_name": "Duplicate Test Category 1",

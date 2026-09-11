@@ -28,7 +28,6 @@ BACKEND = Path(__file__).resolve().parents[2]
 
 UNREADABLE_SECRET_ARN = "arn:aws:secretsmanager:us-west-2:000000000000:secret:carmodpicker-nonexistent-AAAAAA"
 
-
 TABLE_OWNERS: Dict[str, str] = {
     "users": "users",
     "oauth_accounts": "identity",
@@ -121,7 +120,6 @@ EXPECTED_CROSS_DOMAIN_READS: Dict[str, Set[str]] = {
     },
 }
 
-
 def _module_file(module: str) -> Optional[Path]:
     """Resolve a module name to its file, whether it is a module or a package."""
     candidate = BACKEND / (module.replace(".", "/") + ".py")
@@ -129,7 +127,6 @@ def _module_file(module: str) -> Optional[Path]:
         return candidate
     package = BACKEND / module.replace(".", "/") / "__init__.py"
     return package if package.exists() else None
-
 
 def _app_imports(tree: ast.AST, module: str) -> Set[str]:
     """The `app.*` modules one module imports, including `from x import y` where
@@ -146,7 +143,6 @@ def _app_imports(tree: ast.AST, module: str) -> Set[str]:
             found.update(alias.name for alias in node.names if alias.name.startswith("app"))
     return {name for name in found if _module_file(name) is not None}
 
-
 def _bundle_accesses(tree: ast.AST) -> Set[str]:
     """Every repository attribute taken off a bundle, under either spelling."""
     found: Set[str] = set()
@@ -160,6 +156,9 @@ def _bundle_accesses(tree: ast.AST) -> Set[str]:
             found.add(node.attr)
     return found
 
+EXTRA_REACHABLE: Dict[str, Set[str]] = {
+    "identity": {"users", "oauth_accounts", "webauthn_credentials"},
+}
 
 def _reachable_repositories(domain: str) -> Set[str]:
     """Every repository any module the domain's routers reach can access."""
@@ -186,15 +185,13 @@ def _reachable_repositories(domain: str) -> Set[str]:
         tree = ast.parse(text)
         accesses |= _bundle_accesses(tree)
         stack.extend(_app_imports(tree, module))
-    return accesses
-
+    return accesses | EXTRA_REACHABLE.get(domain, set())
 
 def _read_loader_source(domain: str) -> str:
     """Return the source of a domain's router loader."""
     import inspect
 
     return inspect.getsource(DOMAINS[domain].load_routers).strip()
-
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_a_domain_declares_every_repository_its_routes_reach(domain: str) -> None:
@@ -204,7 +201,6 @@ def test_a_domain_declares_every_repository_its_routes_reach(domain: str) -> Non
     missing = sorted(reachable - declared)
     assert missing == [], f"{domain} reaches {missing} but does not declare them"
 
-
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_a_domain_declares_no_repository_its_routes_cannot_reach(domain: str) -> None:
     """A domain declares no repository its routes cannot reach."""
@@ -213,7 +209,6 @@ def test_a_domain_declares_no_repository_its_routes_cannot_reach(domain: str) ->
     surplus = sorted(declared - reachable)
     assert surplus == [], f"{domain} declares {surplus} but no route reaches them"
 
-
 def test_every_table_has_exactly_one_owner() -> None:
     """Every table has exactly one owning domain."""
     registry_tables = {spec.table for spec in REPOSITORY_SPECS.values()}
@@ -221,12 +216,10 @@ def test_every_table_has_exactly_one_owner() -> None:
     assert len(REPOSITORY_SPECS) == 25
     assert set(TABLE_OWNERS.values()) <= set(DOMAIN_NAMES)
 
-
 @pytest.mark.parametrize("table,owner", sorted(TABLE_OWNERS.items()))
 def test_the_owning_domain_carries_the_table_it_owns(table: str, owner: str) -> None:
     """An owner that cannot reach its own table cannot serve its own routes."""
     assert table in DOMAINS[owner].tables, f"{owner} owns {table} but its bundle does not carry it"
-
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_no_cross_domain_read_is_undeclared(domain: str) -> None:
@@ -238,7 +231,6 @@ def test_no_cross_domain_read_is_undeclared(domain: str) -> None:
         f"Added: {sorted(borrowed - EXPECTED_CROSS_DOMAIN_READS[domain])}. "
         f"Removed: {sorted(EXPECTED_CROSS_DOMAIN_READS[domain] - borrowed)}."
     )
-
 
 def test_media_is_the_narrowest_bundle() -> None:
     """The media bundle stays the narrowest, since it is the first domain cut over."""
@@ -253,7 +245,6 @@ def test_media_is_the_narrowest_bundle() -> None:
     assert len(media.repositories) == 5
     assert min(len(DOMAINS[d].repositories) for d in DOMAIN_NAMES) == 3
 
-
 def test_a_bundle_refuses_a_repository_it_does_not_carry() -> None:
     """And the message names the table, because that is the next question."""
     bundle = build_bundle(DOMAINS["media"].repositories, name="media")
@@ -264,14 +255,12 @@ def test_a_bundle_refuses_a_repository_it_does_not_carry() -> None:
     assert "app_settings" in str(raised.value)
     assert "media" in str(raised.value)
 
-
 def test_the_refusal_is_an_attribute_error() -> None:
     """An undeclared repository raises an attribute error, so hasattr still works."""
     bundle = build_bundle(DOMAINS["media"].repositories, name="media")
     assert issubclass(RepositoryNotInBundle, AttributeError)
     assert getattr(bundle, "app_settings", None) is None
     assert not hasattr(bundle, "app_settings")
-
 
 def test_a_bundle_builds_nothing_until_a_repository_is_asked_for() -> None:
     """Laziness is the property that makes a cold start proportional."""
@@ -281,19 +270,16 @@ def test_a_bundle_builds_nothing_until_a_repository_is_asked_for() -> None:
     assert "image_source_mappings" in repr(bundle)
     assert bundle.image_source_mappings is first
 
-
 def test_an_unknown_repository_name_is_rejected_when_the_bundle_is_built() -> None:
     """A typo in a domain's tuple fails at build rather than on one route."""
     with pytest.raises(ValueError, match="typo_repository"):
         build_bundle(("users", "typo_repository"), name="broken")
-
 
 def test_the_bundle_reports_the_tables_it_can_reach() -> None:
     """What a Terraform IAM policy for the domain has to cover."""
     bundle = build_bundle(DOMAINS["build-logs"].repositories, name="build-logs")
     assert bundle.tables == ("build_lists", "build_log_posts", "build_logs", "users")
     assert bundle.repository_names == DOMAINS["build-logs"].repositories
-
 
 def test_the_union_of_the_nine_bundles_is_all_twenty_five() -> None:
     """The nine bundles together cover every repository."""
@@ -302,7 +288,6 @@ def test_the_union_of_the_nine_bundles_is_all_twenty_five() -> None:
         union |= set(DOMAINS[domain].repositories)
     assert union == set(ALL_REPOSITORY_NAMES)
     assert len(ALL_REPOSITORY_NAMES) == 25
-
 
 def test_root_a_binds_a_bundle_carrying_all_twenty_five() -> None:
     """The monolith binds a bundle carrying every repository."""
@@ -315,11 +300,9 @@ def test_root_a_binds_a_bundle_carrying_all_twenty_five() -> None:
     assert isinstance(bundle, RepositoryBundle)
     assert set(bundle.repository_names) == set(ALL_REPOSITORY_NAMES)
 
-
 def test_the_process_default_is_the_full_set() -> None:
     """Outside any application the default bundle is the full set, for scripts."""
     assert set(get_repositories().repository_names) == set(ALL_REPOSITORY_NAMES)
-
 
 def test_building_one_domain_does_not_disturb_another() -> None:
     """Bundles bind per application, so building one domain does not affect another."""
@@ -336,7 +319,6 @@ def test_building_one_domain_does_not_disturb_another() -> None:
     assert set(users_bundle.repository_names) == set(DOMAINS["users"].repositories)
     assert "app_settings" in users_bundle.repository_names
     assert "app_settings" not in media_bundle.repository_names
-
 
 def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """Run a snippet in a fresh interpreter with a minimal environment and parse its JSON."""
@@ -357,7 +339,6 @@ def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     assert result.returncode == 0, f"subprocess failed with an empty environment:\n{result.stderr}"
     return json.loads(result.stdout.strip().splitlines()[-1])
 
-
 BUNDLE_PROBE = """
 import json, sys
 from app.entrypoints import {module} as entrypoint
@@ -376,7 +357,6 @@ print(json.dumps({{
 }}))
 """
 
-
 @pytest.fixture(scope="module")
 def bundle_probes() -> Dict[str, Dict[str, Any]]:
     """Probe each domain in its own interpreter and return what its bundle carries."""
@@ -388,19 +368,16 @@ def bundle_probes() -> Dict[str, Dict[str, Any]]:
         for domain in DOMAIN_NAMES
     }
 
-
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_building_a_domain_constructs_no_repository(domain: str, bundle_probes: Dict[str, Dict[str, Any]]) -> None:
     """Building a domain's application constructs no repository."""
     assert bundle_probes[domain]["built"] == []
-
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_a_domain_binds_exactly_its_own_bundle(domain: str, bundle_probes: Dict[str, Dict[str, Any]]) -> None:
     """In a fresh interpreter, with no credentials, as a cold start would."""
     assert bundle_probes[domain]["declared"] == sorted(DOMAINS[domain].repositories)
     assert bundle_probes[domain]["tables"] == sorted(DOMAINS[domain].tables)
-
 
 def test_media_builds_without_importing_another_domains_data_modules(
     bundle_probes: Dict[str, Dict[str, Any]],
@@ -409,7 +386,6 @@ def test_media_builds_without_importing_another_domains_data_modules(
     imported = set(bundle_probes["media"]["dynamo_modules"])
     for module in ("app_settings", "bug_reports", "part_price_alerts", "build_logs"):
         assert f"app.db.dynamo.{module}" not in imported, f"media imported app.db.dynamo.{module}"
-
 
 def test_importing_the_registry_imports_no_repository_module() -> None:
     """Importing the registry pulls in no repository module, only the shared base."""

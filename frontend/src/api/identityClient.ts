@@ -1,14 +1,13 @@
 /**
- * Builds the `@webbpulse/auth` client, lazily and only in identity mode. Kept
- * out of `./client` so the ninety modules importing that do not construct a
- * network-capable object in bearer mode.
+ * Builds the `@webbpulse/auth` client, lazily. Kept out of `./client` so the
+ * ninety modules importing that do not construct a network-capable object at
+ * import time.
  */
 import {
   createAuthClient,
   type AuthClient,
   type WebAuthnAdapter,
 } from '@webbpulse/auth';
-import { AUTH_MODE } from './authMode';
 import { appConfig } from '../config/app';
 
 /**
@@ -35,8 +34,8 @@ export const identityUrl = (path: string): string => {
 };
 
 /**
- * The one instance, or null in bearer mode. Built on first request so that
- * importing this module stays free.
+ * The one instance, or null when it could not be built. Built on first request
+ * so that importing this module stays free.
  */
 let client: AuthClient<unknown> | null = null;
 let built = false;
@@ -58,13 +57,12 @@ export const setWebAuthnAdapterForTests = (
 };
 
 /**
- * The identity client, or null in bearer mode. Null rather than a throw so a
- * panel can render its own unavailable state from the same code path.
+ * The identity client, or null when it could not be built. Null rather than a
+ * throw so a panel can render its own unavailable state from the same code path.
  */
 export const getIdentityClient = (): AuthClient<unknown> | null => {
   if (built) return client;
   built = true;
-  if (AUTH_MODE !== 'identity') return null;
   const origin = identityOriginFrom(appConfig.apiBaseUrl);
   client = createAuthClient({
     baseUrl: origin === '' ? globalThis.location.origin : origin,

@@ -21,7 +21,6 @@ PROVIDER_ACCOUNT = "provider_account"
 USER_PROVIDER = "user_provider"
 CREDENTIAL_ID = "credential_id"
 
-
 def _not_tombstoned() -> Any:
     """Condition matching rows that carry no tombstone.
 
@@ -29,7 +28,6 @@ def _not_tombstoned() -> Any:
     row 23 lacks `deleted` entirely, and must still read as live.
     """
     return Attr(DELETED_ATTRIBUTE).not_exists() | Attr(DELETED_ATTRIBUTE).eq(False)
-
 
 class UniqueAttributeTaken(DynamoError):
     """A username, email, provider link or credential id is already claimed."""
@@ -39,16 +37,14 @@ class UniqueAttributeTaken(DynamoError):
         self.attribute = attribute
         super().__init__(f"{attribute} is already taken")
 
-
 class User(TimestampedDynamoModel):
     """A user account, its profile, its subscription and its tombstone flags."""
 
-    id: UUID = Field(default_factory=uuid7)  # pyright: ignore[reportIncompatibleVariableOverride]
+    id: UUID = Field(default_factory=uuid7)
     username: str
     email: str
     image_urls: list[str] | None = None
     email_verified: bool = False
-    hashed_password: str | None = None
     disabled: bool = False
     is_superuser: bool = False
     is_admin: bool = False
@@ -56,7 +52,6 @@ class User(TimestampedDynamoModel):
     subscription_tier: str = "free"
     subscription_expires_at: datetime | None = None
     subscription_status: str = "active"
-    totp_secret: str | None = None
     totp_enabled: bool = False
     session_expire_minutes: int | None = None
     instagram_url: str | None = None
@@ -67,22 +62,20 @@ class User(TimestampedDynamoModel):
     deleted: bool = False
     deleted_at: datetime | None = None
 
-
 class OAuthAccount(DynamoModel):
     """A third party identity linked to a user account."""
 
-    id: UUID = Field(default_factory=uuid7)  # pyright: ignore[reportIncompatibleVariableOverride]
+    id: UUID = Field(default_factory=uuid7)
     user_id: UUID
     provider: str
     provider_account_id: str
     email: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
 
-
 class WebAuthnCredential(DynamoModel):
     """A registered passkey: its key material, counter and metadata."""
 
-    id: UUID = Field(default_factory=uuid7)  # pyright: ignore[reportIncompatibleVariableOverride]
+    id: UUID = Field(default_factory=uuid7)
     user_id: UUID
     credential_id: bytes
     public_key: bytes
@@ -95,10 +88,8 @@ class WebAuthnCredential(DynamoModel):
     created_at: datetime = Field(default_factory=utc_now)
     last_used_at: datetime | None = None
 
-
 def run_unique_transaction(actions: list[dict[str, Any]], labels: list[str | None]) -> None:
     """Run a transaction, raising UniqueAttributeTaken for a labelled failed claim.
-
 
     `labels` runs parallel to `actions`: a label names the attribute an action
     claims, and None marks an action whose failure is not a uniqueness conflict.
@@ -110,7 +101,6 @@ def run_unique_transaction(actions: list[dict[str, Any]], labels: list[str | Non
             if label is not None and reason.get("Code") == "ConditionalCheckFailed":
                 raise UniqueAttributeTaken(label) from exc
         raise
-
 
 class UserRepository(DynamoRepository[User]):
     """User accounts, with username and email uniqueness held by reservation rows."""
@@ -176,6 +166,24 @@ class UserRepository(DynamoRepository[User]):
         run_unique_transaction(actions, labels)
         return user
 
+    def get_legacy_password_hash(self, user_id: UUID) -> str | None:
+        """The stored bcrypt hash, read straight off the item.
+
+        A raw read rather than a model attribute, because `User` no longer
+        declares the field and `model_config` is `extra="ignore"`, so loading the
+        row would silently drop it.
+        """
+        response = self.table.get_item(Key=self.key(user_id))
+        item = response.get("Item")
+        if item is None:
+            return None
+        value = item.get("hashed_password")
+        return str(value) if isinstance(value, str) and value else None
+
+    def set_legacy_password_hash(self, user_id: UUID, hashed_password: str) -> None:
+        """Write the stored bcrypt hash, leaving every other attribute alone."""
+        self.update(user_id, hashed_password=hashed_password)
+
     def update_user(self, user_id: UUID, **changes: Any) -> User:
         """Apply changes, moving the username and email reservations when either changes."""
         current = self.get_or_raise(user_id)
@@ -208,7 +216,6 @@ class UserRepository(DynamoRepository[User]):
                 self.release_unique_action(EMAIL, user.email.lower()),
             ]
         )
-
 
 class OAuthAccountRepository(DynamoRepository[OAuthAccount]):
     """Third party identity links, unique per provider account and per user provider."""
@@ -274,7 +281,6 @@ class OAuthAccountRepository(DynamoRepository[OAuthAccount]):
         """Delete every link this user holds."""
         for account in self.list_by_user(user_id):
             self.delete_link(account)
-
 
 class WebAuthnCredentialRepository(DynamoRepository[WebAuthnCredential]):
     """Registered passkeys, unique by credential id."""

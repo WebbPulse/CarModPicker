@@ -1,7 +1,8 @@
 """The catalog domain's entrypoint, run as `python -m app.entrypoints.catalog`.
 
 Parts, manufacturers, categories and retailers: 43 routes, the largest
-domain. Needs `SECRET_KEY`.
+domain. Verifies identity access tokens, and keeps the app secret only for
+the `EXTENSION_API_KEY` that `POST /api/parts/price-history` checks.
 """
 
 from typing import TYPE_CHECKING

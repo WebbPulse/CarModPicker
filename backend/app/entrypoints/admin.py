@@ -1,7 +1,8 @@
 """The admin domain's entrypoint, run as `python -m app.entrypoints.admin`.
 
 Price-drop alerts, the Chrome extension page parser and the two admin
-modules: 12 routes. Needs `SECRET_KEY`.
+modules: 12 routes. Keeps `SECRET_KEY` for the one route that reads an
+emailed HS256 unsubscribe token.
 """
 
 from typing import TYPE_CHECKING

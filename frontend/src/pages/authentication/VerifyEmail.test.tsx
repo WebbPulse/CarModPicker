@@ -6,8 +6,12 @@ import {
   fireEvent,
 } from '../../test/utils/test-utils';
 import { mockUser } from '../../test/mocks/api';
-import { apiClient } from '../../api/client';
+import { requestVerificationEmail } from '../../api/identityAuth';
 import VerifyEmail from './VerifyEmail';
+
+vi.mock('../../api/identityAuth', () => ({
+  requestVerificationEmail: vi.fn(),
+}));
 
 describe('VerifyEmail page', () => {
   beforeEach(() => {
@@ -44,8 +48,11 @@ describe('VerifyEmail page', () => {
     ).toBeInTheDocument();
   });
 
-  it('POSTs to /auth/verify-email with the user email when the button is clicked', async () => {
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
+  it('asks the identity service for a mail to the user email on click', async () => {
+    vi.mocked(requestVerificationEmail).mockResolvedValueOnce({
+      ok: true,
+      message: 'Verification email sent.',
+    });
 
     render(<VerifyEmail />, {
       initialAuthState: {
@@ -60,14 +67,8 @@ describe('VerifyEmail page', () => {
     );
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalled();
+      expect(requestVerificationEmail).toHaveBeenCalledWith(mockUser.email);
     });
-    expect(vi.mocked(apiClient.post).mock.calls[0]?.[0]).toBe(
-      '/auth/verify-email'
-    );
-    const rawBody: unknown = vi.mocked(apiClient.post).mock.calls[0]?.[1];
-    const body = rawBody as { email: string };
-    expect(body.email).toBe(mockUser.email);
 
     await waitFor(() => {
       expect(screen.getByText(/verification email sent/i)).toBeInTheDocument();

@@ -38,7 +38,6 @@ print(json.dumps({{
 }}))
 """
 
-
 def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """Run one snippet in a fresh interpreter with an all but empty environment.
 
@@ -61,7 +60,6 @@ def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     assert result.returncode == 0, f"subprocess failed with an empty environment:\n{result.stderr}"
     return json.loads(result.stdout.strip().splitlines()[-1])
 
-
 @pytest.fixture(scope="module")
 def probes() -> Dict[str, Dict[str, Any]]:
     """One subprocess per domain, reused across the tests in this module."""
@@ -73,13 +71,11 @@ def probes() -> Dict[str, Dict[str, Any]]:
         for domain in DOMAIN_NAMES
     }
 
-
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_builds_with_no_credentials(domain: str, probes: Dict[str, Dict[str, Any]]) -> None:
     """Every entrypoint builds its application with no AWS credentials available."""
     assert probes[domain]["routes"] > 0
     assert probes[domain]["domain"] == domain
-
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_imports_only_its_own_endpoint_modules(domain: str, probes: Dict[str, Dict[str, Any]]) -> None:
@@ -96,25 +92,63 @@ def test_an_entrypoint_imports_only_its_own_endpoint_modules(domain: str, probes
         }
     )
     imported = probes[domain]["endpoints"]
+    if domain == "identity":
+        assert expected == []
+        assert imported == []
+        return
     assert imported, f"{domain} imported no endpoint module at all"
     assert imported == expected, f"{domain} imported {imported}, but owns {expected}"
-
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_reports_its_own_service_name(domain: str, probes: Dict[str, Dict[str, Any]]) -> None:
     """Each entrypoint reports the service name of its own domain."""
     assert probes[domain]["service_name"] == f"carmodpicker-{domain}"
 
+def test_only_the_domains_that_verify_a_legacy_token_need_the_secret(
+    probes: Dict[str, Dict[str, Any]],
+) -> None:
+    """The least-privilege claim the split rests on, asserted rather than assumed.
 
-def test_vehicles_is_the_domain_that_needs_no_secret(probes: Dict[str, Dict[str, Any]]) -> None:
-    """The vehicles domain serves only public reads, so it needs no secret grant."""
-    assert probes["vehicles"]["requires_secrets"] == []
+    After row 13 of `docs/identity-adoption.md` exactly one domain names
+    `SECRET_KEY`, and the inversion is the point of this test.
+
+    Before row 13 seven domains named it, because `get_current_user` and its
+    siblings decoded a legacy HS256 session before falling back to an identity
+    access token. Row 13 deleted that legacy branch from every resolver, so
+    those dependencies now resolve an identity RS256 token that the API Gateway
+    JWT authorizer verified against the issuer's JWKS. Verifying it needs no
+    application secret at all, which is why eight of the nine functions should
+    now hold no `secretsmanager:GetSecretValue` grant and carry no
+    `APP_SECRETS_ARN`.
+
+    `admin` is the exception, and it is an exception for exactly one route.
+    `GET /api/part-price-alerts/unsubscribe` reads a 30 day HS256 token that
+    `app/core/email.py` mints into a price-drop alert email. The recipient of
+    that email is by construction not signed in, so there is no identity access
+    token equivalent for the link, and `SECRET_KEY` cannot leave the estate
+    until that link is replaced.
+
+    **`requires_secrets` is not the same question as the Terraform grant, and
+    this test does not answer the second one.** `requires_secrets` says which
+    names `check_signing_key` turns into a hard startup requirement, which means
+    a *settings field* that must be present. The `identity` domain reads two
+    keys of the same `carmodpicker-<env>/app` secret, the Google and GitHub
+    OAuth client secrets, through `build_oauth_client_secrets` in
+    `app/composition/identity.py`, which calls `fetch_app_secrets` directly and
+    deliberately never routes them through `Settings`. They are optional, so
+    naming them here would fail a cold start over a supported state. So
+    `identity` declares nothing and still needs the grant, and
+    `terraform/lambda_domains.tf` keeps `secrets = true` on it for that reason.
+    Anybody deriving a Terraform grant from this list alone will take that grant
+    away and silently turn off OAuth sign in.
+    """
     for domain in DOMAIN_NAMES:
-        if domain != "vehicles":
-            assert probes[domain]["requires_secrets"] == [
-                "SECRET_KEY"
-            ], f"{domain} verifies tokens and must name SECRET_KEY"
-
+        expected = ["SECRET_KEY"] if domain == "admin" else []
+        assert probes[domain]["requires_secrets"] == expected, (
+            f"{domain} declares {probes[domain]['requires_secrets']}, expected {expected}. "
+            "After row 13 only `admin` reads SECRET_KEY, for the price alert "
+            "unsubscribe link. See docs/identity-adoption.md row 13."
+        )
 
 def test_importing_the_descriptors_imports_no_endpoint_module() -> None:
     """Importing the domain descriptors imports no endpoint module.
@@ -128,14 +162,12 @@ def test_importing_the_descriptors_imports_no_endpoint_module() -> None:
     )
     assert result == []
 
-
 def test_no_entrypoint_imports_the_monolith_composition_root() -> None:
     """No entrypoint imports app.main, which would build every domain at import."""
     for domain in DOMAIN_NAMES:
         source = (BACKEND / "app" / "entrypoints" / f"{ENTRYPOINT_MODULES[domain]}.py").read_text()
         assert "app.main" not in source
         assert "from ..main" not in source
-
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:

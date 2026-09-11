@@ -113,7 +113,10 @@ def build_oauth_client_secrets(settings: "Settings") -> dict[str, str]:
     """The OAuth client secrets from the single app secret, possibly empty.
 
     An empty result is correct: with no client id the package declares no OAuth
-    route. The environment is consulted ahead of the secret, as elsewhere.
+    route. The environment is consulted ahead of the secret, as elsewhere. Since
+    row 13 this is the only reason the identity function holds a Secrets Manager
+    grant, so `terraform/lambda_domains.tf` keeps `secrets = true` on it even
+    though the domain's `requires_secrets` is empty.
     """
     import os
 

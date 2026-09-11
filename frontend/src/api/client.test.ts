@@ -1,7 +1,3 @@
-/**
- * Tests for the shared api client and its token helpers.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /** The Request the client handed to fetch, for asserting on. */
@@ -12,7 +8,7 @@ interface Captured {
 
 /**
  * Installs a fetch stub and returns the calls it captured. Resolves 200 with an
- * empty JSON body unless the case passes its own response.
+ * empty JSON body unless the case passes its own.
  */
 function stubFetch(response?: Response): Captured[] {
   const calls: Captured[] = [];
@@ -55,28 +51,21 @@ afterEach(() => {
 });
 
 describe('client.ts — token helpers', () => {
-  it('setStoredToken writes to localStorage under the access_token key', async () => {
+  it('setStoredToken writes nothing anywhere a script can read back', async () => {
     const { setStoredToken } = await import('./client');
     setStoredToken('abc-123');
-    expect(localStorage.getItem('access_token')).toBe('abc-123');
+    expect(localStorage.getItem('access_token')).toBeNull();
+    expect(localStorage.length).toBe(0);
   });
 
-  it('getStoredToken returns the stored access_token', async () => {
-    const { setStoredToken, getStoredToken } = await import('./client');
-    setStoredToken('round-trip');
-    expect(getStoredToken()).toBe('round-trip');
-  });
-
-  it('getStoredToken returns null when no token is stored', async () => {
+  it('getStoredToken returns null when no client has a token', async () => {
     const { getStoredToken } = await import('./client');
     expect(getStoredToken()).toBeNull();
   });
 
-  it('removeStoredToken clears the stored access_token', async () => {
-    const { setStoredToken, getStoredToken, removeStoredToken } =
-      await import('./client');
-    setStoredToken('to-be-removed');
-    removeStoredToken();
+  it('removeStoredToken is callable and clears nothing of its own', async () => {
+    const { getStoredToken, removeStoredToken } = await import('./client');
+    expect(() => removeStoredToken()).not.toThrow();
     expect(getStoredToken()).toBeNull();
   });
 });
@@ -140,17 +129,7 @@ describe('client.ts — query parameters', () => {
 });
 
 describe('client.ts — authorization header', () => {
-  it('attaches Authorization: Bearer <token> when a token is stored', async () => {
-    const calls = stubFetch();
-    const { apiClient, setStoredToken } = await import('./client');
-    setStoredToken('jwt-token');
-    await apiClient.get('/users/me');
-    expect(headerValue(only(calls).init, 'authorization')).toBe(
-      'Bearer jwt-token'
-    );
-  });
-
-  it('does not attach an Authorization header when no token is stored', async () => {
+  it('does not attach an Authorization header when there is no session', async () => {
     const calls = stubFetch();
     const { apiClient } = await import('./client');
     await apiClient.get('/users/me');
@@ -159,7 +138,7 @@ describe('client.ts — authorization header', () => {
 });
 
 describe('client.ts — token rotation', () => {
-  it('stores an x-new-access-token header into localStorage', async () => {
+  it('ignores an x-new-access-token header rather than storing it', async () => {
     stubFetch(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -171,16 +150,8 @@ describe('client.ts — token rotation', () => {
     );
     const { apiClient, getStoredToken } = await import('./client');
     await apiClient.get('/users/me');
-    expect(getStoredToken()).toBe('rotated-token');
-  });
-
-  it('leaves the stored token alone when the header is absent', async () => {
-    stubFetch();
-    const { apiClient, setStoredToken, getStoredToken } =
-      await import('./client');
-    setStoredToken('original-token');
-    await apiClient.get('/users/me');
-    expect(getStoredToken()).toBe('original-token');
+    expect(getStoredToken()).toBeNull();
+    expect(localStorage.getItem('access_token')).toBeNull();
   });
 });
 
@@ -235,7 +206,7 @@ describe('client.ts — request bodies', () => {
     const calls = stubFetch();
     const { apiClient } = await import('./client');
     await apiClient.post(
-      '/auth/token',
+      '/some-form-endpoint',
       { username: 'alice', password: 'p@ss word' },
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
     );

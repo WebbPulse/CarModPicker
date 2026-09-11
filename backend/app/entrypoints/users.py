@@ -1,7 +1,8 @@
 """The users domain's entrypoint, run as `python -m app.entrypoints.users`.
 
 User accounts and the app settings singleton: 14 routes under `/api/users`
-and `/api/app-settings`. Needs `SECRET_KEY`.
+and `/api/app-settings`. Verifies identity access tokens, so it needs no
+application secret.
 """
 
 from typing import TYPE_CHECKING

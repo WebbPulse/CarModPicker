@@ -5,13 +5,11 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
 from app.db.dynamo.users import User
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR, create_car_in_db, save_catalog
-
+from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user, save_catalog
 
 def get_unique_name(base_name: str) -> str:
     """Generate a unique name for parallel testing."""
@@ -19,11 +17,9 @@ def get_unique_name(base_name: str) -> str:
     pid = os.getpid()
     return f"{base_name}_{worker_id}_{pid}"
 
-
 def get_auth_headers(token: str) -> dict[str, str]:
     """Get Authorization headers with Bearer token."""
-    return {"Authorization": f"Bearer {token}"}
-
+    return auth_headers(token)
 
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
@@ -37,7 +33,6 @@ def create_and_login_admin_user(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=True,
             is_superuser=False,
             email_verified=True,
@@ -45,13 +40,9 @@ def create_and_login_admin_user(
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
-    token = token_response.json()["access_token"]
+    token = login_user(client, username)
 
     return admin_user.__dict__, token
-
 
 class TestUnifiedVotes:
     """Test cases for unified votes endpoints."""
@@ -61,11 +52,8 @@ class TestUnifiedVotes:
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
         car = create_car_in_db(db_session, get_unique_name("Honda"), "Civic", "10th Gen", 2016, 2021)
 
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        test_user_token = response.json()["access_token"]
-        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+        test_user_token = login_user(client, test_user.username)
+        test_user_headers = auth_headers(test_user_token)
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
@@ -87,14 +75,12 @@ class TestUnifiedVotes:
 
     def test_downvote_build_list_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully downvoting a build list."""
-        from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
         build_list_owner = UserRepository().create_user(
             DBUser(
                 username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
                 email=f"build_list_owner_{os.getpid()}_{id(db_session)}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
                 is_admin=False,
@@ -102,11 +88,8 @@ class TestUnifiedVotes:
             )
         )
 
-        login_data = {"username": build_list_owner.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        build_list_owner_token = response.json()["access_token"]
-        build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
+        build_list_owner_token = login_user(client, build_list_owner.username)
+        build_list_owner_headers = auth_headers(build_list_owner_token)
 
         car = create_car_in_db(db_session)
 
@@ -121,11 +104,8 @@ class TestUnifiedVotes:
         assert response.status_code == 200
         build_list = response.json()
 
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        test_user_token = response.json()["access_token"]
-        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+        test_user_token = login_user(client, test_user.username)
+        test_user_headers = auth_headers(test_user_token)
 
         vote_data = {"vote_type": "downvote"}
         response = client.post(
@@ -146,14 +126,12 @@ class TestUnifiedVotes:
 
     def test_vote_part_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully voting on a global part."""
-        from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
         part_owner = UserRepository().create_user(
             DBUser(
                 username=f"part_owner_{os.getpid()}_{id(db_session)}",
                 email=f"part_owner_{os.getpid()}_{id(db_session)}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
                 is_admin=False,
@@ -173,11 +151,8 @@ class TestUnifiedVotes:
         )
         part_manufacturer = save_catalog(part_manufacturer)
 
-        login_data = {"username": part_owner.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        part_owner_token = response.json()["access_token"]
-        part_owner_headers = {"Authorization": f"Bearer {part_owner_token}"}
+        part_owner_token = login_user(client, part_owner.username)
+        part_owner_headers = auth_headers(part_owner_token)
 
         part_data = {
             "name": get_unique_name("Test Part"),
@@ -189,11 +164,8 @@ class TestUnifiedVotes:
         assert response.status_code == 200
         part = response.json()
 
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        test_user_token = response.json()["access_token"]
-        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+        test_user_token = login_user(client, test_user.username)
+        test_user_headers = auth_headers(test_user_token)
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
@@ -220,11 +192,8 @@ class TestUnifiedVotes:
 
     def test_vote_entity_not_found(self, client: TestClient, test_user: User) -> None:
         """Test voting on an entity that doesn't exist."""
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        token = response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
+        token = login_user(client, test_user.username)
+        headers = auth_headers(token)
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
@@ -237,11 +206,8 @@ class TestUnifiedVotes:
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
         car = create_car_in_db(db_session, get_unique_name("Ford"), "Mustang", "S550", 2015, 2023)
 
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        test_user_token = response.json()["access_token"]
-        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+        test_user_token = login_user(client, test_user.username)
+        test_user_headers = auth_headers(test_user_token)
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
@@ -273,11 +239,8 @@ class TestUnifiedVotes:
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
         car = create_car_in_db(db_session, get_unique_name("Chevrolet"), "Camaro", "6th Gen", 2016, 2023)
 
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        test_user_token = response.json()["access_token"]
-        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+        test_user_token = login_user(client, test_user.username)
+        test_user_headers = auth_headers(test_user_token)
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
@@ -301,11 +264,8 @@ class TestUnifiedVotes:
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
         car = create_car_in_db(db_session, get_unique_name("BMW"), "3 Series", "G20", 2019, 2023)
 
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        test_user_token = response.json()["access_token"]
-        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+        test_user_token = login_user(client, test_user.username)
+        test_user_headers = auth_headers(test_user_token)
 
         response = client.delete(f"{settings.API_STR}/votes/car_generation/{car['id']}", headers=test_user_headers)
         assert response.status_code == 404
@@ -315,11 +275,8 @@ class TestUnifiedVotes:
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
         car = create_car_in_db(db_session, get_unique_name("Audi"), "A4", "B9", 2016, 2023)
 
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        test_user_token = response.json()["access_token"]
-        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+        test_user_token = login_user(client, test_user.username)
+        test_user_headers = auth_headers(test_user_token)
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
@@ -342,33 +299,24 @@ class TestUnifiedVotes:
 
     def test_get_vote_summary_not_found(self, client: TestClient, test_user: User) -> None:
         """Test getting vote summary for an entity that doesn't exist."""
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        token = response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
+        token = login_user(client, test_user.username)
+        headers = auth_headers(token)
 
         response = client.get(f"{settings.API_STR}/votes/car_generation/{INVALID_UUID_STR}/summary", headers=headers)
         assert response.status_code == 404
 
     def test_get_flagged_entities_admin_only(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test that getting flagged entities requires admin access."""
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        token = response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
+        token = login_user(client, test_user.username)
+        headers = auth_headers(token)
 
         response = client.get(f"{settings.API_STR}/votes/admin/flagged/car_generation", headers=headers)
         assert response.status_code == 403
 
     def test_get_flagged_entities_success(self, client: TestClient, test_admin_user: User, db_session: Any) -> None:
         """Test successfully getting flagged entities as admin."""
-        login_data = {"username": test_admin_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        token = response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
+        token = login_user(client, test_admin_user.username)
+        headers = auth_headers(token)
 
         response = client.get(f"{settings.API_STR}/votes/admin/flagged/car_generation", headers=headers)
         assert response.status_code == 200
@@ -376,11 +324,8 @@ class TestUnifiedVotes:
 
     def test_vote_invalid_entity_type(self, client: TestClient, test_user: User) -> None:
         """Test voting with invalid entity type."""
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        token = response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
+        token = login_user(client, test_user.username)
+        headers = auth_headers(token)
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(
@@ -390,11 +335,8 @@ class TestUnifiedVotes:
 
     def test_vote_invalid_vote_type(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test voting with invalid vote type."""
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        token = response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
+        token = login_user(client, test_user.username)
+        headers = auth_headers(token)
 
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
         car = create_car_in_db(db_session, get_unique_name("Tesla"), "Model 3", "1st Gen", 2017, 2023)
@@ -416,11 +358,8 @@ class TestUnifiedVotes:
         _, admin_token = create_and_login_admin_user(client, db_session, get_unique_name("car_creator"))
         car = create_car_in_db(db_session, get_unique_name("Honda"), "Civic", "10th Gen", 2016, 2021)
 
-        login_data = {"username": test_user.username, "password": "testpassword"}
-        response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert response.status_code == 200
-        test_user_token = response.json()["access_token"]
-        test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
+        test_user_token = login_user(client, test_user.username)
+        test_user_headers = auth_headers(test_user_token)
 
         vote_data = {"vote_type": "upvote"}
         response = client.post(

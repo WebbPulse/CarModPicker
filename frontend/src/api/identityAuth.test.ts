@@ -1,10 +1,5 @@
-/**
- * Tests for identity mode sign in and session restore.
- */
-
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { ApiError } from '@webbpulse/api-client';
-import { apiClient } from './client';
 
 /** A stand-in for the one method a given test drives. */
 type Stub = Record<string, ReturnType<typeof vi.fn>>;
@@ -17,16 +12,13 @@ const loadWith = async (stub: Stub | null) => {
     identityOriginFrom: (v: string) => v,
     resetIdentityClientForTests: () => undefined,
   }));
-  vi.doMock('./authMode', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('./authMode')>();
-    return { ...actual, AUTH_MODE: stub === null ? 'bearer' : 'identity' };
-  });
   return import('./identityAuth');
 };
 
 /**
- * An `ApiError` carrying a real identity envelope. A hand-shaped stub would
- * fail the envelope validation and pass every code test for the wrong reason.
+ * An `ApiError` carrying the identity envelope, built through the real
+ * constructor because `getAuthErrorCode` validates the envelope's shape and a
+ * hand-shaped stub would pass every code test for the wrong reason.
  */
 const identityError = (status: number, code: string, message: string) =>
   new ApiError({
@@ -49,11 +41,10 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.doUnmock('./identityClient');
-  vi.doUnmock('./authMode');
   vi.resetModules();
 });
 
-describe('signIn in identity mode', () => {
+describe('signIn', () => {
   it('reports authenticated with no user, leaving the fetch to the caller', async () => {
     const login = vi.fn().mockResolvedValue({ mfaRequired: false, user: null });
     const { signIn } = await loadWith({ login });
@@ -114,7 +105,7 @@ describe('signIn in identity mode', () => {
   });
 });
 
-describe('completeMfa in identity mode', () => {
+describe('completeMfa', () => {
   it('spends the ticket with the code', async () => {
     const completeTotp = vi
       .fn()
@@ -169,70 +160,33 @@ describe('completeMfa in identity mode', () => {
     );
     expect(result.status).toBe('failed');
   });
-});
 
-describe('bearer mode is unchanged', () => {
-  it('sends the legacy credentials and returns the user from the body', async () => {
-    const user = { id: 'u1', username: 'someone' };
-    vi.mocked(apiClient.post).mockResolvedValueOnce({
-      data: { access_token: 'tok', token_type: 'bearer', user },
+  it('refuses a reissued challenge rather than looping on it', async () => {
+    const completeTotp = vi.fn().mockResolvedValue({
+      mfaRequired: true,
+      ticket: 'tkt-2',
+      factors: ['totp'],
     });
-    const { signIn } = await loadWith(null);
-    const result = await signIn('someone', 'pw');
-    expect(result).toEqual({ status: 'authenticated', user });
-    expect(vi.mocked(apiClient.post).mock.calls[0]?.[0]).toBe('/auth/token');
-  });
-
-  it('carries the credentials forward as the challenge', async () => {
-    vi.mocked(apiClient.post).mockResolvedValueOnce({
-      data: { requires_2fa: true },
-    });
-    const { signIn } = await loadWith(null);
-    await expect(signIn('someone', 'pw')).resolves.toEqual({
-      status: 'mfa-required',
-      challenge: {
-        kind: 'legacy-credentials',
-        username: 'someone',
-        password: 'pw',
-      },
-    });
-  });
-
-  it('sends the code as otp on the legacy second leg', async () => {
-    const user = { id: 'u1', username: 'someone' };
-    vi.mocked(apiClient.post).mockResolvedValueOnce({
-      data: { access_token: 'tok', token_type: 'bearer', user },
-    });
-    const { completeMfa } = await loadWith(null);
+    const { completeMfa } = await loadWith({ completeTotp });
     const result = await completeMfa(
-      { kind: 'legacy-credentials', username: 'someone', password: 'pw' },
+      { kind: 'identity-ticket', ticket: 'tkt-1', factors: ['totp'] },
       '123456'
     );
-    expect(result).toEqual({ status: 'authenticated', user });
-    expect(vi.mocked(apiClient.post).mock.calls[0]?.[1]).toEqual({
-      username: 'someone',
-      password: 'pw',
-      otp: '123456',
+    expect(result).toEqual({
+      status: 'failed',
+      error: 'That code was not accepted.',
     });
   });
+});
 
-  it('does not accept recovery codes', async () => {
-    const { acceptsRecoveryCodes } = await loadWith(null);
-    expect(acceptsRecoveryCodes()).toBe(false);
-  });
-
-  it('accepts recovery codes in identity mode', async () => {
+describe('acceptsRecoveryCodes', () => {
+  it('is true, because the identity service is the only issuer left', async () => {
     const { acceptsRecoveryCodes } = await loadWith({});
     expect(acceptsRecoveryCodes()).toBe(true);
   });
 });
 
 describe('restoreSession', () => {
-  it('is a no-op in bearer mode', async () => {
-    const { restoreSession } = await loadWith(null);
-    await expect(restoreSession()).resolves.toBe(false);
-  });
-
   it('reports true when the refresh cookie yielded a token', async () => {
     const initialize = vi.fn().mockResolvedValue(null);
     const getAccessToken = vi.fn().mockReturnValue('fresh-token');
@@ -262,11 +216,95 @@ describe('signOut', () => {
     await signOut();
     expect(logout).toHaveBeenCalled();
   });
+});
 
-  it('calls the legacy logout in bearer mode', async () => {
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
+describe('requestVerificationEmail', () => {
+  it('prefers the server detail when it sent one', async () => {
+    const requestEmailVerification = vi
+      .fn()
+      .mockResolvedValue({ ok: true, detail: 'Check your inbox.' });
+    const { requestVerificationEmail } = await loadWith({
+      requestEmailVerification,
+    });
+    await expect(requestVerificationEmail('a@b.test')).resolves.toEqual({
+      ok: true,
+      message: 'Check your inbox.',
+    });
+  });
+
+  it('carries a refusal message through unchanged', async () => {
+    const requestEmailVerification = vi
+      .fn()
+      .mockResolvedValue({ ok: false, message: 'Too many requests.' });
+    const { requestVerificationEmail } = await loadWith({
+      requestEmailVerification,
+    });
+    await expect(requestVerificationEmail('a@b.test')).resolves.toEqual({
+      ok: false,
+      message: 'Too many requests.',
+    });
+  });
+});
+
+describe('requestPasswordReset', () => {
+  it('answers the same way whether or not the address has an account', async () => {
+    const requestPasswordReset = vi.fn().mockResolvedValue({ ok: true });
+    const { requestPasswordReset: request } = await loadWith({
+      requestPasswordReset,
+    });
+    await expect(request('a@b.test')).resolves.toEqual({
+      ok: true,
+      message:
+        'If an account with that email exists, a password reset link has been sent.',
+    });
+  });
+});
+
+describe('when the identity client could not be built', () => {
+  it('fails the first leg rather than throwing out of the page', async () => {
+    const { signIn } = await loadWith(null);
+    await expect(signIn('someone@example.test', 'pw')).resolves.toEqual({
+      status: 'failed',
+      error: 'Sign in is unavailable in this deployment.',
+    });
+  });
+
+  it('fails the second leg', async () => {
+    const { completeMfa } = await loadWith(null);
+    await expect(
+      completeMfa(
+        { kind: 'identity-ticket', ticket: 'tkt-1', factors: ['totp'] },
+        '123456'
+      )
+    ).resolves.toEqual({
+      status: 'failed',
+      error: 'Two factor sign in is unavailable.',
+    });
+  });
+
+  it('resolves signOut rather than refusing it', async () => {
     const { signOut } = await loadWith(null);
-    await signOut();
-    expect(vi.mocked(apiClient.post).mock.calls[0]?.[0]).toBe('/auth/logout');
+    await expect(signOut()).resolves.toBeUndefined();
+  });
+
+  it('reports no session to restore', async () => {
+    const { restoreSession } = await loadWith(null);
+    await expect(restoreSession()).resolves.toBe(false);
+  });
+
+  it('refuses a verification email request', async () => {
+    const { requestVerificationEmail } = await loadWith(null);
+    await expect(requestVerificationEmail('a@b.test')).resolves.toEqual({
+      ok: false,
+      message: 'Sign in is unavailable in this deployment.',
+    });
+  });
+
+  it('refuses a password reset request', async () => {
+    const { requestPasswordReset } = await loadWith(null);
+    await expect(requestPasswordReset('a@b.test')).resolves.toEqual({
+      ok: false,
+      message: 'Sign in is unavailable in this deployment.',
+    });
   });
 });

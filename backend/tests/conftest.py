@@ -11,6 +11,8 @@ from fastapi.testclient import TestClient
 os.environ["TESTING"] = "true"
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-a-real-one")
+
 INVALID_UUID: UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 INVALID_UUID_STR: str = str(INVALID_UUID)
 
@@ -42,19 +44,16 @@ from app.db.dynamo.catalog import (  # noqa: E402
 from app.db.dynamo.users import User, UserRepository  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 
-
 class TestDatabase:
     """A per-test marker handed to tests as db_session, now that every table is in DynamoDB.
 
     The name survives because tests use it to order fixtures and derive unique names.
     """
 
-
 @pytest.fixture(scope="function")
 def db_session(dynamo_tables: Any) -> TestDatabase:
     """Yield the per-test marker tests accept as db_session."""
     return TestDatabase()
-
 
 @pytest.fixture
 def client(db_session: TestDatabase, dynamo_tables: Any) -> Generator[TestClient, None, None]:
@@ -64,14 +63,12 @@ def client(db_session: TestDatabase, dynamo_tables: Any) -> Generator[TestClient
     """
     yield TestClient(fastapi_app)
 
-
 @pytest.fixture(scope="function")
 def test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create a test user for testing."""
     user = User(
         username=f"test_user_{os.getpid()}_{id(db_session)}",
         email=f"test_user_{os.getpid()}_{id(db_session)}@example.com",
-        hashed_password=get_password_hash("testpassword"),
         email_verified=True,
         disabled=False,
         is_admin=False,
@@ -79,14 +76,12 @@ def test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     )
     return UserRepository().create_user(user)
 
-
 @pytest.fixture(scope="function")
 def premium_test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create a test user with premium subscription (unlimited build lists)."""
     user = User(
         username=f"premium_user_{os.getpid()}_{id(db_session)}",
         email=f"premium_user_{os.getpid()}_{id(db_session)}@example.com",
-        hashed_password=get_password_hash("testpassword"),
         email_verified=True,
         disabled=False,
         is_admin=False,
@@ -96,7 +91,6 @@ def premium_test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
         subscription_expires_at=None,
     )
     return UserRepository().create_user(user)
-
 
 @pytest.fixture(scope="function")
 def test_category(db_session: TestDatabase, dynamo_tables: Any) -> Category:
@@ -110,7 +104,6 @@ def test_category(db_session: TestDatabase, dynamo_tables: Any) -> Category:
     )
     return CategoryRepository().create_unique(category)
 
-
 @pytest.fixture(scope="function")
 def test_part_manufacturer(db_session: TestDatabase, dynamo_tables: Any) -> PartManufacturer:
     """Create a test part_manufacturer for testing."""
@@ -121,14 +114,12 @@ def test_part_manufacturer(db_session: TestDatabase, dynamo_tables: Any) -> Part
     )
     return PartManufacturerRepository().create_unique(part_manufacturer)
 
-
 @pytest.fixture(scope="function")
 def test_admin_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create an admin user for testing."""
     user = User(
         username=f"admin_user_{os.getpid()}_{id(db_session)}",
         email=f"admin_user_{os.getpid()}_{id(db_session)}@example.com",
-        hashed_password=get_password_hash("testpassword"),
         email_verified=True,
         disabled=False,
         is_admin=True,
@@ -136,21 +127,18 @@ def test_admin_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     )
     return UserRepository().create_user(user)
 
-
 @pytest.fixture(scope="function")
 def test_superuser_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create a superuser for testing."""
     user = User(
         username=f"superuser_{os.getpid()}_{id(db_session)}",
         email=f"superuser_{os.getpid()}_{id(db_session)}@example.com",
-        hashed_password=get_password_hash("testpassword"),
         email_verified=True,
         disabled=False,
         is_admin=True,
         is_superuser=True,
     )
     return UserRepository().create_user(user)
-
 
 _CATALOG_REPOSITORIES: Dict[type, type] = {
     CarMake: CarMakeRepository,
@@ -165,11 +153,9 @@ _CATALOG_REPOSITORIES: Dict[type, type] = {
     PartPriceHistory: PartPriceHistoryRepository,
 }
 
-
 def catalog_repository(model: type) -> Any:
     """Return the repository class registered for a catalog model."""
     return _CATALOG_REPOSITORIES[model]()
-
 
 def save_catalog(entity: Any, car_ids: Optional[list[UUID]] = None) -> Any:
     """Persist a catalog model through its repository and return the stored copy."""
@@ -182,7 +168,6 @@ def save_catalog(entity: Any, car_ids: Optional[list[UUID]] = None) -> Any:
     if hasattr(repository, "create_unique"):
         return repository.create_unique(entity)
     return repository.create(entity)
-
 
 def get_default_category_id(db_session: TestDatabase) -> UUID:
     """Get the ID of the 'other' category for testing."""
@@ -200,18 +185,78 @@ def get_default_category_id(db_session: TestDatabase) -> UUID:
         )
     return category.id
 
+def identity_context(subject: str) -> str:
+    """The `x-amzn-request-context` header an authorizer produces for `subject`.
+
+    Row 13 of `docs/identity-adoption.md` deleted `POST /api/auth/token`, which
+    is what this suite used to call to get a credential. There is no in-process
+    replacement for it: the package's login is mounted only where the
+    `IDENTITY_*` settings and a KMS signing key exist, and verifying an RS256
+    token in process needs `kms:GetPublicKey`, neither of which a unit test has.
+
+    So the suite authenticates the way production actually delivers a verified
+    credential to this application: as claims an authorizer already checked,
+    flattened into the request context. That is the native shape,
+    `authorizer.jwt.claims`, and `app/api/dependencies/identity_claims.py` reads
+    it through the package's own reader. Every value is a string, `exp`
+    included, because that is what API Gateway puts there; see the fixture note
+    in `tests/test_identity_row11.py`, which this mirrors deliberately rather
+    than duplicating a second shape of the same header.
+    """
+    import json
+
+    claims = {
+        "sub": subject,
+        "iss": "https://api.carmodpicker.test/api/auth",
+        "aud": "carmodpicker-test-api",
+        "typ": "access",
+        "iat": "1788938046",
+        "exp": "1788938646",
+        "jti": "976037a1ea4847da8a633b3338d61f65",
+        "username": "test",
+        "roles": "[]",
+    }
+    return json.dumps({"authorizer": {"jwt": {"claims": claims}}})
+
+def auth_headers_for(user_id: Any) -> Dict[str, str]:
+    """Request headers that authenticate as `user_id`.
+
+    The one place the suite builds a credential. `REQUEST_CONTEXT_HEADER` is the
+    header the Lambda Web Adapter sets from the invoke event, and an inbound
+    header of that name never reaches it in a deployment, which is why carrying
+    it here is a test harness rather than a hole: `TestClient` is the adapter's
+    position in this process.
+    """
+    from webbpulse.http import REQUEST_CONTEXT_HEADER
+
+    return {REQUEST_CONTEXT_HEADER: identity_context(str(user_id))}
+
+def auth_headers(credential: str) -> Dict[str, str]:
+    """Turn a credential from `login_user` into request headers.
+
+    The counterpart to `login_user`, and the replacement for the
+    `{"Authorization": f"Bearer {token}"}` literal that used to appear at every
+    call site. Written as a function taking the credential rather than the user,
+    so that a test which already holds one from `login_user` does not have to
+    reach back for the user row.
+    """
+    from webbpulse.http import REQUEST_CONTEXT_HEADER
+
+    return {REQUEST_CONTEXT_HEADER: credential}
 
 def login_user(client: TestClient, username: str, password: str = "testpassword") -> str:
-    """Login a user and return the Bearer token for use in Authorization headers."""
-    from app.core.config import settings
+    """The credential for `username`, as the value tests put in a header.
 
-    login_data = {"username": username, "password": password}
-    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert response.status_code == 200
-    response_data = response.json()
-    assert "access_token" in response_data
-    return response_data["access_token"]
-
+    Kept under its old name and old signature so the several hundred call sites
+    that say `login_user(client, user.username)` did not all have to change in
+    the row that deleted the legacy login route. What it returns is no longer a
+    bearer token: it is the `x-amzn-request-context` value for that user, and
+    `auth_headers` below is what turns it into headers. `password` is accepted
+    and ignored, because an identity credential is not minted from one here.
+    """
+    user = UserRepository().get_by_username(username)
+    assert user is not None, f"No such user to authenticate: {username}"
+    return identity_context(str(user.id))
 
 def create_and_login_user(
     client: TestClient,
@@ -235,7 +280,6 @@ def create_and_login_user(
 
     return user_data_response
 
-
 def create_car_for_user_cookie_auth(client: TestClient) -> UUID:
     """Deprecated. Create a car for the logged-in user; prefer create_car_in_db."""
     import warnings
@@ -251,7 +295,6 @@ def create_car_for_user_cookie_auth(client: TestClient) -> UUID:
         "create_car_for_user_cookie_auth is deprecated. Cars are now centrally managed. "
         "Use create_car_in_db(db_session, ...) for test setup instead."
     )
-
 
 def _create_car_generation(
     make: str,
@@ -284,7 +327,6 @@ def _create_car_generation(
         )
     )
 
-
 def create_car_in_db(
     db: Any,
     make: str = "Honda",
@@ -308,7 +350,6 @@ def create_car_in_db(
         "updated_at": car.updated_at.isoformat() if car.updated_at else None,
     }
 
-
 def create_car_orm_in_db(
     db: Any,
     make: str = "Honda",
@@ -324,7 +365,6 @@ def create_car_orm_in_db(
     car = _create_car_generation(make, model, generation_name, start_year, end_year, description)
     return CarGenerationService().hydrate_one(car)
 
-
 @pytest.fixture
 def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFixture:
     """caplog with the log context filter installed, so records carry request and user ids.
@@ -336,9 +376,7 @@ def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFi
     caplog.handler.addFilter(LogContextFilter())
     return caplog
 
-
 from sentry_sdk.transport import Transport as _SentryTransport  # noqa: E402
-
 
 class _CapturingTransport(_SentryTransport):
     """An in-memory Sentry transport collecting envelopes in a shared class level list."""
@@ -362,7 +400,6 @@ class _CapturingTransport(_SentryTransport):
         """Killing is a no-op for the in-memory transport."""
         pass
 
-
 @pytest.fixture
 def sentry_events(monkeypatch: pytest.MonkeyPatch):
     """Yield the list Sentry envelopes are appended to, closing the client on teardown."""
@@ -383,7 +420,6 @@ def sentry_events(monkeypatch: pytest.MonkeyPatch):
         client = sentry_sdk.get_client()
         if client is not None:
             client.close()
-
 
 @pytest.fixture
 def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, None]:
@@ -410,7 +446,6 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
             "user_images_bucket": "test-user-images",
         }
 
-
 @pytest.fixture(autouse=True)
 def _isolate_aws(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set fake AWS credentials and drop any profile, so no test reaches a real account."""
@@ -419,7 +454,6 @@ def _isolate_aws(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
     monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
     monkeypatch.delenv("AWS_PROFILE", raising=False)
-
 
 @pytest.fixture
 def dynamo_tables(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]:
@@ -444,7 +478,6 @@ def dynamo_tables(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]
         finally:
             dynamo_client.reset_clients()
 
-
 @pytest.fixture(scope="module")
 def vcr_config() -> dict:
     """VCR configuration consumed by pytest-recording's @pytest.mark.vcr."""
@@ -467,7 +500,6 @@ def vcr_config() -> dict:
         "record_mode": "none",
         "match_on": ("method", "scheme", "host", "port", "path", "query"),
     }
-
 
 def create_and_login_admin_user(client: TestClient, username: str) -> User:
     """Create an admin user and log them in."""

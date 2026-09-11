@@ -99,8 +99,6 @@ export const mockVoteSummary: VoteSummary = {
 
 /** Canned responses keyed by path, with a 404 fallback. */
 export const mockApiResponses = {
-  '/auth/login': { data: { access_token: 'mock-token', token_type: 'bearer' } },
-  '/auth/logout': { data: { message: 'Logged out successfully' } },
   '/users/me': { data: mockUser },
 
   '/cars': { data: [mockCar] },

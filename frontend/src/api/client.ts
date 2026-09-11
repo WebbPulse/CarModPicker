@@ -1,6 +1,6 @@
 /**
- * Shared HTTP client for the CarModPicker API. Resolves the access token from
- * whichever auth mode is active, so callers never branch on mode themselves.
+ * Shared HTTP client for the CarModPicker API. Identity only since row 13, so
+ * the access token comes from `AuthClient` and never from `localStorage`.
  */
 
 import {
@@ -9,63 +9,42 @@ import {
   type QueryParams,
   type RequestOptions,
 } from '@webbpulse/api-client';
-import { TokenStore } from './tokenStore';
-import { AUTH_MODE } from './authMode';
 import { getIdentityClient } from './identityClient';
 import { appConfig } from '../config/app';
 
 /**
- * Key the bearer token is stored under. Changing it signs every existing user
- * out on the next deploy.
- */
-const TOKEN_STORAGE_KEY = 'access_token';
-
-/**
- * Token store that probes `localStorage` and falls back to memory, so Safari
- * private mode (whose `setItem` throws) still works.
- */
-const tokenStore = new TokenStore(TOKEN_STORAGE_KEY);
-
-/**
- * Returns the access token, from `AuthClient` in identity mode and from
- * `localStorage` in bearer mode, so callers need no mode branch.
+ * Get the access token.
+ *
+ * The token lives in `AuthClient`'s closure rather than in `localStorage`.
+ * Reading it through here keeps the one caller that needs the raw string,
+ * `ExtensionAuth`, to a single call.
  */
 export const getStoredToken = (): string | null =>
-  AUTH_MODE === 'identity'
-    ? (getIdentityClient()?.getAccessToken() ?? null)
-    : tokenStore.get();
+  getIdentityClient()?.getAccessToken() ?? null;
 
 /**
- * Stores the access token in bearer mode. A no-op in identity mode, where the
- * token must stay in memory and only `AuthClient` may set it.
+ * Store the token. A no-op, kept callable so call sites need no branch; the
+ * access token stays in memory and only `AuthClient` may set one.
  */
-export const setStoredToken = (token: string): void => {
-  if (AUTH_MODE === 'identity') return;
-  tokenStore.set(token);
-};
+export const setStoredToken = (_token: string): void => {};
 
 /**
- * Clears the stored access token in bearer mode. A no-op in identity mode,
- * where only the server can revoke the refresh cookie.
+ * Forget the token. Also a no-op; only the server can revoke the refresh
+ * cookie, so the caller wants `AuthClient.logout()`.
  */
-export const removeStoredToken = (): void => {
-  if (AUTH_MODE === 'identity') return;
-  tokenStore.clear();
-};
+export const removeStoredToken = (): void => {};
 
 /**
- * Identity token provider, or null in bearer mode. Supplying it enables the
- * shared client's refresh-once-on-401 retry.
+ * The identity token provider. Passing `auth` turns on the shared client's
+ * retry-once-on-401 pipeline.
  */
-const identityAuth = AUTH_MODE === 'identity' ? getIdentityClient() : null;
+const identityAuth = getIdentityClient();
 
 const sharedClient = createApiClient({
   baseUrl: appConfig.apiBaseUrl,
   credentials: 'include',
   timeoutMs: 30000,
-  ...(identityAuth !== null
-    ? { auth: identityAuth }
-    : { getAuthToken: getStoredToken, onTokenRefresh: setStoredToken }),
+  ...(identityAuth !== null ? { auth: identityAuth } : {}),
 });
 
 /**

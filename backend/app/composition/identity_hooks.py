@@ -107,16 +107,15 @@ class CarModPickerIdentityHooks:
     def has_other_sign_in_method(self, user_id: str) -> bool:
         """Whether this user holds a sign-in method that `unlink` does not count.
 
-        A password, a legacy or package passkey, or a legacy or package OAuth link;
-        not second factors. An unparseable id answers `False`, the refusing side.
+        A legacy or package passkey, or a legacy or package OAuth link; not the
+        password, which since row 13 lives only in the package's `credentials`
+        table and is one of the things `unlink` counts for itself. Not second
+        factors. An unparseable id answers `False`, the refusing side.
         """
         parsed = _as_uuid(user_id)
         if parsed is None:
             return False
 
-        user = self._users.get(parsed)
-        if user is not None and user.hashed_password:
-            return True
         if self._webauthn_credentials.list_by_user(parsed):
             return True
         if self._oauth_accounts.list_by_user(parsed):
@@ -130,8 +129,9 @@ class CarModPickerIdentityHooks:
     def create_user(self, *, email: str, attributes: Mapping[str, Any]) -> Mapping[str, Any]:
         """Create a CarModPicker user row for a package registration and return it.
 
-        The username is derived from the address when none is supplied, and
-        `hashed_password` is left unset because the package owns the credential.
+        The username is derived from the address when none is supplied.
+        `hashed_password` is not a field on `User` since row 13; the `pop` stays
+        because `attributes` is the package's mapping rather than this model.
         """
         record = dict(attributes)
         record.pop("id", None)

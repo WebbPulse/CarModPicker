@@ -4,17 +4,15 @@ from typing import Any, List
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import get_password_hash
+from app.api.dependencies.auth import verify_password
 from app.core.config import settings
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR
-
+from tests.conftest import INVALID_UUID_STR, auth_headers, login_user
 
 def get_auth_headers(token: str) -> dict[str, str]:
     """Get Authorization headers with Bearer token."""
-    return {"Authorization": f"Bearer {token}"}
-
+    return auth_headers(token)
 
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
@@ -28,7 +26,6 @@ def create_and_login_admin_user(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=True,
             is_superuser=False,
             email_verified=True,
@@ -36,13 +33,9 @@ def create_and_login_admin_user(
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
-    token = token_response.json()["access_token"]
+    token = login_user(client, username)
 
     return admin_user.__dict__, token
-
 
 def create_and_login_superuser(
     client: TestClient, db_session: Any, username_suffix: str = "superuser"
@@ -56,7 +49,6 @@ def create_and_login_superuser(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=False,
             is_superuser=True,
             email_verified=True,
@@ -64,13 +56,9 @@ def create_and_login_superuser(
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login superuser: {token_response.text}"
-    token = token_response.json()["access_token"]
+    token = login_user(client, username)
 
     return superuser.__dict__, token
-
 
 def create_and_login_regular_user(
     client: TestClient, db_session: Any, username_suffix: str = "regular"
@@ -84,7 +72,6 @@ def create_and_login_regular_user(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=False,
             is_superuser=False,
             email_verified=True,
@@ -92,13 +79,9 @@ def create_and_login_regular_user(
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login regular user: {token_response.text}"
-    token = token_response.json()["access_token"]
+    token = login_user(client, username)
 
     return regular_user.__dict__, token
-
 
 class TestAdminUserManagement:
     """Test cases for admin user management endpoints."""
@@ -128,7 +111,6 @@ class TestAdminUserManagement:
         user1 = DBUser(
             username="test_user_1",
             email="test_user_1@example.com",
-            hashed_password=get_password_hash("password"),
             is_admin=False,
             is_superuser=False,
             email_verified=True,
@@ -137,7 +119,6 @@ class TestAdminUserManagement:
         user2 = DBUser(
             username="test_user_2",
             email="test_user_2@example.com",
-            hashed_password=get_password_hash("password"),
             is_admin=False,
             is_superuser=False,
             email_verified=True,
@@ -183,7 +164,6 @@ class TestAdminUserManagement:
             user = DBUser(
                 username=f"test_user_pagination_{i}",
                 email=f"test_user_pagination_{i}@example.com",
-                hashed_password=get_password_hash("password"),
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -246,7 +226,6 @@ class TestAdminUserManagement:
             DBUser(
                 username="test_update_user",
                 email="test_update_user@example.com",
-                hashed_password=get_password_hash("password"),
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -268,7 +247,6 @@ class TestAdminUserManagement:
             DBUser(
                 username="test_update_user_regular",
                 email="test_update_user_regular@example.com",
-                hashed_password=get_password_hash("password"),
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -294,7 +272,6 @@ class TestAdminUserManagement:
             DBUser(
                 username="test_update_user_admin",
                 email="test_update_user_admin@example.com",
-                hashed_password=get_password_hash("password"),
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -327,7 +304,6 @@ class TestAdminUserManagement:
             DBUser(
                 username="test_update_user_superuser",
                 email="test_update_user_superuser@example.com",
-                hashed_password=get_password_hash("password"),
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -358,7 +334,6 @@ class TestAdminUserManagement:
             DBUser(
                 username="test_update_password",
                 email="test_update_password@example.com",
-                hashed_password=get_password_hash("oldpassword"),
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -376,9 +351,10 @@ class TestAdminUserManagement:
         response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data, headers=headers)
         assert response.status_code == 200, f"Admin should be able to update user password: {response.text}"
 
-        login_data = {"username": test_user.username, "password": "newpassword123"}
-        login_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-        assert login_response.status_code == 200, "Should be able to login with new password"
+        stored = UserRepository().get_legacy_password_hash(test_user.id)
+        assert stored is not None
+        assert verify_password("newpassword123", stored) is True
+        assert verify_password("oldpassword", stored) is False
 
     def test_admin_cannot_remove_own_admin_privileges(self, client: TestClient, db_session: Any) -> None:
         """Test that admin cannot remove their own admin privileges."""
@@ -401,7 +377,6 @@ class TestAdminUserManagement:
             DBUser(
                 username="test_delete_user",
                 email="test_delete_user@example.com",
-                hashed_password=get_password_hash("password"),
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -418,7 +393,6 @@ class TestAdminUserManagement:
             DBUser(
                 username="test_delete_user_regular",
                 email="test_delete_user_regular@example.com",
-                hashed_password=get_password_hash("password"),
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -439,7 +413,6 @@ class TestAdminUserManagement:
             DBUser(
                 username="test_delete_user_admin",
                 email="test_delete_user_admin@example.com",
-                hashed_password=get_password_hash("password"),
                 is_admin=False,
                 is_superuser=False,
                 email_verified=True,
@@ -494,7 +467,6 @@ class TestAdminUserManagement:
         user1 = DBUser(
             username="user1",
             email="user1@example.com",
-            hashed_password=get_password_hash("password"),
             is_admin=False,
             is_superuser=False,
             email_verified=True,
@@ -503,7 +475,6 @@ class TestAdminUserManagement:
         user2 = DBUser(
             username="user2",
             email="user2@example.com",
-            hashed_password=get_password_hash("password"),
             is_admin=False,
             is_superuser=False,
             email_verified=True,
@@ -528,7 +499,6 @@ class TestAdminUserManagement:
         user1 = DBUser(
             username="user1_email",
             email="user1@example.com",
-            hashed_password=get_password_hash("password"),
             is_admin=False,
             is_superuser=False,
             email_verified=True,
@@ -537,7 +507,6 @@ class TestAdminUserManagement:
         user2 = DBUser(
             username="user2_email",
             email="user2@example.com",
-            hashed_password=get_password_hash("password"),
             is_admin=False,
             is_superuser=False,
             email_verified=True,

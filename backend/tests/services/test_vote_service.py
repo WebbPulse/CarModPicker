@@ -12,13 +12,11 @@ from app.db.dynamo.moderation import VoteRepository
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import save_catalog
 
-
 def get_unique_name(base_name: str) -> str:
     """Generate a unique name for parallel testing."""
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
     pid = os.getpid()
     return f"{base_name}_{worker_id}_{pid}"
-
 
 class TestVoteService:
     """Test cases for vote service."""
@@ -184,19 +182,15 @@ class TestVoteService:
             )
         )
 
-        from app.api.dependencies.auth import get_password_hash
-
         user2 = User(
             username=get_unique_name("user2"),
             email=f"{get_unique_name('user2')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
             email_verified=True,
             disabled=False,
         )
         user3 = User(
             username=get_unique_name("user3"),
             email=f"{get_unique_name('user3')}@example.com",
-            hashed_password=get_password_hash("testpassword"),
             email_verified=True,
             disabled=False,
         )
@@ -258,13 +252,11 @@ class TestVoteService:
 
     def test_get_flagged_entities(self, db_session: Any, test_user: User) -> None:
         """Test getting flagged entities."""
-        from app.api.dependencies.auth import get_password_hash
 
         user2 = UserRepository().create_user(
             User(
                 username=get_unique_name("user4"),
                 email=f"{get_unique_name('user4')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )
@@ -289,7 +281,6 @@ class TestVoteService:
             user = User(
                 username=get_unique_name(f"voter{i}"),
                 email=f"{get_unique_name(f'voter{i}')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )

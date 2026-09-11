@@ -10,19 +10,6 @@ import { apiClient } from '../../api/client';
 import { mockUser } from '../../test/mocks/api';
 import Register from './Register';
 
-vi.mock('../../components/authentication/GoogleAuthFlow', () => ({
-  default: () => <button type="button">Sign up with Google</button>,
-}));
-
-vi.mock('../../hooks/useGoogleSignIn', () => ({
-  isGoogleConfigured: () => false,
-  useGoogleSignIn: () => ({
-    state: { kind: 'idle' },
-    start: vi.fn(),
-    reset: vi.fn(),
-  }),
-}));
-
 const getInputs = () => ({
   username: screen.getByPlaceholderText(/choose a username/i),
   email: screen.getByPlaceholderText(/you@example\.com/i),
