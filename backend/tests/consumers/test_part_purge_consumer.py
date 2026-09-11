@@ -1,28 +1,5 @@
-"""Split plan row 28: seam 2's part purge cascade, drained off the `parts` stream.
-
-Three layers, and the middle one is the reason this file exists.
-
-The first drives `app.consumers.part_purge` against fakes. The handler is a pure
-function of a batch and a client or a bundle, and the properties that matter
-(which records are tombstones, one message per part however many records, which
-identifiers come back on a failure) are about grouping and reporting rather than
-about AWS.
-
-The second is the idempotency layer, and the task this row came with named it as
-mandatory: every delete step has to be safe under retries and under bisect. That
-is not a property a single assertion shows, so it is tested three ways. Replaying
-one message reaches the same state. Replaying a batch after a mid-cascade failure
-reaches the same state. And a bisected batch, where the successful half is
-re-delivered alongside the failing record, reaches the same state as if it had
-succeeded first time. The third is the one that is easy to get wrong, because it
-is the case where a step that already ran runs again with the rows it created
-gone.
-
-The third layer runs the cascade against moto through the real repositories, so
-the wire format and the delete semantics the fakes assume are checked against
-what `VoteRepository`, `ReportRepository`, `BuildListPartRepository` and
-`PartPriceAlertRepository` actually do. A fake that agrees with a wrong
-assumption proves nothing.
+"""Covers the part purge cascade: the parts stream producer, the queue drainer,
+idempotency under retry and bisect, and the same cascade against real repositories.
 """
 
 from __future__ import annotations
@@ -59,13 +36,7 @@ def stream_record(
     previously_deleted: bool = False,
     include_new_image: bool = True,
 ) -> Dict[str, Any]:
-    """One `parts` stream record in the shape an event source mapping delivers.
-
-    The low level wire format is the point: `{"BOOL": true}` rather than a plain
-    `True`, and `{"S": "..."}` rather than a plain string. A helper that emitted
-    plain Python values would let a handler bug through that production would hit
-    on its first invoke.
-    """
+    """One parts stream record in the low level wire shape an event source mapping delivers."""
     part_id = part_id or str(uuid4())
     new_image = {
         "id": {"S": part_id},
@@ -112,10 +83,12 @@ class FakeSqs:
     """Records what was sent, and can be told to fail for one part."""
 
     def __init__(self) -> None:
+        """Start with nothing sent and no part configured to fail."""
         self.sent: List[Dict[str, str]] = []
         self.fail_for: set[str] = set()
 
     def send_message(self, QueueUrl: str, MessageBody: str) -> Dict[str, str]:  # noqa: N803
+        """Record the send, or raise for a part marked as failing."""
         payload = json.loads(MessageBody)
         if payload["part_id"] in self.fail_for:
             raise RuntimeError("SQS is unavailable")
@@ -124,6 +97,7 @@ class FakeSqs:
 
     @property
     def sent_part_ids(self) -> List[str]:
+        """The part ids carried by every message sent so far."""
         return [json.loads(entry["MessageBody"])["part_id"] for entry in self.sent]
 
 
@@ -131,11 +105,13 @@ class FakeDeleteForEntities:
     """A `votes` or `reports` repository: query-then-delete, counted."""
 
     def __init__(self, rows: Dict[str, int]) -> None:
+        """Start from a per part row count with no part configured to fail."""
         self.rows = dict(rows)
         self.calls: List[UUID] = []
         self.fail_for: set[str] = set()
 
     def delete_for_entities(self, entity_type: str, entity_ids: List[UUID]) -> int:
+        """Remove and count the rows for each part, or raise for one marked as failing."""
         assert entity_type == "part"
         removed = 0
         for entity_id in entity_ids:
@@ -147,7 +123,10 @@ class FakeDeleteForEntities:
 
 
 class FakeUsage:
+    """A build list part usage row the cascade only needs an id from."""
+
     def __init__(self, usage_id: str) -> None:
+        """Hold the usage row id."""
         self.id = usage_id
 
 
@@ -155,12 +134,14 @@ class FakeBuildListParts:
     """Query by index, then batch delete the ids found."""
 
     def __init__(self, rows: Dict[str, List[str]]) -> None:
+        """Start from a per part list of usage row ids."""
         self.rows = {key: list(value) for key, value in rows.items()}
         self.queries: List[UUID] = []
         self.deleted: List[List[str]] = []
         self.fail_for: set[str] = set()
 
     def query_all(self, index: str, key_value: Any) -> List[FakeUsage]:
+        """The usage rows off the part index, or raise for a part marked as failing."""
         assert index == "part_id-index"
         self.queries.append(key_value)
         if str(key_value) in self.fail_for:
@@ -168,18 +149,23 @@ class FakeBuildListParts:
         return [FakeUsage(usage_id) for usage_id in self.rows.get(str(key_value), [])]
 
     def batch_delete(self, keys: List[str]) -> None:
+        """Record and apply one batch delete of usage rows."""
         self.deleted.append(list(keys))
         for part_id, usage_ids in self.rows.items():
             self.rows[part_id] = [usage_id for usage_id in usage_ids if usage_id not in set(keys)]
 
 
 class FakeAlerts:
+    """A part_price_alerts repository deleted by part id, counted."""
+
     def __init__(self, rows: Dict[str, int]) -> None:
+        """Start from a per part alert count."""
         self.rows = dict(rows)
         self.calls: List[List[UUID]] = []
         self.fail_for: set[str] = set()
 
     def delete_for_parts(self, part_ids: List[UUID]) -> int:
+        """Remove and count the alerts for each part, or raise for one marked as failing."""
         self.calls.append(list(part_ids))
         removed = 0
         for part_id in part_ids:
@@ -190,6 +176,8 @@ class FakeAlerts:
 
 
 class FakeRepos:
+    """A repository bundle covering the four tables the cascade touches."""
+
     def __init__(
         self,
         votes: FakeDeleteForEntities,
@@ -197,6 +185,7 @@ class FakeRepos:
         build_list_parts: FakeBuildListParts,
         part_price_alerts: FakeAlerts,
     ) -> None:
+        """Wire the four per table fakes into one bundle."""
         self.votes = votes
         self.reports = reports
         self.build_list_parts = build_list_parts
@@ -223,7 +212,10 @@ def build_world(part_id: str) -> FakeRepos:
 
 
 class TestRecordParsing:
+    """Which parts stream records name a part whose cascade should run."""
+
     def test_a_tombstone_yields_its_part_id(self) -> None:
+        """A fresh tombstone yields the part id to cascade."""
         part_id = str(uuid4())
         assert part_id_from_record(stream_record(part_id=part_id)) == UUID(part_id)
 
@@ -242,18 +234,23 @@ class TestRecordParsing:
         assert part_id_from_record(record) is None
 
     def test_a_malformed_id_is_ignored_rather_than_raising(self) -> None:
+        """An unparseable id is ignored rather than raising."""
         record = stream_record()
         record["dynamodb"]["NewImage"]["id"] = {"S": "not-a-uuid"}
         assert part_id_from_record(record) is None
 
     def test_a_missing_id_is_ignored(self) -> None:
+        """A record with no id is ignored."""
         record = stream_record()
         del record["dynamodb"]["NewImage"]["id"]
         assert part_id_from_record(record) is None
 
 
 class TestGrouping:
+    """How stream records collapse into one unit of work per part."""
+
     def test_many_records_on_one_part_collapse_to_one_unit(self) -> None:
+        """Many records on one part collapse to one unit carrying every sequence number."""
         part_id = str(uuid4())
         records = [stream_record(part_id=part_id, sequence_number=str(n), previously_deleted=False) for n in range(5)]
         grouped = group_records_by_part(records)
@@ -261,6 +258,7 @@ class TestGrouping:
         assert grouped[UUID(part_id)] == ["0", "1", "2", "3", "4"]
 
     def test_records_for_different_parts_stay_separate(self) -> None:
+        """Records for different parts stay in separate units."""
         first, second = str(uuid4()), str(uuid4())
         grouped = group_records_by_part(
             [
@@ -271,6 +269,7 @@ class TestGrouping:
         assert set(grouped) == {UUID(first), UUID(second)}
 
     def test_the_sequence_number_falls_back_to_the_nested_one(self) -> None:
+        """The nested sequence number is used when the top level one is absent."""
         record = stream_record(sequence_number="42")
         del record["sequenceNumber"]
         grouped = group_records_by_part([record])
@@ -278,7 +277,10 @@ class TestGrouping:
 
 
 class TestStreamHalf:
+    """The producer half: tombstones become one queue message per part."""
+
     def test_a_tombstone_is_enqueued_once(self) -> None:
+        """A tombstone is enqueued once, on the configured queue."""
         part_id = str(uuid4())
         client = FakeSqs()
         failures = process_stream_records(client, QUEUE_URL, [stream_record(part_id=part_id)])
@@ -293,6 +295,7 @@ class TestStreamHalf:
         assert payload == {"version": MESSAGE_VERSION, "kind": MESSAGE_KIND, "part_id": str(part_id)}
 
     def test_fifty_records_on_one_part_send_one_message(self) -> None:
+        """Fifty records on one part still send one message."""
         part_id = str(uuid4())
         client = FakeSqs()
         records = [stream_record(part_id=part_id, sequence_number=str(n)) for n in range(50)]
@@ -300,6 +303,7 @@ class TestStreamHalf:
         assert len(client.sent) == 1
 
     def test_a_failed_send_reports_every_record_that_asked_for_it(self) -> None:
+        """A failed send reports every record that asked for it."""
         part_id = str(uuid4())
         client = FakeSqs()
         client.fail_for.add(part_id)
@@ -308,6 +312,7 @@ class TestStreamHalf:
         assert failures == ["0", "1", "2"]
 
     def test_one_failing_part_does_not_stop_the_others(self) -> None:
+        """One failing part does not stop the others from being enqueued."""
         bad, good = str(uuid4()), str(uuid4())
         client = FakeSqs()
         client.fail_for.add(bad)
@@ -323,6 +328,7 @@ class TestStreamHalf:
         assert client.sent_part_ids == [good]
 
     def test_handle_stream_returns_the_mapping_contract(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """handle_stream returns the batchItemFailures shape the mapping expects."""
         monkeypatch.setenv("PART_PURGE_QUEUE_URL", QUEUE_URL)
         client = FakeSqs()
         result = handle_stream({"Records": [stream_record()]}, client)
@@ -336,7 +342,10 @@ class TestStreamHalf:
 
 
 class TestQueueHalf:
+    """The drainer half: one message removes every row referencing the part."""
+
     def test_a_message_drains_all_four_tables(self) -> None:
+        """One message drains all four cascade tables."""
         part_id = str(uuid4())
         repos = build_world(part_id)
         failures = process_queue_records(repos, [queue_record(part_id=part_id)])
@@ -344,12 +353,14 @@ class TestQueueHalf:
         assert repos.is_empty_for(part_id)
 
     def test_the_counts_are_reported(self) -> None:
+        """The cascade reports a per table count of what it removed."""
         part_id = str(uuid4())
         repos = build_world(part_id)
         removed = purge_related_rows(repos, UUID(part_id))
         assert removed == {"votes": 3, "reports": 1, "build_list_parts": 2, "part_price_alerts": 2}
 
     def test_a_failing_cascade_reports_its_message(self) -> None:
+        """A failing cascade reports its own message id."""
         part_id = str(uuid4())
         repos = build_world(part_id)
         repos.reports.fail_for.add(part_id)
@@ -357,6 +368,7 @@ class TestQueueHalf:
         assert failures == ["m9"]
 
     def test_one_failing_message_does_not_stop_the_others(self) -> None:
+        """One failing message does not stop the others in the batch."""
         bad, good = str(uuid4()), str(uuid4())
         repos = FakeRepos(
             votes=FakeDeleteForEntities({bad: 1, good: 1}),
@@ -379,20 +391,24 @@ class TestQueueHalf:
         assert process_queue_records(build_world(str(uuid4())), [record]) == []
 
     def test_a_body_without_a_part_id_is_dropped(self) -> None:
+        """A body carrying no part id is dropped rather than retried."""
         record = queue_record()
         record["body"] = json.dumps({"version": 1, "kind": MESSAGE_KIND})
         assert process_queue_records(build_world(str(uuid4())), [record]) == []
 
     def test_a_malformed_part_id_is_dropped(self) -> None:
+        """A body carrying an unparseable part id is dropped rather than retried."""
         record = queue_record()
         record["body"] = json.dumps({"version": 1, "kind": MESSAGE_KIND, "part_id": "nope"})
         assert process_queue_records(build_world(str(uuid4())), [record]) == []
 
     def test_part_id_from_message_round_trips(self) -> None:
+        """A message body round trips back to its part id."""
         part_id = uuid4()
         assert part_id_from_message(message_body(part_id)) == part_id
 
     def test_handle_queue_returns_the_mapping_contract(self) -> None:
+        """handle_queue returns the batchItemFailures shape the mapping expects."""
         part_id = str(uuid4())
         repos = build_world(part_id)
         result = handle_queue({"Records": [queue_record(part_id=part_id)]}, repos)
@@ -400,10 +416,14 @@ class TestQueueHalf:
 
 
 class TestEventDiscrimination:
+    """Telling an SQS event apart from a stream event on the shared entrypoint."""
+
     def test_an_sqs_event_is_recognised(self) -> None:
+        """An SQS event is routed to the queue half."""
         assert is_queue_event({"Records": [queue_record()]}) is True
 
     def test_a_stream_event_is_recognised(self) -> None:
+        """A stream event is routed to the producer half."""
         assert is_queue_event({"Records": [stream_record()]}) is False
 
     def test_an_empty_batch_is_treated_as_a_stream_event(self) -> None:
@@ -415,6 +435,7 @@ class TestIdempotency:
     """The property the whole design rests on. Mandatory per the row's brief."""
 
     def test_replaying_one_message_converges(self) -> None:
+        """Replaying one message converges rather than failing."""
         part_id = str(uuid4())
         repos = build_world(part_id)
         record = queue_record(part_id=part_id)
@@ -452,11 +473,8 @@ class TestIdempotency:
         assert repos.is_empty_for(part_id)
 
     def test_a_bisected_batch_reruns_the_successful_half_safely(self) -> None:
-        """Bisect re-delivers records that already succeeded, alongside the bad one.
-
-        This is the case the module docstring calls out as the one that has to
-        hold: the successful half runs a second time with the rows it deleted
-        already gone, and must neither fail nor delete anything else.
+        """A bisected batch re-delivers the records that already succeeded, and rerunning
+        them must neither fail nor remove anything else.
         """
         good_a, good_b, bad = str(uuid4()), str(uuid4()), str(uuid4())
         repos = FakeRepos(
@@ -500,6 +518,7 @@ class TestAgainstRealRepositories:
     """The same cascade against moto, so the fakes are checked against reality."""
 
     def test_the_cascade_removes_every_referencing_row(self, dynamo_tables: Any) -> None:
+        """The unstubbed cascade removes the rows in all four real repositories."""
         from app.db.dynamo.build_lists import (
             BuildList,
             BuildListPart,
@@ -530,7 +549,10 @@ class TestAgainstRealRepositories:
         alerts.put(PartPriceAlert(part_id=part_id, user_id=user_id, threshold_cents=100))
 
         class RealRepos:
+            """A bundle over the real repositories this test seeded."""
+
             def __init__(self) -> None:
+                """Hold the four seeded repositories."""
                 self.votes = votes
                 self.reports = reports
                 self.build_list_parts = build_list_parts
@@ -568,7 +590,10 @@ class TestAgainstRealRepositories:
         reports.put(Report(entity_type="part", entity_id=part_id, user_id=user_id, reason="spam", description="x"))
 
         class RealRepos:
+            """A bundle over the real repositories this test seeded."""
+
             def __init__(self) -> None:
+                """Hold the four seeded repositories."""
                 self.votes = votes
                 self.reports = reports
                 self.build_list_parts = BuildListPartRepository()
@@ -582,8 +607,11 @@ class TestAgainstRealRepositories:
 
 
 class TestEntrypoint:
+    """The shared Lambda entrypoint: routing, failure reporting, and bundle scope."""
+
     @staticmethod
     def client(monkeypatch: pytest.MonkeyPatch, repos: Any, sqs: Any) -> Any:
+        """A test client over the entrypoint with its repositories and SQS stubbed."""
         from fastapi.testclient import TestClient
 
         from app.entrypoints import catalog_part_purge_consumer as entrypoint
@@ -593,10 +621,12 @@ class TestEntrypoint:
         return TestClient(entrypoint.app, raise_server_exceptions=False)
 
     def test_health_is_served(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The health route answers."""
         client = self.client(monkeypatch, build_world(str(uuid4())), FakeSqs())
         assert client.get("/health").status_code == 200
 
     def test_a_stream_event_is_routed_to_the_producer(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A stream event posted to /events enqueues rather than cascading."""
         monkeypatch.setenv("PART_PURGE_QUEUE_URL", QUEUE_URL)
         part_id = str(uuid4())
         sqs = FakeSqs()
@@ -609,6 +639,7 @@ class TestEntrypoint:
         assert sqs.sent_part_ids == [part_id]
 
     def test_a_queue_event_is_routed_to_the_drainer(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A queue event posted to /events cascades and sends nothing."""
         part_id = str(uuid4())
         repos = build_world(part_id)
         sqs = FakeSqs()
@@ -622,6 +653,7 @@ class TestEntrypoint:
         assert sqs.sent == [], "the queue half sends nothing"
 
     def test_a_partial_failure_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A failing message comes back as a batchItemFailures entry with a 200."""
         part_id = str(uuid4())
         repos = build_world(part_id)
         repos.votes.fail_for.add(part_id)
@@ -639,6 +671,7 @@ class TestEntrypoint:
         from app.entrypoints import catalog_part_purge_consumer as entrypoint
 
         def explode() -> Any:
+            """Fail while building the bundle."""
             raise RuntimeError("the bundle could not be built")
 
         monkeypatch.setattr(entrypoint, "repositories", explode)
@@ -647,17 +680,20 @@ class TestEntrypoint:
         assert response.status_code >= 500
 
     def test_a_malformed_body_is_a_500(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A body that is not JSON is a 500 rather than an ack."""
         client = self.client(monkeypatch, build_world(str(uuid4())), FakeSqs())
         response = client.post("/events", content=b"not json at all", headers={"content-type": "application/json"})
         assert response.status_code >= 500
 
     def test_the_service_name_distinguishes_it(self) -> None:
+        """The consumer's service name is distinct from the domain's."""
         from app.entrypoints import catalog_part_purge_consumer as entrypoint
 
         assert entrypoint.SERVICE_NAME == f"{entrypoint.DOMAIN.service_name}-part-purge-consumer"
         assert entrypoint.SERVICE_NAME != entrypoint.DOMAIN.service_name
 
     def test_the_events_path_matches_the_adapter_contract(self) -> None:
+        """The events path is /events and is actually mounted."""
         from app.entrypoints import catalog_part_purge_consumer as entrypoint
 
         assert entrypoint.EVENTS_PATH == "/events"
@@ -672,12 +708,14 @@ class TestEntrypoint:
         assert not any("RateLimit" in name for name in mounted)
 
     def test_the_bundle_is_memoised(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The repository bundle is built once and reused."""
         from app.entrypoints import catalog_part_purge_consumer as entrypoint
 
         monkeypatch.setattr(entrypoint, "_repos", None)
         built: List[int] = []
 
         def fake_build_bundle(names: Any, *, name: str = "all") -> Any:
+            """Count bundle builds and return a placeholder."""
             built.append(1)
             return object()
 
@@ -687,13 +725,8 @@ class TestEntrypoint:
         monkeypatch.setattr(entrypoint, "_repos", None)
 
     def test_the_bundle_carries_the_four_cascade_tables_and_nothing_else(self) -> None:
-        """The narrowing this row buys, asserted rather than assumed.
-
-        `catalog`, `vehicles`, `build-lists` and `admin` gave up
-        `build_list_parts`, `reports` and `part_price_alerts` in this row. That
-        is only a narrowing if the access landed somewhere smaller, so this
-        pins the somewhere: four repositories on one function, not a domain
-        bundle that happens to contain them.
+        """The consumer declares exactly the four cascade repositories, which is the
+        narrowing this split was for.
         """
         from app.entrypoints.catalog_part_purge_consumer import REPOSITORIES
 
@@ -705,11 +738,8 @@ class TestEntrypoint:
         }
 
     def test_the_domains_that_gave_up_the_cascade_tables_no_longer_carry_them(self) -> None:
-        """The other half of the same claim, from the domains' side.
-
-        Written as an explicit assertion because the bundle test that caught
-        this proves only that nothing reaches them, which would also be true if
-        the tables had simply stopped being used anywhere.
+        """The domains that gave up the cascade tables no longer declare them, asserted
+        from their own side.
         """
         from app.composition.domains import DOMAINS
 

@@ -7,6 +7,7 @@ class TestInferCarGenerations:
     """Test infer_car_generations returns expected (make, model, generation_name) triples."""
 
     def test_mkv_supra_a90(self) -> None:
+        """MKV Supra in the name and description resolves to the A90."""
         result = infer_car_generations(
             "Cusco Rear Chassis Power Brace MKV Supra GR A90 / A91",
             "Cusco Rear Chassis Power Brace for the 2020 GR Supra A90.",
@@ -14,14 +15,17 @@ class TestInferCarGenerations:
         assert ("Toyota", "Supra", "A90") in result
 
     def test_supra_gr_a90_from_name(self) -> None:
+        """Supra GR A90 resolves from the name alone."""
         result = infer_car_generations("Remark Toyota Supra GR A90 Full Titanium Cat-Back Exhaust", None)
         assert ("Toyota", "Supra", "A90") in result
 
     def test_a90_a91_phrase(self) -> None:
+        """The A90 / A91 phrase resolves to the A90."""
         result = infer_car_generations("KW 2 Way Clubsport Coilover Kit - MKV Supra A90 / A91", None)
         assert ("Toyota", "Supra", "A90") in result
 
     def test_bmw_m4_g82(self) -> None:
+        """BMW M4 G82 resolves to the G82/G83 generation."""
         result = infer_car_generations(
             "FI Exhaust - BMW M4 G82 Valvetronic Catback Exhaust",
             "BMW G82 M4 Fi Exhaust.",
@@ -29,19 +33,23 @@ class TestInferCarGenerations:
         assert ("BMW", "M4", "G82/G83") in result
 
     def test_g82_phrase(self) -> None:
+        """A G82 mention in the description resolves the M4 generation."""
         result = infer_car_generations("Vorsteiner BMW G8X M3 | M4 Gloss Black Front Grille", "G82 M4.")
         assert ("BMW", "M4", "G82/G83") in result
 
     def test_empty_input(self) -> None:
+        """Empty, None and whitespace input yield no triples."""
         assert infer_car_generations("", "") == []
         assert infer_car_generations(None, None) == []
         assert infer_car_generations("  ", None) == []
 
     def test_no_match_returns_empty(self) -> None:
+        """Text with no recognisable car yields no triples."""
         result = infer_car_generations("Random Universal Part XYZ", "Fits many cars.")
         assert result == []
 
     def test_product_url_included_in_match(self) -> None:
+        """The product url is searched alongside the name and description."""
         result = infer_car_generations(
             "Exhaust System",
             "High performance exhaust.",
@@ -50,16 +58,19 @@ class TestInferCarGenerations:
         assert ("Toyota", "Supra", "A90") in result
 
     def test_word_boundary_short_code(self) -> None:
+        """A short chassis code only matches on a word boundary."""
         result = infer_car_generations("Some Part BA90", "Description.")
         assert ("Toyota", "Supra", "A90") not in result
         result2 = infer_car_generations("Some Part A90 Supra", "Description.")
         assert ("Toyota", "Supra", "A90") in result2
 
     def test_civic_10th_gen(self) -> None:
+        """A spelled out generation name resolves the Civic."""
         result = infer_car_generations("Honda Civic 10th Gen Cold Air Intake", None)
         assert ("Honda", "Civic", "10th Gen") in result
 
     def test_fk8_civic_type_r(self) -> None:
+        """FK8 resolves to the Civic Type R rather than the base Civic."""
         result = infer_car_generations("FK8 Civic Type R Front Lip", "FK8 Type R.")
         assert ("Honda", "Civic Type R", "FK8") in result
 
@@ -359,46 +370,57 @@ class TestFriendlyGenerationAliases:
     """
 
     def test_mk4_supra_maps_to_a80(self) -> None:
+        """Mk4 Supra maps to the A80 engineering code."""
         result = infer_car_generations("Mk4 Supra Downpipe", "For the Mk4 Supra 2JZ.")
         assert ("Toyota", "Supra", "A80") in result
 
     def test_mkiv_supra_maps_to_a80(self) -> None:
+        """MKIV Supra maps to the A80 engineering code."""
         result = infer_car_generations("MKIV Supra Intercooler", None)
         assert ("Toyota", "Supra", "A80") in result
 
     def test_a80_supra_still_works(self) -> None:
+        """The engineering code itself still resolves."""
         result = infer_car_generations("HKS Exhaust A80 Supra", None)
         assert ("Toyota", "Supra", "A80") in result
 
     def test_mk1_miata_maps_to_na(self) -> None:
+        """Mk1 Miata maps to NA."""
         result = infer_car_generations("Mk1 Miata Rollbar", "Mk1 Miata owners.")
         assert ("Mazda", "Miata", "NA") in result
 
     def test_mk2_miata_maps_to_nb(self) -> None:
+        """Mk2 Miata maps to NB."""
         result = infer_car_generations("Mk2 Miata Coilovers", None)
         assert ("Mazda", "Miata", "NB") in result
 
     def test_mk3_miata_maps_to_nc(self) -> None:
+        """Mk3 Miata maps to NC."""
         result = infer_car_generations("Mk3 Miata Header", None)
         assert ("Mazda", "Miata", "NC") in result
 
     def test_mk4_miata_maps_to_nd(self) -> None:
+        """Mk4 Miata maps to ND."""
         result = infer_car_generations("Mk4 Miata Roll Cage", None)
         assert ("Mazda", "Miata", "ND") in result
 
     def test_mk4_miata_does_not_match_supra(self) -> None:
+        """Mk4 next to Miata does not pull in the Mk4 Supra."""
         result = infer_car_generations("Mk4 Miata ND Exhaust", None)
         assert ("Toyota", "Supra", "A80") not in result
 
     def test_1st_gen_rx7_maps_to_sa_fb(self) -> None:
+        """1st Gen RX-7 maps to SA/FB."""
         result = infer_car_generations("1st Gen RX-7 Fuel Pump", None)
         assert ("Mazda", "RX-7", "SA/FB") in result
 
     def test_2nd_gen_rx7_maps_to_fc(self) -> None:
+        """2nd Gen RX-7 maps to FC."""
         result = infer_car_generations("2nd Gen RX-7 Spoiler", None)
         assert ("Mazda", "RX-7", "FC") in result
 
     def test_3rd_gen_rx7_maps_to_fd(self) -> None:
+        """3rd Gen RX-7 maps to FD."""
         result = infer_car_generations("3rd Gen RX-7 Twin Turbo Manifold", None)
         assert ("Mazda", "RX-7", "FD") in result
 
@@ -407,6 +429,7 @@ class TestAdroFalsePositiveFixes:
     """Regression tests for chassis-code collisions seen in the adro.com crawl."""
 
     def test_corvette_c8_does_not_match_audi_c8(self) -> None:
+        """C8 next to Corvette does not pull in the Audi models sharing the code."""
         result = infer_car_generations(
             "CHEVROLET CORVETTE C8 PREPREG FRONT LIP",
             "The ADRO C8 Corvette front lip is made completely from dry carbon fiber...",
@@ -418,10 +441,12 @@ class TestAdroFalsePositiveFixes:
         assert ("Audi", "S7 Sportback", "C8") not in result
 
     def test_audi_rs6_c8_still_matches(self) -> None:
+        """An explicit Audi RS6 C8 still resolves."""
         result = infer_car_generations("Milltek Audi RS6 C8 Cat-Back Exhaust", None)
         assert ("Audi", "RS6 Avant", "C8") in result
 
     def test_supra_description_with_970_percent_no_panamera(self) -> None:
+        """A percentage in the description does not read as the Panamera 970 code."""
         description = (
             "Transform your GR Supra with the ADRO Facelift kit. "
             "ADRO delivers a huge 970% increase in downforce for a minimal 10% increase in drag."
@@ -431,15 +456,18 @@ class TestAdroFalsePositiveFixes:
         assert ("Porsche", "Panamera", "970") not in result
 
     def test_panamera_970_still_matches_when_explicit(self) -> None:
+        """An explicit Panamera 970 still resolves."""
         result = infer_car_generations("Panamera 970 Cat-Back Exhaust", None)
         assert ("Porsche", "Panamera", "970") in result
 
     def test_bmw_g60_no_vw_corrado(self) -> None:
+        """G60 next to BMW does not pull in the Corrado sharing the code."""
         result = infer_car_generations("BMW G60 5-SERIES CARBON FIBER FRONT LIP", None)
         assert ("Volkswagen", "Corrado", "G60") not in result
         assert ("BMW", "i5 M60", "G60") in result
 
     def test_corrado_g60_still_matches_when_explicit(self) -> None:
+        """An explicit Corrado G60 still resolves."""
         result = infer_car_generations("Neuspeed VW Corrado G60 Exhaust", None)
         assert ("Volkswagen", "Corrado", "G60") in result
 
@@ -448,58 +476,71 @@ class TestExpandedAliases:
     """Aliases added after ADRO audit found universal-flagged products that should have had cars."""
 
     def test_f8x_m3_m4_matches_both_bmw_models(self) -> None:
+        """The F8X umbrella code resolves to both the M3 and the M4."""
         result = infer_car_generations("BMW F8X M3/M4 CARBON FIBER AIR DUCTS", None)
         assert ("BMW", "M3", "F80") in result
         assert ("BMW", "M4", "F82/F83") in result
 
     def test_f97_x3m_matches(self) -> None:
+        """F97 resolves to the X3 M."""
         result = infer_car_generations("BMW F97 X3M PREPREG FRONT LIP", None)
         assert ("BMW", "X3 M", "F97") in result
 
     def test_tesla_model_3_highland(self) -> None:
+        """Model 3 Highland resolves to its own generation."""
         result = infer_car_generations("TESLA MODEL 3 HIGHLAND CARBON FIBER FRONT LIP", None)
         assert ("Tesla", "Model 3", "Highland") in result
 
     def test_tesla_model_y(self) -> None:
+        """Model Y resolves to its first generation."""
         result = infer_car_generations("TESLA MODEL Y PREPREG FRONT LIP V1", None)
         assert ("Tesla", "Model Y", "1st Gen") in result
 
     def test_tesla_model_s_plaid(self) -> None:
+        """Model S Plaid resolves to the Plaid generation."""
         result = infer_car_generations("TESLA MODEL S PLAID PREPREG CARBON FIBER FRONT LIP", None)
         assert ("Tesla", "Model S", "Plaid") in result
 
     def test_kia_stinger(self) -> None:
+        """Kia Stinger resolves to the CK generation."""
         result = infer_car_generations("KIA STINGER CARBON FIBER SPOILER V2", None)
         assert ("Kia", "Stinger", "CK") in result
 
     def test_porsche_718(self) -> None:
+        """Porsche 718 resolves to the 982 generation."""
         result = infer_car_generations("PORSCHE 718 PREPREG FRONT LIP", None)
         assert ("Porsche", "718", "982") in result
 
     def test_porsche_992_gt3(self) -> None:
+        """A 992.1 GT3 resolves to the 911 992 generation."""
         result = infer_car_generations("PORSCHE 992.1 GT3 PREPREG LOWER FRONT SPLITTER", None)
         assert ("Porsche", "911", "992") in result
 
     def test_gr_yaris(self) -> None:
+        """A title naming both GR Yaris generations resolves to both."""
         result = infer_car_generations("TOYOTA GR YARIS (GEN 1 & 2) CARBON FIBER SIDE SKIRTS", None)
         assert ("Toyota", "GR Yaris", "1st Gen") in result
         assert ("Toyota", "GR Yaris", "2nd Gen") in result
 
     def test_gr_yaris_gen_1_only(self) -> None:
+        """A bare GR Yaris resolves to the first generation only."""
         result = infer_car_generations("TOYOTA GR YARIS DRY CARBON ROOF", None)
         assert ("Toyota", "GR Yaris", "1st Gen") in result
         assert ("Toyota", "GR Yaris", "2nd Gen") not in result
 
     def test_gr_yaris_gen_2_only(self) -> None:
+        """An explicit second generation GR Yaris resolves to both generations."""
         result = infer_car_generations("2nd Gen GR Yaris carbon spoiler", None)
         assert ("Toyota", "GR Yaris", "1st Gen") in result
         assert ("Toyota", "GR Yaris", "2nd Gen") in result
 
     def test_g90_m5(self) -> None:
+        """G90 resolves to the M5 G90/G99 generation."""
         result = infer_car_generations("BMW G90 M5 PREPREG FRONT LIP", None)
         assert ("BMW", "M5", "G90/G99") in result
 
     def test_x5m_x6m_xm(self) -> None:
+        """A shared fitment title resolves each of the three BMW models named."""
         result = infer_car_generations("CSF BMW X5M / X6M / XM HIGH-PERFORMANCE CHARGE-AIR-COOLERS", None)
         assert ("BMW", "X5 M", "F95") in result
         assert ("BMW", "X6 M", "F96") in result
@@ -507,24 +548,14 @@ class TestExpandedAliases:
 
 
 class TestM004S02AliasBaseline:
-    """Frozen-baseline guard for the M004/S02 corpus-vote audit outcome.
-
-    The audit emitted zero `decision == 'alias'` rows, so no tuples were appended to
-    `CAR_ALIASES` under the M004/S02 marker. This baseline records the post-S02 length
-    (2035) as a permanent **floor** — a future agent that lands deletions which drop
-    the count below this floor gets a loud, named failure here instead of a silent
-    recall regression at inference time.
-
-    Forward-additive growth (e.g. M004/S04+ corpus-derived additions) is allowed and
-    pinned by per-slice baseline classes (TestM004S04AliasBaseline, ...). This class
-    is the historical post-S02 record and uses `>=` rather than `==` so it survives
-    additive S03+ work without modification — the per-slice classes carry strict
-    equality for their respective epochs.
+    """A floor on the CAR_ALIASES length, so a deletion that drops recall fails loudly.
+    Additive growth is allowed and pinned by the per slice baseline classes.
     """
 
     EXPECTED_BASELINE: int = 2015
 
     def test_car_aliases_length_matches_post_s02_baseline(self) -> None:
+        """CAR_ALIASES never drops below the recorded floor."""
         from app.core.car_inference import CAR_ALIASES
 
         assert len(CAR_ALIASES) >= self.EXPECTED_BASELINE, (
@@ -536,11 +567,8 @@ class TestM004S02AliasBaseline:
         )
 
     def test_s02_marker_comment_present_in_module_source(self) -> None:
-        """Ensure the M004/S02 marker comment in CAR_ALIASES survives reorderings.
-
-        T04's CSV walker locates the additions block by this marker; if a future
-        refactor strips the comment, T04's audit trail breaks silently. This test
-        keeps the marker tied to the alias list itself.
+        """The S02 marker string stays in car_inference, because the audit walker locates
+        the additions block by it.
         """
         import inspect
 
@@ -554,24 +582,14 @@ class TestM004S02AliasBaseline:
 
 
 class TestM004S04AliasBaseline:
-    """Frozen-baseline guard for the M004/S04 zero-corpus + minimal-additive outcome.
-
-    T02 recorded a zero-corpus pre-S04 snapshot (the SQLite test fallback has no
-    `crawled_pages` table — MEM216 graceful-degradation branch). Per the T03 plan's
-    zero-corpus branch, two defensible year-range aliases for the FL5 Civic Type R
-    were appended under the new ``M004/S04 corpus-derived additions`` marker block,
-    bumping CAR_ALIASES from 2035 (post-S02) to 2037 (post-S04).
-
-    This class is the parallel-baseline pattern for the S04 milestone-close record —
-    it does NOT replace ``TestM004S02AliasBaseline``, which remains as historical
-    evidence of the post-S02 length. A future agent that lands further alias
-    additions in S05+ should add a TestM004S05AliasBaseline class with its own
-    EXPECTED_BASELINE rather than mutating the S02 or S04 anchors.
+    """Strict equality on the CAR_ALIASES length for the S04 slice, so any further
+    addition or deletion has to bump the baseline in the same change.
     """
 
     EXPECTED_BASELINE: int = 2015
 
     def test_car_aliases_length_matches_post_s04_baseline(self) -> None:
+        """CAR_ALIASES matches the S04 baseline length exactly."""
         from app.core.car_inference import CAR_ALIASES
 
         assert len(CAR_ALIASES) == self.EXPECTED_BASELINE, (
@@ -582,13 +600,7 @@ class TestM004S04AliasBaseline:
         )
 
     def test_s04_marker_comment_present_in_module_source(self) -> None:
-        """Ensure the M004/S04 marker comment in CAR_ALIASES survives reorderings.
-
-        The marker is the anchor for any future S04+ corpus-derived alias extension
-        and for milestone-close audit walkers. If a refactor strips the comment,
-        the audit trail breaks silently. This test keeps the marker tied to the
-        alias list itself.
-        """
+        """The S04 marker string stays in car_inference, because audit walkers anchor on it."""
         import inspect
 
         from app.core import car_inference
@@ -609,42 +621,35 @@ class TestM004S04AliasBaseline:
 
 
 class TestParensAdjacencyLimitation:
-    """Document the known limitation that parens between make+model break the adjacency rule.
-
-    `infer_car_generations` strips parentheses but leaves the contained words inline.
-    PHRASE_TRIPLES require make+model to be adjacent, so a parenthesized insert between
-    them ("Nissan (ONLY) GT-R" → "Nissan ONLY GT-R") breaks the substring match. This is
-    intentional — relaxing adjacency would introduce false positives where unrelated make
-    and model tokens elsewhere in a long fitment list could be paired up.
-
-    Adapters whose product titles regularly use this pattern should override
-    infer_car_for_part with their own parser rather than fight the adjacency rule.
+    """Parentheses between make and model break the adjacency rule, which is deliberate:
+    relaxing adjacency would pair unrelated tokens in long fitment lists.
     """
 
     def test_parens_between_make_and_model_does_not_match_phrase(self) -> None:
+        """A parenthesised insert between make and model does not match the phrase."""
         result = infer_car_generations("Brand-New Catback — Nissan (ONLY) GT-R Variant", None)
         assert not any(make == "Nissan" and model == "GT-R" for make, model, _ in result)
 
 
 class TestTrimMultiGenAliases:
-    """Pin the trim-vs-model rule documented at the top of CAR_ALIASES.
-
-    Trims that span multiple generations (WRX STI: GD/GR/VA, GT500:
-    5th/6th Gen) emit one alias entry per generation. Adapter hooks layer
-    year-range narrowing on top to pick the right gen for a specific part.
+    """A trim spanning several generations emits one alias per generation; adapters layer
+    year range narrowing on top to pick the right one.
     """
 
     def test_gt500_resolves_to_both_5th_and_6th_gen(self) -> None:
+        """GT500 resolves to both Mustang generations that carried it."""
         result = infer_car_generations("Ford Mustang GT500 Strut Bar", None)
         assert ("Ford", "Mustang", "5th Gen") in result
         assert ("Ford", "Mustang", "6th Gen") in result
 
     def test_shelby_gt500_resolves_to_both_5th_and_6th_gen(self) -> None:
+        """Shelby GT500 resolves to both Mustang generations that carried it."""
         result = infer_car_generations("Shelby GT500 Carbon Hood", None)
         assert ("Ford", "Mustang", "5th Gen") in result
         assert ("Ford", "Mustang", "6th Gen") in result
 
     def test_wrx_sti_still_resolves_to_gd_gr_va(self) -> None:
+        """WRX STI resolves to all three generations that carried it."""
         result = infer_car_generations("Subaru WRX STI Cat-Back Exhaust", None)
         assert ("Subaru", "WRX", "GD") in result
         assert ("Subaru", "WRX", "GR") in result
@@ -652,16 +657,12 @@ class TestTrimMultiGenAliases:
 
 
 class TestCarAliasesNoDrift:
-    """Permanent drift guard for CAR_ALIASES (issue #3).
-
-    Every alias entry's (make, model, generation_name) RHS must reference
-    a real (make, model, gen) triple in CAR_GENERATIONS. Drift entries
-    silently return [] at attribution time — the part falls through to
-    is_universal=True and the alias is wasted code. This test catches
-    the drift loudly on the next CI run rather than at audit time.
+    """Every alias must reference a real generation triple, because a drifted entry
+    silently returns nothing and the part falls through as universal.
     """
 
     def test_every_alias_resolves_against_car_generations(self) -> None:
+        """Every alias resolves against CAR_GENERATIONS."""
         from app.core.car_generations_data import CAR_GENERATIONS
         from app.core.car_inference import CAR_ALIASES
 
@@ -687,6 +688,7 @@ class TestCarAliasesNoDrift:
         )
 
     def test_no_exact_duplicate_alias_entries(self) -> None:
+        """No alias entry appears twice."""
         from collections import Counter
 
         from app.core.car_inference import CAR_ALIASES
@@ -702,18 +704,19 @@ class TestCarAliasesNoDrift:
 
 
 class TestUniversalPipelineYearNarrowing:
-    """infer_car_generations now narrows triples by the title's year range when the
-    text contains a single coherent fitment span. These tests pin the new contract
-    plus its safety rails (multi-fitment titles untouched; empty-narrow falls back
-    to unfiltered)."""
+    """Inference narrows triples by the title's year range when the text carries a single
+    coherent fitment span, and falls back to unfiltered otherwise.
+    """
 
     def test_year_range_narrows_civic_to_one_gen(self) -> None:
+        """A year range in the title narrows the Civic to one generation."""
         result = infer_car_generations("2012-2015 Honda Civic Si RDX Injector Plug N Play Clips", None)
         assert ("Honda", "Civic", "9th Gen") in result
         assert ("Honda", "Civic", "8th Gen") not in result
         assert ("Honda", "Civic", "10th Gen") not in result
 
     def test_individual_years_merge_into_one_span(self) -> None:
+        """Individually listed years merge into one span before narrowing."""
         result = infer_car_generations(
             "Honda Civic Si",
             "Fits 2012, 2013, 2014, 2015 Honda Civic Si.",
@@ -723,6 +726,7 @@ class TestUniversalPipelineYearNarrowing:
         assert ("Honda", "Civic", "10th Gen") not in result
 
     def test_adjacent_ranges_merge_into_one_span(self) -> None:
+        """Adjacent ranges merge into one span before narrowing."""
         result = infer_car_generations(
             "Subaru WRX Coilover Kit",
             "For 2008-2014 and 2015-2018 Subaru WRX.",
@@ -731,6 +735,7 @@ class TestUniversalPipelineYearNarrowing:
         assert ("Subaru", "WRX", "GD") not in result
 
     def test_disjoint_ranges_skip_narrowing(self) -> None:
+        """Disjoint ranges mean a multi fitment title, so narrowing is skipped."""
         result = infer_car_generations(
             "Toyota Supra Coilover Kit",
             "Fits 1993-1998 MK4 A80 Supra and 2020-2023 MKV A90 Supra.",
@@ -739,11 +744,13 @@ class TestUniversalPipelineYearNarrowing:
         assert ("Toyota", "Supra", "A90") in result
 
     def test_open_ended_year_range_narrows(self) -> None:
+        """An open ended year range still narrows."""
         result = infer_car_generations("Honda Civic Si 2017+ intake", None)
         assert ("Honda", "Civic", "9th Gen") not in result
         assert ("Honda", "Civic", "10th Gen") in result
 
     def test_incidental_year_falls_back_to_unfiltered(self) -> None:
+        """A year that narrows away every triple falls back to the unfiltered set."""
         result = infer_car_generations(
             "K20A2 Engine Block since 2002 - For Civic Type R FK8",
             None,
@@ -751,6 +758,7 @@ class TestUniversalPipelineYearNarrowing:
         assert ("Honda", "Civic Type R", "FK8") in result
 
     def test_no_year_range_returns_full_triples(self) -> None:
+        """With no year range every matching generation comes back."""
         result = infer_car_generations("Honda Civic Si Cold Air Intake", None)
         gens = {gen for make, model, gen in result if make == "Honda" and model == "Civic"}
         assert "8th Gen" in gens
@@ -758,6 +766,7 @@ class TestUniversalPipelineYearNarrowing:
         assert "10th Gen" in gens
 
     def test_no_match_with_year_range_still_empty(self) -> None:
+        """A year range on a title with no car match still yields nothing."""
         result = infer_car_generations("Random Universal Hardware 2015-2020 Mounting Bracket", None)
         assert result == []
 
@@ -767,16 +776,19 @@ class TestMergeYearRanges:
     title is one fitment span or many."""
 
     def test_overlapping_ranges_merge(self) -> None:
+        """Overlapping ranges merge into one."""
         from app.core.car_inference import _merge_year_ranges
 
         assert _merge_year_ranges([(2010, 2014), (2012, 2018)]) == [(2010, 2018)]
 
     def test_adjacent_one_year_gap_merges(self) -> None:
+        """A one year gap is treated as adjacent and merges."""
         from app.core.car_inference import _merge_year_ranges
 
         assert _merge_year_ranges([(2010, 2014), (2015, 2018)]) == [(2010, 2018)]
 
     def test_two_year_gap_stays_disjoint(self) -> None:
+        """A two year gap stays disjoint."""
         from app.core.car_inference import _merge_year_ranges
 
         assert _merge_year_ranges([(2010, 2014), (2016, 2018)]) == [
@@ -785,16 +797,19 @@ class TestMergeYearRanges:
         ]
 
     def test_unsorted_input_handled(self) -> None:
+        """Unsorted input is sorted before merging."""
         from app.core.car_inference import _merge_year_ranges
 
         assert _merge_year_ranges([(2015, 2018), (2010, 2014)]) == [(2010, 2018)]
 
     def test_single_year_ranges_collapse(self) -> None:
+        """Consecutive single year ranges collapse into one span."""
         from app.core.car_inference import _merge_year_ranges
 
         assert _merge_year_ranges([(2012, 2012), (2013, 2013), (2014, 2014)]) == [(2012, 2014)]
 
     def test_empty_input(self) -> None:
+        """No ranges merge to no ranges."""
         from app.core.car_inference import _merge_year_ranges
 
         assert _merge_year_ranges([]) == []

@@ -1,3 +1,5 @@
+"""Covers the build list repository and its child rows, including the delete cascade."""
+
 from typing import Any
 from uuid import uuid4
 
@@ -19,25 +21,30 @@ from app.db.dynamo.repository import transact_write
 
 @pytest.fixture
 def build_lists(dynamo_tables: Any) -> BuildListRepository:
+    """A build list repository backed by the moto tables."""
     return BuildListRepository()
 
 
 @pytest.fixture
 def parts(dynamo_tables: Any) -> BuildListPartRepository:
+    """A build list part repository backed by the moto tables."""
     return BuildListPartRepository()
 
 
 @pytest.fixture
 def phases(dynamo_tables: Any) -> BuildListPhaseRepository:
+    """A build list phase repository backed by the moto tables."""
     return BuildListPhaseRepository()
 
 
 @pytest.fixture
 def labor_estimates(dynamo_tables: Any) -> BuildListLaborEstimateRepository:
+    """A build list labor estimate repository backed by the moto tables."""
     return BuildListLaborEstimateRepository()
 
 
 def test_create_and_get_build_list(build_lists: BuildListRepository) -> None:
+    """A created build list reads back with its fields intact."""
     user_id = uuid4()
     created = build_lists.create(BuildList(name="LS Swap", user_id=user_id, base_price_cents=500_000))
 
@@ -50,6 +57,7 @@ def test_create_and_get_build_list(build_lists: BuildListRepository) -> None:
 
 
 def test_list_by_user_returns_only_that_users_lists(build_lists: BuildListRepository) -> None:
+    """Listing by user returns only that user's build lists."""
     owner = uuid4()
     other = uuid4()
     build_lists.create(BuildList(name="Mine A", user_id=owner))
@@ -62,6 +70,7 @@ def test_list_by_user_returns_only_that_users_lists(build_lists: BuildListReposi
 
 
 def test_list_by_user_paginates_with_a_cursor(build_lists: BuildListRepository) -> None:
+    """The user listing pages through with a cursor and covers every row once."""
     owner = uuid4()
     for index in range(3):
         build_lists.create(BuildList(name=f"List {index}", user_id=owner))
@@ -79,6 +88,7 @@ def test_list_by_user_paginates_with_a_cursor(build_lists: BuildListRepository) 
 
 
 def test_list_by_car(build_lists: BuildListRepository) -> None:
+    """Listing by car returns only build lists for that car."""
     car_id = uuid4()
     build_lists.create(BuildList(name="For this car", user_id=uuid4(), car_id=car_id))
     build_lists.create(BuildList(name="For another", user_id=uuid4(), car_id=uuid4()))
@@ -89,6 +99,7 @@ def test_list_by_car(build_lists: BuildListRepository) -> None:
 
 
 def test_phases_come_back_in_sort_order(phases: BuildListPhaseRepository) -> None:
+    """Phases come back in their declared sort order."""
     build_list_id = uuid4()
     phases.create(BuildListPhase(build_list_id=build_list_id, name="Third", sort_order=3))
     phases.create(BuildListPhase(build_list_id=build_list_id, name="First", sort_order=1))
@@ -102,6 +113,7 @@ def test_phases_come_back_in_sort_order(phases: BuildListPhaseRepository) -> Non
 def test_labor_estimates_come_back_in_sort_order(
     labor_estimates: BuildListLaborEstimateRepository,
 ) -> None:
+    """Labor estimates come back in their declared sort order."""
     build_list_id = uuid4()
     labor_estimates.create(BuildListLaborEstimate(build_list_id=build_list_id, name="Paint", sort_order=2))
     labor_estimates.create(BuildListLaborEstimate(build_list_id=build_list_id, name="Tune", sort_order=1))
@@ -112,6 +124,7 @@ def test_labor_estimates_come_back_in_sort_order(
 
 
 def test_child_rows_scope_to_their_build_list(parts: BuildListPartRepository) -> None:
+    """Child rows are scoped to the build list that owns them."""
     mine = uuid4()
     theirs = uuid4()
     parts.create(BuildListPart(build_list_id=mine, part_id=uuid4(), added_by=uuid4()))
@@ -122,6 +135,7 @@ def test_child_rows_scope_to_their_build_list(parts: BuildListPartRepository) ->
 
 
 def test_list_for_part_finds_every_build_list_using_it(parts: BuildListPartRepository) -> None:
+    """The reverse lookup finds every build list carrying a given part."""
     part_id = uuid4()
     parts.create(BuildListPart(build_list_id=uuid4(), part_id=part_id, added_by=uuid4()))
     parts.create(BuildListPart(build_list_id=uuid4(), part_id=part_id, added_by=uuid4()))
@@ -133,6 +147,7 @@ def test_list_for_part_finds_every_build_list_using_it(parts: BuildListPartRepos
 
 
 def test_clear_phase_detaches_parts_but_keeps_them(parts: BuildListPartRepository) -> None:
+    """Clearing a phase detaches its parts without deleting them or touching other phases."""
     build_list_id = uuid4()
     phase_id = uuid4()
     attached = parts.create(
@@ -161,6 +176,7 @@ def test_clear_phase_detaches_parts_but_keeps_them(parts: BuildListPartRepositor
 def test_clear_phase_detaches_labor_estimates(
     labor_estimates: BuildListLaborEstimateRepository,
 ) -> None:
+    """Clearing a phase detaches its labor estimates."""
     build_list_id = uuid4()
     phase_id = uuid4()
     estimate = labor_estimates.create(
@@ -178,6 +194,7 @@ def test_delete_cascade_removes_the_list_and_all_children(
     phases: BuildListPhaseRepository,
     labor_estimates: BuildListLaborEstimateRepository,
 ) -> None:
+    """The cascade removes the build list and every child row."""
     build_list = build_lists.create(BuildList(name="Doomed", user_id=uuid4()))
     parts.create(BuildListPart(build_list_id=build_list.id, part_id=uuid4(), added_by=uuid4()))
     phases.create(BuildListPhase(build_list_id=build_list.id, name="Phase 1"))
@@ -203,6 +220,7 @@ def test_delete_cascade_leaves_other_build_lists_alone(
     phases: BuildListPhaseRepository,
     labor_estimates: BuildListLaborEstimateRepository,
 ) -> None:
+    """The cascade touches only the named build list."""
     doomed = build_lists.create(BuildList(name="Doomed", user_id=uuid4()))
     survivor = build_lists.create(BuildList(name="Survivor", user_id=uuid4()))
     parts.create(BuildListPart(build_list_id=doomed.id, part_id=uuid4(), added_by=uuid4()))
@@ -226,7 +244,7 @@ def test_delete_cascade_falls_back_to_batches_past_the_transaction_cap(
     phases: BuildListPhaseRepository,
     labor_estimates: BuildListLaborEstimateRepository,
 ) -> None:
-    """A build list with more than 100 children exceeds the transaction limit."""
+    """More than 100 children exceeds the transaction limit, so the cascade falls back to batches."""
     build_list = build_lists.create(BuildList(name="Huge", user_id=uuid4()))
     for _ in range(101):
         parts.create(BuildListPart(build_list_id=build_list.id, part_id=uuid4(), added_by=uuid4()))
@@ -244,6 +262,7 @@ def test_delete_cascade_falls_back_to_batches_past_the_transaction_cap(
 
 
 def test_count_reflects_stored_build_lists(build_lists: BuildListRepository) -> None:
+    """count tracks the stored build lists."""
     assert build_lists.count() == 0
     build_lists.create(BuildList(name="One", user_id=uuid4()))
     build_lists.create(BuildList(name="Two", user_id=uuid4()))

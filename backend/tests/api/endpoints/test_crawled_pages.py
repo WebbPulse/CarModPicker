@@ -35,6 +35,7 @@ def test_scrape_requires_auth(client: TestClient):
 
 
 def test_scrape_returns_parsed_page(client: TestClient):
+    """A scrape returns the canonicalised URL, adapter name and HTML digest."""
     headers = _auth_headers(client, "scrape_user")
     response = client.post(
         SCRAPE_URL,
