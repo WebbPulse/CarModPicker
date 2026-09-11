@@ -1,10 +1,3 @@
-# ---------------------------------------------------------------------------
-# SES Configuration Set
-# A properly-named config set for all transactional mail.
-# The console-created "my-first-configuration-set" is left unmanaged and can
-# be deleted from the AWS console after Terraform associates the domain with
-# this one.
-# ---------------------------------------------------------------------------
 resource "aws_sesv2_configuration_set" "transactional" {
   configuration_set_name = "carmodpicker-transactional"
 
@@ -28,12 +21,6 @@ resource "aws_sesv2_configuration_set" "transactional" {
   tags = { Name = "${local.prefix}-transactional" }
 }
 
-# ---------------------------------------------------------------------------
-# SES Domain Identity
-# carmodpicker.com is already verified in AWS. The three Easy DKIM CNAME
-# records are already managed in route53.tf. Keeping the identity in Terraform
-# keeps it in sync and associates it with the config set above.
-# ---------------------------------------------------------------------------
 resource "aws_sesv2_email_identity" "domain" {
   count = local.custom_domain ? 1 : 0
 
@@ -56,12 +43,6 @@ resource "aws_sesv2_email_identity" "sender" {
   tags = { Name = "${local.prefix}-ses-sender" }
 }
 
-# ---------------------------------------------------------------------------
-# Custom MAIL FROM domain
-# Sets the envelope sender to bounce.carmodpicker.com so SPF aligns with
-# carmodpicker.com under DMARC (fixes the "MAIL FROM not aligned" warning).
-# The matching MX + SPF records are in route53.tf.
-# ---------------------------------------------------------------------------
 resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
   count = local.custom_domain ? 1 : 0
 
@@ -70,9 +51,6 @@ resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
   behavior_on_mx_failure = "USE_DEFAULT_VALUE"
 }
 
-# ---------------------------------------------------------------------------
-# Feedback forwarding — disabled; SNS event destination handles this instead.
-# ---------------------------------------------------------------------------
 resource "aws_sesv2_email_identity_feedback_attributes" "domain" {
   count = local.custom_domain ? 1 : 0
 
@@ -80,11 +58,6 @@ resource "aws_sesv2_email_identity_feedback_attributes" "domain" {
   email_forwarding_enabled = false
 }
 
-# ---------------------------------------------------------------------------
-# SNS topic for SES bounce/complaint/delay notifications → tyler@webbpulse.com
-# After apply, AWS will send a subscription confirmation email to that address.
-# The event destination will not deliver until the subscription is confirmed.
-# ---------------------------------------------------------------------------
 resource "aws_sns_topic" "ses_notifications" {
   name = "${local.prefix}-ses-notifications"
   tags = { Name = "${local.prefix}-ses-notifications" }
@@ -127,9 +100,6 @@ resource "aws_sesv2_configuration_set_event_destination" "sns" {
   }
 }
 
-# ---------------------------------------------------------------------------
-# Account-level VDM attributes (engagement metrics + optimised delivery).
-# ---------------------------------------------------------------------------
 resource "aws_sesv2_account_vdm_attributes" "main" {
   vdm_enabled = "ENABLED"
 

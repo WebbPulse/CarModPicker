@@ -1,27 +1,3 @@
-# Builds the frontend and publishes it to S3 and CloudFront through the shared
-# spa-deploy workflow.
-#
-# This used to be a hand-rolled build and `aws s3 sync --delete`. That sync set no
-# --cache-control, so every object landed in S3 with no Cache-Control metadata at
-# all and CloudFront passed that absence through to browsers. With no explicit
-# freshness a browser falls back to heuristic caching, so a returning visitor could
-# keep serving an index.html from its own disk cache long after a deploy, pointing
-# at a hashed bundle that had already been pruned from the bucket. A CloudFront
-# invalidation does not help: it clears the edge, not the browser.
-#
-# The shared workflow fixes that by writing the header at upload time, in three
-# passes: hashed assets first with a one year immutable max-age, then everything
-# else with no-cache, then a prune pass for objects from earlier builds. Pass two
-# covers the prerendered subdirectory documents (about/index.html and friends,
-# written by the postbuild prerender step) as well as the root index.html, because
-# it takes everything the immutable globs did not match. The CloudFront
-# invalidation is unchanged apart from naming those same prerendered routes, which
-# the old --paths "/*" covered implicitly.
-#
-# The GitHub Environment is selected from the branch: main -> production, staging ->
-# staging. Every deploy-time value (role ARN, workspace, bucket, distribution, API
-# URL) comes from that Environment, so a staging push can never pick up production
-# values.
 name: Frontend Deploy
 
 on:
@@ -36,12 +12,6 @@ permissions:
   contents: read
 
 jobs:
-  # A `uses:` job cannot declare an `environment:`, and the environment the shared
-  # workflow declares from its own input is not in scope when this caller evaluates
-  # `with:`. A `vars.*` lookup here therefore reads repository variables only, and
-  # the deploy values for this repository are environment scoped, so they would come
-  # back empty. This job carries the environment itself and republishes the values
-  # it needs as job outputs, which the `with:` block below can read.
   resolve-env:
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
@@ -84,8 +54,6 @@ jobs:
       build-env-json: ${{ needs.resolve-env.outputs.build-env-json }}
       s3-bucket: ${{ needs.resolve-env.outputs.s3-bucket }}
       cloudfront-distribution-id: ${{ needs.resolve-env.outputs.cloudfront-distribution-id }}
-      # The prerender postbuild step writes an index.html under each of these
-      # routes, so each needs invalidating alongside / and /index.html.
       invalidation-paths: >-
         /about /about/ /pricing /pricing/ /support /support/
         /contact-us /contact-us/ /privacy-policy /privacy-policy/
