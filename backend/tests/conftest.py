@@ -1,3 +1,5 @@
+"""Shared pytest fixtures and helpers for the backend test suite."""
+
 import os
 import uuid
 from typing import Any, Dict, Generator, Optional
@@ -42,29 +44,23 @@ from app.main import app as fastapi_app  # noqa: E402
 
 
 class TestDatabase:
-    """Per-test marker handed to tests as ``db_session``.
+    """A per-test marker handed to tests as db_session, now that every table is in DynamoDB.
 
-    The application has no SQL session any more; every table lives in DynamoDB,
-    which the ``dynamo_tables`` fixture mocks. The fixture name survives because
-    many tests accept ``db_session`` to order fixture setup and to derive unique
-    names via ``id(db_session)``.
+    The name survives because tests use it to order fixtures and derive unique names.
     """
 
 
 @pytest.fixture(scope="function")
 def db_session(dynamo_tables: Any) -> TestDatabase:
+    """Yield the per-test marker tests accept as db_session."""
     return TestDatabase()
 
 
 @pytest.fixture
 def client(db_session: TestDatabase, dynamo_tables: Any) -> Generator[TestClient, None, None]:
-    """
-    TestClient backed by the current test's mocked DynamoDB tables.
+    """A test client over the current test's mocked DynamoDB tables.
 
-    Intentionally NOT used as a context manager — that would trigger app lifespan,
-    which runs init_car_generations() (6500+ rows) on every test. Tests that need
-    that seed data must invoke the init functions explicitly (see
-    test_init_cars_display_name.py for the pattern).
+    Not a context manager on purpose: lifespan would seed thousands of car rows per test.
     """
     yield TestClient(fastapi_app)
 
@@ -171,6 +167,7 @@ _CATALOG_REPOSITORIES: Dict[type, type] = {
 
 
 def catalog_repository(model: type) -> Any:
+    """Return the repository class registered for a catalog model."""
     return _CATALOG_REPOSITORIES[model]()
 
 
@@ -240,11 +237,7 @@ def create_and_login_user(
 
 
 def create_car_for_user_cookie_auth(client: TestClient) -> UUID:
-    """DEPRECATED: Create a car for the currently logged-in user.
-
-    This function is deprecated since cars are now centrally managed by admins.
-    Use create_car_in_db() for test setup instead.
-    """
+    """Deprecated. Create a car for the logged-in user; prefer create_car_in_db."""
     import warnings
 
     warnings.warn(
@@ -268,6 +261,7 @@ def _create_car_generation(
     end_year: Optional[int],
     description: Optional[str],
 ) -> CarGeneration:
+    """Create the make, model and generation rows for one car, reusing any that exist."""
     makes = CarMakeRepository()
     models = CarModelRepository()
     generations = CarGenerationRepository()
@@ -300,11 +294,7 @@ def create_car_in_db(
     end_year: Optional[int] = 2021,
     description: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Create a car directly in the database for test setup. Cars are seeded from
-    backend source code in production; this helper is for tests that need a specific car.
-    Creates CarMake and CarModel if needed, then CarGeneration.
-    Returns a dict with id, make, model, generation_name, start_year, end_year (API shape).
-    """
+    """Create a car directly and return it in the API shape, for tests needing a specific car."""
     car = _create_car_generation(make, model, generation_name, start_year, end_year, description)
     return {
         "id": car.id,
@@ -337,13 +327,9 @@ def create_car_orm_in_db(
 
 @pytest.fixture
 def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFixture:
-    """caplog fixture augmented with `LogContextFilter` on the handler so
-    LogRecords carry request_id + user_id attrs.
+    """caplog with the log context filter installed, so records carry request and user ids.
 
-    Landmine (02-RESEARCH.md §3 + §Landmine 15): pytest's caplog attaches its
-    own handler at the root logger but does NOT inherit root-logger filters
-    installed in app/main.py — without this augmentation, record.request_id
-    raises AttributeError despite the filter working fine in production.
+    pytest's own handler does not inherit the root filter, so it is added here.
     """
     from webbpulse.log_context import LogContextFilter
 
@@ -355,38 +341,31 @@ from sentry_sdk.transport import Transport as _SentryTransport  # noqa: E402
 
 
 class _CapturingTransport(_SentryTransport):
-    """In-memory Sentry transport. Sentry 2.x API: capture_envelope (NOT
-    capture_event — that was 1.x). Instances share `events` via class attribute
-    so fixtures can observe the list even when the transport is re-constructed
-    by sentry_sdk.init.
-    """
+    """An in-memory Sentry transport collecting envelopes in a shared class level list."""
 
     events: list = []
 
     def __init__(self, options=None):
+        """Accept whatever options the SDK passes and keep the shared list."""
         super().__init__(options)
         self.__class__.events = []
 
     def capture_envelope(self, envelope) -> None:
+        """Record one envelope."""
         self.__class__.events.append(envelope)
 
     def flush(self, timeout=None, callback=None) -> None:
+        """Flushing is a no-op for the in-memory transport."""
         pass
 
     def kill(self) -> None:
+        """Killing is a no-op for the in-memory transport."""
         pass
 
 
 @pytest.fixture
 def sentry_events(monkeypatch: pytest.MonkeyPatch):
-    """Yield a list to which Sentry envelopes are appended. Closes the SDK
-    client on teardown so tests don't leak references across runs (Landmine 16
-    — Sentry init is process-global).
-
-    Sets env so init_sentry() would be active if called, but the fixture
-    itself bypasses init_sentry() and calls sentry_sdk.init() directly with
-    transport=_CapturingTransport.
-    """
+    """Yield the list Sentry envelopes are appended to, closing the client on teardown."""
     import sentry_sdk
 
     monkeypatch.setenv("TESTING", "")
@@ -408,16 +387,7 @@ def sentry_events(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture
 def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, None]:
-    """
-    Fake in-memory S3 using moto.
-
-    Patches the StorageService singleton (USER_IMAGES_BUCKET) so tests can write
-    to and read from S3 without touching any real cloud service or running MinIO.
-
-    Yields a dict with keys:
-      client            — moto boto3 S3 client (for assertions)
-      user_images_bucket — "test-user-images"
-    """
+    """An in-memory S3 through moto, with the storage service pointed at it."""
     from moto import mock_aws
 
     with mock_aws():
@@ -443,6 +413,7 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
 
 @pytest.fixture(autouse=True)
 def _isolate_aws(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Set fake AWS credentials and drop any profile, so no test reaches a real account."""
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
     monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
@@ -452,6 +423,7 @@ def _isolate_aws(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def dynamo_tables(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]:
+    """Create every DynamoDB table under moto for one test and reset the clients around it."""
     from moto import mock_aws
 
     from app.core.config import settings as app_settings

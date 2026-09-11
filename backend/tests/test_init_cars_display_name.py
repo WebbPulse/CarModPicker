@@ -1,8 +1,6 @@
-"""
-Tests for display_name sync in init_car_generations.
+"""Tests for display name and slug handling in init_car_generations.
 
-Verifies presentation-only display_name handling: code-owned, tri-state (absent/None
-in source clears DB value), synced on both CarModel and CarGeneration create + update.
+Display names are code owned and tri-state, so an absent value clears the stored one.
 """
 
 from typing import Any
@@ -31,6 +29,7 @@ def _fake_flattened(
     generation_slug: str | None = None,
     display_name: str | None = None,
 ) -> list[dict[str, str | int | None]]:
+    """Build one flattened source row with the given names, slugs and display names."""
     return [
         {
             "make": "Toyota",
@@ -47,19 +46,26 @@ def _fake_flattened(
 
 
 class _CatalogQuery:
+    """A minimal query object over one catalog repository."""
+
     def __init__(self, repository: Any) -> None:
+        """Hold the repository this query reads."""
         self._repository = repository
 
     def all(self) -> list[Any]:
+        """Return every row in the repository."""
         return self._repository.list_all()
 
     def one(self) -> Any:
+        """Return the single row, asserting there is exactly one."""
         rows = self.all()
         assert len(rows) == 1, rows
         return rows[0]
 
 
 class _Catalog:
+    """A minimal query entrypoint over the catalog repositories."""
+
     _repositories = {
         CarGeneration: CarGenerationRepository,
         CarModel: CarModelRepository,
@@ -67,16 +73,21 @@ class _Catalog:
     }
 
     def query(self, model: type) -> _CatalogQuery:
+        """Return a query over the repository registered for a model."""
         return _CatalogQuery(self._repositories[model]())
 
 
 @pytest.fixture
 def clean_db(dynamo_tables: Any) -> _Catalog:
+    """A catalog query entrypoint over freshly created tables."""
     return _Catalog()
 
 
 class TestInitCarsDisplayName:
+    """Display name creation, update and clearing on models and generations."""
+
     def test_create_writes_generation_display_name(self, clean_db: _Catalog) -> None:
+        """A generation display name in the source is written on create."""
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name="Mk4 Supra"),
@@ -87,6 +98,7 @@ class TestInitCarsDisplayName:
         assert gen.display_name == "Mk4 Supra"
 
     def test_create_writes_model_display_name(self, clean_db: _Catalog) -> None:
+        """A model display name in the source is written on create."""
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model_display_name="Supra (friendly)"),
@@ -97,6 +109,7 @@ class TestInitCarsDisplayName:
         assert model.display_name == "Supra (friendly)"
 
     def test_update_changes_generation_display_name(self, clean_db: _Catalog) -> None:
+        """A changed generation display name is written on update."""
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name="OldName"),
@@ -130,6 +143,7 @@ class TestInitCarsDisplayName:
         assert gen.display_name is None
 
     def test_removing_model_display_name_clears_db_value(self, clean_db: _Catalog) -> None:
+        """Removing a model display name from the source clears the stored one."""
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model_display_name="Supra (friendly)"),
@@ -146,6 +160,7 @@ class TestInitCarsDisplayName:
         assert model.display_name is None
 
     def test_model_display_name_updated_when_changed(self, clean_db: _Catalog) -> None:
+        """A changed model display name is written on update."""
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model_display_name="Original"),
@@ -179,6 +194,7 @@ class TestInitCarsSlugLookup:
     """Slug is the stable lookup key; `name` / `generation_name` are synced fields that follow."""
 
     def test_model_slug_defaults_to_slugify_name(self, clean_db: _Catalog) -> None:
+        """A model slug defaults to the slugified model name."""
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model="GR Supra"),
@@ -190,6 +206,7 @@ class TestInitCarsSlugLookup:
         assert model.name == "GR Supra"
 
     def test_generation_slug_defaults_to_slugify_generation_name(self, clean_db: _Catalog) -> None:
+        """A generation slug defaults to the slugified generation name."""
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(generation_name="RX-7 FD"),
@@ -225,6 +242,7 @@ class TestInitCarsSlugLookup:
         assert models[0].name == "GR Supra"
 
     def test_renaming_generation_name_with_pinned_slug_updates_in_place(self, clean_db: _Catalog) -> None:
+        """Renaming a generation with a pinned slug updates the row in place."""
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(generation_name="A80"),

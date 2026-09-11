@@ -1,45 +1,6 @@
-"""Which repositories a domain's process carries, and which it cannot reach.
+"""Tests for which repositories each domain's process carries and which it refuses.
 
-Section 2.3 of `docs/migration/split-plan.md` names the `Repositories` singleton
-as the blocker: twenty-five repositories constructed at module import, reached by
-every route, so every one of the nine functions would have imported the whole
-data layer at cold start and held a live `UserRepository` pointed at a table it
-has no IAM grant for. This module is what stops that coming back.
-
-Four claims, in order of what they protect.
-
-**A domain declares the repositories its own code reaches, and no others.** The
-tuples in `app/composition/domains.py` are recomputed here from the real import
-graph, so a tuple that grew a repository nothing uses fails, and so does one
-missing a repository a route reaches. The first is an IAM grant the function
-does not need; the second is a `RepositoryNotInBundle` in production on whichever
-route reaches it first. Neither is visible by reading the tuple.
-
-**A bundle refuses what it does not carry.** Attribute access outside the
-declared set raises rather than returning something, and the message names the
-table, because the next question is always which grant is missing.
-
-**Building a domain's application constructs no repository, and importing it
-imports no other domain's data modules.** Asserted in a fresh interpreter, the
-same way `test_entrypoint_isolation.py` asserts the endpoint modules, because a
-single eager construction in the wiring would undo it while every test still
-passed.
-
-**Root A still carries all twenty-five.** The monolith serves every route and
-must keep every repository, so the union of the nine bundles is the whole set and
-the application `app.main` exposes resolves to it.
-
-## Why the plan's ownership column is not the assertion
-
-Section 1.2 gives each table one owner, and a bundle is deliberately wider than
-that. The difference is section 1.3's cross-domain reads, which the plan leaves
-synchronous: `media` owns `image_source_mappings` and reads four more tables for
-the orphan sweep, `vehicles` owns the three car tables and reads thirteen more
-for search. Asserting the bundle equals the ownership column would fail on
-exactly the reads the plan says to keep, so the ownership column is asserted
-where it belongs instead: every table has an owner, every owner carries it, and
-the reads on top are listed here by name so that a new one is a decision rather
-than a drift.
+Recomputes the declared bundles from the real import graph and probes cold start imports.
 """
 
 from __future__ import annotations
@@ -162,6 +123,7 @@ EXPECTED_CROSS_DOMAIN_READS: Dict[str, Set[str]] = {
 
 
 def _module_file(module: str) -> Optional[Path]:
+    """Resolve a module name to its file, whether it is a module or a package."""
     candidate = BACKEND / (module.replace(".", "/") + ".py")
     if candidate.exists():
         return candidate
@@ -186,15 +148,7 @@ def _app_imports(tree: ast.AST, module: str) -> Set[str]:
 
 
 def _bundle_accesses(tree: ast.AST) -> Set[str]:
-    """Every `<something>.<repository>` where `<something>` is a bundle.
-
-    Two spellings, and both are common. Endpoints take the bundle as a parameter
-    and write `repos.users`; services hold it on the instance and write
-    `self.repos.users`. Matching the attribute name alone would be too loose,
-    because `part.categories` and `payload.users` are ordinary attributes on
-    unrelated objects, so the receiver has to be a bundle: either the name
-    `repos` or an attribute access ending in `.repos`.
-    """
+    """Every repository attribute taken off a bundle, under either spelling."""
     found: Set[str] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Attribute) or node.attr not in REPOSITORY_SPECS:
@@ -208,19 +162,7 @@ def _bundle_accesses(tree: ast.AST) -> Set[str]:
 
 
 def _reachable_repositories(domain: str) -> Set[str]:
-    """Every `repos.<name>` any module the domain's routers reach can perform.
-
-    The transitive closure of the domain's endpoint modules over `app.*` imports,
-    scanned for attribute accesses on the bundle. It over-approximates, because a
-    module that imports another for one helper is credited with all of that
-    module's repository accesses, and that is the right direction to err: the
-    bundle has to carry whatever a route might reach, and a repository this finds
-    but no request ever touches costs an unused entry rather than a 500.
-
-    `app.api.services.__init__` re-exports `ReportService` and `VoteService`, so
-    any domain importing anything from `app.api.services` is credited with both.
-    That is real: the modules are imported into the process either way.
-    """
+    """Every repository any module the domain's routers reach can access."""
     roots: Set[str] = set()
     source = ast.parse(_read_loader_source(domain))
     for node in ast.walk(source):
@@ -248,6 +190,7 @@ def _reachable_repositories(domain: str) -> Set[str]:
 
 
 def _read_loader_source(domain: str) -> str:
+    """Return the source of a domain's router loader."""
     import inspect
 
     return inspect.getsource(DOMAINS[domain].load_routers).strip()
@@ -255,12 +198,7 @@ def _read_loader_source(domain: str) -> str:
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_a_domain_declares_every_repository_its_routes_reach(domain: str) -> None:
-    """A missing entry is a `RepositoryNotInBundle` in production.
-
-    It would not fail at build time and it would not fail on most routes; it
-    would fail on the one route that reaches the repository, once that route is
-    served by the domain function rather than by the monolith.
-    """
+    """A domain declares every repository its routes can reach."""
     declared = set(DOMAINS[domain].repositories)
     reachable = _reachable_repositories(domain)
     missing = sorted(reachable - declared)
@@ -269,12 +207,7 @@ def test_a_domain_declares_every_repository_its_routes_reach(domain: str) -> Non
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_a_domain_declares_no_repository_its_routes_cannot_reach(domain: str) -> None:
-    """A surplus entry is a DynamoDB grant the function does not need.
-
-    Harmless to the application and exactly the thing the split is meant to
-    remove, so it fails here rather than being noticed in an IAM policy review
-    that may not happen.
-    """
+    """A domain declares no repository its routes cannot reach."""
     declared = set(DOMAINS[domain].repositories)
     reachable = _reachable_repositories(domain)
     surplus = sorted(declared - reachable)
@@ -282,11 +215,7 @@ def test_a_domain_declares_no_repository_its_routes_cannot_reach(domain: str) ->
 
 
 def test_every_table_has_exactly_one_owner() -> None:
-    """Section 1.2's column, checked against the repository registry.
-
-    A repository added without a plan row, or a plan row without a repository,
-    fails here rather than surfacing later as a table nobody grants access to.
-    """
+    """Every table has exactly one owning domain."""
     registry_tables = {spec.table for spec in REPOSITORY_SPECS.values()}
     assert sorted(registry_tables) == sorted(TABLE_OWNERS)
     assert len(REPOSITORY_SPECS) == 25
@@ -301,12 +230,7 @@ def test_the_owning_domain_carries_the_table_it_owns(table: str, owner: str) -> 
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_no_cross_domain_read_is_undeclared(domain: str) -> None:
-    """Every repository a domain carries is either its own or a listed seam.
-
-    This is the test that keeps the cross-domain surface honest while rows 22
-    onward are outstanding. A bundle that grows a repository another domain owns
-    fails until the reason is written down next to the seam it belongs to.
-    """
+    """Every repository a domain carries is its own or a listed cross domain seam."""
     owned = {name for name, spec in REPOSITORY_SPECS.items() if TABLE_OWNERS[spec.table] == domain}
     borrowed = set(DOMAINS[domain].repositories) - owned
     assert borrowed == EXPECTED_CROSS_DOMAIN_READS[domain], (
@@ -317,12 +241,7 @@ def test_no_cross_domain_read_is_undeclared(domain: str) -> None:
 
 
 def test_media_is_the_narrowest_bundle() -> None:
-    """The first domain the plan cuts, and the one worth naming outright.
-
-    `media` owns one table and reads four. If this ever grows, the first
-    function to be cut over stops being the cheap one to verify, and the reason
-    should be written down before it does.
-    """
+    """The media bundle stays the narrowest, since it is the first domain cut over."""
     media = DOMAINS["media"]
     assert media.tables == (
         "build_lists",
@@ -347,11 +266,7 @@ def test_a_bundle_refuses_a_repository_it_does_not_carry() -> None:
 
 
 def test_the_refusal_is_an_attribute_error() -> None:
-    """So `getattr(repos, name, None)` and `hasattr` keep working.
-
-    Only an unguarded access becomes the loud failure; code that already asks
-    whether a repository is present keeps its answer.
-    """
+    """An undeclared repository raises an attribute error, so hasattr still works."""
     bundle = build_bundle(DOMAINS["media"].repositories, name="media")
     assert issubclass(RepositoryNotInBundle, AttributeError)
     assert getattr(bundle, "app_settings", None) is None
@@ -381,11 +296,7 @@ def test_the_bundle_reports_the_tables_it_can_reach() -> None:
 
 
 def test_the_union_of_the_nine_bundles_is_all_twenty_five() -> None:
-    """Root A serves every route, so it must keep every repository.
-
-    A repository in no domain's tuple is one no function could reach after the
-    cut, which is either a dead repository or a route that would 500.
-    """
+    """The nine bundles together cover every repository."""
     union: Set[str] = set()
     for domain in DOMAIN_NAMES:
         union |= set(DOMAINS[domain].repositories)
@@ -394,12 +305,7 @@ def test_the_union_of_the_nine_bundles_is_all_twenty_five() -> None:
 
 
 def test_root_a_binds_a_bundle_carrying_all_twenty_five() -> None:
-    """The monolith is unchanged by this PR, and that is the point.
-
-    `app.main` still exposes every route and every repository behind them, so
-    the split can proceed one domain at a time with the monolith serving the
-    rest.
-    """
+    """The monolith binds a bundle carrying every repository."""
     from app.api.dependencies.repositories import get_repositories as dependency
     from app.main import app
 
@@ -411,24 +317,12 @@ def test_root_a_binds_a_bundle_carrying_all_twenty_five() -> None:
 
 
 def test_the_process_default_is_the_full_set() -> None:
-    """For `scripts/`, `init_cars`, `init_categories` and `car_inference`.
-
-    They call `get_repositories()` outside any request and outside any
-    application, and they are not part of the split. Making the default the full
-    set is what lets them keep working untouched; every deployed function is
-    built by a composition root, which binds, so the default is never what a
-    function serves.
-    """
+    """Outside any application the default bundle is the full set, for scripts."""
     assert set(get_repositories().repository_names) == set(ALL_REPOSITORY_NAMES)
 
 
 def test_building_one_domain_does_not_disturb_another() -> None:
-    """Bundles are bound per application, not installed per process.
-
-    The route contract test builds all nine Root B applications in one
-    interpreter. If binding were a module-level install, whichever was built
-    last would serve every test after it.
-    """
+    """Bundles bind per application, so building one domain does not affect another."""
     import importlib
 
     media = importlib.import_module("app.entrypoints.media").build_app()
@@ -445,6 +339,7 @@ def test_building_one_domain_does_not_disturb_another() -> None:
 
 
 def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """Run a snippet in a fresh interpreter with a minimal environment and parse its JSON."""
     environment = {
         "PATH": "/usr/bin:/bin",
         "PYTHONPATH": str(BACKEND),
@@ -484,6 +379,7 @@ print(json.dumps({{
 
 @pytest.fixture(scope="module")
 def bundle_probes() -> Dict[str, Dict[str, Any]]:
+    """Probe each domain in its own interpreter and return what its bundle carries."""
     return {
         domain: _run(
             BUNDLE_PROBE.format(module=ENTRYPOINT_MODULES[domain]),
@@ -495,12 +391,7 @@ def bundle_probes() -> Dict[str, Dict[str, Any]]:
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_building_a_domain_constructs_no_repository(domain: str, bundle_probes: Dict[str, Dict[str, Any]]) -> None:
-    """The old singleton constructed twenty-five at import; this constructs none.
-
-    A repository constructed at build time reaches the DynamoDB client during
-    the cold start's import phase, which is exactly the work the split is meant
-    to remove from a function that will never use it.
-    """
+    """Building a domain's application constructs no repository."""
     assert bundle_probes[domain]["built"] == []
 
 
@@ -514,33 +405,14 @@ def test_a_domain_binds_exactly_its_own_bundle(domain: str, bundle_probes: Dict[
 def test_media_builds_without_importing_another_domains_data_modules(
     bundle_probes: Dict[str, Dict[str, Any]],
 ) -> None:
-    """The claim in one sentence, for the domain the plan cuts first.
-
-    `media`'s bundle carries five repositories drawn from four `app.db.dynamo`
-    modules, and building its application must not import the ones behind the
-    twenty it does not carry: `app_settings`, `bug_reports`, `part_price_alerts`
-    and `build_logs` have no entry in its tuple at all, so importing them would
-    mean something outside the bundle is pulling them in.
-    """
+    """Building media imports none of the data modules behind repositories it lacks."""
     imported = set(bundle_probes["media"]["dynamo_modules"])
     for module in ("app_settings", "bug_reports", "part_price_alerts", "build_logs"):
         assert f"app.db.dynamo.{module}" not in imported, f"media imported app.db.dynamo.{module}"
 
 
 def test_importing_the_registry_imports_no_repository_module() -> None:
-    """`app.composition.domains` imports the registry in every function.
-
-    The registry names twenty-five repositories as strings precisely so that
-    reading the catalogue costs no import: if it held the classes, declaring a
-    domain's tuple would pull in every repository module and the laziness above
-    would be decorative.
-
-    The shared base comes in regardless, because `app/db/dynamo/__init__.py`
-    re-exports `DynamoRepository`, `TableSpec` and the error types, and importing
-    any module in the package runs it. That base is what every domain uses; what
-    must not appear is a module that defines repositories, since each one belongs
-    to a domain and most domains want none of them.
-    """
+    """Importing the registry pulls in no repository module, only the shared base."""
     repository_modules = {f"app.db.dynamo.{spec.module}" for spec in REPOSITORY_SPECS.values()}
     assert len(repository_modules) == 9
 
