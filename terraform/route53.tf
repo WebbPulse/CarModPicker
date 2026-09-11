@@ -1,7 +1,3 @@
-# The hosted zone and, in staging, its NS delegation into the parent zone in the production
-# account come from the shared platform module. Production creates the carmodpicker.com zone
-# itself (delegate = false, the registrar holds those NS records); staging creates
-# staging.carmodpicker.com and delegates it.
 module "staging_dns" {
   source  = "app.terraform.io/WebbPulse/platform-modules/aws//modules/staging-dns"
   version = "~> 1.3"
@@ -17,11 +13,6 @@ module "staging_dns" {
   parent_zone_id = var.parent_route53_zone_id
 }
 
-# The apex and www alias records that point at the frontend distribution are created by
-# module "frontend" (cloudfront.tf), which owns the distribution they alias.
-
-# Apex TXT records. Route53 stores all TXT records at the same name in a
-# single RRSet, so SPF and domain-verification strings share one resource.
 resource "aws_route53_record" "spf" {
   count = local.custom_domain ? 1 : 0
 
@@ -35,7 +26,6 @@ resource "aws_route53_record" "spf" {
   ]
 }
 
-# Google Search Console domain ownership verification for www.carmodpicker.com
 resource "aws_route53_record" "www_google_site_verification" {
   count = local.custom_domain ? 1 : 0
 
@@ -46,7 +36,6 @@ resource "aws_route53_record" "www_google_site_verification" {
   records = ["google-site-verification=kJMc_JNCEf4utqVGE2_00H14I1TUKJKUakLPbvq13_8"]
 }
 
-# SES DKIM verification records
 resource "aws_route53_record" "ses_dkim" {
   count   = local.custom_domain ? 3 : 0
   zone_id = module.staging_dns.zone_id
@@ -56,7 +45,6 @@ resource "aws_route53_record" "ses_dkim" {
   records = ["${aws_sesv2_email_identity.domain[0].dkim_signing_attributes[0].tokens[count.index]}.dkim.amazonses.com"]
 }
 
-# Custom MAIL FROM domain records (SPF alignment for DMARC)
 resource "aws_route53_record" "ses_mail_from_mx" {
   count = local.custom_domain ? 1 : 0
 
@@ -77,7 +65,6 @@ resource "aws_route53_record" "ses_mail_from_spf" {
   records = ["v=spf1 include:amazonses.com ~all"]
 }
 
-# DMARC policy record
 resource "aws_route53_record" "dmarc" {
   count = local.custom_domain ? 1 : 0
 

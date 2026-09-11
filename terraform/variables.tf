@@ -64,7 +64,6 @@ variable "api_throttle_rate_limit" {
   default     = 25
 }
 
-# Application secrets (stored in Secrets Manager, values injected via HCP workspace vars)
 variable "secret_key" {
   description = "JWT signing secret for the FastAPI backend"
   type        = string
@@ -77,10 +76,6 @@ variable "email_from" {
   default     = null
   nullable    = true
 }
-
-# ---------------------------------------------------------------------------
-# Observability (Phase 2 - OBS-01 Sentry, OBS-02 EMF/alarms)
-# ---------------------------------------------------------------------------
 
 variable "sentry_dsn" {
   description = "Sentry DSN for backend error reporting. Empty = Sentry disabled (env-gate handles gracefully). Populated out-of-band via `aws secretsmanager put-secret-value` per D-55."
@@ -118,10 +113,6 @@ variable "staging_profile" {
   }
 }
 
-# ---------------------------------------------------------------------------
-# Staging access gate (platform-modules/aws//modules/staging-access-gate)
-# ---------------------------------------------------------------------------
-
 variable "staging_access_gate" {
   description = "Put the staging site and API behind the shared staging access gate (Cognito sign-in plus CloudFront signed cookies). WebbPulse-Platform sets this on staging workspaces only; production never receives it and every gate resource is skipped there."
   type        = bool
@@ -138,30 +129,6 @@ variable "staging_access_users" {
     error_message = "staging_access_users must list at least one email when staging_access_gate is true. An empty list is a gate nobody can open."
   }
 }
-
-# ---------------------------------------------------------------------------
-# Shared identity: passkeys and OAuth. Row 9 of the identity adoption plan.
-#
-# Every one of these is a per-workspace HCP variable rather than a value written
-# into this repository, and the six divide into two kinds.
-#
-# The two passkey flags are staged rollout switches. They default to false here
-# and staging sets them true, which is the promotion shape this repository
-# already uses: one root, one var.environment, two workspaces, and a capability
-# that is on in staging for as long as it takes to be sure before production's
-# workspace sets the same variable. Defaulting them false rather than true is a
-# deliberate departure from the package, whose own default for both is true. A
-# default that turns a sign-in method on in whichever environment applies next
-# is the wrong direction for a default to fail in.
-#
-# The four OAuth values are credentials of registered applications and are not
-# this repository's to hold at all. The two ids are not secret and are set as
-# ordinary workspace variables; the two secrets are sensitive and are read only
-# by module.app_secrets, which puts them in the one JSON secret the identity
-# function fetches at cold start. All four default to empty, and empty is a
-# working state: with no client id the package declares no OAuth flow route, and
-# GET /api/auth/oauth/providers answers with an empty list.
-# ---------------------------------------------------------------------------
 
 variable "passkeys_enabled" {
   description = "Mount the package's seven passkey routes on the identity function. False leaves them undeclared, whatever the passkeys and webauthn-challenges tables hold. Set true on the staging workspace; production receives it at promotion."
@@ -200,11 +167,6 @@ variable "oauth_github_client_secret" {
   sensitive   = true
   default     = ""
 }
-
-# ---------------------------------------------------------------------------
-# Row 8 of the identity adoption plan: the identity access token enforced at
-# the gateway rather than only inside the identity function.
-# ---------------------------------------------------------------------------
 
 variable "identity_jwt_mode" {
   description = <<-EOT
@@ -253,12 +215,6 @@ variable "identity_jwt_mode" {
     error_message = "identity_jwt_mode must not be native in staging. Every route there carries the staging access gate's REQUEST authorizer and a route takes exactly one authorizer, so a native JWT authorizer has no slot to occupy. Use gate, which moves the same check into the gate's own Lambda."
   }
 }
-
-# ---------------------------------------------------------------------------
-# Row 12 of the identity adoption plan: the domain routes that need an
-# authenticated caller, enforced at the gateway rather than only inside the
-# function.
-# ---------------------------------------------------------------------------
 
 variable "domain_jwt_enforced" {
   description = <<-EOT

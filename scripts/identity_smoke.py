@@ -29,8 +29,6 @@ It checks four things, in the order they build on each other:
    that exists but refuses, and either is safe. A 200 means something still
    serves a legacy operation and row 13 would break it.
 
-## Why it creates its own account
-
 Staging's 58 synthetic users carry no credentials, so nothing there is
 loginable. Rather than seeding a password onto one of them, which would put a
 credential on a row that the migration is trying to empty, this registers a
@@ -45,15 +43,11 @@ the link. It needs DynamoDB credentials, and it is a flag rather than the
 default so that running this against production does not quietly confirm an
 address nobody verified.
 
-## What a failure means
-
 A non-zero exit is not automatically a reason to hold row 13. Read the matrix:
 a domain write failing on a 404 because a fixture is missing is a defect in this
 script, while a domain write failing on a 401 while carrying a valid identity
 token is exactly the finding row 13 must not ship over. The summary separates
 the two.
-
-## The staging access gate
 
 Staging answers only a request carrying the origin-verify header. Supply it in
 `CARMODPICKER_ORIGIN_VERIFY`, the same variable `verify_route_cut.sh` and the
@@ -86,16 +80,6 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any
 
-# The 24 operations row 13 deletes, as (method, path) exactly as
-# `backend/tests/fixtures/route_contract.json` spells them, computed as the set
-# difference between the contract on `staging` and the contract on the row 13
-# branch rather than transcribed from the PR description.
-#
-# Path parameters are filled with a value that cannot exist, so a route that is
-# still served answers "not found" for the object rather than acting on a real
-# one. That matters for the two DELETEs: if this list is ever run against an
-# environment where those routes still work, a real credential id here would
-# delete somebody's passkey.
 LEGACY_OPERATIONS: list[tuple[str, str]] = [
     ("DELETE", "/api/auth/oauth/{account_id}"),
     ("DELETE", "/api/auth/webauthn/credentials/{credential_id}"),
@@ -123,23 +107,8 @@ LEGACY_OPERATIONS: list[tuple[str, str]] = [
     ("POST", "/api/auth/webauthn/register/verify"),
 ]
 
-#: A value no path parameter can match. See the note on LEGACY_OPERATIONS.
 UNMATCHABLE = "row13-smoke-nonexistent"
 
-#: Strings that must NOT appear in the deployed frontend bundle after row 13.
-#:
-#: **Both spellings, and that is the whole point of this list.** The deployed
-#: legacy client writes its paths as `/auth/token`, not `/api/auth/token`,
-#: because the axios instance carries `/api` in its `baseURL` and the call sites
-#: only spell the rest. A check that grepped `/api/auth/...` alone reported this
-#: bundle completely clean while the entry chunk still held a client for all 24
-#: legacy operations. Searching for the client-relative spelling as well is what
-#: caught it, so do not "simplify" this list back down to one prefix each.
-#:
-#: `logout` is absent from this list on purpose and is checked separately below:
-#: `/auth/logout` is a route the identity package itself serves, so its presence
-#: is correct rather than a finding, and `/api/auth/logout-all` contains it as a
-#: substring.
 FORBIDDEN_BUNDLE_STRINGS = [
     "/api/auth/token",
     "/api/auth/webauthn",
@@ -151,7 +120,6 @@ FORBIDDEN_BUNDLE_STRINGS = [
     "/auth/reset-password",
 ]
 
-#: Strings that MUST appear, proving the bundle talks to the identity package.
 REQUIRED_BUNDLE_STRINGS = ["/api/auth/passkeys", "/api/auth/logout-all"]
 
 
@@ -174,19 +142,10 @@ class Probe:
     domain: str
     method: str
     path: str
-    #: Statuses that mean the token was accepted, whatever the outcome.
-    #:
-    #: A 404 counts for a write against a fixture that does not exist: the
-    #: request got past the authorizer and past the resolver and into the
-    #: handler, which is the whole question here. A 401 never counts, and a 403
-    #: counts only where it is named, which is the admin domain refusing a
-    #: non-admin.
     ok: tuple[int, ...]
     body: dict[str, Any] | None = None
     kind: str = "read"
     note: str = ""
-    #: Path parameters resolved at runtime from earlier probes, e.g. the id of
-    #: an object this run created.
     needs: list[str] = field(default_factory=list)
 
 
@@ -194,6 +153,7 @@ class Client:
     """A tiny HTTP client that never raises on a status and never logs a secret."""
 
     def __init__(self, base: str, origin_verify: str, timeout: int = 30) -> None:
+        """Store the API base URL, the origin verify secret and the request timeout."""
         self._base = base.rstrip("/")
         self._origin_verify = origin_verify
         self._timeout = timeout
@@ -207,6 +167,7 @@ class Client:
         body: dict[str, Any] | None = None,
         skip_gate_header: bool = False,
     ) -> tuple[int, str]:
+        """Send one request and return its status code and body text."""
         url = f"{self._base}{path}"
         data = json.dumps(body).encode() if body is not None else None
         request = urllib.request.Request(url, data=data, method=method)
@@ -251,10 +212,6 @@ def probes_for(user_id: str) -> list[Probe]:
     refusal that proves the token was read, which is the case for `admin`.
     """
     return [
-        # identity. The read is the account's own claims round-tripped through a
-        # route that requires the token; the write is a password change to a new
-        # value and back, which is the one write the identity package offers
-        # that needs no second factor.
         Probe(
             "identity",
             "POST",
@@ -263,8 +220,6 @@ def probes_for(user_id: str) -> list[Probe]:
             kind="write",
             note="ends other sessions, harmless for a fresh account",
         ),
-        # users. `/api/users/me` is the canonical authenticated read and is the
-        # route every domain's ownership check depends on resolving.
         Probe("users", "GET", "/api/users/me", ok=(200,)),
         Probe(
             "users",
@@ -275,10 +230,8 @@ def probes_for(user_id: str) -> list[Probe]:
             body={"bio": "row13 smoke"},
             note="updates the account this run created",
         ),
-        # catalog.
         Probe("catalog", "GET", "/api/parts/count", ok=(200,)),
         Probe("catalog", "GET", "/api/parts/filter-options", ok=(200,), kind="read"),
-        # vehicles.
         Probe("vehicles", "GET", "/api/car-generations/count", ok=(200,)),
         Probe("vehicles", "GET", "/api/search?q=row13", ok=(200,), kind="read"),
         Probe(
@@ -289,8 +242,6 @@ def probes_for(user_id: str) -> list[Probe]:
             kind="read",
             note="supplies the car_id the build-lists create requires",
         ),
-        # build-lists. The create is the run's fixture for build-logs and
-        # moderation, so it runs before them and its id feeds both.
         Probe("build-lists", "GET", "/api/build-lists/user/me", ok=(200,)),
         Probe(
             "build-lists",
@@ -299,10 +250,13 @@ def probes_for(user_id: str) -> list[Probe]:
             ok=(200, 201),
             kind="write",
             needs=["car_id"],
-            body={"name": "row13 smoke", "description": "temporary", "car_id": "{car_id}"},
+            body={
+                "name": "row13 smoke",
+                "description": "temporary",
+                "car_id": "{car_id}",
+            },
             note="creates the fixture the next two domains use",
         ),
-        # build-logs.
         Probe("build-logs", "GET", "/api/build-logs/posts/count", ok=(200,)),
         Probe(
             "build-logs",
@@ -313,7 +267,6 @@ def probes_for(user_id: str) -> list[Probe]:
             needs=["build_list_id"],
             body={"title": "row13 smoke", "content": "temporary"},
         ),
-        # moderation.
         Probe("moderation", "GET", "/api/votes/count", ok=(200,)),
         Probe(
             "moderation",
@@ -340,9 +293,6 @@ def probes_for(user_id: str) -> list[Probe]:
             kind="read",
             note="403 expected, this account is not an admin",
         ),
-        # admin. A non-admin must be refused, and the refusal is the evidence:
-        # a 403 means the token was decoded and the roles claim was read, while
-        # a 401 would mean it was never read at all.
         Probe(
             "admin",
             "GET",
@@ -361,7 +311,9 @@ def probes_for(user_id: str) -> list[Probe]:
     ]
 
 
-def resolve_body(body: dict[str, Any] | None, context: dict[str, str]) -> dict[str, Any] | None:
+def resolve_body(
+    body: dict[str, Any] | None, context: dict[str, str]
+) -> dict[str, Any] | None:
     """Substitute `{name}` placeholders in a probe body with ids earlier probes captured."""
     if not body:
         return body
@@ -397,7 +349,9 @@ def run_domain_probes(
         for name, value in context.items():
             path = path.replace("{" + name + "}", value)
 
-        status, text = client.call(probe.method, path, token=token, body=resolve_body(probe.body, context))
+        status, text = client.call(
+            probe.method, path, token=token, body=resolve_body(probe.body, context)
+        )
         verdict = "PASS" if status in probe.ok else "FAIL"
         note = probe.note
         if status == 401:
@@ -407,7 +361,9 @@ def run_domain_probes(
         elif verdict == "FAIL":
             note = f"{note + '; ' if note else ''}body: {text[:120]}"
 
-        results.append(Result(probe.domain, probe.method, probe.path, status, verdict, note))
+        results.append(
+            Result(probe.domain, probe.method, probe.path, status, verdict, note)
+        )
 
         if probe.path.startswith("/api/car-generations?") and status == 200:
             try:
@@ -418,8 +374,11 @@ def run_domain_probes(
             if items and isinstance(items[0], dict) and items[0].get("id") is not None:
                 context["car_id"] = str(items[0]["id"])
 
-        # Capture the build list id so the two domains that hang off it can run.
-        if probe.domain == "build-lists" and probe.method == "POST" and status in (200, 201):
+        if (
+            probe.domain == "build-lists"
+            and probe.method == "POST"
+            and status in (200, 201)
+        ):
             try:
                 created = json.loads(text)
             except ValueError:
@@ -447,15 +406,21 @@ def check_bundle(bucket: str, results: list[Result]) -> None:
     try:
         import boto3
     except ImportError:
-        results.append(Result("frontend", "s3", bucket, "skipped", "SKIP", "boto3 not installed"))
+        results.append(
+            Result("frontend", "s3", bucket, "skipped", "SKIP", "boto3 not installed")
+        )
         return
 
-    region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION", "us-west-2")
+    region = os.environ.get("AWS_REGION") or os.environ.get(
+        "AWS_DEFAULT_REGION", "us-west-2"
+    )
     s3 = boto3.client("s3", region_name=region)
     combined = ""
     chunks = 0
     try:
-        pages = s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix="assets/")
+        pages = s3.get_paginator("list_objects_v2").paginate(
+            Bucket=bucket, Prefix="assets/"
+        )
         for page in pages:
             for obj in page.get("Contents", []):
                 if not obj["Key"].endswith(".js"):
@@ -467,17 +432,18 @@ def check_bundle(bucket: str, results: list[Result]) -> None:
                 )
                 chunks += 1
     except Exception as exc:  # noqa: BLE001
-        results.append(Result("frontend", "s3", bucket, "error", "FAIL", str(exc)[:120]))
+        results.append(
+            Result("frontend", "s3", bucket, "error", "FAIL", str(exc)[:120])
+        )
         return
 
-    results.append(Result("frontend", "s3", bucket, 200, "PASS", f"{chunks} JS chunks read"))
+    results.append(
+        Result("frontend", "s3", bucket, 200, "PASS", f"{chunks} JS chunks read")
+    )
 
     import re
 
     for needle in FORBIDDEN_BUNDLE_STRINGS:
-        # A word boundary on the right, so `/auth/token` does not match
-        # `/auth/token/2fa`'s parent only by luck, and `/auth/2fa` still matches
-        # `/auth/2fa/setup`. Presence of any of them is the finding.
         present = needle in combined
         results.append(
             Result(
@@ -489,18 +455,6 @@ def check_bundle(bucket: str, results: list[Result]) -> None:
                 "legacy endpoint referenced in the deployed bundle" if present else "",
             )
         )
-
-    # `/api/auth/logout` is NOT checked as a forbidden string, and that is a
-    # correction rather than an omission. Row 13 deletes `POST /api/auth/logout`
-    # from this application, but the `webbpulse.identity` package serves its own
-    # `/logout` at the same mounted path, so the path survives the row with a
-    # different implementation behind it. Flagging its presence in the bundle
-    # would report the migration's intended end state as a regression.
-    #
-    # The same is true of `/api/auth/verify-email`, `/api/auth/verify-email/confirm`
-    # and the `/api/auth/oauth` base string, which the package also serves or
-    # builds on. Those four are the whole overlap between the 24 deleted paths
-    # and the package's own surface, and every one of them is benign.
 
     for needle in REQUIRED_BUNDLE_STRINGS:
         present = needle in combined
@@ -531,7 +485,9 @@ def check_jwks_reachable(client: Client, results: list[Result]) -> bool:
     The symptom reads exactly like "row 13 broke authentication" and is not that
     at all, so it is worth naming before the domain probes rather than after.
     """
-    status, _ = client.call("GET", "/api/auth/.well-known/jwks.json", skip_gate_header=True)
+    status, _ = client.call(
+        "GET", "/api/auth/.well-known/jwks.json", skip_gate_header=True
+    )
     reachable = status == 200
     results.append(
         Result(
@@ -561,7 +517,9 @@ def check_legacy(client: Client, token: str | None, results: list[Result]) -> No
     """
     label = "legacy+token" if token else "legacy"
     for method, template in LEGACY_OPERATIONS:
-        path = template.replace("{account_id}", UNMATCHABLE).replace("{credential_id}", UNMATCHABLE)
+        path = template.replace("{account_id}", UNMATCHABLE).replace(
+            "{credential_id}", UNMATCHABLE
+        )
         body = {} if method in ("POST", "PATCH", "PUT") else None
         status, text = client.call(method, path, token=token, body=body)
         if status in (404, 405):
@@ -580,6 +538,7 @@ def check_legacy(client: Client, token: str | None, results: list[Result]) -> No
 
 
 def main() -> int:
+    """Run the smoke suite against one environment and return a process exit code."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env", default="staging", choices=("staging", "production"))
     parser.add_argument("--api-base-url", default=None)
@@ -610,14 +569,16 @@ def main() -> int:
 
     email = f"row13-smoke-{int(time.time())}@staging.invalid"
     password = f"Rw13!{secrets.token_hex(12)}Aa"
-    print(f"Environment : {args.env}\nAPI         : {api_base}\nAccount     : {email}\n")
+    print(
+        f"Environment : {args.env}\nAPI         : {api_base}\nAccount     : {email}\n"
+    )
 
     status, text = client.call(
         "POST", "/api/auth/register", body={"email": email, "password": password}
     )
-    # 403 EMAIL_VERIFICATION_REQUIRED is a successful registration: the row and
-    # the credential are both written and the flow then refuses the session.
-    registered = status in (200, 201) or (status == 403 and "EMAIL_VERIFICATION_REQUIRED" in text)
+    registered = status in (200, 201) or (
+        status == 403 and "EMAIL_VERIFICATION_REQUIRED" in text
+    )
     results.append(
         Result(
             "identity",
@@ -648,7 +609,9 @@ def main() -> int:
             )
             items = scan.get("Items", [])
             if not items:
-                print("Registered account not found in the users table.", file=sys.stderr)
+                print(
+                    "Registered account not found in the users table.", file=sys.stderr
+                )
                 return 1
             user_id = str(items[0]["id"])
             table.update_item(
@@ -674,7 +637,9 @@ def main() -> int:
         "POST", "/api/auth/login", body={"email": email, "password": password}
     )
     if status != 200:
-        results.append(Result("identity", "POST", "/api/auth/login", status, "FAIL", text[:150]))
+        results.append(
+            Result("identity", "POST", "/api/auth/login", status, "FAIL", text[:150])
+        )
         render(results)
         return 1
     token = json.loads(text).get("access_token", "")
@@ -708,8 +673,11 @@ def main() -> int:
 
 
 def render(results: list[Result]) -> int:
+    """Print the results as a table and return the number of failures."""
     width = max(len(r.path) for r in results) + 2
-    print(f"{'DOMAIN':<14}{'METHOD':<8}{'PATH':<{width}}{'STATUS':<10}{'VERDICT':<8}NOTE")
+    print(
+        f"{'DOMAIN':<14}{'METHOD':<8}{'PATH':<{width}}{'STATUS':<10}{'VERDICT':<8}NOTE"
+    )
     print("-" * (44 + width))
     for r in results:
         print(

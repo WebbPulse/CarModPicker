@@ -1,6 +1,3 @@
-# CloudFront requires ACM certificates in us-east-1; the API Gateway custom domain needs a
-# regional one. Both come from the shared acm-certificate module, which also writes the
-# DNS validation records into the zone.
 module "certificate" {
   source  = "app.terraform.io/WebbPulse/platform-modules/aws//modules/acm-certificate"
   version = "~> 1.6"
