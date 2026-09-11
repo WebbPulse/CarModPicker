@@ -114,9 +114,6 @@ def stream_record(
     }
 
 
-# --- fakes ------------------------------------------------------------------
-
-
 class FakeAlert:
     """Only the attributes the evaluator reads and writes."""
 
@@ -233,9 +230,6 @@ def sent(monkeypatch: pytest.MonkeyPatch) -> List[Tuple[str, Any, Any, int, Any]
     return calls
 
 
-# --- layer one: what counts as a drop ---------------------------------------
-
-
 class TestDropDetection:
     def test_a_lower_price_is_a_drop(self) -> None:
         drop = price_drop_from_record(stream_record(price_cents=9_000, previous_cents=11_000))
@@ -315,9 +309,6 @@ class TestGrouping:
         assert len(grouped) == 1
         drop, sequence_numbers = grouped[UUID(listing_id)]
         assert drop.price_cents == 9_000
-        # Every record that contributed is reported together, so a failure on the
-        # single evaluation retries all of them rather than just the one whose
-        # price won.
         assert sequence_numbers == ["1", "2", "3"]
 
     def test_a_rise_inside_a_batch_contributes_nothing(self) -> None:
@@ -399,8 +390,6 @@ class TestBatchHandling:
         repos, part_id, retailer_id, alert = build_world()
         exploding = FakeAlert(user_id=uuid4(), threshold_cents=99_000)
         repos.part_price_alerts.alerts_by_part[part_id].insert(0, exploding)
-        # The exploding alert points at a user that does not exist, which the
-        # evaluator logs and skips rather than raising.
 
         result = handle(
             {"Records": [stream_record(part_id=part_id, retailer_id=retailer_id, previous_cents=15_000)]}, repos
@@ -409,9 +398,6 @@ class TestBatchHandling:
         assert result == {"batchItemFailures": []}
         assert len(sent) == 1
         assert sent[0][4] is alert
-
-
-# --- layer two: idempotency, which is what the stream requires ---------------
 
 
 class TestIdempotency:
@@ -505,9 +491,6 @@ class TestIdempotency:
         assert len(sent) == 2
 
 
-# --- layer three: the real send path, against a fake SES client --------------
-
-
 class FakeSesClient:
     """Stands in for `boto3.client("sesv2")`. Sends nothing anywhere.
 
@@ -546,11 +529,6 @@ class TestAgainstTheRealSendPath:
         monkeypatch.setattr(email_module.boto3, "client", lambda *args, **kwargs: client)
         monkeypatch.setattr(settings, "EMAIL_ENABLED", True, raising=False)
         monkeypatch.setattr(settings, "EMAIL_FROM", "alerts@example.com", raising=False)
-        # `SECRET_KEY` is a read-only property that resolves `SECRET_KEY_SETTING`
-        # (or the app secret when `APP_SECRETS_ARN` is set), so the setting is
-        # what a test can write. This is the value the consumer gets from the
-        # `<prefix>/app` secret in AWS, which is why its Terraform entry sets
-        # `secrets = true`.
         monkeypatch.setattr(settings, "SECRET_KEY_SETTING", "test-signing-key-not-a-real-one")
         return client
 
@@ -626,9 +604,6 @@ class TestAgainstTheRealSendPath:
         assert result == {"batchItemFailures": []}
         assert ses.requests == []
         assert repos.part_price_alerts.queries == []
-
-
-# --- the entrypoint ---------------------------------------------------------
 
 
 class TestEntrypoint:

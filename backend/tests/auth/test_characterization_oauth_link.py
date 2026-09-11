@@ -38,7 +38,6 @@ from app.db.dynamo.users import OAuthAccountRepository
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 
-# pytest-recording stores cassettes at: <test_dir>/cassettes/<module_basename>/<test_name>.yaml
 _CASSETTE = (
     pathlib.Path(__file__).parent
     / "cassettes"
@@ -78,7 +77,6 @@ def test_google_oauth_link_existing_user(client: TestClient, db_session: Any) ->
     password = "testpass123!"
     username = _uniq("oauth_link")
 
-    # Step 1 — create an email/password user whose email matches the cassette Google account
     user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -89,7 +87,6 @@ def test_google_oauth_link_existing_user(client: TestClient, db_session: Any) ->
         )
     )
 
-    # Step 2 — POST /api/auth/oauth/google → should return link_token (email match, no existing link)
     google_resp = client.post(
         f"{settings.API_STR}/auth/oauth/google",
         json={"id_token": id_token_from_cassette, "nonce": nonce_from_cassette},
@@ -99,7 +96,6 @@ def test_google_oauth_link_existing_user(client: TestClient, db_session: Any) ->
     assert "link_token" in google_body, f"Expected link_token, got: {list(google_body.keys())}"
     link_token = google_body["link_token"]
 
-    # Step 3 — POST /api/auth/oauth/google/link → verifies password + creates OAuthAccount
     link_resp = client.post(
         f"{settings.API_STR}/auth/oauth/google/link",
         json={"link_token": link_token, "password": password},
@@ -108,7 +104,6 @@ def test_google_oauth_link_existing_user(client: TestClient, db_session: Any) ->
     link_body = link_resp.json()
     assert "access_token" in link_body
 
-    # DB state: OAuthAccount row now exists for this user
     oauth = OAuthAccountRepository().get_for_user_provider(user.id, "google")
     assert oauth is not None
     assert oauth.provider == "google"

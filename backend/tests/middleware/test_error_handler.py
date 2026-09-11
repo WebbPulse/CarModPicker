@@ -18,7 +18,6 @@ from app.api.middleware.error_handler import register_error_handlers
 from app.api.middleware.request_context import request_context_middleware
 from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
 
-#: The four fields every error body must carry, whatever produced it.
 ENVELOPE_KEYS = {"success", "status", "message", "request_id"}
 
 
@@ -86,10 +85,7 @@ def assert_envelope(body: Dict[str, Any], status_code: int) -> None:
     assert body["success"] is False
     assert body["status"] == status_code
     assert isinstance(body["message"], str) and body["message"]
-    # "-" is the placeholder the package uses when no middleware set an id, so a
-    # real value here is what proves the request-context bridge is wired up.
     assert isinstance(body["request_id"], str) and body["request_id"] != "-"
-    # The old raw Starlette shape must be gone everywhere.
     assert "detail" not in body
 
 
@@ -135,7 +131,6 @@ class TestErrorEnvelope:
         assert_envelope(body, 422)
         assert body["error_code"] == "VALIDATION_ERROR"
         fields = {entry["field"] for entry in body["details"]}
-        # The "body" prefix is dropped, so the caller sees the field it sent.
         assert fields == {"name", "count"}
         for entry in body["details"]:
             assert set(entry) == {"field", "message", "type"}
@@ -156,7 +151,6 @@ class TestDynamoEnvelope:
         body = response.json()
         assert_envelope(body, 404)
         assert body["error_code"] == "NOT_FOUND"
-        # The table name and key are logged, never returned.
         assert "parts" not in response.text
 
     def test_condition_failed_is_409(self, envelope_app: TestClient) -> None:

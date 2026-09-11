@@ -35,7 +35,6 @@ def test_openapi_snapshot_matches() -> None:
     limiter into the OpenAPI schema and leaks rate-limit response codes
     into the snapshot.
     """
-    # Function-scope import is intentional — DO NOT move to module top.
     from app.main import app
 
     actual = json.dumps(app.openapi(), indent=2, sort_keys=True)

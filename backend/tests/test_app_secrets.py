@@ -2,7 +2,7 @@ import importlib.util
 import json
 import logging
 import os
-import subprocess  # nosec B404 - fixed argv, no shell, no user input
+import subprocess  # nosec B404
 import sys
 import warnings
 from pathlib import Path
@@ -32,8 +32,6 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-west-2")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
-    # The fetched blob is cached for the life of the execution environment, so a
-    # test that changes what the secret holds has to drop it first.
     reset_cache()
 
 
@@ -113,7 +111,6 @@ def test_config_module_overlays_secrets_before_constructing_settings(
         warnings.simplefilter("always")
         fresh = import_fresh_config()
 
-    # Resolved on read, not at import, and an absent key reads as empty.
     assert fresh.settings.SECRET_KEY == "from-secret"
     assert fresh.settings.SENTRY_DSN == ""
     assert not [w for w in caught if "SECRET_KEY is empty" in str(w.message)]
@@ -257,16 +254,6 @@ def test_config_imports_with_no_aws_credentials_present(monkeypatch: pytest.Monk
     assert fresh.settings.APP_SECRETS_ARN == MISSING_SECRET_ARN
 
 
-# --- The shared loader is the one that fetches ----------------------------------
-#
-# `app.core.secrets` is a thin adapter over `webbpulse.config.load_json_secret`:
-# the boto3 client, the `json.loads` and the per-ARN cache all live in the shared
-# package now. These tests assert the properties that adapter has to keep, and
-# they count calls rather than trust the code, because the whole point of the
-# lazy path is a number of Secrets Manager calls (zero at import, one per
-# execution environment thereafter) and only counting can see it.
-
-
 class CallCountingSecretsClient:
     """A stand-in for the shared loader's boto3 client that counts its calls.
 
@@ -280,7 +267,7 @@ class CallCountingSecretsClient:
         self.payload = payload
         self.calls = 0
 
-    def get_secret_value(self, SecretId: str) -> dict[str, str]:  # noqa: N803 - botocore's spelling
+    def get_secret_value(self, SecretId: str) -> dict[str, str]:  # noqa: N803
         self.calls += 1
         return {"SecretString": json.dumps(self.payload)}
 
@@ -296,11 +283,6 @@ def counting_client(monkeypatch: pytest.MonkeyPatch):
 
     def install(payload: object) -> CallCountingSecretsClient:
         client = CallCountingSecretsClient(payload)
-        # Patched at `boto3.client` rather than over `_secrets_client` itself:
-        # the shared loader's `reset_secret_cache` calls `.cache_clear()` on that
-        # function, so replacing it with a plain callable would break the very
-        # reset these tests exercise. Patching what it constructs leaves the
-        # `lru_cache` intact and still means no AWS is reached.
         monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
         reset_cache()
         return client
@@ -309,8 +291,6 @@ def counting_client(monkeypatch: pytest.MonkeyPatch):
     reset_cache()
 
 
-# Modules whose import must cost nothing: the settings, the composition layer,
-# and every per domain entrypoint.
 ENTRYPOINT_IMPORT_TARGETS = [
     "app.core.config",
     "app.composition.app",
@@ -318,12 +298,6 @@ ENTRYPOINT_IMPORT_TARGETS = [
     "app.composition.wiring",
 ] + [f"app.entrypoints.{module}" for module in sorted(ENTRYPOINT_MODULES.values())]
 
-# Import the named module in a fresh interpreter with `boto3.client` replaced by
-# something that raises, then report whether it was reached. A fetch on the
-# import path is therefore a hard failure rather than a count to compare, and
-# because the interpreter is fresh it cannot be confused by a module another
-# test reloaded. Printed as JSON on the last line so an import-time log line on
-# stdout cannot corrupt the result.
 NO_FETCH_PROBE = """
 import json, boto3
 
@@ -351,7 +325,7 @@ def run_probe(code: str, env: dict[str, str] | None = None) -> dict[str, object]
         "PYTHONDONTWRITEBYTECODE": "1",
     }
     environment.update(env or {})
-    result = subprocess.run(  # nosec B603 - fixed argv, no shell
+    result = subprocess.run(  # nosec B603
         [sys.executable, "-c", code],
         cwd=str(BACKEND),
         env=environment,

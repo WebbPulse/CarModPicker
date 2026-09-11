@@ -313,7 +313,6 @@ def test_list_rename_delete_flow(client: TestClient, db_session: Any) -> None:
         )
     )
 
-    # list
     resp = client.get(
         f"{settings.API_STR}/auth/webauthn/credentials",
         headers=_auth_headers(token),
@@ -323,7 +322,6 @@ def test_list_rename_delete_flow(client: TestClient, db_session: Any) -> None:
     assert len(items) == 1
     assert items[0]["nickname"] == "old name"
 
-    # rename
     resp = client.patch(
         f"{settings.API_STR}/auth/webauthn/credentials/{cred.id}",
         headers=_auth_headers(token),
@@ -332,7 +330,6 @@ def test_list_rename_delete_flow(client: TestClient, db_session: Any) -> None:
     assert resp.status_code == 200
     assert resp.json()["nickname"] == "new name"
 
-    # delete
     resp = client.delete(
         f"{settings.API_STR}/auth/webauthn/credentials/{cred.id}",
         headers=_auth_headers(token),
@@ -439,5 +436,4 @@ def test_login_verify_rejects_unverified_user(client: TestClient, db_session: An
     assert "email not verified" in resp.json()["message"].lower()
 
     cred = WebAuthnCredentialRepository().get_or_raise(cred.id)
-    # sign_count must not advance when the login is rejected.
     assert cred.sign_count == 0

@@ -39,7 +39,6 @@ class TestInferCarGenerationsViaEngine:
         assert ("Dodge", "Ram 2500", "4th Gen") in triples
         assert ("Dodge", "Ram 2500", "5th Gen") in triples
         assert ("Dodge", "Ram 3500", "3rd Gen") in triples
-        # And not the 2nd Gen Ram (5.9L only).
         assert ("Dodge", "Ram 2500", "2nd Gen") not in triples
 
     def test_59_cummins_resolves_to_ram_hd_2nd_3rd_gen(self) -> None:
@@ -47,7 +46,6 @@ class TestInferCarGenerationsViaEngine:
         assert ("Dodge", "Ram 2500", "2nd Gen") in triples
         assert ("Dodge", "Ram 2500", "3rd Gen") in triples
         assert ("Dodge", "Ram 3500", "2nd Gen") in triples
-        # Not 4th/5th Gen Ram (no 5.9L past MY2007.5).
         assert ("Dodge", "Ram 2500", "4th Gen") not in triples
 
     def test_61_hemi_resolves_to_srt8_lx_platform_lineup(self) -> None:
@@ -57,7 +55,6 @@ class TestInferCarGenerationsViaEngine:
         assert ("Dodge", "Challenger", "3rd Gen") in triples
         assert ("Dodge", "Magnum", "SRT-8") in triples
         assert ("Jeep", "Grand Cherokee", "WK") in triples
-        # Not the LD-platform sedans (6.1L was LX-only).
         assert ("Chrysler", "300", "LD") not in triples
         assert ("Dodge", "Charger", "LD") not in triples
 
@@ -66,7 +63,6 @@ class TestInferCarGenerationsViaEngine:
         assert ("Ford", "F-Series Super Duty", "3rd Gen") in triples
         assert ("Ford", "F-Series Super Duty", "4th Gen") in triples
         assert ("Ford", "F-Series Super Duty", "5th Gen") in triples
-        # Not the 2nd Gen (6.4L Powerstroke era) or 1st Gen (6.0L era).
         assert ("Ford", "F-Series Super Duty", "1st Gen") not in triples
         assert ("Ford", "F-Series Super Duty", "2nd Gen") not in triples
 
@@ -77,7 +73,6 @@ class TestInferCarGenerationsViaEngine:
         assert ("Mitsubishi", "Lancer Evolution", "VIII") in triples
         assert ("Mitsubishi", "Lancer Evolution", "IX") in triples
         assert ("Plymouth", "Laser", "1G") in triples
-        # Not Evo X (switched to 4B11T).
         assert ("Mitsubishi", "Lancer Evolution", "X") not in triples
 
     def test_no_engine_name_returns_empty(self) -> None:
@@ -96,13 +91,10 @@ class TestInferCarGenerationsViaEngine:
         6.1 and 6.4 are bracketed by slashes. Documenting that limitation
         here so future work on slash-list parsing has a baseline."""
         triples = infer_car_generations_via_engine("Forged rotating assembly fits 5.7L Hemi and 6.4L Hemi blocks")
-        # 5.7L fitments
         assert ("Dodge", "Ram 1500", "3rd Gen") in triples
-        # 6.4L fitments
         assert ("Dodge", "Durango", "SRT 392") in triples
-        # Sanity: both engines contributed.
-        assert ("Dodge", "Charger", "LD") in triples  # in both 5.7 and 6.4
-        assert ("Jeep", "Grand Cherokee", "WK2") in triples  # 6.4 specifically
+        assert ("Dodge", "Charger", "LD") in triples
+        assert ("Jeep", "Grand Cherokee", "WK2") in triples
 
     def test_slash_separated_engine_list_only_matches_first_engine(self) -> None:
         """Document the slash-list limitation as a regression check.
@@ -111,10 +103,9 @@ class TestInferCarGenerationsViaEngine:
         If the resolver later gains slash-list awareness, this test should
         be updated to assert all three match."""
         triples = infer_car_generations_via_engine("550cc Injectors RT/SRT8 Hemi 5.7/6.1/6.4")
-        assert ("Dodge", "Ram 1500", "3rd Gen") in triples  # 5.7L matched
-        # 6.1L unique fitment NOT matched — slash before "6.1" breaks adjacency.
-        assert ("Dodge", "Magnum", "SRT-8") not in triples  # 6.1L-only fitment
-        assert ("Dodge", "Durango", "SRT 392") not in triples  # 6.4L unique — also not matched
+        assert ("Dodge", "Ram 1500", "3rd Gen") in triples
+        assert ("Dodge", "Magnum", "SRT-8") not in triples
+        assert ("Dodge", "Durango", "SRT 392") not in triples
 
     def test_description_field_is_consulted(self) -> None:
         """Some retailers put the engine in description, not name."""

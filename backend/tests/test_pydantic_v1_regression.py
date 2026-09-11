@@ -36,13 +36,7 @@ FORBIDDEN_PATTERNS = [
     (re.compile(r"^\s*class\s+Config\s*:"), "Pydantic v1 class Config — use model_config = ConfigDict(...)"),
     (re.compile(r"\.parse_obj\("), "Pydantic v1 .parse_obj() — use .model_validate()"),
 ]
-# Matches any `foo.dict()` call; has false positives on SQLAlchemy row._asdict-adjacent
-# code and on stdlib `dict`-subclass callers. Real Pydantic v1 `.dict()` usage on
-# BaseModel instances is the target.
 DICT_PATTERN = re.compile(r"\b\w+\.dict\(\)")
-# Relative paths (under backend/app/) with legitimate non-Pydantic `.dict()` callers.
-# Populate with a rationale comment only after confirming the call is NOT on a
-# pydantic.BaseModel instance.
 DICT_ALLOWLIST: set[str] = set()
 
 
@@ -52,8 +46,6 @@ def test_no_forbidden_patterns_in_app() -> None:
     for pyfile in BACKEND_APP.rglob("*.py"):
         text = pyfile.read_text(encoding="utf-8")
         for lineno, line in enumerate(text.splitlines(), 1):
-            # Skip pure-comment lines (but keep inline comments — a forbidden
-            # pattern prefixed by code still counts).
             if line.lstrip().startswith("#"):
                 continue
             for pat, label in FORBIDDEN_PATTERNS:
@@ -84,9 +76,6 @@ def test_no_pydantic_v1_deprecation_warnings_on_roundtrip() -> None:
     """
     from app.api.schemas.user import UserRead
 
-    # UserRead's required fields (verified via UserRead.model_fields):
-    # id (UUID), username, email (EmailStr), disabled, email_verified,
-    # is_superuser, is_admin, subscription_tier, subscription_status.
     user_payload = {
         "id": uuid4(),
         "username": "regression_test_user",

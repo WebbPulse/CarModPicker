@@ -46,9 +46,6 @@ def _parse(path: Path) -> dict[str, str]:
         line = raw.split("#", 1)[0].strip()
         if not line or line.startswith("-"):
             continue
-        # Split the distribution name off the version specifier and any extras.
-        # The specifier characters are the full set PEP 508 allows to start one,
-        # so `>=2.68.1,<3` is handled as well as `==0.2.0`.
         name = line
         for separator in ("[", "=", ">", "<", "!", "~", ";"):
             name = name.split(separator, 1)[0]

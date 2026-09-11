@@ -239,16 +239,8 @@ class TestUserDeleteCascade:
         response = client.delete(f"{settings.API_STR}/users/{user.id}", headers=headers)
         assert response.status_code == 200
 
-        # Synchronous, before any drain: the row, and with it the two unique
-        # reservations, are gone the moment the request returns.
         assert repos.users.get(user.id) is None, "the user row itself is hard deleted"
 
-        # The uniqueness reservations are released in the same transaction, so the
-        # username and email are immediately reusable. Asserted here, ahead of the
-        # drain, because that ordering is the decision row 30 made: a reservation
-        # held until a queue drains is an account holder who cannot re-register
-        # with the address they just freed, failing closed, for as long as the
-        # backlog lasts.
         reborn = _make_user(name)
         assert reborn.id != user.id
 
@@ -256,8 +248,6 @@ class TestUserDeleteCascade:
 
         assert repos.build_lists.get(build_list["id"]) is None, "their build lists are purged"
 
-        # Two queues, so two drains. Seam 1 tombstones the part and seam 2 removes
-        # it, which is what the chained cascade looks like from outside.
         _drain_part_purge(repos, UUID(part["id"]))
         assert repos.parts.get(part["id"]) is None, "their parts are purged, not orphaned"
 

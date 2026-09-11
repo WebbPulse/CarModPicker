@@ -32,10 +32,6 @@ from scripts.m004_scoring import (
     score_manufacturer,
 )
 
-# ---------------------------------------------------------------------------
-# score_car — multiset triple matching
-# ---------------------------------------------------------------------------
-
 
 class TestScoreCar:
     def test_perfect_match(self) -> None:
@@ -59,7 +55,6 @@ class TestScoreCar:
         assert s["n_correct"] == 0
 
     def test_partial_overlap(self) -> None:
-        # 1 of 2 predicted correct, 1 of 2 truth recovered.
         s = score_car(
             [("Toyota", "Supra", "A90"), ("Honda", "Civic", "EK")],
             [("Toyota", "Supra", "A90"), ("BMW", "M4", "G82/G83")],
@@ -105,8 +100,6 @@ class TestScoreCar:
         assert s["precision"] == 1.0
 
     def test_multiset_dedup_in_predicted(self) -> None:
-        # Predicted emits the same triple twice; truth only has it once.
-        # Multiset PR: TP=1, |pred|=2, |truth|=1 → precision=0.5, recall=1.0.
         s = score_car(
             [("Toyota", "Supra", "A90"), ("Toyota", "Supra", "A90")],
             [("Toyota", "Supra", "A90")],
@@ -130,11 +123,6 @@ class TestScoreCar:
     def test_malformed_input_none_sequence(self) -> None:
         with pytest.raises(TypeError):
             score_car(None, [])  # type: ignore[arg-type]
-
-
-# ---------------------------------------------------------------------------
-# score_manufacturer — single-value binary
-# ---------------------------------------------------------------------------
 
 
 class TestScoreManufacturer:
@@ -174,7 +162,6 @@ class TestScoreManufacturer:
         assert s["correct"] is False
 
     def test_empty_string_treated_as_none(self) -> None:
-        # Empty / whitespace-only strings normalize to "" and are excluded.
         s = score_manufacturer("   ", "Cusco")
         assert s["predicted_present"] is False
         assert s["correct"] is False
@@ -186,11 +173,6 @@ class TestScoreManufacturer:
 
 class TestAggregateManufacturer:
     def test_aggregate_pr_universe(self) -> None:
-        # Universe = parts where truth is non-null.
-        # Part A: truth=Cusco, pred=Cusco → correct
-        # Part B: truth=KW, pred=Cusco → wrong
-        # Part C: truth=KW, pred=None → miss
-        # Part D: truth=None, pred=anything → not in universe
         per_part = [
             score_manufacturer("Cusco", "Cusco"),
             score_manufacturer("Cusco", "KW Suspension"),
@@ -198,10 +180,6 @@ class TestAggregateManufacturer:
             score_manufacturer("Bilstein", None),
         ]
         env = aggregate_manufacturer(per_part)
-        # Parts where truth non-null: 3 (A, B, C)
-        # Parts with predicted+truth-non-null: 2 (A, B)
-        # Correct: 1 (A)
-        # precision = 1/2, recall = 1/3
         assert env["precision"] == pytest.approx(0.5)
         assert env["recall"] == pytest.approx(1 / 3)
         assert env["sample_size"] == 4
@@ -221,11 +199,6 @@ class TestAggregateManufacturer:
         validate_baseline(env)
 
 
-# ---------------------------------------------------------------------------
-# score_category — same shape as manufacturer
-# ---------------------------------------------------------------------------
-
-
 class TestScoreCategory:
     def test_exact_match(self) -> None:
         s = score_category("suspension", "suspension")
@@ -243,15 +216,9 @@ class TestScoreCategory:
                 score_category("suspension", "engine"),
             ]
         )
-        # 2 of 3 correct, all 3 in universe, all 3 predicted-present
         assert env["precision"] == pytest.approx(2 / 3)
         assert env["recall"] == pytest.approx(2 / 3)
         validate_baseline(env)
-
-
-# ---------------------------------------------------------------------------
-# Aggregator-baseline round-trips for ALL signals
-# ---------------------------------------------------------------------------
 
 
 class TestAggregateBaselineRoundTrip:
@@ -275,7 +242,6 @@ class TestAggregateBaselineRoundTrip:
     def test_aggregator_emits_current_harness_version(self) -> None:
         env = aggregate_car([score_car([], [])])
         assert env["harness_version"] == HARNESS_VERSION
-        # Hand-mutate to a stale version and confirm validate_baseline rejects.
         env["harness_version"] = HARNESS_VERSION + 1
         with pytest.raises(BaselineSchemaError, match="harness_version mismatch"):
             validate_baseline(env)

@@ -57,9 +57,6 @@ def _legacy_create_access_token(data: dict[str, object], expires_delta: timedelt
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
-# ---- hashes ----------------------------------------------------------------------
-
-
 def test_a_hash_written_before_the_swap_still_verifies() -> None:
     """Every stored password in the table is this case."""
     legacy_hash = _legacy_get_password_hash(PASSWORD)
@@ -87,9 +84,6 @@ def test_an_account_with_no_password_at_all_verifies_false() -> None:
     assert verify_password(PASSWORD, "") is False
 
 
-# ---- tokens ----------------------------------------------------------------------
-
-
 def test_a_token_minted_before_the_swap_still_decodes() -> None:
     """The live-session case: issued by the old code, verified by the new."""
     legacy_token = _legacy_create_access_token({"sub": "alice"}, timedelta(minutes=60))
@@ -98,7 +92,6 @@ def test_a_token_minted_before_the_swap_still_decodes() -> None:
 
     assert claims["sub"] == "alice"
     assert "exp" in claims
-    # The old code never wrote `iat`, and decoding must not start requiring it.
     assert "iat" not in claims
 
 
@@ -144,7 +137,7 @@ def test_a_token_signed_with_another_secret_is_refused() -> None:
         decode_access_token(forged)
     except TokenError:
         pass
-    else:  # pragma: no cover - the assert below is the failure path
+    else:  # pragma: no cover
         raise AssertionError("a token signed with the wrong secret was accepted")
 
 
@@ -157,5 +150,5 @@ def test_an_expired_token_is_refused() -> None:
         decode_access_token(expired)
     except ExpiredToken:
         pass
-    else:  # pragma: no cover - the assert below is the failure path
+    else:  # pragma: no cover
         raise AssertionError("an expired token was accepted")

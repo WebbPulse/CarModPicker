@@ -68,9 +68,6 @@ def _called_names(body: list[ast.stmt]) -> list[str]:
     return names
 
 
-# --- Sentry is out of the domain functions -----------------------------------
-
-
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_does_not_initialise_sentry(domain: str) -> None:
     """No `init_sentry` import and no call, in any of the nine.
@@ -106,9 +103,6 @@ def test_the_monolith_still_initialises_sentry() -> None:
     """
     source = (BACKEND / "app" / "composition" / "app.py").read_text()
     assert "init_sentry" in source
-
-
-# --- Tracing is configured before the traced application is built ------------
 
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
@@ -160,7 +154,6 @@ def test_the_module_level_app_is_not_the_one_main_serves(domain: str) -> None:
 
     assert "run_uvicorn" in called, f"{domain}: main does not serve"
 
-    # The served expression is a call to `build_app`, not the module global.
     served = [
         statement
         for statement in body
@@ -179,9 +172,6 @@ def test_the_module_level_app_is_not_the_one_main_serves(domain: str) -> None:
         f"{domain}: run_uvicorn serves {ast.dump(argument)} rather than build_app(), "
         "so it serves an application built before tracing was configured"
     )
-
-
-# --- The signing exporter is installed ---------------------------------------
 
 
 @pytest.mark.parametrize("filename", ["requirements.txt", "requirements-lambda.txt"])

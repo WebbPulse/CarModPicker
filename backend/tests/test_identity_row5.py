@@ -59,85 +59,37 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa, utils
 from app.composition.identity_hooks import CarModPickerIdentityHooks
 from app.db.dynamo.users import User
 
-# The route walker the split tests already use. Starlette 1.x stores one lazy
-# wrapper per included router rather than flattening, so `app.routes` is not a
-# flat list and counting it directly would find nine routes and miss every one
-# this row cares about. Importing the helper rather than copying it means this
-# file cannot disagree with the file that pins the counts.
 from .entrypoints.test_route_split import _effective_routes, _pairs
 
-# ---------------------------------------------------------------------------
-# The environment terraform/lambda_domains.tf sets on the identity function.
-#
-# Written as environment variables rather than passed as arguments because that
-# is the real interface: `IdentitySettings` is a `BaseSettings` with
-# `env_prefix="IDENTITY_"` and `app/composition/identity.py` constructs it with
-# no arguments at all. A test that built the settings object directly would not
-# notice a Terraform variable renamed or never set.
-# ---------------------------------------------------------------------------
-
-#: The path component of this is what every route is mounted under, so
-#: `/api/auth` here is what makes the public paths `/api/auth/...`.
 ISSUER = "https://api.staging.carmodpicker.com/api/auth"
 AUDIENCE = "carmodpicker-staging-api"
 KEY_ARN = "arn:aws:kms:us-west-2:748861776298:key/11111111-2222-3333-4444-555555555555"
 DATA_KEY_ARN = "arn:aws:kms:us-west-2:748861776298:key/99999999-8888-7777-6666-555555555555"
 
-#: The twenty-one routes this file's environment mounts, spelled out rather than
-#: derived from the package. A list computed from the thing it checks cannot
-#: notice that the thing moved, and these paths are also API Gateway route keys
-#: in row 8.
-#:
-#: Nineteen of them are row 5's own M1 to M4. The other two are the package's
-#: two unconditional discovery routes, `GET /api/auth/oauth/providers` from
-#: 0.16.0 and `GET /api/auth/passkeys/availability` from 0.17.0. Both mount in
-#: **every** deployment, including this one, whose environment sets no OAuth
-#: client id at all and switches both passkey flags off. They are here rather
-#: than in `test_identity_row9.py` precisely because they are unconditional:
-#: this test pins the routes an identity function has with none of row 9's
-#: switches on, and that is now twenty-one rather than nineteen. The twelve
-#: routes those switches control are row 9's file.
 PACKAGE_PATHS = (
-    # M1: discovery, JWKS and the package's own health document.
     ("GET", "/api/auth/.well-known/openid-configuration"),
     ("GET", "/api/auth/.well-known/jwks.json"),
     ("GET", "/api/auth/health"),
-    # M2: the password flows.
     ("POST", "/api/auth/register"),
     ("POST", "/api/auth/login"),
     ("POST", "/api/auth/password"),
     ("POST", "/api/auth/refresh"),
     ("POST", "/api/auth/logout"),
     ("POST", "/api/auth/logout-all"),
-    # M3: the two email ceremonies, which mount only because an email sender is
-    # passed, which happens only because IDENTITY_EMAIL_FROM is set.
     ("POST", "/api/auth/verify-email"),
     ("POST", "/api/auth/verify-email/confirm"),
     ("POST", "/api/auth/reset"),
     ("POST", "/api/auth/reset/confirm"),
-    # M4: TOTP, recovery codes and step-up.
     ("POST", "/api/auth/login/totp"),
     ("POST", "/api/auth/totp/enrol"),
     ("POST", "/api/auth/totp/activate"),
     ("POST", "/api/auth/totp/disable"),
     ("POST", "/api/auth/recovery-codes"),
     ("POST", "/api/auth/step-up"),
-    # M6 discovery, new in 0.16.0 and unconditional. Not gated on a client id,
-    # a client secret or a store: it answers an empty list when OAuth is off,
-    # which is the point of it. See the note above PACKAGE_PATHS.
     ("GET", "/api/auth/oauth/providers"),
-    # M5 discovery, new in 0.17.0 and unconditional in the same way. Not gated
-    # on `passkeys_enabled`, on `passkeys_passwordless` or on a store: it
-    # answers `{"enabled": false, "passwordless": false}` in this file's
-    # environment, which has both flags off, and that answer is the correct one
-    # rather than a degraded one. The other seven passkey routes are gated and
-    # live in `test_identity_row9.py`.
     ("GET", "/api/auth/passkeys/availability"),
 )
 
-#: The two `(method, path)` pairs that exist on both sides. The legacy handler
-#: answers both, and `test_the_legacy_handlers_win_both_collisions` is what says
-#: so. Row 13 resolves them by deleting the legacy routers.
 COLLISIONS = (
     ("POST", "/api/auth/logout"),
     ("POST", "/api/auth/verify-email"),
@@ -211,27 +163,9 @@ def identity_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("IDENTITY_FRONTEND_BASE_URL", "https://staging.carmodpicker.com")
     monkeypatch.setenv("IDENTITY_EMAIL_FROM", "no-reply@staging.carmodpicker.com")
 
-    # Row 9's two passkey switches, set OFF here and set explicitly rather than
-    # left out. **The package's own default for both is `True`**, so leaving
-    # them unset would mount M5's seven routes in this file's environment and
-    # make this file's inventory quietly wrong. `terraform/variables.tf`
-    # defaults both to false for exactly the same reason, and
-    # `terraform/lambda_domains.tf` renders both on every identity function in
-    # every environment, so an unset flag is not a state a deployed function is
-    # ever in. `test_identity_row9.py` is what turns them on and pins what
-    # appears when they are.
-    #
-    # No OAuth client id is set, which is what keeps M6's five flow routes out
-    # of this inventory. The two discovery routes,
-    # `GET /api/auth/oauth/providers` and `GET /api/auth/passkeys/availability`,
-    # are unconditional and are in PACKAGE_PATHS above.
     monkeypatch.setenv("IDENTITY_PASSKEYS_ENABLED", "false")
     monkeypatch.setenv("IDENTITY_PASSKEYS_PASSWORDLESS", "false")
 
-    # The one `IDENTITY_*` name `Settings` itself declares, and the only thing
-    # `build_domain_app` consults before deciding to mount. Set on the settings
-    # object rather than only in the environment because the object is a module
-    # level singleton built at import, long before this fixture runs.
     monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", ISSUER)
 
 
@@ -254,11 +188,6 @@ def identity_app(identity_env: None, private_key: rsa.RSAPrivateKey, monkeypatch
             return object()
         raise AssertionError(f"the identity router asked for an unexpected client: {service}")
 
-    # Patched on `boto3` itself rather than on `app.composition.identity`,
-    # because that module imports `boto3` inside `build_router` rather than at
-    # module scope. Importing it lazily is what keeps a monolith or a local run
-    # from paying for botocore's import when the router never mounts, and it
-    # means the name to patch is the one in `boto3`.
     monkeypatch.setattr(boto3, "client", fake_client)
 
     from app.entrypoints.identity import build_app
@@ -294,11 +223,6 @@ def _user(**overrides: Any) -> User:
     return User(**base)
 
 
-# ---------------------------------------------------------------------------
-# The protocol
-# ---------------------------------------------------------------------------
-
-
 def test_the_hooks_satisfy_the_protocol_structurally() -> None:
     """`isinstance` against the runtime checkable Protocol, with no inheritance.
 
@@ -327,11 +251,6 @@ def test_the_hooks_inherit_nothing_from_the_package() -> None:
     from webbpulse.identity import BaseIdentityHooks
 
     assert not issubclass(CarModPickerIdentityHooks, BaseIdentityHooks)
-
-
-# ---------------------------------------------------------------------------
-# may_authenticate: the three refusals and the one admission
-# ---------------------------------------------------------------------------
 
 
 def test_may_authenticate_admits_an_ordinary_verified_user(
@@ -398,11 +317,6 @@ def test_a_missing_flag_reads_as_unverified(hooks: CarModPickerIdentityHooks) ->
         hooks.may_authenticate({})
 
 
-# ---------------------------------------------------------------------------
-# claims_for: this product's two roles and its username
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     ("flags", "roles"),
     [
@@ -436,11 +350,6 @@ def test_claims_for_carries_the_username(hooks: CarModPickerIdentityHooks) -> No
     has one and a record without one is a bug worth seeing.
     """
     assert hooks.claims_for({"username": "tyler"})["username"] == "tyler"
-
-
-# ---------------------------------------------------------------------------
-# The repository-backed hooks
-# ---------------------------------------------------------------------------
 
 
 def test_load_user_by_id_round_trips_a_created_user(
@@ -497,11 +406,6 @@ def test_load_user_by_email_answers_none_for_an_unknown_address(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
     assert hooks.load_user_by_email("nobody@example.com") is None
-
-
-# ---------------------------------------------------------------------------
-# create_user
-# ---------------------------------------------------------------------------
 
 
 def test_create_user_derives_a_username_from_the_address(
@@ -592,13 +496,7 @@ def test_create_user_is_transactional_on_the_unique_attributes(
     with pytest.raises(UniqueAttributeTaken):
         hooks.create_user(email="second@example.com", attributes={"username": "taken"})
 
-    # And the losing registration left nothing behind.
     assert hooks.load_user_by_email("second@example.com") is None
-
-
-# ---------------------------------------------------------------------------
-# mark_email_verified
-# ---------------------------------------------------------------------------
 
 
 def test_mark_email_verified_flips_the_flag_may_authenticate_reads(
@@ -647,30 +545,6 @@ def test_mark_email_verified_raises_for_a_value_that_is_not_an_id(
     """
     with pytest.raises(ValueError):
         hooks.mark_email_verified("not-a-uuid")
-
-
-# ---------------------------------------------------------------------------
-# has_other_sign_in_method
-#
-# New in 0.14.0, and the hook with the most product judgement in it. The package
-# asks it before unlinking an OAuth account or removing a credential, to refuse
-# the removal that would lock somebody out of their own account.
-#
-# CarModPicker counts three things as a sign-in method, and the tests below name
-# each one:
-#
-#   1. a legacy password on the user row (`users.hashed_password`)
-#   2. any passkey (`webauthn_credentials`)
-#   3. any legacy Google link (`oauth_accounts`)
-#
-# It deliberately does not count the package's own `credentials` and
-# `oauth-links` rows: `unlink` counts those itself, and counting them here would
-# double count the very row being removed and refuse every legitimate unlink.
-#
-# It deliberately does not count TOTP. A second factor is not a sign-in method:
-# a user with a TOTP factor and nothing else cannot sign in at all, so treating
-# it as an alternative would permit removing the last real one.
-# ---------------------------------------------------------------------------
 
 
 def test_has_other_sign_in_method_is_false_for_a_user_with_nothing(
@@ -750,11 +624,6 @@ def test_has_other_sign_in_method_is_false_for_a_value_that_is_not_an_id(
     assert hooks.has_other_sign_in_method("not-a-uuid") is False
 
 
-# ---------------------------------------------------------------------------
-# The two hooks with nothing to do
-# ---------------------------------------------------------------------------
-
-
 def test_on_user_created_does_nothing_and_says_so(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
@@ -780,11 +649,6 @@ def test_user_repository_hands_back_this_products_users_table(
     assert isinstance(hooks.user_repository(), UserRepository)
 
 
-# ---------------------------------------------------------------------------
-# The mount
-# ---------------------------------------------------------------------------
-
-
 def test_without_an_issuer_the_identity_app_is_exactly_what_row_four_left(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -807,7 +671,6 @@ def test_without_an_issuer_the_identity_app_is_exactly_what_row_four_left(
 
     assert "/api/auth/.well-known/openid-configuration" not in paths
     assert "/api/auth/login" not in paths
-    # And the legacy surface is untouched, which is the point of the guard.
     assert "/api/auth/token" in paths
 
 
@@ -948,11 +811,6 @@ def test_the_mount_adds_exactly_the_package_routes_and_nothing_else(
     assert added == (set(PACKAGE_PATHS) - set(COLLISIONS)) | set(EXTENSION_PATHS)
 
 
-# ---------------------------------------------------------------------------
-# The composition seam itself
-# ---------------------------------------------------------------------------
-
-
 def test_the_settings_are_read_from_the_environment_and_not_passed_in(
     identity_env: None,
 ) -> None:
@@ -993,7 +851,6 @@ def test_no_oauth_route_is_mounted(identity_app: Any) -> None:
 
     assert "/api/auth/oauth/authorize" not in served
     assert "/api/auth/oauth/callback" not in served
-    # The legacy Google flow is still there.
     assert "/api/auth/oauth/google" in served
 
 

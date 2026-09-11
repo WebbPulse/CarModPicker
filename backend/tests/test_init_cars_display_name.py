@@ -97,14 +97,12 @@ class TestInitCarsDisplayName:
         assert model.display_name == "Supra (friendly)"
 
     def test_update_changes_generation_display_name(self, clean_db: _Catalog) -> None:
-        # First pass: create with an initial display_name
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name="OldName"),
         ):
             init_car_generations()
 
-        # Second pass: source now has a different display_name
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name="Mk4 Supra"),
@@ -122,7 +120,6 @@ class TestInitCarsDisplayName:
         ):
             init_car_generations()
 
-        # Second pass: source no longer sets display_name (None, simulating key removal)
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name=None),
@@ -215,14 +212,12 @@ class TestInitCarsSlugLookup:
         assert original.slug == "supra"
         assert original.name == "Supra"
 
-        # Rename "Supra" → "GR Supra" in seed, pin slug to preserve identity.
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model="GR Supra", model_slug="supra"),
         ):
             init_car_generations()
 
-        # Same row (id stable), name updated, slug unchanged.
         models = clean_db.query(CarModel).all()
         assert len(models) == 1
         assert models[0].id == original_id
@@ -239,7 +234,6 @@ class TestInitCarsSlugLookup:
         original = clean_db.query(CarGeneration).one()
         original_id = original.id
 
-        # Rename engineering code in seed, pin slug to the old form.
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(generation_name="A80 (JZA80)", generation_slug="a80"),
@@ -260,7 +254,6 @@ class TestInitCarsSlugLookup:
         ):
             init_car_generations()
 
-        # Rename without pinning slug. slugify("GR Supra") = "gr-supra" ≠ "supra" → new row.
         with patch(
             "app.core.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model="GR Supra"),

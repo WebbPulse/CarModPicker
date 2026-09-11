@@ -32,13 +32,6 @@ from webbpulse.log_context import (
 from app.db.dynamo.users import User
 from tests.conftest import login_user
 
-# Loggers that emit OUTSIDE the request middleware scope in TestClient context
-# (TestClient's own httpx/asyncio machinery fires before middleware sets
-# ContextVars, and python_multipart runs during form parsing before the
-# middleware adds user context).  These are infrastructure, not app code;
-# OBS-04 cares about OUR log output, not TestClient plumbing.  In production
-# (uvicorn + real HTTP) these loggers also run outside request scope and are
-# not subject to the OBS-04 invariant.
 _OUT_OF_SCOPE_LOGGERS = (
     "asyncio",
     "boto3",
@@ -80,16 +73,11 @@ def test_log_propagation_request_scope(
     emitted_request_ids: list[str] = []
     emitted_user_ids: list[str] = []
 
-    # Override with a FastAPI-compatible signature so Depends() introspection works.
     async def logging_current_user(
         request: Request,
         token: str = Depends(oauth2_scheme),
         repos: Repositories = Depends(get_repositories),
     ) -> User:
-        # `request` is threaded through since row 11: `get_current_user` reads
-        # the authorizer's claims off it when the bearer token is not a legacy
-        # session. This override is standing in for the real dependency, so it
-        # has to take the same arguments the real one does.
         result = await get_current_user(request=request, token=token, repos=repos)
         test_logger = logging.getLogger("app.tests.log_propagation")
         test_logger.info("post-auth request scope log emit")
@@ -97,8 +85,6 @@ def test_log_propagation_request_scope(
         emitted_user_ids.append(user_id_var.get())
         return result
 
-    # Perform login OUTSIDE caplog capture so login's pre-auth records don't
-    # pollute the authenticated-request assertion.
     token = login_user(client, test_user.username)
 
     caplog_with_context.set_level(logging.DEBUG)
@@ -114,12 +100,10 @@ def test_log_propagation_request_scope(
         fastapi_app.dependency_overrides.pop(get_current_user, None)
     assert response.status_code == 200, response.text
 
-    # ContextVars observed inside the override were populated.
     assert len(emitted_request_ids) == 1, "override did not run exactly once"
     assert emitted_request_ids[0] != "-", "request_id_var not set inside request scope"
     assert emitted_user_ids[0] != "-", "user_id_var not set after get_current_user ran"
 
-    # In-scope log records captured by caplog carry both context fields.
     in_scope = [r for r in caplog_with_context.records if _in_request_scope(r)]
     assert len(in_scope) > 0, "no in-scope log records captured during request"
     for rec in in_scope:

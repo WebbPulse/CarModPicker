@@ -46,7 +46,6 @@ def create_and_login_user(client: TestClient, db_session: Any, username_suffix: 
     user_data = {"username": username, "email": email, "password": password}
     response = client.post(f"{settings.API_STR}/users/", json=user_data)
     if response.status_code != 200:
-        # User might already exist
         response.raise_for_status()
 
     if db_session:
@@ -102,7 +101,6 @@ class TestAdminDeleteAllPartManufacturers:
         assert "deleted_count" in data
         assert data["deleted_count"] == 2
 
-        # Verify part_manufacturers are gone
         remaining = catalog_repository(DBPartManufacturer).count()
         assert remaining == 0
 
@@ -134,7 +132,6 @@ class TestAdminDeleteAllPartManufacturers:
         assert response.status_code == 200
         assert response.json()["deleted_count"] == 1
 
-        # Verify part still exists but part_manufacturer_id is null
         part_after = catalog_repository(DBPart).get(str(part_id))
         assert part_after is not None
         assert part_after.part_manufacturer_id is None

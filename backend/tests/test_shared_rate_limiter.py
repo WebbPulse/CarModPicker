@@ -71,8 +71,6 @@ class FakeTable:
         values = kwargs["ExpressionAttributeValues"]
         existing = self.items.get(pk)
 
-        # Mirror `attribute_not_exists(#ttl) OR #ttl > :now`. A lapsed window fails the
-        # condition, which is what drives the limiter's put_item fallback.
         if existing is not None and int(existing.get(TTL_ATTRIBUTE, 0)) <= int(values[":now"]):
             raise ClientError(
                 {"Error": {"Code": "ConditionalCheckFailedException", "Message": "window lapsed"}},
@@ -82,8 +80,6 @@ class FakeTable:
         if existing is None:
             existing = {"pk": pk, COUNT_ATTRIBUTE: 0, TTL_ATTRIBUTE: int(values[":ttl"])}
 
-        # ADD on the counter, and if_not_exists on the TTL so an open window keeps its
-        # original expiry rather than sliding forward on every request.
         existing[COUNT_ATTRIBUTE] = int(existing.get(COUNT_ATTRIBUTE, 0)) + int(values[":one"])
         existing.setdefault(TTL_ATTRIBUTE, int(values[":ttl"]))
         self.items[pk] = existing
@@ -103,9 +99,6 @@ def frozen_now(monkeypatch: pytest.MonkeyPatch) -> list[int]:
 
 def make_limiter(table: FakeTable, *, max_requests: int = 3, window_seconds: int = 60) -> SharedRateLimiter:
     return SharedRateLimiter(max_requests, window_seconds, table_client=table)
-
-
-# --- allow ------------------------------------------------------------------
 
 
 def test_requests_under_the_limit_are_allowed(frozen_now: list[int]) -> None:
@@ -131,9 +124,6 @@ def test_separate_identities_do_not_share_a_counter(frozen_now: list[int]) -> No
     limited, _ = limiter.check("2.2.2.2")
     assert limited is False
     assert limiter.is_limited("2.2.2.2") is False
-
-
-# --- deny -------------------------------------------------------------------
 
 
 def test_request_past_the_limit_is_denied_with_a_retry_after(frozen_now: list[int]) -> None:
@@ -167,9 +157,6 @@ def test_counter_accumulates_across_limiter_instances(frozen_now: list[int]) -> 
     assert limited is True
 
 
-# --- fail open --------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "error",
     [
@@ -192,7 +179,6 @@ def test_backend_failure_allows_the_request(frozen_now: list[int], error: BaseEx
     assert limited is False
     assert retry_after is None
 
-    # The individual entry points fail open too, not just the combined check.
     assert limiter.is_limited("1.2.3.4") is False
     assert limiter.retry_after("1.2.3.4") is None
     assert limiter.record_request("1.2.3.4") == 0
@@ -258,16 +244,13 @@ def test_fail_open_emits_a_top_level_json_boolean(
     assert lines, "the fail-open path must emit a formatted record"
     payload = json.loads(lines[0])
 
-    # The flag: a top-level JSON boolean, not a string and not nested under anything.
     assert payload["rate_limit_failed_open"] is True
     assert payload["level"] == "WARNING"
 
-    # Context fields, so the alarm points somewhere.
     assert payload["rate_limit_operation"] == "record_request"
     assert payload["exception_type"] == "EndpointConnectionError"
     assert payload["route"] == "/api/parts/{part_id}"
 
-    # The caller is identified by a truncated digest, never by the raw address.
     assert payload["client_key"] == SharedRateLimiter.client_key("1.2.3.4")
     assert "1.2.3.4" not in json.dumps(payload)
 
@@ -285,14 +268,10 @@ def test_fail_open_never_raises_into_the_request_path(frozen_now: list[int]) -> 
     table.raises = RuntimeError("boom")
     limiter = make_limiter(table)
 
-    # No pytest.raises: the assertion is that these simply return.
     limiter.check("1.2.3.4")
     limiter.is_limited("1.2.3.4")
     limiter.retry_after("1.2.3.4")
     limiter.record_request("1.2.3.4")
-
-
-# --- TTL --------------------------------------------------------------------
 
 
 def test_written_items_carry_a_ttl_in_the_future(frozen_now: list[int]) -> None:
@@ -352,7 +331,6 @@ def test_expired_item_is_treated_as_absent_even_if_dynamodb_still_serves_it(
     table = FakeTable()
     limiter = make_limiter(table, max_requests=1, window_seconds=60)
 
-    # An item that is well over the limit but whose window has already passed.
     table.items["RATE#1.2.3.4"] = {
         "pk": "RATE#1.2.3.4",
         COUNT_ATTRIBUTE: 500,
@@ -361,9 +339,6 @@ def test_expired_item_is_treated_as_absent_even_if_dynamodb_still_serves_it(
 
     assert limiter.is_limited("1.2.3.4") is False
     assert limiter.retry_after("1.2.3.4") is None
-
-
-# --- identity ---------------------------------------------------------------
 
 
 class FakeRequest:
@@ -401,7 +376,6 @@ def test_identity_never_trusts_x_forwarded_for() -> None:
     )
     assert client_identity(request) == "203.0.113.7"  # type: ignore[arg-type]
 
-    # And with no request context at all it still must not read the header.
     spoofed = FakeRequest(headers={"X-Forwarded-For": "1.2.3.4"})
     assert client_identity(spoofed) != "1.2.3.4"  # type: ignore[arg-type]
 

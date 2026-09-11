@@ -38,7 +38,6 @@ class TestAppSettings:
         token = create_and_login_admin_user(client, db_session, "app_settings_toggle")
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Flip on
         response = client.put(
             f"{settings.API_STR}/app-settings/",
             headers=headers,
@@ -47,12 +46,10 @@ class TestAppSettings:
         assert response.status_code == 200, response.text
         assert response.json()["premium_disabled"] is True
 
-        # Public read reflects update
         response = client.get(f"{settings.API_STR}/app-settings/")
         assert response.status_code == 200
         assert response.json()["premium_disabled"] is True
 
-        # Flip off
         response = client.put(
             f"{settings.API_STR}/app-settings/",
             headers=headers,

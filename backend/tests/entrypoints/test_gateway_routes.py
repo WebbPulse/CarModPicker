@@ -55,30 +55,20 @@ from typing import Any, Dict, Iterator, Set, Tuple
 BACKEND = Path(__file__).resolve().parents[2]
 APIGATEWAY_TF = BACKEND.parent / "terraform" / "apigateway.tf"
 
-#: The resolvers that refuse an anonymous caller. A route whose dependency tree
-#: reaches one of these needs a flagged route key.
 REQUIRES_CALLER = {
     "get_current_user",
     "get_current_admin_user",
     "get_current_superuser",
 }
 
-#: The resolvers that tolerate one. Named so the test can assert the separation
-#: explicitly rather than only by absence, because "not in the required set" and
-#: "known to be optional" are different claims and only the second one catches a
-#: resolver that was renamed.
 TOLERATES_ANONYMOUS = {
     "get_optional_current_user",
     "get_current_active_user_optional",
     "require_api_key_or_admin",
 }
 
-#: `/api/auth` is the `identity` domain, and row 8 owns every key under it.
-#: CarModPicker's own 12 legacy auth routes live there too and row 13 retires
-#: them with the legacy session; neither set is this row's business.
 IDENTITY_PREFIX = "/api/auth"
 
-#: Routes that belong to no domain, served locally by every function.
 ROOT_PATHS = {
     "/",
     "/health",
@@ -87,16 +77,11 @@ ROOT_PATHS = {
     "/sitemap-{name}.xml",
 }
 
-#: `"<METHOD> <path>" = {` inside a `domain = [ ... ]` list, which is how
-#: `local.domain_identity_jwt_route_paths` is written: a map of domain name to a
-#: list of route keys.
 DOMAIN_LIST = re.compile(
     r'^\s*"?(?P<domain>[a-z][a-z-]*)"?\s*=\s*\[(?P<body>[^\]]*)\]',
     re.MULTILINE,
 )
 
-#: `"<METHOD> <path>" = { integration = "<name>" }`, the shape the two anonymous
-#: guard keys are written in.
 GUARD_ENTRY = re.compile(
     r'"(?P<key>(?:ANY|GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /[^"]*)"\s*='
     r'\s*\{\s*integration\s*=\s*"(?P<integration>[^"]+)"\s*\}'

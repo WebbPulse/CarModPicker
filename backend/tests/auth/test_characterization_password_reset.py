@@ -38,7 +38,6 @@ def test_password_reset_request_and_confirm(client: TestClient, db_session: Any)
     new_password = "new_password_456!"
     email = f"{username}@example.com"
 
-    # Create a verified user directly in DB
     user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -50,16 +49,11 @@ def test_password_reset_request_and_confirm(client: TestClient, db_session: Any)
     )
     original_hash = user.hashed_password
 
-    # --- Generate reset token (same logic as auth.py reset_password endpoint) ---
-    # The POST /api/auth/reset-password endpoint tries to send an SES email, which
-    # fails in the test environment (no credentials). We generate the token directly
-    # to characterize the confirmation path — the token format is the contract.
     token = create_access_token(
         data={"sub": email, "purpose": "reset_password"},
         expires_delta=timedelta(hours=1),
     )
 
-    # --- Confirm reset (POST /api/auth/reset-password/confirm) ---
     confirm = client.post(
         f"{settings.API_STR}/auth/reset-password/confirm",
         json={"token": token, "new_password": {"password": new_password}},
@@ -67,12 +61,10 @@ def test_password_reset_request_and_confirm(client: TestClient, db_session: Any)
     assert confirm.status_code == 200, confirm.text
     assert confirm.json().get("message") == "Password reset successfully"
 
-    # DB: hashed_password changed
     user = UserRepository().get_or_raise(user.id)
     assert user.hashed_password != original_hash
     assert verify_password(new_password, user.hashed_password)
 
-    # --- Login with new password succeeds ---
     login_new = client.post(
         f"{settings.API_STR}/auth/token",
         data={"username": username, "password": new_password},
@@ -80,7 +72,6 @@ def test_password_reset_request_and_confirm(client: TestClient, db_session: Any)
     assert login_new.status_code == 200, login_new.text
     assert "access_token" in login_new.json()
 
-    # --- Login with old password fails ---
     login_old = client.post(
         f"{settings.API_STR}/auth/token",
         data={"username": username, "password": old_password},

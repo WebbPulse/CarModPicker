@@ -304,7 +304,6 @@ class TestModerationTreatsTombstonesAsAbsent:
 
         from app.api.services.report_service import ReportService
 
-        # A user may not report their own part, so the reporter is a second account.
         reporter_name = _unique("reporter")
         UserRepository().create_user(
             User(

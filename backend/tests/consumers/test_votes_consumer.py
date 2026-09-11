@@ -181,7 +181,6 @@ class TestRecompute:
 
         assert recompute_net_votes(FakeRepos(parts, votes), part_id) is None
         assert parts.updates == []
-        # The recount is not even attempted, so a tombstone costs one read.
         assert votes.calls == []
 
     def test_unchanged_aggregate_skips_the_write(self) -> None:
@@ -215,7 +214,6 @@ class TestIdempotency:
         assert handle(event, repos) == {"batchItemFailures": []}
 
         assert parts.parts[str(part_id)].net_votes == 4
-        # The first pass wrote; the two replays saw the same number and skipped.
         assert parts.updates == [(str(part_id), 4)]
 
     def test_many_records_on_one_part_are_one_recompute(self) -> None:
@@ -271,9 +269,7 @@ class TestBatchHandling:
 
         result = handle({"Records": records}, FakeRepos(parts, votes))
 
-        # Every record that asked for the failed part, not just the last one.
         assert result == {"batchItemFailures": [{"itemIdentifier": "2"}, {"itemIdentifier": "3"}]}
-        # The healthy part still got its aggregate.
         assert parts.updates == [(part_ok, 2)]
 
     def test_process_records_returns_sequence_numbers(self) -> None:
@@ -324,7 +320,6 @@ class TestAgainstRealRepositories:
         assert result == {"batchItemFailures": []}
         assert PartRepository().get(part.id).net_votes == 2
 
-        # Replaying converges rather than doubling.
         handle({"Records": [stream_record(entity_id=str(part.id))]}, RealRepos())
         assert PartRepository().get(part.id).net_votes == 2
 

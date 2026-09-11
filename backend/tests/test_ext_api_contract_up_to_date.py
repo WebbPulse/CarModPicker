@@ -29,10 +29,6 @@ CONTRACT_PATH = Path(__file__).resolve().parents[2] / "chrome-extension" / "API_
 
 
 def test_api_contract_matches_generator() -> None:
-    # Subprocess-invoke with --stdout — captures Markdown as the generator emits it.
-    # TESTING=true + ENABLE_RATE_LIMITING=false ensure the OpenAPI schema matches the
-    # conftest.py env-var setup used by test_openapi_snapshot.py (pitfall 8 in
-    # PATTERNS.md).
     env = {
         **os.environ,
         "TESTING": "true",
@@ -44,7 +40,6 @@ def test_api_contract_matches_generator() -> None:
         text=True,
         check=True,
         env=env,
-        # Run with backend/ as cwd so `from app.main import app` resolves.
         cwd=str(SCRIPT_PATH.parent.parent),
     )
     expected = result.stdout

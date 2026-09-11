@@ -86,11 +86,7 @@ def test_webauthn_register_and_authenticate(
     token = _login(client, user)
     headers = {"Authorization": f"Bearer {token}"}
 
-    # ---- Registration: step 1 — request options ----
     fake_challenge = b"fake_challenge_bytes_0000_012345"
-    # generate_registration_options must return an object that options_to_json accepts.
-    # Use the real webauthn library to produce a proper options object, then swap in
-    # our fake challenge by delegating to the real function via the mock side_effect.
     import json
 
     import webauthn
@@ -125,7 +121,6 @@ def test_webauthn_register_and_authenticate(
     assert "options" in r1_body
     challenge_token = r1_body["challenge_token"]
 
-    # ---- Registration: step 2 — submit credential (verify stubbed) ----
     fake_cred_id = b"char-cred-id-bytes-0000"
     fake_pubkey = b"char-pubkey-cbor-bytes"
     mock_ver_reg.return_value = SimpleNamespace(
@@ -154,13 +149,11 @@ def test_webauthn_register_and_authenticate(
     )
     assert r2.status_code == 200, r2.text
 
-    # DB state: credential row exists for this user
     creds = WebAuthnCredentialRepository().list_by_user(user.id)
     assert len(creds) == 1
     assert creds[0].credential_id == fake_cred_id
     assert creds[0].public_key == fake_pubkey
 
-    # ---- Authentication: step 1 — request challenge ----
     fake_auth_challenge = b"fake_auth_challenge_bytes_01234"
     real_auth_options = webauthn.generate_authentication_options(
         rp_id=settings.webauthn_rp_id,
@@ -176,7 +169,6 @@ def test_webauthn_register_and_authenticate(
     assert r3.status_code == 200, r3.text
     login_challenge_token = r3.json()["challenge_token"]
 
-    # ---- Authentication: step 2 — submit assertion (verify stubbed) ----
     mock_ver_auth.return_value = SimpleNamespace(new_sign_count=1)
     r4 = client.post(
         f"{settings.API_STR}/auth/webauthn/login/verify",

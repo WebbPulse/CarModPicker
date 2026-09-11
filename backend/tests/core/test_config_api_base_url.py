@@ -22,7 +22,6 @@ def _settings(**overrides: object) -> Settings:
         ("development", False, "http://localhost:8000"),
         ("staging", False, "https://api.staging.carmodpicker.com"),
         ("production", False, "https://api.carmodpicker.com"),
-        # DEBUG=True anywhere means a local run, so it wins over the name.
         ("production", True, "http://localhost:8000"),
         ("staging", True, "http://localhost:8000"),
     ],

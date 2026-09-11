@@ -30,8 +30,6 @@ def test_login_happy_path(client: TestClient, db_session: Any) -> None:
     password = "test_password_123!"
     email = f"{username}@example.com"
 
-    # Create a verified user directly in DB (avoids needing to go through
-    # the signup → verify-email flow here; that is covered by flow 1)
     user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -42,13 +40,11 @@ def test_login_happy_path(client: TestClient, db_session: Any) -> None:
         )
     )
 
-    # POST form-encoded credentials (OAuth2PasswordRequestForm)
     response = client.post(
         f"{settings.API_STR}/auth/token",
         data={"username": username, "password": password},
     )
 
-    # D-19: status + key presence
     assert response.status_code == 200, response.text
     body = response.json()
     assert "access_token" in body
@@ -56,5 +52,4 @@ def test_login_happy_path(client: TestClient, db_session: Any) -> None:
     assert "user" in body
     assert body["user"]["username"] == username
     assert body["user"]["email"] == email
-    # Security: hashed_password must never appear in login response
     assert "hashed_password" not in body["user"]

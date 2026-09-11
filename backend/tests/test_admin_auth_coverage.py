@@ -20,10 +20,6 @@ from fastapi.testclient import TestClient
 from tests.conftest import create_and_login_user, login_user
 from tests.route_enumeration import schema_routes
 
-# D-28 + Risk 7: routes using Optional[DBUser] admin dep + X-Admin-Cron-Key.
-# These may return 403 (not 401) when no auth header + no cron key present
-# because the dependency doesn't raise; the body check does.
-# See admin.py:823-851 pattern.
 DUAL_AUTH_ROUTES = {
     ("POST", "/api/admin/crawlers/run"),
     ("POST", "/api/admin/crawlers/rescrape-archives"),
@@ -64,5 +60,4 @@ def test_admin_route_forbids_regular_user(method: str, path: str, client: TestCl
 
 
 def test_admin_route_count_at_or_above_expected() -> None:
-    # Drift guard. Updated 2026-09-02 after the crawler job, migration, and crawl-bucket admin routes were removed.
     assert len(ADMIN_ROUTES) >= 6, f"Expected >=6 admin routes, got {len(ADMIN_ROUTES)}"

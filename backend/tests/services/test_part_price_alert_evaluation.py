@@ -40,8 +40,6 @@ from app.db.dynamo.part_price_alerts import PartPriceAlertRepository
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import get_default_category_id, save_catalog
 
-# --- helpers ----------------------------------------------------------------
-
 
 def _make_user(db: Any, suffix: str) -> User:
     """Create a test user with a unique username/email."""
@@ -124,9 +122,6 @@ def _stub_email_send(*, return_value: bool = True) -> tuple[Any, list[dict[str, 
     return stub, calls
 
 
-# --- happy path -------------------------------------------------------------
-
-
 def test_below_threshold_fires_email_and_updates_last_fired_at(
     db_session: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -152,7 +147,6 @@ def test_below_threshold_fires_email_and_updates_last_fired_at(
 
     alert = _reload(alert)
     assert alert.last_fired_at is not None
-    # last_fired_at is exactly observed_at (the evaluator sets it directly).
     assert alert.last_fired_at == observed_at or alert.last_fired_at.replace(tzinfo=UTC) == observed_at
 
 
@@ -168,7 +162,7 @@ def test_above_threshold_skips(db_session: Any, monkeypatch: pytest.MonkeyPatch)
     evaluate_alerts_for_listing(
         part_id=part.id,
         retailer_id=retailer.id,
-        price_cents=10_000,  # well above threshold
+        price_cents=10_000,
         observed_at=datetime.now(UTC),
     )
 
@@ -196,14 +190,10 @@ def test_at_threshold_fires(db_session: Any, monkeypatch: pytest.MonkeyPatch) ->
     assert len(calls) == 1
 
 
-# --- cooldown ---------------------------------------------------------------
-
-
 def test_24h_cooldown_suppresses_second_fire(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user(db_session, "cooldown_supp")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
-    # Pre-seed last_fired_at = 1 hour ago.
     fired_at = datetime.now(UTC) - timedelta(hours=1)
     _make_alert(db_session, user, part, threshold_cents=10_000, last_fired_at=fired_at)
 
@@ -224,7 +214,6 @@ def test_cooldown_reset_after_25h_fires_again(db_session: Any, monkeypatch: pyte
     user = _make_user(db_session, "cooldown_reset")
     part = _make_part(db_session, user)
     retailer = _make_retailer(db_session)
-    # Pre-seed last_fired_at = 25 hours ago — outside the 24h window.
     fired_at = datetime.now(UTC) - timedelta(hours=25)
     alert = _make_alert(db_session, user, part, threshold_cents=10_000, last_fired_at=fired_at)
 
@@ -246,9 +235,6 @@ def test_cooldown_reset_after_25h_fires_again(db_session: Any, monkeypatch: pyte
     )
 
 
-# --- cross-user isolation ---------------------------------------------------
-
-
 def test_alert_on_one_part_does_not_fire_on_another_part(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """Alice's alert on part A must not fire on bob's listing observation on part B."""
     alice = _make_user(db_session, "iso_alice")
@@ -261,8 +247,6 @@ def test_alert_on_one_part_does_not_fire_on_another_part(db_session: Any, monkey
     stub, calls = _stub_email_send(return_value=True)
     monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
 
-    # Observation on part_b at a price that WOULD fire alice's alert
-    # if cross-part leakage happened.
     evaluate_alerts_for_listing(
         part_id=part_b.id,
         retailer_id=retailer.id,
@@ -271,9 +255,6 @@ def test_alert_on_one_part_does_not_fire_on_another_part(db_session: Any, monkey
     )
 
     assert calls == [], "alert on part_a must not fire when part_b is observed"
-
-
-# --- failure paths ----------------------------------------------------------
 
 
 def test_send_failure_leaves_last_fired_at_unchanged(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -318,7 +299,6 @@ def test_exception_in_one_alert_does_not_block_another(db_session: Any, monkeypa
 
     monkeypatch.setattr("app.core.email.send_price_drop_alert_email", flaky_send)
 
-    # Should not raise — exceptions in per-alert iteration are swallowed/logged.
     evaluate_alerts_for_listing(
         part_id=part.id,
         retailer_id=retailer.id,
@@ -329,14 +309,10 @@ def test_exception_in_one_alert_does_not_block_another(db_session: Any, monkeypa
     assert len(calls) == 1
     assert calls[0]["alert_id"] == good_alert.id
 
-    # Bad alert was never marked as fired (exception path).
     bad_alert = _reload(bad_alert)
     assert bad_alert.last_fired_at is None
     good_alert = _reload(good_alert)
     assert good_alert.last_fired_at is not None
-
-
-# --- inactive alerts are skipped --------------------------------------------
 
 
 def test_inactive_alert_is_skipped(db_session: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -355,9 +331,6 @@ def test_inactive_alert_is_skipped(db_session: Any, monkeypatch: pytest.MonkeyPa
         observed_at=datetime.now(UTC),
     )
     assert calls == []
-
-
-# --- the price-write chokepoint no longer evaluates -------------------------
 
 
 def test_create_or_update_listing_and_price_does_not_invoke_evaluator(
@@ -397,8 +370,6 @@ def test_create_or_update_listing_and_price_does_not_invoke_evaluator(
     assert listing is not None
     assert listing.last_known_price_cents == 11_000
 
-    # And the observation the write persisted is exactly what the consumer needs
-    # to evaluate, which is what makes the removal safe rather than merely quiet.
     assert listing.last_price_updated_at is not None
     evaluate_alerts_for_listing(
         part_id=part.id,

@@ -212,7 +212,6 @@ class FakeBuildListParts:
     """The second pass: rows this user added to somebody else's list."""
 
     def __init__(self, rows: Dict[str, UUID]) -> None:
-        # usage id -> who added it
         self.rows = dict(rows)
         self.deleted: List[List[str]] = []
 
@@ -287,11 +286,6 @@ class FakeRepos:
         self.reports = reports
         self.oauth_accounts = oauth_accounts
         self.webauthn_credentials = webauthn_credentials
-        # The rest of the eighteen. The two build list children are only ever
-        # handed to `delete_build_list_cascade`, which is stubbed here, so a
-        # sentinel is enough and an accidental reach is an AttributeError in a
-        # test rather than a surprise in production. The two build log
-        # repositories are real fakes because their helper is not stubbed.
         self.build_list_phases = object()
         self.build_list_labor_estimates = object()
         self.build_logs = FakeBuildLogs()
@@ -343,8 +337,6 @@ def stub_the_two_borrowed_helpers(request: pytest.FixtureRequest, monkeypatch: p
 
     state: Dict[str, Any] = {"purge_failures": set(), "cascade_failures": set()}
 
-    # Layer 3 runs both helpers unstubbed, which is the whole point of it, so
-    # the fixture stands down for anything that asked for real DynamoDB.
     if "dynamo_tables" in request.fixturenames:
         return state
 
@@ -617,7 +609,6 @@ class TestIdempotency:
         assert process_queue_records(repos, [record]) == []
         assert repos.is_empty_for(user_id)
 
-        # The redelivery. Every step queries, finds nothing, and writes nothing.
         assert process_queue_records(repos, [record]) == []
         assert repos.is_empty_for(user_id)
 
@@ -653,10 +644,6 @@ class TestIdempotency:
         """
         user_id = str(uuid4())
         repos = build_world(user_id)
-        # The listing reports a part the purge then finds already gone, which is
-        # the interleaving a concurrent part delete or a retry produces. The
-        # stub raises `ItemNotFound` for exactly that, matching what the real
-        # `attribute_exists` condition does.
         repos.parts.rows[user_id] = ["part-a"]
         listed = repos.parts.list_by_user
 
@@ -674,7 +661,6 @@ class TestIdempotency:
         """The half-done case, which is what a retry actually encounters."""
         user_id = str(uuid4())
         repos = build_world(user_id)
-        # Parts and build lists succeed, then the votes delete throws.
         repos.votes.fail_for.add(user_id)
 
         assert process_queue_records(repos, [queue_record(user_id=user_id, message_id="m1")]) == ["m1"]
@@ -683,7 +669,6 @@ class TestIdempotency:
         assert user_id in repos.votes.rows, "the failing step left its rows"
         assert user_id in repos.oauth_accounts.rows, "the steps after it never ran"
 
-        # The retry re-runs the completed steps as no-ops and finishes the rest.
         repos.votes.fail_for.clear()
         assert process_queue_records(repos, [queue_record(user_id=user_id, message_id="m1")]) == []
         assert repos.is_empty_for(user_id)
@@ -716,8 +701,6 @@ class TestIdempotency:
         assert process_queue_records(repos, batch) == ["m3"]
         assert repos.is_empty_for(good_a) and repos.is_empty_for(good_b)
 
-        # The mapping bisects and re-delivers the whole batch. The two that
-        # succeeded run again against rows that are already gone.
         repos.votes.fail_for.clear()
         assert process_queue_records(repos, batch) == []
         assert repos.is_empty_for(good_a)
@@ -781,9 +764,6 @@ class TestAgainstRealRepositories:
         assert counts["votes"] == 1
         assert counts["reports"] == 1
 
-        # The part is tombstoned rather than removed: seam 2's consumer takes it
-        # from here, off the `parts` stream. That chaining is the whole reason
-        # this cascade does not touch `build_list_parts` on a part's behalf.
         remaining = repos.parts.get(str(part.id))
         assert remaining is None or getattr(remaining, "deleted", False) is True
 
@@ -813,8 +793,6 @@ class TestAgainstRealRepositories:
 
         assert cascade_user_delete(repos, user_id)["votes"] == 1
 
-        # A DeleteItem on a key that is not there succeeds, so the replay is a
-        # no-op rather than an error.
         second = cascade_user_delete(repos, user_id)
         assert set(second.values()) == {0}
 
@@ -874,8 +852,6 @@ class TestTheSynchronousHalfStayedBehind:
             user_delete.purge_identity,
         ):
             body = inspect.getsource(step)
-            # Drop the docstring, which names `repos.users.delete_user` in order
-            # to say that this is where it does not happen.
             head, _, tail = body.partition('"""')
             _, _, after = tail.partition('"""')
             lines.extend((head + after).splitlines())
@@ -1033,8 +1009,4 @@ class TestEntrypoint:
         for table in ("parts", "build_lists", "build_list_parts", "votes", "reports", "webauthn_credentials"):
             assert table not in DOMAINS["users"].repositories
 
-        # `oauth_accounts` stays, and it is the one entry that looks wrong on a
-        # row that removes twenty. `user_read` reads it on every user response
-        # to report which social accounts are linked, which is a route of the
-        # domain's own rather than anything the cascade did.
         assert "oauth_accounts" in DOMAINS["users"].repositories

@@ -197,7 +197,7 @@ class TestRetailers:
         assert response.status_code == 200
         data = response.json()
         assert data["domain"] == domain
-        assert data["name"]  # Derived from domain (e.g., A90shop)
+        assert data["name"]
 
     def test_post_get_or_create_empty_domain_returns_400(self, client: TestClient, db_session: Any) -> None:
         """Test get-or-create with empty domain returns 400."""
@@ -372,13 +372,11 @@ class TestRetailers:
         )
         retailer_id = created["id"]
 
-        # Create part_manufacturer for global part
         part_manufacturer = DBPartManufacturer(
             name=get_unique_name("RetPartManufacturer"), description="PartManufacturer", is_active=True
         )
         part_manufacturer = save_catalog(part_manufacturer)
 
-        # Create global part and part listing
         _, user_token = create_and_login_user(client, "ret_listings_user", db_session)
         category_id = get_default_category_id(db_session)
         part_data = {

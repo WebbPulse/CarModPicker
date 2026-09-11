@@ -20,14 +20,7 @@ import pytest
 
 from app.core.car_inference import infer_car_generations
 
-# Each vector: (name, description, expected_tuple_if_should_match_or_None, rationale)
-#
-# When `expected` is None, the vector pins "no match for the collision code"
-# (the code is in AMBIGUOUS_STANDALONE_CODES and nothing disambiguates it).
-# When `expected` is a tuple, the vector pins that the tuple appears in the
-# result (other tuples may also appear — we assert containment, not equality).
 AMBIGUITY_VECTORS: list[tuple[str, Optional[str], Optional[tuple[str, str, str]], str]] = [
-    # --- Explicit disambiguation — SHOULD match ---
     (
         "Cusco Rear Chassis Power Brace MKV Supra GR A90 / A91",
         "Cusco Rear Chassis Power Brace for the 2020 GR Supra A90.",
@@ -70,7 +63,6 @@ AMBIGUITY_VECTORS: list[tuple[str, Optional[str], Optional[tuple[str, str, str]]
         ("BMW", "M3", "E46"),
         "E46 M3 explicit alias fires despite E46 in AMBIGUOUS_STANDALONE_CODES",
     ),
-    # --- Ambiguous-standalone codes WITHOUT adjacent make+model — should NOT fire ---
     (
         "HKS Hi Power Exhaust Universal",
         None,
@@ -188,15 +180,7 @@ AMBIGUITY_VECTORS: list[tuple[str, Optional[str], Optional[tuple[str, str, str]]
 ]
 
 
-# Negative-vector map: when a negative vector's input produces OTHER (allowed) matches
-# under current behavior, we only assert a specific triple does NOT appear, rather than
-# requiring the full result to be empty. Key: (name, desc). Value: forbidden triple.
-#
-# The 19 negative vectors not listed here must produce an EMPTY inference result.
 NEGATIVE_FORBIDDEN_TUPLES: dict[tuple[str, Optional[str]], tuple[str, str, str]] = {
-    # Bilstein EVO T1 — the "T1" token legitimately matches GM trucks. The ambiguity
-    # we're pinning is that EVO standalone does NOT fire Huracán EVO, not that the
-    # whole inference must be empty.
     ("Bilstein EVO T1 Coilover System", None): ("Lamborghini", "Huracán", "EVO"),
 }
 
@@ -234,23 +218,6 @@ def test_ambiguity_resolution_pins_current_behavior(
 def test_vector_count_meets_floor() -> None:
     """Plan 04-06 D-37 requires at least 20 vectors."""
     assert len(AMBIGUITY_VECTORS) >= 20, f"Expected >=20 ambiguity vectors; got {len(AMBIGUITY_VECTORS)}"
-
-
-# ---------------------------------------------------------------------------
-# Tier-1 audit (2026-05) false-positive purge regression tests.
-#
-# The audit found ``_build_phrase_triples`` was splitting gen_name strings like
-# ``Turbo/Shelby``, ``BE/BH``, ``R/T Turbo``, ``E36/7 E36/8`` and ``V1`` into
-# 1-2 char tokens that matched English words and SKU fragments inside product
-# titles. The fix:
-#   * Adds the offending whole-gen-name strings + their generic alpha
-#     components to ``AMBIGUOUS_STANDALONE_CODES``.
-#   * Adds a ``_is_too_short_to_dispatch`` length filter that drops pure-alpha
-#     < 4 chars and pure-digit < 3 chars (always rejects single digits).
-#
-# These tests pin the post-fix behavior so the Tier-1 cleanup migration does
-# not silently regress.
-# ---------------------------------------------------------------------------
 
 
 class TestTier1AuditFalsePositivePurge:

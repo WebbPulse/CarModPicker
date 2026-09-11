@@ -27,7 +27,7 @@ not merely find nothing, it would attempt a network call and fail.
 from __future__ import annotations
 
 import json
-import subprocess  # nosec B404 - fixed argv, no shell, no user input
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -38,14 +38,8 @@ from app.composition.domains import DOMAIN_NAMES, ENTRYPOINT_MODULES
 
 BACKEND = Path(__file__).resolve().parents[2]
 
-# An ARN that is syntactically valid and belongs to an account that does not
-# exist, so any attempt to resolve it is a network call that fails rather than a
-# quiet miss.
 UNREADABLE_SECRET_ARN = "arn:aws:secretsmanager:us-west-2:000000000000:secret:carmodpicker-nonexistent-AAAAAA"
 
-# Build the application, then report which endpoint modules ended up imported
-# and how many routes it serves. Printed as JSON on the last line so a
-# import-time log line on stdout cannot corrupt the result.
 PROBE = """
 import json, sys
 from app.entrypoints import {module} as entrypoint
@@ -76,12 +70,10 @@ def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     environment = {
         "PATH": "/usr/bin:/bin",
         "PYTHONPATH": str(BACKEND),
-        # Otherwise a `.pyc` write into a read-only tree is a hard failure, and
-        # the Lambda filesystem is read-only outside `/tmp`.
         "PYTHONDONTWRITEBYTECODE": "1",
     }
     environment.update(env or {})
-    result = subprocess.run(  # nosec B603 - fixed argv, no shell
+    result = subprocess.run(  # nosec B603
         [sys.executable, "-c", code],
         cwd=str(BACKEND),
         env=environment,
@@ -121,14 +113,6 @@ def test_an_entrypoint_imports_only_its_own_endpoint_modules(domain: str, probes
     """The claim that makes nine images smaller than nine copies of one image."""
     from app.composition.domains import DOMAINS
 
-    # Reconstruct what this domain is allowed to import by calling its own
-    # loader in this process. An `APIRouter` is a `fastapi.routing` object and
-    # says nothing about where it was built, so the defining module is taken
-    # from the route handlers it carries instead.
-    #
-    # `auth/*` and `admin/*` are four-segment module names while the probe
-    # records three-segment ones, so both sides are truncated to the same depth:
-    # `app.api.endpoints.auth` stands for all four auth modules.
     expected = sorted(
         {
             ".".join(route.endpoint.__module__.split(".")[:4])
@@ -204,8 +188,6 @@ def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:
     module = __import__(f"app.entrypoints.{ENTRYPOINT_MODULES[domain]}", fromlist=["main"])
     assert callable(module.build_app)
     assert callable(module.main)
-    # Mangum, matching `app/lambda_handler.py`. The Web Adapter switch is a
-    # later PR; if this changes, the deploy workflow changes with it.
     assert module.handler is not None
     source = Path(module.__file__).read_text()
     for helper in ("configure_logging", "init_sentry", "check_signing_key"):

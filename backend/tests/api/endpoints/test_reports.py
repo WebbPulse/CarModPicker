@@ -26,7 +26,6 @@ def create_and_login_admin_user(
     email = f"admin_test_{username_suffix}@example.com"
     password = "testpassword"
 
-    # Create admin user directly in database
     admin_user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -39,7 +38,6 @@ def create_and_login_admin_user(
         )
     )
 
-    # Log in and get token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
@@ -58,7 +56,6 @@ class TestUnifiedReports:
         db_session: Any,
     ) -> None:
         """Test successfully creating a report for a build list."""
-        # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
@@ -74,17 +71,14 @@ class TestUnifiedReports:
             )
         )
 
-        # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         build_list_owner_token = response.json()["access_token"]
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
@@ -96,14 +90,12 @@ class TestUnifiedReports:
         assert response.status_code == 200
         build_list = response.json()
 
-        # Login as test user and create a report
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         test_user_token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {test_user_token}"}
 
-        # Create a report
         report_data = {
             "reason": "spam",
             "description": "This build list is spam",
@@ -130,7 +122,6 @@ class TestUnifiedReports:
         db_session: Any,
     ) -> None:
         """Test successfully creating a report for a global part."""
-        # Create a second user to own the global part
         from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
@@ -146,13 +137,11 @@ class TestUnifiedReports:
             )
         )
 
-        # Create a category first
         from app.db.dynamo.catalog import Category as DBCategory
 
         category = DBCategory(name=get_unique_name("Test Category"))
         category = save_catalog(category)
 
-        # Create a part_manufacturer
         from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 
         part_manufacturer = DBPartManufacturer(
@@ -160,14 +149,12 @@ class TestUnifiedReports:
         )
         part_manufacturer = save_catalog(part_manufacturer)
 
-        # Login as part owner and create a global part
         login_data = {"username": part_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         part_owner_token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {part_owner_token}"}
 
-        # Create a global part
         part_data = {
             "name": get_unique_name("Test Part"),
             "description": "A test part description",
@@ -178,14 +165,12 @@ class TestUnifiedReports:
         assert response.status_code == 200
         part = response.json()
 
-        # Login as test user and create a report
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         test_user_token = response.json()["access_token"]
         test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
-        # Create a report
         report_data = {
             "reason": "inaccurate",
             "description": "This part information is inaccurate",
@@ -207,7 +192,6 @@ class TestUnifiedReports:
 
     def test_create_report_unauthorized(self, client: TestClient, db_session: Any) -> None:
         """Test creating a report without authentication."""
-        # Try to create a report without authentication
         report_data = {
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
@@ -217,14 +201,12 @@ class TestUnifiedReports:
 
     def test_create_report_entity_not_found(self, client: TestClient, test_user: User) -> None:
         """Test creating a report for an entity that doesn't exist."""
-        # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Try to report non-existent entity
         report_data = {
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
@@ -236,17 +218,14 @@ class TestUnifiedReports:
 
     def test_create_report_own_entity(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test that users cannot report their own entities."""
-        # Login as test user and create a build list
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list owned by test user
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
@@ -256,7 +235,6 @@ class TestUnifiedReports:
         assert response.status_code == 200
         build_list = response.json()
 
-        # Try to report own build list (should fail)
         report_data = {
             "reason": "inappropriate_content",
             "description": "This build list contains inappropriate content",
@@ -266,13 +244,11 @@ class TestUnifiedReports:
         )
         assert response.status_code == 400
         response_data = response.json()
-        # Handle both "detail" and "message" response formats
         error_text = response_data.get("detail", response_data.get("message", "")).lower()
         assert "cannot report your own" in error_text or "report your own" in error_text
 
     def test_create_report_already_reported(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test that users cannot report the same entity twice."""
-        # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
@@ -288,17 +264,14 @@ class TestUnifiedReports:
             )
         )
 
-        # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         build_list_owner_token = response.json()["access_token"]
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
@@ -310,14 +283,12 @@ class TestUnifiedReports:
         assert response.status_code == 200
         build_list = response.json()
 
-        # Login as test user and create a report
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         test_user_token = response.json()["access_token"]
         test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
-        # Create first report
         report_data = {
             "reason": "inappropriate_content",
             "description": "This build list contains inappropriate content",
@@ -329,7 +300,6 @@ class TestUnifiedReports:
         )
         assert response.status_code == 200
 
-        # Try to create second report
         report_data = {
             "reason": "spam",
             "description": "This build list is spam",
@@ -344,48 +314,41 @@ class TestUnifiedReports:
 
     def test_list_reports_admin_only(self, client: TestClient, test_user: User) -> None:
         """Test that listing reports requires admin access."""
-        # Login as regular user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Try to list reports
         response = client.get(f"{settings.API_STR}/reports/admin/list", headers=headers)
         assert response.status_code == 403
 
     def test_list_reports_success(self, client: TestClient, test_admin_user: User, db_session: Any) -> None:
         """Test successfully listing reports as admin."""
-        # Login as admin user
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # List reports
         response = client.get(f"{settings.API_STR}/reports/admin/list", headers=headers)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
     def test_get_my_reports_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully getting user's own reports."""
-        # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Get my reports
         response = client.get(f"{settings.API_STR}/reports/my-reports", headers=headers)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
     def test_get_report_by_id_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully getting a specific report by ID."""
-        # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
@@ -401,17 +364,14 @@ class TestUnifiedReports:
             )
         )
 
-        # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         build_list_owner_token = response.json()["access_token"]
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
@@ -423,14 +383,12 @@ class TestUnifiedReports:
         assert response.status_code == 200
         build_list = response.json()
 
-        # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         test_user_token = response.json()["access_token"]
         test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
-        # Create a report
         report_data = {
             "reason": "spam",
             "description": "This build list is spam",
@@ -443,7 +401,6 @@ class TestUnifiedReports:
         assert response.status_code == 200
         report = response.json()
 
-        # Get the report by ID
         response = client.get(f"{settings.API_STR}/reports/{report['id']}", headers=test_user_headers)
         assert response.status_code == 200
         retrieved_report = response.json()
@@ -452,27 +409,23 @@ class TestUnifiedReports:
 
     def test_get_report_by_id_not_found(self, client: TestClient, test_user: User) -> None:
         """Test getting a report that doesn't exist."""
-        # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Try to get non-existent report
         response = client.get(f"{settings.API_STR}/reports/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
     def test_update_report_status_admin_only(self, client: TestClient, test_user: User) -> None:
         """Test that updating report status requires admin access."""
-        # Login as regular user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Try to update report status
         update_data = {"status": "resolved", "admin_notes": "Issue resolved"}
         response = client.put(f"{settings.API_STR}/reports/{INVALID_UUID_STR}", json=update_data, headers=headers)
         assert response.status_code == 403
@@ -482,7 +435,6 @@ class TestUnifiedReports:
         from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
-        # Create a test user to own the build list
         build_list_owner = UserRepository().create_user(
             DBUser(
                 username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
@@ -495,17 +447,14 @@ class TestUnifiedReports:
             )
         )
 
-        # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         build_list_owner_token = response.json()["access_token"]
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
@@ -517,7 +466,6 @@ class TestUnifiedReports:
         assert response.status_code == 200
         build_list = response.json()
 
-        # Create a test user to make the report
         test_user = UserRepository().create_user(
             DBUser(
                 username=f"test_user_{os.getpid()}_{id(db_session)}",
@@ -530,14 +478,12 @@ class TestUnifiedReports:
             )
         )
 
-        # Login as test user and create a report
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         test_user_token = response.json()["access_token"]
         test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
-        # Create a report
         report_data = {
             "reason": "duplicate",
             "description": "This build list is a duplicate",
@@ -550,7 +496,6 @@ class TestUnifiedReports:
         assert response.status_code == 200
         report = response.json()
 
-        # Login as admin and update report status
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
@@ -566,14 +511,12 @@ class TestUnifiedReports:
 
     def test_delete_report_admin_only(self, client: TestClient, test_user: User) -> None:
         """Test that deleting reports requires admin access."""
-        # Login as regular user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Try to delete report
         response = client.delete(f"{settings.API_STR}/reports/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 403
 
@@ -582,7 +525,6 @@ class TestUnifiedReports:
         from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
-        # Create a test user to own the build list
         build_list_owner = UserRepository().create_user(
             DBUser(
                 username=f"build_list_owner_{os.getpid()}_{id(db_session)}",
@@ -595,17 +537,14 @@ class TestUnifiedReports:
             )
         )
 
-        # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         build_list_owner_token = response.json()["access_token"]
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
@@ -617,7 +556,6 @@ class TestUnifiedReports:
         assert response.status_code == 200
         build_list = response.json()
 
-        # Create a test user to make the report
         test_user = UserRepository().create_user(
             DBUser(
                 username=f"test_user2_{os.getpid()}_{id(db_session)}",
@@ -630,14 +568,12 @@ class TestUnifiedReports:
             )
         )
 
-        # Login as test user and create a report
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         test_user_token = response.json()["access_token"]
         test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
-        # Create a report
         report_data = {
             "reason": "other",
             "description": "Other issue with this build list",
@@ -650,7 +586,6 @@ class TestUnifiedReports:
         assert response.status_code == 200
         report = response.json()
 
-        # Login as admin and delete report
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
@@ -663,14 +598,12 @@ class TestUnifiedReports:
 
     def test_report_invalid_entity_type(self, client: TestClient, test_user: User) -> None:
         """Test reporting with invalid entity type."""
-        # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Try to report with invalid entity type
         report_data = {
             "reason": "inappropriate_content",
             "description": "This entity contains inappropriate content",
@@ -678,11 +611,10 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/invalid_type/{INVALID_UUID_STR}", json=report_data, headers=headers
         )
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
     def test_report_invalid_reason(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test reporting with invalid reason."""
-        # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
@@ -698,17 +630,14 @@ class TestUnifiedReports:
             )
         )
 
-        # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         build_list_owner_token = response.json()["access_token"]
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
@@ -720,14 +649,12 @@ class TestUnifiedReports:
         assert response.status_code == 200
         build_list = response.json()
 
-        # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Try to report with invalid reason
         report_data = {
             "reason": "invalid_reason",
             "description": "This build list has an invalid reason",
@@ -735,11 +662,10 @@ class TestUnifiedReports:
         response = client.post(
             f"{settings.API_STR}/reports/build_list/{build_list['id']}", json=report_data, headers=headers
         )
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
     def test_count_reports_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test counting reports."""
-        # Get initial count (public endpoint, no auth required)
         response = client.get(f"{settings.API_STR}/reports/count")
         assert response.status_code == 200
         initial_data = response.json()
@@ -748,7 +674,6 @@ class TestUnifiedReports:
         assert isinstance(initial_count, int)
         assert initial_count >= 0
 
-        # Create a second user to own the build list
         from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.users import User as DBUser
 
@@ -764,17 +689,14 @@ class TestUnifiedReports:
             )
         )
 
-        # Create a car first (requires admin)
         car = create_car_in_db(db_session)
 
-        # Login as build list owner and create a build list
         login_data = {"username": build_list_owner.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         build_list_owner_token = response.json()["access_token"]
         build_list_owner_headers = {"Authorization": f"Bearer {build_list_owner_token}"}
 
-        # Create a build list
         build_list_data = {
             "name": get_unique_name("Test Build List"),
             "description": "A test build list description",
@@ -786,14 +708,12 @@ class TestUnifiedReports:
         assert response.status_code == 200
         build_list = response.json()
 
-        # Login as test user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         test_user_token = response.json()["access_token"]
         test_user_headers = {"Authorization": f"Bearer {test_user_token}"}
 
-        # Create a report
         report_data = {
             "reason": "spam",
             "description": "This build list is spam",
@@ -805,7 +725,6 @@ class TestUnifiedReports:
         )
         assert response.status_code == 200
 
-        # Count again (should be increased by 1)
         response = client.get(f"{settings.API_STR}/reports/count")
         assert response.status_code == 200
         updated_data = response.json()
@@ -814,7 +733,6 @@ class TestUnifiedReports:
 
     def test_count_reports_public_endpoint(self, client: TestClient) -> None:
         """Test that counting reports works without authentication."""
-        # Count reports (public endpoint, no auth required)
         response = client.get(f"{settings.API_STR}/reports/count")
         assert response.status_code == 200
         data = response.json()
@@ -824,14 +742,12 @@ class TestUnifiedReports:
 
     def test_list_reports_with_details_admin_only(self, client: TestClient, test_user: User) -> None:
         """Test that listing reports with details requires admin access."""
-        # Login as regular user
         login_data = {"username": test_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Try to list reports with details
         response = client.get(f"{settings.API_STR}/reports/admin/list-with-details", headers=headers)
         assert response.status_code == 403
 
@@ -839,24 +755,21 @@ class TestUnifiedReports:
         self, client: TestClient, test_admin_user: User, db_session: Any
     ) -> None:
         """Test successfully listing reports with details as admin."""
-        # Login as admin user
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # List reports with details
         response = client.get(f"{settings.API_STR}/reports/admin/list-with-details", headers=headers)
         assert response.status_code == 200
 
         data = response.json()
         assert "data" in data
         assert "pagination" in data
-        assert "total_items" in data["pagination"]  # total is in pagination object
-        assert "items_per_page" in data["pagination"]  # limit is items_per_page in pagination
+        assert "total_items" in data["pagination"]
+        assert "items_per_page" in data["pagination"]
         assert isinstance(data["data"], list)
-        # Check pagination object instead of top-level fields
         assert isinstance(data["pagination"]["total"], int)
         assert isinstance(data["pagination"]["skip"], int)
         assert isinstance(data["pagination"]["limit"], int)
@@ -865,21 +778,18 @@ class TestUnifiedReports:
         self, client: TestClient, test_admin_user: User, db_session: Any
     ) -> None:
         """Test pagination for listing reports with details."""
-        # Login as admin user
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Get first page
         response = client.get(f"{settings.API_STR}/reports/admin/list-with-details?skip=0&limit=10", headers=headers)
         assert response.status_code == 200
         first_page = response.json()
         assert "data" in first_page
         assert len(first_page["data"]) <= 10
 
-        # Get second page
         response = client.get(f"{settings.API_STR}/reports/admin/list-with-details?skip=10&limit=10", headers=headers)
         assert response.status_code == 200
         second_page = response.json()
@@ -889,14 +799,12 @@ class TestUnifiedReports:
         self, client: TestClient, test_admin_user: User, db_session: Any
     ) -> None:
         """Test filtering for listing reports with details."""
-        # Login as admin user
         login_data = {"username": test_admin_user.username, "password": "testpassword"}
         response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
         assert response.status_code == 200
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # List reports with entity_type filter
         response = client.get(
             f"{settings.API_STR}/reports/admin/list-with-details?entity_type=build_list", headers=headers
         )
@@ -905,7 +813,6 @@ class TestUnifiedReports:
         assert "data" in data
         assert isinstance(data["data"], list)
 
-        # List reports with status filter
         response = client.get(f"{settings.API_STR}/reports/admin/list-with-details?status=pending", headers=headers)
         assert response.status_code == 200
         data = response.json()

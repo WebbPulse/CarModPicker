@@ -71,10 +71,6 @@ from app.api.dependencies.identity_claims import (
 from app.api.dependencies.repositories import get_repositories
 from app.db.dynamo.users import User, UserRepository
 
-#: The issuer and audience `terraform/identity.tf` renders for staging. Spelled
-#: out rather than imported from row 5's fixture because this file never builds
-#: an `IdentitySettings`: what it needs is a claim set of the right shape, and
-#: the two strings are part of that shape.
 ISSUER = "https://api.staging.carmodpicker.com/api/auth"
 AUDIENCE = "carmodpicker-staging-api"
 
@@ -180,11 +176,6 @@ def _request(header_value: str | None = None, authorization: str | None = None) 
     return Request({"type": "http", "method": "GET", "path": "/", "headers": headers})
 
 
-# ---------------------------------------------------------------------------
-# The reader: two shapes, one answer.
-# ---------------------------------------------------------------------------
-
-
 def test_the_native_authorizer_shape_is_read() -> None:
     """Production's `authorizer.jwt.claims` resolves through the package's reader."""
     subject = str(uuid4())
@@ -260,11 +251,6 @@ def test_in_process_verification_is_off_without_the_identity_environment() -> No
     assert verify_bearer_subject(_request(authorization="Bearer whatever")) == ""
 
 
-# ---------------------------------------------------------------------------
-# The mapping: `sub` is the user id.
-# ---------------------------------------------------------------------------
-
-
 def test_sub_resolves_to_the_user_row_by_id(identity_user: User) -> None:
     """The identity `sub` is the CarModPicker `users.id`, with no link table.
 
@@ -315,11 +301,6 @@ def test_an_unverified_address_is_refused_on_the_identity_path(identity_user: Us
     UserRepository().update_user(identity_user.id, email_verified=False)
     repos = get_repositories()
     assert resolve_identity_user(_request(native_context(str(identity_user.id))), repos) is None
-
-
-# ---------------------------------------------------------------------------
-# Dual mode, through a real application.
-# ---------------------------------------------------------------------------
 
 
 def _dual_mode_app() -> FastAPI:

@@ -30,10 +30,8 @@ from typing import Any, Generator
 
 import pytest
 
-#: The prefix `conftest.py`'s `dynamo_tables` fixture patches onto the settings.
 PREFIX = "test"
 
-#: The region that fixture creates its tables in.
 REGION = "us-east-1"
 
 

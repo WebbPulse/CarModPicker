@@ -35,7 +35,6 @@ def test_new_build_list_has_eager_build_log(db_session: Any, test_user: User) ->
     payload = BuildListCreate(name="test-eager-create", description="seed", car_id=car.id)
     bl = svc.create(payload, test_user, logger=logger)
 
-    # Invariant: the just-created BuildList has a BuildLog.
     build_log = BuildLogRepository().for_build_list(bl.id)
     assert build_log is not None, f"BuildList {bl.id} has no eager BuildLog"
     assert build_log.title == "Build Log: test-eager-create"

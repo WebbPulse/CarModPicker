@@ -87,8 +87,6 @@ def google_configured(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, 
 
 
 def test_google_sign_in_returns_503_when_not_configured(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    # The client id ships with a real default in source; an explicit empty override
-    # disables Google sign-in (e.g. for an environment that doesn't want it).
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "")
     resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
     assert resp.status_code == 503
@@ -166,11 +164,9 @@ def test_google_sign_in_existing_link_with_totp_returns_otp_token(
     assert body.get("requires_2fa") is True
     otp_token = body["otp_token"]
 
-    # Wrong OTP rejected
     bad = client.post(OAUTH_2FA_PATH, json={"otp_token": otp_token, "otp": "000000"})
     assert bad.status_code == 401
 
-    # Correct OTP succeeds
     code = pyotp.TOTP(secret).now()
     good = client.post(OAUTH_2FA_PATH, json={"otp_token": otp_token, "otp": code})
     assert good.status_code == 200, good.text
@@ -190,7 +186,6 @@ def test_google_link_succeeds_with_correct_password(
     resp = client.post(LINK_PATH, json={"link_token": link_token, "password": "rightpw"})
     assert resp.status_code == 200, resp.text
     assert resp.json()["user"]["username"] == username
-    # OAuth row was created
     row = OAuthAccountRepository().get_for_user_provider(user.id, "google")
     assert row is not None
     assert row.provider_account_id == "g-sub-link"
@@ -219,15 +214,12 @@ def test_google_link_requires_otp_when_2fa_enabled(
     assert body["has_totp"] is True
     link_token = body["link_token"]
 
-    # Missing OTP
     no_otp = client.post(LINK_PATH, json={"link_token": link_token, "password": "rightpw"})
     assert no_otp.status_code == 400
 
-    # Bad OTP
     bad_otp = client.post(LINK_PATH, json={"link_token": link_token, "password": "rightpw", "otp": "000000"})
     assert bad_otp.status_code == 401
 
-    # Good OTP
     good_otp = client.post(
         LINK_PATH,
         json={"link_token": link_token, "password": "rightpw", "otp": pyotp.TOTP(secret).now()},
@@ -281,7 +273,6 @@ def test_google_connect_links_authenticated_user(client: TestClient, db_session:
     user = _create_user(db_session, username)
     token = _login(client, username)
 
-    # Different email at Google than at CarModPicker — allowed for connect.
     identity = _identity("g-sub-connect", f"{username}-google@example.com")
     with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(CONNECT_PATH, json={"id_token": "x", "nonce": "y"}, headers=_auth(token))
@@ -289,7 +280,6 @@ def test_google_connect_links_authenticated_user(client: TestClient, db_session:
     body = resp.json()
     assert body["provider"] == "google"
 
-    # Now appears in /auth/oauth list.
     listed = client.get(OAUTH_LIST_PATH, headers=_auth(token))
     assert listed.status_code == 200
     assert any(a["provider"] == "google" for a in listed.json())
@@ -302,8 +292,6 @@ def test_google_connect_refuses_when_email_belongs_to_other_user(
     other = _create_user(db_session, _unique("connectme_b"))
     token = _login(client, me.username)
 
-    # Google email matches `other`, not `me` — must refuse to preserve the invariant
-    # that no two users share an email.
     identity = _identity("g-sub-conflict", other.email)
     with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         resp = client.post(CONNECT_PATH, json={"id_token": "x", "nonce": "y"}, headers=_auth(token))
@@ -359,7 +347,6 @@ def test_delete_oauth_account_succeeds_when_password_exists(
 def test_delete_oauth_account_refuses_when_only_login_method(
     client: TestClient, db_session: Any, google_configured: None
 ) -> None:
-    # OAuth-only user: no password, no passkeys, only one OAuth link → can't delete it.
     username = _unique("oauthonly")
     user = UserRepository().create_user(
         DBUser(
@@ -373,7 +360,6 @@ def test_delete_oauth_account_refuses_when_only_login_method(
         OAuthAccount(user_id=user.id, provider="google", provider_account_id="g-sub-only", email=user.email)
     )
 
-    # Login this user via the OAuth path (no password) — use the Google sub already linked.
     identity = _identity("g-sub-only", user.email)
     with patch("app.api.endpoints.auth.oauth.verify_google_id_token", return_value=identity):
         login_resp = client.post(GOOGLE_PATH, json={"id_token": "x", "nonce": "y"})
@@ -387,8 +373,6 @@ def test_delete_oauth_account_refuses_when_only_login_method(
 def test_delete_oauth_account_allows_when_passkey_present(
     client: TestClient, db_session: Any, google_configured: None
 ) -> None:
-    # OAuth-only user with a passkey — passkey is a valid alternative login, so deleting the
-    # only OAuth account is allowed (they can still sign in with the passkey).
     username = _unique("oauthpasskey")
     user = UserRepository().create_user(
         DBUser(username=username, email=f"{username}@example.com", hashed_password=None, email_verified=True)

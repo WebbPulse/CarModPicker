@@ -17,9 +17,6 @@ from app.api.middleware.error_handler import register_error_handlers
 from app.api.middleware.request_context import request_context_middleware
 from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
 
-#: The exact body each case must produce, `request_id` aside. Spelled out as
-#: whole dicts rather than field assertions so an extra or a renamed key fails
-#: too, which is the thing a handler swap could silently change.
 NOT_FOUND_BODY = {
     "success": False,
     "status": 404,
@@ -44,16 +41,12 @@ def assert_body(body: Dict[str, Any], expected: Dict[str, Any]) -> None:
     """The whole envelope, with a real request id and nothing else besides."""
     assert body.keys() == expected.keys() | {"request_id"}
     assert {key: body[key] for key in expected} == expected
-    # "-" is the placeholder the package uses when no middleware set an id.
     assert isinstance(body["request_id"], str) and body["request_id"] != "-"
-    # The raw Starlette shape must not reappear alongside the envelope.
     assert "detail" not in body
 
 
 def build_app() -> FastAPI:
     app = FastAPI()
-    # The request id middleware is what fills the envelope's `request_id`, so it
-    # belongs here too or every body would carry the "-" placeholder.
     app.middleware("http")(request_context_middleware)
     register_error_handlers(app)
 

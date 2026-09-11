@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import ast
 import json
-import subprocess  # nosec B404 - fixed argv, no shell, no user input
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Set
@@ -65,17 +65,8 @@ from app.db.dynamo.registry import REPOSITORY_SPECS
 
 BACKEND = Path(__file__).resolve().parents[2]
 
-# The same unreadable ARN `test_entrypoint_isolation.py` uses: syntactically
-# valid, in an account that does not exist, so an attempt to resolve it is a
-# failed network call rather than a quiet miss.
 UNREADABLE_SECRET_ARN = "arn:aws:secretsmanager:us-west-2:000000000000:secret:carmodpicker-nonexistent-AAAAAA"
 
-
-# --- Section 1.2's ownership column, transcribed ------------------------------
-# Table suffix to the domain that owns it. Twenty-five rows, one owner each,
-# copied from the plan rather than derived, so that a code change cannot quietly
-# rewrite what the plan says. `tests` reads it in both directions: every table
-# has exactly one owner, and the owning domain's bundle carries it.
 
 TABLE_OWNERS: Dict[str, str] = {
     "users": "users",
@@ -105,39 +96,9 @@ TABLE_OWNERS: Dict[str, str] = {
     "image_source_mappings": "media",
 }
 
-# The cross-domain reads section 1.3 leaves synchronous, per domain: repositories
-# a domain carries that another domain owns. Listed by name so that a new one is
-# a deliberate edit here with a reason, rather than a tuple quietly widening.
-#
-# Rows 22 onward of section 8 are what remove these, and row 28 is the first row
-# that actually did. Seam 2 came out of four domains at once: `catalog`,
-# `vehicles`, `build-lists` and `admin` all carried some of `build_list_parts`,
-# `reports` and `part_price_alerts` only because their delete routes called
-# `purge_related_rows_for_parts`. The rest of the list is still outstanding, and
-# `test_no_cross_domain_read_is_undeclared` is what keeps it honest meanwhile.
 EXPECTED_CROSS_DOMAIN_READS: Dict[str, Set[str]] = {
-    # `identity` writes `users` on oauth link, webauthn registration, and
-    # password and 2FA changes. Seam 1's neighbour; stays until the tombstone.
     "identity": {"users"},
-    # Row 30 took seam 1 out of this set, which is the largest single narrowing
-    # in the plan: twenty tables across five domains, written by the delete
-    # cascade on the request thread, now written by
-    # `carmodpicker-<env>-users-delete-consumer` instead.
-    #
-    # `oauth_accounts` is what is left, and it is a real read rather than a
-    # remnant: `user_service.user_read` attaches a user's linked accounts to
-    # every user response. It was not in this set before row 30 and it should
-    # have been. `_bundle_accesses` matches a receiver named `repos`, and that
-    # module read the bundle through a local named `repositories`, so the graph
-    # never saw it; the cascade declared the repository for unrelated reasons
-    # and hid the gap. Row 30 renamed the local, which is why a table appears
-    # here on the row that removes twenty.
     "users": {"oauth_accounts"},
-    # Row 28 took seam 2 out of this set. `build_list_parts`, `reports` and
-    # `part_price_alerts` were here because the synchronous part purge wrote
-    # them; the purge consumer names them now. What is left is `votes`, read by
-    # row 24's `net_votes` consumer, `users`, read by seam 4's price alert
-    # email, and the car tables `part_service` reads to infer fitment.
     "catalog": {
         "users",
         "car_makes",
@@ -145,9 +106,6 @@ EXPECTED_CROSS_DOMAIN_READS: Dict[str, Set[str]] = {
         "car_generations",
         "votes",
     },
-    # Seam 5's search fan-out: one route reading four domains' tables. Stays
-    # synchronous because turning it into service calls makes one Dynamo round
-    # trip into three or four HTTP hops on a path that is already slow.
     "vehicles": {
         "users",
         "categories",
@@ -160,8 +118,6 @@ EXPECTED_CROSS_DOMAIN_READS: Dict[str, Set[str]] = {
         "build_lists",
         "votes",
     },
-    # Price capture writes `part_listings` and `part_price_history`; a build log
-    # is created with the list; the rest are joins for the rendered list.
     "build-lists": {
         "users",
         "car_makes",
@@ -178,18 +134,9 @@ EXPECTED_CROSS_DOMAIN_READS: Dict[str, Set[str]] = {
         "build_log_posts",
         "votes",
     },
-    # The parent list and the author.
     "build-logs": {"users", "build_lists"},
-    # Seam 3, the `net_votes` denormalisation, is the `parts` write, and it is
-    # the only cross-domain write `moderation` has. Row 24 inverts it into a
-    # stream handler `catalog` owns, after which `moderation` has none.
     "moderation": {"users", "car_makes", "car_models", "car_generations", "parts", "build_lists"},
-    # Seam 5's orphan sweep: five full table scans to find unreferenced S3
-    # objects. Read-only, admin-initiated, and the narrowest bundle in the map.
     "media": {"users", "car_generations", "parts", "build_lists"},
-    # `admin/stats` counts twelve tables and `admin/db_ops` seeds and purges, so
-    # `admin` reads most of the application by design. That breadth is why
-    # section 1.5's preferred name won: this is administration, not ingestion.
     "admin": {
         "users",
         "oauth_accounts",
@@ -212,13 +159,6 @@ EXPECTED_CROSS_DOMAIN_READS: Dict[str, Set[str]] = {
         "image_source_mappings",
     },
 }
-
-
-# --- Recomputing a domain's reachable repositories ----------------------------
-# The tuples in `domains.py` are a claim about the import graph, and this is the
-# graph. Read statically with `ast` rather than by importing, because importing
-# nine domains into one interpreter would union their module sets and the
-# question here is per domain.
 
 
 def _module_file(module: str) -> Optional[Path]:
@@ -313,9 +253,6 @@ def _read_loader_source(domain: str) -> str:
     return inspect.getsource(DOMAINS[domain].load_routers).strip()
 
 
-# --- The declared tuples match the code ---------------------------------------
-
-
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_a_domain_declares_every_repository_its_routes_reach(domain: str) -> None:
     """A missing entry is a `RepositoryNotInBundle` in production.
@@ -342,9 +279,6 @@ def test_a_domain_declares_no_repository_its_routes_cannot_reach(domain: str) ->
     reachable = _reachable_repositories(domain)
     surplus = sorted(declared - reachable)
     assert surplus == [], f"{domain} declares {surplus} but no route reaches them"
-
-
-# --- The plan's ownership column ----------------------------------------------
 
 
 def test_every_table_has_exactly_one_owner() -> None:
@@ -398,10 +332,7 @@ def test_media_is_the_narrowest_bundle() -> None:
         "users",
     )
     assert len(media.repositories) == 5
-    assert min(len(DOMAINS[d].repositories) for d in DOMAIN_NAMES) == 3  # identity
-
-
-# --- The bundle's own behaviour -----------------------------------------------
+    assert min(len(DOMAINS[d].repositories) for d in DOMAIN_NAMES) == 3
 
 
 def test_a_bundle_refuses_a_repository_it_does_not_carry() -> None:
@@ -433,8 +364,6 @@ def test_a_bundle_builds_nothing_until_a_repository_is_asked_for() -> None:
     assert "built=[]" in repr(bundle)
     first = bundle.image_source_mappings
     assert "image_source_mappings" in repr(bundle)
-    # Memoised, so every route in the process shares one instance exactly as the
-    # module-level singleton did.
     assert bundle.image_source_mappings is first
 
 
@@ -449,9 +378,6 @@ def test_the_bundle_reports_the_tables_it_can_reach() -> None:
     bundle = build_bundle(DOMAINS["build-logs"].repositories, name="build-logs")
     assert bundle.tables == ("build_lists", "build_log_posts", "build_logs", "users")
     assert bundle.repository_names == DOMAINS["build-logs"].repositories
-
-
-# --- Root A keeps everything --------------------------------------------------
 
 
 def test_the_union_of_the_nine_bundles_is_all_twenty_five() -> None:
@@ -518,13 +444,6 @@ def test_building_one_domain_does_not_disturb_another() -> None:
     assert "app_settings" not in media_bundle.repository_names
 
 
-# --- The fresh-interpreter claims ---------------------------------------------
-# Everything above runs in the test process, where all nine domains are imported
-# and every `app.db.dynamo` module is already in `sys.modules`. These two run in
-# a stripped subprocess, because the claim is about what a cold start imports and
-# only a fresh interpreter can see it.
-
-
 def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     environment = {
         "PATH": "/usr/bin:/bin",
@@ -532,7 +451,7 @@ def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         "PYTHONDONTWRITEBYTECODE": "1",
     }
     environment.update(env or {})
-    result = subprocess.run(  # nosec B603 - fixed argv, no shell
+    result = subprocess.run(  # nosec B603
         [sys.executable, "-c", code],
         cwd=str(BACKEND),
         env=environment,
@@ -622,8 +541,6 @@ def test_importing_the_registry_imports_no_repository_module() -> None:
     must not appear is a module that defines repositories, since each one belongs
     to a domain and most domains want none of them.
     """
-    #: The nine modules under `app.db.dynamo` that define repository classes.
-    #: None of them may be imported by reading the registry.
     repository_modules = {f"app.db.dynamo.{spec.module}" for spec in REPOSITORY_SPECS.values()}
     assert len(repository_modules) == 9
 

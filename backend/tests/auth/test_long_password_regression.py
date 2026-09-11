@@ -39,9 +39,6 @@ from app.api.schemas.auth import PASSWORD_MAX_LENGTH
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 
-# `PASSWORD_MAX_LENGTH` characters of a two byte character: exactly at the schema's
-# limit, and exactly twice bcrypt's. Built from the constant rather than hardcoded so
-# this keeps testing the boundary if the cap is ever changed.
 OVER_LIMIT_PASSWORD = "é" * PASSWORD_MAX_LENGTH
 
 
@@ -61,7 +58,6 @@ def test_hashing_a_password_over_72_bytes_does_not_raise() -> None:
     hashed = get_password_hash(OVER_LIMIT_PASSWORD)
 
     assert hashed.startswith("$2")
-    # Cost 12, unchanged from the local implementation, so stored hashes stay valid.
     assert hashed.split("$")[2] == "12"
     assert verify_password(OVER_LIMIT_PASSWORD, hashed) is True
 
@@ -132,8 +128,6 @@ def test_password_reset_to_a_password_over_72_bytes(client: TestClient, db_sessi
         )
     )
 
-    # Minted directly rather than through POST /reset-password, which sends an SES
-    # email and fails in the test environment. Same call the endpoint makes.
     token = create_access_token(
         data={"sub": email, "purpose": "reset_password"},
         expires_delta=timedelta(hours=1),

@@ -131,7 +131,6 @@ class FakeDeleteForEntities:
     """A `votes` or `reports` repository: query-then-delete, counted."""
 
     def __init__(self, rows: Dict[str, int]) -> None:
-        # part id -> how many rows currently reference it
         self.rows = dict(rows)
         self.calls: List[UUID] = []
         self.fail_for: set[str] = set()
@@ -143,9 +142,6 @@ class FakeDeleteForEntities:
             self.calls.append(entity_id)
             if str(entity_id) in self.fail_for:
                 raise RuntimeError("DynamoDB throttled")
-            # The real repositories query and then delete exactly what they
-            # found, so a second call finds nothing and removes nothing. That
-            # is the behaviour being modelled here.
             removed += self.rows.pop(str(entity_id), 0)
         return removed
 
@@ -426,7 +422,6 @@ class TestIdempotency:
         assert process_queue_records(repos, [record]) == []
         assert repos.is_empty_for(part_id)
 
-        # The redelivery. Every step queries, finds nothing, and writes nothing.
         assert process_queue_records(repos, [record]) == []
         assert repos.is_empty_for(part_id)
 
@@ -446,14 +441,12 @@ class TestIdempotency:
         """The half-done case, which is what a retry actually encounters."""
         part_id = str(uuid4())
         repos = build_world(part_id)
-        # Votes and reports succeed, then the build list query throws.
         repos.build_list_parts.fail_for.add(part_id)
 
         assert process_queue_records(repos, [queue_record(part_id=part_id, message_id="m1")]) == ["m1"]
         assert part_id not in repos.votes.rows, "the steps before the failure did run"
         assert repos.build_list_parts.rows[part_id], "the failing step left its rows"
 
-        # The retry re-runs the completed steps as no-ops and finishes the rest.
         repos.build_list_parts.fail_for.clear()
         assert process_queue_records(repos, [queue_record(part_id=part_id, message_id="m1")]) == []
         assert repos.is_empty_for(part_id)
@@ -482,8 +475,6 @@ class TestIdempotency:
         assert process_queue_records(repos, batch) == ["m3"]
         assert repos.is_empty_for(good_a) and repos.is_empty_for(good_b)
 
-        # The mapping bisects and re-delivers the whole batch. The two that
-        # succeeded run again against rows that are already gone.
         repos.votes.fail_for.clear()
         assert process_queue_records(repos, batch) == []
         assert repos.is_empty_for(good_a)
@@ -586,8 +577,6 @@ class TestAgainstRealRepositories:
         repos = RealRepos()
         assert purge_related_rows(repos, part_id)["votes"] == 1
 
-        # A DeleteItem on a key that is not there succeeds, so the replay is a
-        # no-op rather than an error.
         second = purge_related_rows(repos, part_id)
         assert second == {"votes": 0, "reports": 0, "build_list_parts": 0, "part_price_alerts": 0}
 
@@ -730,6 +719,4 @@ class TestEntrypoint:
         assert "build_list_parts" not in DOMAINS["admin"].repositories
         assert "reports" not in DOMAINS["build-lists"].repositories
         assert "part_price_alerts" not in DOMAINS["build-lists"].repositories
-        # `admin` owns `part_price_alerts` and reads it on its own routes, so it
-        # keeps it. The row removes borrowed access, not owned access.
         assert "part_price_alerts" in DOMAINS["admin"].repositories

@@ -38,10 +38,6 @@ pytestmark = pytest.mark.skipif(
 
 def _run_gate(csv_path: Path, evidence_dir: Path) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
-    # Route evidence files into the test-scoped tmp dir, not backend/.perf-runs/
-    # — keeps tests hermetic and prevents leftover files from poisoning future
-    # runs. The runner reads its evidence dir from a hardcoded path, so we
-    # invoke the parser directly here for the test-scoped redirect.
     parser = REPO_ROOT / "backend" / "scripts" / "perf" / "_parse_locust_csv.py"
     return subprocess.run(
         [
@@ -97,14 +93,11 @@ def test_failing_fixture_returns_one_and_writes_failed_evidence_with_remediation
     payload = json.loads(failed_files[0].read_text())
     assert payload["verdict"] == "FAILED"
     assert payload["failed_assertions"], "FAILED.json must list at least one failure"
-    # R036 reference is part of the gate's contract — guard it explicitly.
     assert "R036" in payload["remediation"]
     assert "D004" in payload["remediation"]
-    # Both budgets missed in this fixture — make sure both are flagged, not just one.
     failure_text = " ".join(payload["failed_assertions"])
     assert "GET" in failure_text
     assert "POST" in failure_text
-    # Failure count > 0 in the fixture should also be flagged.
     assert "error rate" in failure_text
 
 
@@ -119,7 +112,6 @@ def test_missing_csv_returns_four(tmp_path: Path) -> None:
 def test_empty_csv_returns_five(tmp_path: Path) -> None:
     """Q7 negative test: zero data rows → exit 5."""
     empty = tmp_path / "empty.csv"
-    # Header-only — parses cleanly but yields no rows.
     empty.write_text("Type,Name,Request Count,Failure Count,50%,95%,99%,100%,Average Response Time\n")
     result = _run_gate(empty, tmp_path)
     assert result.returncode == 5, (
@@ -155,8 +147,6 @@ def test_runner_csv_fixture_flag_invokes_parser(tmp_path: Path) -> None:
     the canonical evidence dir. We use a copied evidence dir to avoid mutating
     the repo's backend/.perf-runs/ during tests.
     """
-    # The runner writes evidence to backend/.perf-runs/ unconditionally. Snapshot
-    # the dir's pre-test contents and clean up only files this test created.
     evidence_dir = REPO_ROOT / "backend" / ".perf-runs"
     pre_existing = set(evidence_dir.glob("*")) if evidence_dir.exists() else set()
     try:
@@ -174,7 +164,6 @@ def test_runner_csv_fixture_flag_invokes_parser(tmp_path: Path) -> None:
         passed = [p for p in new_files if "PASSED" in p.name]
         assert passed, f"expected a PASSED.json under {evidence_dir}, new={new_files}"
     finally:
-        # Cleanup: remove only files this test created.
         if evidence_dir.exists():
             for p in set(evidence_dir.glob("*")) - pre_existing:
                 p.unlink(missing_ok=True)

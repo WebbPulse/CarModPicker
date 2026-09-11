@@ -26,17 +26,12 @@ from typing import Iterator
 
 import pytest
 
-# Cassettes may be in either the shared cassettes/ directory or the per-module
-# pytest-recording default layout (tests/auth/cassettes/<module>/<test>.yaml).
 _HERE = Path(__file__).parent
 CASSETTE_ROOTS = [
     _HERE / "cassettes",
     _HERE / "auth" / "cassettes",
 ]
 
-# Regexes for banned content.  Each regex must catch ONLY un-scrubbed content —
-# a cassette that replaced the value with `REDACTED` must not match.
-# All quantifiers are bounded (ReDoS-safe).
 BANNED_PATTERNS: dict[str, re.Pattern[str]] = {
     "authorization_bearer": re.compile(r"(?i)authorization:\s*Bearer\s+[A-Za-z0-9._\-]{16,}"),
     "set_cookie_real": re.compile(r"(?i)set-cookie:\s*\S{16,}"),
@@ -64,8 +59,6 @@ def test_cassette_contains_no_unscrubbed_secrets(cassette_path: Path) -> None:
     for name, pattern in BANNED_PATTERNS.items():
         match = pattern.search(content)
         if match:
-            # Truncate match text so an accidental secret doesn't get echoed
-            # to CI logs in full (T-06-05 mitigation).
             snippet = match.group(0)[:40] + "..."
             hits.append(f"{name}: {snippet}")
     assert not hits, (
@@ -82,7 +75,6 @@ def test_cassette_audit_detection_works_with_leaked_token(tmp_path: Path) -> Non
     that the regex catches it.  This test is always green — it validates the
     detection logic independently of whether any real cassettes are committed.
     """
-    # Inject a clearly fake Google access token (ya29. prefix)
     fake_cassette = tmp_path / "leaked_token_test.yaml"
     fake_cassette.write_text(
         "interactions:\n"
@@ -102,7 +94,6 @@ def test_cassette_audit_detection_works_with_leaked_token(tmp_path: Path) -> Non
         if match:
             snippet = match.group(0)[:40] + "..."
             hits.append(f"{name}: {snippet}")
-    # The leaked token MUST be detected
     assert hits, "Detection failed: leaked token pattern was not caught by BANNED_PATTERNS"
     assert any(
         "google_access_token" in h or "authorization_bearer" in h for h in hits
@@ -160,10 +151,6 @@ def test_cassette_audit_redacted_markers_present_when_cassettes_exist() -> None:
 
     combined = "\n".join(p.read_text(encoding="utf-8", errors="replace") for p in cassettes)
 
-    # Only require REDACTED markers when the cassettes actually contain fields
-    # that should have been scrubbed by vcr_config.  A cassette with no
-    # scrub-eligible content (e.g. a public JWKS GET) legitimately has zero
-    # REDACTED markers and must not trip this guard.
     scrub_eligible_keys = (
         "authorization",
         "cookie",

@@ -79,36 +79,13 @@ from app.composition.identity_hooks import CarModPickerIdentityHooks
 from app.db.dynamo.users import User
 
 from .entrypoints.test_route_split import _pairs
-
-# Row 5's fixtures and constants, imported rather than rewritten. See the module
-# docstring for why this file leans on row 5 instead of standing up its own
-# issuer, key and environment.
-#
-# The two fixtures are imported under private aliases and re-exported below.
-# Importing them under their public names would make every test signature that
-# takes one look, to a linter, like a redefinition of the imported name: pytest
-# resolves fixtures by parameter name, but ruff only sees a module-level name
-# being shadowed twelve times over. The alias plus an explicit re-export says
-# the same thing to pytest and nothing confusing to the linter.
 from .test_identity_row5 import ISSUER, FakeKms
 from .test_identity_row5 import identity_env as _identity_env
 from .test_identity_row5 import private_key as _private_key
 
-#: Re-exported so pytest finds them by name in this module. The assignment is
-#: the whole mechanism: a fixture is discovered by the name it is bound to in
-#: the collected module, not by the name it was defined under.
 identity_env = _identity_env
 private_key = _private_key
 
-#: The five M6 flow routes, spelled out rather than derived from the package. A
-#: list computed from the thing it checks cannot notice that the thing moved,
-#: and these paths are API Gateway route keys as well as Python routes.
-#:
-#: `GET /api/auth/oauth/providers` is deliberately NOT here. It mounts in every
-#: deployment including one with no OAuth at all, so it belongs to row 5's
-#: inventory of what an unswitched function serves, and that is where it is.
-#: `GET /api/auth/passkeys/availability`, 0.17.0's passkey counterpart, is out
-#: of this file for the same reason and sits in the same place.
 OAUTH_FLOW_PATHS = (
     ("GET", "/api/auth/oauth/{provider}/start"),
     ("GET", "/api/auth/oauth/callback"),
@@ -117,7 +94,6 @@ OAUTH_FLOW_PATHS = (
     ("DELETE", "/api/auth/oauth/{provider}/link"),
 )
 
-#: The five passkey management routes: what `passkeys_enabled` alone mounts.
 PASSKEY_MANAGEMENT_PATHS = (
     ("POST", "/api/auth/passkeys/register/options"),
     ("POST", "/api/auth/passkeys/register/verify"),
@@ -126,32 +102,17 @@ PASSKEY_MANAGEMENT_PATHS = (
     ("DELETE", "/api/auth/passkeys/{credential_id}"),
 )
 
-#: The two passkey login routes. They are declared by `passkeys_enabled` and
-#: **refused** by `passkeys_passwordless`, which is a distinction this file
-#: checks rather than assumes: the package declares all seven on the first flag
-#: and the second decides whether a passkey is an entry point or only something
-#: a signed-in user may add.
 PASSKEY_LOGIN_PATHS = (
     ("POST", "/api/auth/login/passkey/options"),
     ("POST", "/api/auth/login/passkey/verify"),
 )
 
-#: What the staging workspace sets, and the values this file's `on` fixtures use.
 GOOGLE_CLIENT_ID = "111111111111-carmodpicker.apps.googleusercontent.com"
 GITHUB_CLIENT_ID = "Iv1.carmodpicker00000"
 GOOGLE_CLIENT_SECRET = "google-client-secret-not-a-real-one"
 GITHUB_CLIENT_SECRET = "github-client-secret-not-a-real-one"
 
-#: The frontend origin, which is what `IDENTITY_WEBAUTHN_ORIGINS` carries. The
-#: API origin would be wrong and the wrongness would be invisible until a real
-#: authenticator refused an assertion, so it is written out here as the thing
-#: `terraform/identity.tf` renders rather than derived from `ISSUER`.
 FRONTEND_ORIGIN = "https://staging.carmodpicker.com"
-
-
-# ---------------------------------------------------------------------------
-# Fixtures. Each layers more `IDENTITY_*` onto row 5's environment.
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -203,8 +164,6 @@ def _build_identity_app(private_key: Any, monkeypatch: pytest.MonkeyPatch) -> It
             return object()
         raise AssertionError(f"the identity router asked for an unexpected client: {service}")
 
-    # Patched on `boto3` itself, because `app/composition/identity.py` imports
-    # it inside `build_router` rather than at module scope.
     monkeypatch.setattr(boto3, "client", fake_client)
 
     from app.entrypoints.identity import build_app
@@ -232,11 +191,6 @@ def everything_app(
 ) -> Iterator[Any]:
     """Both switches on, which is what the staging workspace applies."""
     yield from _build_identity_app(private_key, monkeypatch)
-
-
-# ---------------------------------------------------------------------------
-# M5: the seven passkey routes and their two switches
-# ---------------------------------------------------------------------------
 
 
 def test_the_passkey_routes_mount_with_both_flags_on(passkey_app: Any) -> None:
@@ -271,13 +225,6 @@ def test_the_passkey_routes_are_absent_with_the_flag_off(oauth_app: Any) -> None
     for method, path in PASSKEY_MANAGEMENT_PATHS + PASSKEY_LOGIN_PATHS:
         assert (method, path) not in pairs, f"{method} {path} mounted with the flag off"
 
-    # And the eighth passkey route is still there, because it is the one that is
-    # not gated. 0.17.0's `GET /api/auth/passkeys/availability` mounts with the
-    # flag off precisely so that a frontend can read `enabled: false` instead of
-    # inferring it from a 404. Asserted here rather than only in row 5's file
-    # because this is the environment where the seven are genuinely absent, so
-    # it is where a future release that folded the eighth in with them would
-    # show up.
     assert ("GET", "/api/auth/passkeys/availability") in pairs
 
 
@@ -333,11 +280,6 @@ def test_the_webauthn_origin_is_the_frontend_and_not_the_api(passkeys_on: None) 
     assert identity_settings.webauthn_origins == [FRONTEND_ORIGIN]
     assert identity_settings.rp_id == "staging.carmodpicker.com"
     assert identity_settings.rp_name == "CarModPicker"
-
-
-# ---------------------------------------------------------------------------
-# M6: the five OAuth flow routes, and the one that is always there
-# ---------------------------------------------------------------------------
 
 
 def test_the_oauth_routes_mount_when_a_provider_has_a_client_id(
@@ -430,7 +372,6 @@ def test_a_provider_with_no_secret_is_not_advertised(
     monkeypatch.setenv("IDENTITY_GOOGLE_CLIENT_ID", GOOGLE_CLIENT_ID)
     monkeypatch.setenv("IDENTITY_GITHUB_CLIENT_ID", GITHUB_CLIENT_ID)
     monkeypatch.setenv("OAUTH_GOOGLE_CLIENT_SECRET", GOOGLE_CLIENT_SECRET)
-    # GitHub's secret is deliberately absent.
 
     from fastapi.testclient import TestClient
 
@@ -441,11 +382,6 @@ def test_a_provider_with_no_secret_is_not_advertised(
     assert response.status_code == 200
     listed = {entry["id"] for entry in response.json()["providers"]}
     assert listed == {"google"}
-
-
-# ---------------------------------------------------------------------------
-# The client secrets, and the path they travel
-# ---------------------------------------------------------------------------
 
 
 def test_the_secret_keys_are_the_ones_terraform_writes() -> None:
@@ -576,7 +512,6 @@ def test_the_client_secrets_are_not_settings_fields(oauth_on: None) -> None:
     assert GOOGLE_CLIENT_SECRET not in repr(identity_settings)
     assert GITHUB_CLIENT_SECRET not in repr(identity_settings)
 
-    # The ids, by contrast, are ordinary fields and are meant to be.
     assert identity_settings.google_client_id == GOOGLE_CLIENT_ID
     assert identity_settings.github_client_id == GITHUB_CLIENT_ID
 
@@ -597,11 +532,6 @@ def test_the_redirect_uri_is_the_issuer_callback(oauth_on: None) -> None:
     identity_settings = build_identity_settings(app_settings)
 
     assert identity_settings.oauth_redirect_uris == ["https://api.staging.carmodpicker.com/api/auth/oauth/callback"]
-
-
-# ---------------------------------------------------------------------------
-# Lifetimes: the refresh window this product runs
-# ---------------------------------------------------------------------------
 
 
 def test_the_refresh_window_is_thirty_days_rolling(identity_env: None) -> None:
@@ -629,11 +559,6 @@ def test_the_refresh_window_is_thirty_days_rolling(identity_env: None) -> None:
     assert identity_settings.refresh_token_ttl == timedelta(days=30)
     assert identity_settings.refresh_absolute_ttl == timedelta(days=90)
     assert identity_settings.refresh_absolute_ttl >= identity_settings.refresh_token_ttl
-
-
-# ---------------------------------------------------------------------------
-# The hook: what now counts as another way in
-# ---------------------------------------------------------------------------
 
 
 def _user(**overrides: Any) -> User:
@@ -812,11 +737,6 @@ def test_an_unparseable_subject_still_answers_false(
     assert hooks_with_package_stores.has_other_sign_in_method("not-a-uuid") is False
 
 
-# ---------------------------------------------------------------------------
-# The composition seam
-# ---------------------------------------------------------------------------
-
-
 def test_the_hooks_receive_the_same_store_objects_the_package_does(
     everything_app: Any,
 ) -> None:
@@ -842,8 +762,6 @@ def test_the_hooks_receive_the_same_store_objects_the_package_does(
         captured["stores"] = stores
         return original(settings, hooks, stores, **kwargs)
 
-    # Patched on the package module because `build_router` imports the name
-    # inside the function, so the lookup happens at call time.
     package.build_identity_router = capture  # type: ignore[assignment]
     try:
         build_router(app_settings)

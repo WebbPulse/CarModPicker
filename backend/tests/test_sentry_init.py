@@ -81,8 +81,6 @@ class TestInitKwargs:
         ignore = active_init.call_args.kwargs["ignore_errors"]
         assert "fastapi.exceptions.HTTPException" in ignore
         assert "starlette.exceptions.HTTPException" in ignore
-        # slowapi entry is defensive — rate_limiter.py currently returns JSONResponse
-        # directly rather than raising, but this future-proofs the suppression.
         assert "slowapi.errors.RateLimitExceeded" in ignore
 
     def test_all_three_integrations_loaded(self, active_init: MagicMock) -> None:
@@ -187,8 +185,6 @@ class TestIgnoreErrorsIntegration:
         except RuntimeError as exc:
             sentry_sdk.capture_exception(exc)
         sentry_sdk.flush(timeout=2.0)
-        # sentry_events fixture uses passthrough before_send; envelope should land
-        # on the shared _CapturingTransport.events list after flush.
         from tests.conftest import _CapturingTransport
 
         assert len(_CapturingTransport.events) >= 1 or len(sentry_events) >= 1

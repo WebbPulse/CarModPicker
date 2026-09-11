@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess  # nosec B404 - fixed argv, no shell, test-only
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
@@ -43,15 +43,6 @@ from app.composition.domains import DOMAINS
 from app.composition.wiring import OTLP_ENDPOINT_ENV, configure_tracing
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-
-
-# --- The error envelope ------------------------------------------------------
-#
-# One shape now, asserted against a running application rather than read off the
-# handlers. The package registers for `starlette.exceptions.HTTPException`
-# rather than only FastAPI's subclass, which is what brings the unmatched route
-# and the wrong method into the envelope; CMP's old handlers hooked only the
-# FastAPI subclass, so routing errors escaped as `{"detail": "Not Found"}`.
 
 
 @pytest.fixture(scope="module")
@@ -137,9 +128,6 @@ def test_domain_apps_declare_no_package_health_route(media_client: TestClient) -
     }
 
 
-# --- The tracing gate --------------------------------------------------------
-
-
 def test_configure_tracing_is_a_noop_without_an_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     """No OTLP endpoint means no provider, which is every un-deployed process.
 
@@ -176,7 +164,7 @@ def test_configure_tracing_does_not_import_the_otel_sdk_when_off(monkeypatch: py
         "API_STR": "/api",
         "DEBUG": "true",
     }
-    result = subprocess.run(  # nosec B603 - fixed argv, no shell
+    result = subprocess.run(  # nosec B603
         [sys.executable, "-c", code],
         cwd=str(BACKEND_DIR),
         env=env,
@@ -186,9 +174,6 @@ def test_configure_tracing_does_not_import_the_otel_sdk_when_off(monkeypatch: py
     )
     assert result.returncode == 0, result.stderr
     assert "OK" in result.stdout
-
-
-# --- Logging -----------------------------------------------------------------
 
 
 def test_json_logging_carries_the_keys_lambda_and_the_alarms_need() -> None:
@@ -238,9 +223,6 @@ def test_app_logging_writes_to_stderr_not_stdout() -> None:
     assert sys.stdout not in streams
 
 
-# --- The settings base -------------------------------------------------------
-
-
 def test_settings_inherit_the_package_base_and_keep_lazy_secrets() -> None:
     """`Settings` is a `BaseServiceSettings`, and PR 7's lazy secrets survive.
 
@@ -257,8 +239,6 @@ def test_settings_inherit_the_package_base_and_keep_lazy_secrets() -> None:
     assert issubclass(Settings, BaseServiceSettings)
     assert callable(settings._resolve_secret)
     assert callable(settings.require_secrets)
-    # Constructing settings must still read no AWS, which is what lets the nine
-    # entrypoints be imported with no credentials.
     assert Settings(APP_SECRETS_ARN="").SECRET_KEY == "" or True
 
 
@@ -276,8 +256,6 @@ def test_settings_mirror_the_base_lower_case_fields() -> None:
     assert resolved.cors_allow_origins == resolved.allowed_origins_list
     assert resolved.log_level == "INFO"
 
-    # An unrecognised APP_ENVIRONMENT maps to "local" rather than failing
-    # validation, so a typo degrades instead of killing the cold start.
     assert Settings(APP_ENVIRONMENT="not-a-real-environment").environment == "local"
 
 
@@ -298,9 +276,5 @@ def test_case_sensitivity_override_keeps_the_secret_alias_intact() -> None:
     assert Settings.model_config["case_sensitive"] is True
     assert Settings.model_config["populate_by_name"] is True
 
-    # The alias populates the shadow field. Asserted on the field rather than on
-    # the `SECRET_KEY` property, because the property deliberately ignores it and
-    # consults the environment and the secret cache instead, which is the whole
-    # point of row 7's lazy resolution.
     assert Settings(SECRET_KEY="from-alias").SECRET_KEY_SETTING == "from-alias"
     assert Settings(SECRET_KEY_SETTING="from-field").SECRET_KEY_SETTING == "from-field"

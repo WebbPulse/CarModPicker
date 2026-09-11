@@ -66,7 +66,6 @@ def test_linker_matches_across_styling_drift(
         part_number_normalized="AEM302400",
     )
 
-    # Each of these styling variants of the same code should resolve.
     for variant in ("AEM-30-2400", "AEM 30/2400", "aem_30_2400", "AEM30-2400"):
         match = find_part_by_part_manufacturer_and_part_number(test_part_manufacturer.id, variant)
         assert match is not None, f"linker missed {variant!r}"

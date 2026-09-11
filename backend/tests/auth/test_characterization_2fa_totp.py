@@ -32,7 +32,6 @@ def test_totp_enroll_and_challenge(client: TestClient, db_session: Any) -> None:
     password = "test_password_123!"
     email = f"{username}@example.com"
 
-    # Create a verified user directly in DB
     user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -43,7 +42,6 @@ def test_totp_enroll_and_challenge(client: TestClient, db_session: Any) -> None:
         )
     )
 
-    # --- Login to get Bearer token ---
     login_resp = client.post(
         f"{settings.API_STR}/auth/token",
         data={"username": username, "password": password},
@@ -52,7 +50,6 @@ def test_totp_enroll_and_challenge(client: TestClient, db_session: Any) -> None:
     token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # --- Step 1: TOTP setup (POST /api/auth/2fa/setup) ---
     setup_resp = client.post(f"{settings.API_STR}/auth/2fa/setup", headers=headers)
     assert setup_resp.status_code == 200, setup_resp.text
     setup_body = setup_resp.json()
@@ -60,12 +57,10 @@ def test_totp_enroll_and_challenge(client: TestClient, db_session: Any) -> None:
     assert "qr_code_data" in setup_body
     secret = setup_body["secret"]
 
-    # DB: secret stored, but totp_enabled still False
     user = UserRepository().get_or_raise(user.id)
     assert user.totp_secret == secret
     assert user.totp_enabled is False
 
-    # --- Step 2: TOTP verify (POST /api/auth/2fa/verify) ---
     otp_code = pyotp.TOTP(secret).now()
     verify_resp = client.post(
         f"{settings.API_STR}/auth/2fa/verify",
@@ -76,11 +71,9 @@ def test_totp_enroll_and_challenge(client: TestClient, db_session: Any) -> None:
     verify_body = verify_resp.json()
     assert verify_body.get("success") is True
 
-    # DB: totp_enabled flipped to True
     user = UserRepository().get_or_raise(user.id)
     assert user.totp_enabled is True
 
-    # --- Step 3: Login now returns requires_2fa (not a token) ---
     login2_resp = client.post(
         f"{settings.API_STR}/auth/token",
         data={"username": username, "password": password},
@@ -90,7 +83,6 @@ def test_totp_enroll_and_challenge(client: TestClient, db_session: Any) -> None:
     assert login2_body.get("requires_2fa") is True
     assert "access_token" not in login2_body
 
-    # --- Step 4: Complete 2FA login (POST /api/auth/token/2fa) ---
     otp_code2 = pyotp.TOTP(secret).now()
     totp_login_resp = client.post(
         f"{settings.API_STR}/auth/token/2fa",

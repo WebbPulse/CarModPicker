@@ -25,8 +25,6 @@ def _create_build_list(
     db_session: Any,
     suffix: str = "",
 ) -> dict:
-    # Distinct generation_name per call so the (car_model_id, slug) unique constraint
-    # doesn't trip when a single test creates multiple build lists.
     gen_name = f"Gen {_unique('lbr')}{suffix}"
     car = create_car_in_db(db_session, generation_name=gen_name)
     body = {
@@ -45,7 +43,6 @@ class TestBuildListLaborEstimatesCRUD:
         headers = _auth(token)
         bl = _create_build_list(client, headers, db_session)
 
-        # Create
         create_body = {
             "name": "Paint - bumper respray",
             "cost_cents": 80000,
@@ -63,7 +60,6 @@ class TestBuildListLaborEstimatesCRUD:
         assert created["build_list_phase_id"] is None
         assert created["sort_order"] == 0
 
-        # Second create -> sort_order auto-bumps to 1
         resp2 = client.post(
             f"{settings.API_STR}/build-lists/{bl['id']}/labor-estimates",
             json={"name": "Install labor", "cost_cents": 50000},
@@ -72,14 +68,12 @@ class TestBuildListLaborEstimatesCRUD:
         assert resp2.status_code == 200
         assert resp2.json()["sort_order"] == 1
 
-        # List (public, no auth needed)
         list_resp = client.get(f"{settings.API_STR}/build-lists/{bl['id']}/labor-estimates")
         assert list_resp.status_code == 200
         items = list_resp.json()
         assert len(items) == 2
         assert items[0]["sort_order"] <= items[1]["sort_order"]
 
-        # Update
         upd = client.put(
             f"{settings.API_STR}/build-list-labor-estimates/{created['id']}",
             json={"cost_cents": 90000, "description": "Updated estimate"},
@@ -89,13 +83,11 @@ class TestBuildListLaborEstimatesCRUD:
         assert upd.json()["cost_cents"] == 90000
         assert upd.json()["description"] == "Updated estimate"
 
-        # Delete
         dele = client.delete(
             f"{settings.API_STR}/build-list-labor-estimates/{created['id']}",
             headers=headers,
         )
         assert dele.status_code == 200
-        # And it's gone
         list_after = client.get(f"{settings.API_STR}/build-lists/{bl['id']}/labor-estimates").json()
         assert all(item["id"] != created["id"] for item in list_after)
 
@@ -108,14 +100,12 @@ class TestBuildListLaborEstimatesCRUD:
         owner_token = login_user(client, test_user.username)
         bl = _create_build_list(client, _auth(owner_token), db_session)
 
-        # Owner creates a labor estimate
         created = client.post(
             f"{settings.API_STR}/build-lists/{bl['id']}/labor-estimates",
             json={"name": "Tuning", "cost_cents": 30000},
             headers=_auth(owner_token),
         ).json()
 
-        # Second user attempts to edit
         from app.api.dependencies.auth import get_password_hash
 
         other = UserRepository().create_user(
@@ -160,20 +150,17 @@ class TestBuildListLaborEstimatePhase:
     def test_phase_must_belong_to_same_build_list(
         self, client: TestClient, premium_test_user: User, db_session: Any
     ) -> None:
-        # Premium user so the free-tier build list cap doesn't block creating two.
         token = login_user(client, premium_test_user.username)
         headers = _auth(token)
         bl_a = _create_build_list(client, headers, db_session, suffix="_a")
         bl_b = _create_build_list(client, headers, db_session, suffix="_b")
 
-        # Create a phase on build list B
         phase_b = client.post(
             f"{settings.API_STR}/build-lists/{bl_b['id']}/phases",
             json={"name": "Phase 1"},
             headers=headers,
         ).json()
 
-        # Try to attach it to a labor estimate on build list A — should 400
         bad = client.post(
             f"{settings.API_STR}/build-lists/{bl_a['id']}/labor-estimates",
             json={"name": "Cross-list", "cost_cents": 100, "build_list_phase_id": phase_b["id"]},
@@ -181,7 +168,6 @@ class TestBuildListLaborEstimatePhase:
         )
         assert bad.status_code == 400
 
-        # Same on update
         ok = client.post(
             f"{settings.API_STR}/build-lists/{bl_a['id']}/labor-estimates",
             json={"name": "OK", "cost_cents": 100},
@@ -212,11 +198,9 @@ class TestBuildListLaborEstimatePhase:
         ).json()
         assert labor["build_list_phase_id"] == phase["id"]
 
-        # Delete the phase
         del_resp = client.delete(f"{settings.API_STR}/build-list-phases/{phase['id']}", headers=headers)
         assert del_resp.status_code == 200
 
-        # Labor estimate survives but phase link is now null
         items = client.get(f"{settings.API_STR}/build-lists/{bl['id']}/labor-estimates").json()
         survivor = next(item for item in items if item["id"] == labor["id"])
         assert survivor["build_list_phase_id"] is None
@@ -247,5 +231,4 @@ class TestBuildListLaborEstimateCostRollup:
         page = resp.json()
         match = next(item for item in page["data"] if item["id"] == bl["id"])
         assert match["total_labor_cost_cents"] == 130000
-        # No parts in the build list, so parts cost is 0/None and total == labor
         assert match["total_cost_cents"] == 130000

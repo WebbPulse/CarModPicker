@@ -6,15 +6,12 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
-# Set test environment variables BEFORE importing any app code
-# so storage service, rate limiter, etc. detect the test environment at import time.
 os.environ["TESTING"] = "true"
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
 INVALID_UUID: UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 INVALID_UUID_STR: str = str(INVALID_UUID)
 
-# Imports deferred until after env setup.
 from app.api.dependencies.auth import get_password_hash  # noqa: E402
 from app.api.schemas.car_generation import CarGenerationRead  # noqa: E402
 from app.api.services.car_generation_service import CarGenerationService  # noqa: E402
@@ -76,7 +73,7 @@ def client(db_session: TestDatabase, dynamo_tables: Any) -> Generator[TestClient
 def test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create a test user for testing."""
     user = User(
-        username=f"test_user_{os.getpid()}_{id(db_session)}",  # Make unique per worker
+        username=f"test_user_{os.getpid()}_{id(db_session)}",
         email=f"test_user_{os.getpid()}_{id(db_session)}@example.com",
         hashed_password=get_password_hash("testpassword"),
         email_verified=True,
@@ -109,7 +106,7 @@ def premium_test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
 def test_category(db_session: TestDatabase, dynamo_tables: Any) -> Category:
     """Create a test category for testing."""
     category = Category(
-        name=f"test_category_{os.getpid()}_{id(db_session)}",  # Make unique per worker
+        name=f"test_category_{os.getpid()}_{id(db_session)}",
         display_name=f"Test Category {os.getpid()}_{id(db_session)}",
         description="A test category",
         is_active=True,
@@ -122,7 +119,7 @@ def test_category(db_session: TestDatabase, dynamo_tables: Any) -> Category:
 def test_part_manufacturer(db_session: TestDatabase, dynamo_tables: Any) -> PartManufacturer:
     """Create a test part_manufacturer for testing."""
     part_manufacturer = PartManufacturer(
-        name=f"test_part_manufacturer_{os.getpid()}_{id(db_session)}",  # Make unique per worker
+        name=f"test_part_manufacturer_{os.getpid()}_{id(db_session)}",
         description="A test part_manufacturer",
         is_active=True,
     )
@@ -133,7 +130,7 @@ def test_part_manufacturer(db_session: TestDatabase, dynamo_tables: Any) -> Part
 def test_admin_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create an admin user for testing."""
     user = User(
-        username=f"admin_user_{os.getpid()}_{id(db_session)}",  # Make unique per worker
+        username=f"admin_user_{os.getpid()}_{id(db_session)}",
         email=f"admin_user_{os.getpid()}_{id(db_session)}@example.com",
         hashed_password=get_password_hash("testpassword"),
         email_verified=True,
@@ -148,7 +145,7 @@ def test_admin_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
 def test_superuser_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create a superuser for testing."""
     user = User(
-        username=f"superuser_{os.getpid()}_{id(db_session)}",  # Make unique per worker
+        username=f"superuser_{os.getpid()}_{id(db_session)}",
         email=f"superuser_{os.getpid()}_{id(db_session)}@example.com",
         hashed_password=get_password_hash("testpassword"),
         email_verified=True,
@@ -190,13 +187,11 @@ def save_catalog(entity: Any, car_ids: Optional[list[UUID]] = None) -> Any:
     return repository.create(entity)
 
 
-# Test utilities
 def get_default_category_id(db_session: TestDatabase) -> UUID:
     """Get the ID of the 'other' category for testing."""
     categories = CategoryRepository()
     category = categories.get_by_name("other")
     if not category:
-        # Create the 'other' category if it doesn't exist
         category = categories.create_unique(
             Category(
                 name="other",
@@ -229,7 +224,6 @@ def create_and_login_user(
     """Create a user and log them in, returning the user info."""
     from app.core.config import settings
 
-    # Create user
     user_data = {
         "username": username,
         "email": f"{username}@example.com",
@@ -240,15 +234,6 @@ def create_and_login_user(
     user_data_response: Dict[str, Any] = response.json()
     assert isinstance(user_data_response, dict)
 
-    # IN-11: POST /api/users/ already auto-verifies email_verified=True when
-    # TESTING=true (see endpoints/users.py::register_user), which conftest sets
-    # at import time before any app code loads. The manual flip block that used
-    # to live here was a no-op — it flipped True to True and happened to be two
-    # of the legacy db.query() calls that Phase 4 WR-01 flagged as residue.
-    # (The remaining 6 conftest helpers were migrated in Phase 07 plan 07-03 —
-    # zero legacy .query() calls remain in this file.)
-
-    # Login (token is returned but not stored - tests should use it explicitly)
     login_user(client, username, password_override)
 
     return user_data_response
@@ -366,13 +351,6 @@ def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFi
     return caplog
 
 
-# Sentry test transport — 2.x uses capture_envelope (Landmine 3).
-# Defined at module scope so tests can import it via
-# `from tests.conftest import _CapturingTransport`.
-#
-# Must subclass sentry_sdk.transport.Transport in 2.x — otherwise the SDK
-# treats the class as a "function transport" (deprecated) and silently
-# discards envelopes despite accepting the argument.
 from sentry_sdk.transport import Transport as _SentryTransport  # noqa: E402
 
 
@@ -386,12 +364,10 @@ class _CapturingTransport(_SentryTransport):
     events: list = []
 
     def __init__(self, options=None):
-        # sentry_sdk.init passes options positionally; accept for signature compat.
-        # Reset on init so each sentry_sdk.init() call starts with empty buffer.
         super().__init__(options)
         self.__class__.events = []
 
-    def capture_envelope(self, envelope) -> None:  # 2.x entry point
+    def capture_envelope(self, envelope) -> None:
         self.__class__.events.append(envelope)
 
     def flush(self, timeout=None, callback=None) -> None:
@@ -421,7 +397,6 @@ def sentry_events(monkeypatch: pytest.MonkeyPatch):
         dsn="http://key@localhost/1",
         transport=_CapturingTransport,
         before_send=lambda ev, h: ev,
-        # intentionally minimal — full init invariants covered in test_sentry_init.py
     )
     try:
         yield _CapturingTransport.events
@@ -454,12 +429,8 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
         s3 = boto3.client("s3", region_name="us-east-1")
         s3.create_bucket(Bucket="test-user-images")
 
-        # Patch settings so any path that reads settings.* gets test values
         monkeypatch.setattr(app_settings, "USER_IMAGES_BUCKET", "test-user-images")
 
-        # Inject moto client directly into StorageService singleton.
-        # (The singleton was initialized with s3_client=None because _is_test_environment()
-        # returned True at module load.  We bypass re-init by patching the attributes.)
         monkeypatch.setattr(ss_module.storage_service, "s3_client", s3)
         monkeypatch.setattr(ss_module.storage_service, "s3_client_presigner", s3)
         monkeypatch.setattr(ss_module.storage_service, "bucket_name", "test-user-images")
@@ -502,14 +473,6 @@ def dynamo_tables(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]
             dynamo_client.reset_clients()
 
 
-# -----------------------------------------------------------------------
-# SAFE-06: pytest-recording (vcrpy) configuration for auth characterization
-# tests. Scrubs headers, post-body, and query-params that might carry
-# production secrets. record_mode="none" means CI replays only — to record
-# a new cassette locally, run pytest with `--record-mode=once`.
-# -----------------------------------------------------------------------
-
-
 @pytest.fixture(scope="module")
 def vcr_config() -> dict:
     """VCR configuration consumed by pytest-recording's @pytest.mark.vcr."""
@@ -538,7 +501,6 @@ def create_and_login_admin_user(client: TestClient, username: str) -> User:
     """Create an admin user and log them in."""
     from app.core.config import settings
 
-    # Create admin user
     user_data = {
         "username": username,
         "email": f"{username}@example.com",
@@ -549,7 +511,6 @@ def create_and_login_admin_user(client: TestClient, username: str) -> User:
     admin_user_data: Dict[str, Any] = response.json()
     assert isinstance(admin_user_data, dict)
 
-    # Login
     login_user(client, username)
 
     return UserRepository().get_or_raise(UUID(admin_user_data["id"]))

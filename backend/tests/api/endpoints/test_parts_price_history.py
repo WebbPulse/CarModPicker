@@ -54,9 +54,6 @@ def _configured_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EXTENSION_API_KEY", TEST_API_KEY)
 
 
-# --- helpers (mirror tests/services/test_part_price_aggregation_service.py) --
-
-
 def _make_retailer(db: Any, slug: str) -> DBRetailer:
     retailer = DBRetailer(
         name=f"retailer_{slug}_{uuid.uuid4().hex[:8]}",
@@ -112,9 +109,6 @@ def _add_history(
     return row
 
 
-# --- tests -------------------------------------------------------------------
-
-
 def test_get_price_history_default_window_returns_summary_object(
     client: TestClient, db_session: Any, test_user: User
 ) -> None:
@@ -143,7 +137,6 @@ def test_get_price_history_window_30d_filters_old(client: TestClient, db_session
     listing = _make_listing(db_session, part, retailer)
 
     now = datetime.now(UTC)
-    # 3 rows inside 30 days, 2 rows older.
     for i, days in enumerate([1, 10, 20]):
         _add_history(db_session, listing, price_cents=1000 + i, observed_at=now - timedelta(days=days))
     for i, days in enumerate([45, 90]):
@@ -163,7 +156,6 @@ def test_get_price_history_window_all_includes_everything(client: TestClient, db
     listing = _make_listing(db_session, part, retailer)
 
     now = datetime.now(UTC)
-    # 4 rows spanning ~2 years.
     for days in [10, 200, 500, 700]:
         _add_history(db_session, listing, price_cents=1000 + days, observed_at=now - timedelta(days=days))
 
@@ -181,11 +173,9 @@ def test_get_price_history_invalid_window_returns_422(client: TestClient, db_ses
     response = client.get(PRICE_HISTORY_PATH.format(part_id=part.id), params={"window": "99x"})
     assert response.status_code == 422
     body = response.json()
-    # Standardized error envelope from app.api.middleware.error_handler.
     assert body["error_code"] == "INVALID_WINDOW"
     allowed = body["details"]["allowed"]
     assert isinstance(allowed, list)
-    # Must mention the canonical literals so callers can correct themselves.
     assert {"30d", "90d", "180d", "1y", "all"}.issubset(set(allowed))
 
 
@@ -199,7 +189,6 @@ def test_get_price_history_retailer_filter_narrows_summary(
     listing_b = _make_listing(db_session, part, retailer_b)
 
     now = datetime.now(UTC)
-    # Retailer A: cheap rows (500-700). Retailer B: pricier (1500-2000).
     for i, price in enumerate([500, 600, 700]):
         _add_history(db_session, listing_a, price_cents=price, observed_at=now - timedelta(days=20 - i))
     for i, price in enumerate([1500, 1800, 2000]):
@@ -211,10 +200,8 @@ def test_get_price_history_retailer_filter_narrows_summary(
     )
     assert response.status_code == 200
     body = response.json()
-    # Only retailer A in `retailers`.
     assert len(body["retailers"]) == 1
     assert body["retailers"][0]["retailer_id"] == str(retailer_a.id)
-    # Summary reflects retailer A's slice only — NOT the cross-retailer aggregate.
     assert body["summary"]["min_cents"] == 500
     assert body["summary"]["max_cents"] == 700
     assert body["summary"]["observation_count"] == 3
@@ -224,9 +211,6 @@ def test_get_price_history_retailer_filter_narrows_summary(
 def test_get_price_history_part_not_found_returns_404(client: TestClient) -> None:
     response = client.get(PRICE_HISTORY_PATH.format(part_id=INVALID_UUID_STR))
     assert response.status_code == 404
-
-
-# --- POST /api/parts/price-history (T03) -------------------------------------
 
 
 def test_post_batch_price_history_basic(client: TestClient, db_session: Any, test_user: User) -> None:
@@ -309,7 +293,6 @@ def test_post_batch_price_history_window_custom(client: TestClient, db_session: 
     part = _make_part(db_session, test_user, name="Custom Window Batch")
     listing = _make_listing(db_session, part, retailer)
     now = datetime.now(UTC)
-    # 2 inside 30d, 2 older.
     for days in [5, 20]:
         _add_history(db_session, listing, price_cents=1000 + days, observed_at=now - timedelta(days=days))
     for days in [40, 60]:
@@ -336,9 +319,6 @@ def test_post_batch_price_history_invalid_window_returns_422(
         json={"part_ids": [str(part.id)], "window": "xyz"},
         headers=_api_key_headers(),
     )
-    # Pydantic Literal validation rejects "xyz" before the handler runs, producing
-    # the standard VALIDATION_ERROR envelope. The endpoint's INVALID_WINDOW path
-    # is reachable only when the schema is bypassed (e.g. service-layer callers).
     assert response.status_code == 422
     body = response.json()
     assert body["error_code"] in {"INVALID_WINDOW", "VALIDATION_ERROR"}
@@ -365,7 +345,6 @@ def test_post_batch_price_history_too_many_ids_returns_422(client: TestClient, t
     assert response.status_code == 422
     body = response.json()
     assert body["error_code"] == "VALIDATION_ERROR"
-    # Pydantic surfaces the at_most_100 constraint in the per-field error details.
     rendered = repr(body)
     assert "100" in rendered or "at_most" in rendered or "max_length" in rendered
 
@@ -414,13 +393,6 @@ def test_post_batch_price_history_aggregates_link_group(client: TestClient, db_s
     assert item["observation_count"] == 4
     assert item["min_cents"] == 3000
     assert item["max_cents"] == 5000
-
-
-# --- auth on the batch POST -------------------------------------------------
-# `POST /api/parts/price-history` was public, then briefly behind
-# `get_current_user`, and is now behind `require_api_key_or_admin`. Its only
-# legitimate writers are the Chrome extension and ingestion/admin jobs, so it
-# takes an `X-API-Key` matching `EXTENSION_API_KEY` or an admin bearer token.
 
 
 def _batch_body() -> dict[str, Any]:

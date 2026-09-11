@@ -55,14 +55,6 @@ from typing import Any, Iterator
 import pytest
 
 from .entrypoints.test_route_split import _pairs
-
-# Row 5's fixtures, imported rather than rewritten, for the reason row 9's file
-# gives: there is one correct version of the identity function's environment and
-# a local RSA signer, and a second copy would drift.
-#
-# Aliased on import and re-exported below so that a linter does not read twelve
-# test signatures as twelve redefinitions of a module-level name. See the note in
-# `test_identity_row9.py`.
 from .test_identity_row5 import AUDIENCE, ISSUER, KEY_ARN, FakeKms
 from .test_identity_row5 import identity_env as _identity_env
 from .test_identity_row5 import private_key as _private_key
@@ -70,23 +62,10 @@ from .test_identity_row5 import private_key as _private_key
 identity_env = _identity_env
 private_key = _private_key
 
-#: The staging extension id, which is `vars.CWS_EXTENSION_ID` on that
-#: Environment and the same value `VITE_ALLOWED_EXTENSION_IDS` carries into the
-#: frontend bundle. Spelled out rather than invented so that this file exercises
-#: the real shape of the value: 32 lowercase letters, which is what Chrome
-#: generates and what `new URL(...).hostname` lowercases to on the page.
 STAGING_EXTENSION_ID = "dbglgmnnfandmnacdpibkfggkadjikkg"
 
-#: A well-formed id that is not on the allowlist. Same shape as a real one, so a
-#: test that refuses it is testing the allowlist rather than the parser.
 OTHER_EXTENSION_ID = "aaaabbbbccccddddeeeeffffgggghhhh"
 
-#: Row 10's two routes, spelled out rather than derived. `test_identity_row5.py`
-#: imports this tuple for its exact-delta assertion, so this is the one
-#: inventory of what row 10 adds, and both files read it from here.
-#:
-#: Both are under `/api/auth`, which is why row 10 adds no API Gateway route
-#: key: `ANY /api/auth/{proxy+}` already covers them.
 EXTENSION_PATHS = (
     ("POST", "/api/auth/extension/handoff"),
     ("POST", "/api/auth/extension/token"),
@@ -173,11 +152,6 @@ def _redirect_uri(extension_id: str = STAGING_EXTENSION_ID) -> str:
     return f"chrome-extension://{extension_id}/handoff.html"
 
 
-# ---------------------------------------------------------------------------
-# The routes exist, where the gateway already covers them
-# ---------------------------------------------------------------------------
-
-
 def test_both_routes_mount_on_the_identity_function(extension_app: Any) -> None:
     served = _pairs(extension_app)
     missing = [pair for pair in EXTENSION_PATHS if pair not in served]
@@ -214,11 +188,6 @@ def test_the_routes_are_absent_without_an_issuer(monkeypatch: pytest.MonkeyPatch
     assert "/api/auth/extension/token" not in served
 
 
-# ---------------------------------------------------------------------------
-# Check 1: who is asking
-# ---------------------------------------------------------------------------
-
-
 def test_a_code_needs_a_signed_in_caller(client: Any) -> None:
     response = client.post(
         "/api/auth/extension/handoff",
@@ -253,15 +222,7 @@ def test_a_signed_in_caller_gets_a_code(client: Any, private_key: Any) -> None:
     body = response.json()
     assert isinstance(body.get("code"), str)
     assert body["code"]
-    # Exactly the shape `ExtensionHandoff.tsx` reads: it takes `code` off the
-    # body and puts it in the redirect fragment. A second field would be
-    # harmless, but the page would not carry it, so there is nothing to add.
     assert set(body) == {"code"}
-
-
-# ---------------------------------------------------------------------------
-# Check 2: which extension
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -338,11 +299,8 @@ def test_the_allowlist_parses_the_comma_separated_form_terraform_renders() -> No
     assert parsed == [STAGING_EXTENSION_ID, OTHER_EXTENSION_ID]
     assert allowed_extension_ids({"CHROME_EXTENSION_IDS": ""}) == []
 
-    # Absent means the store default, not nothing. See the route test above.
     assert allowed_extension_ids({}) == [STAGING_EXTENSION_ID]
 
-    # `chrome_extension_origins_list` tolerates an id that already carries the
-    # scheme, so one variable can feed both readers.
     assert allowed_extension_ids({"CHROME_EXTENSION_IDS": f"chrome-extension://{STAGING_EXTENSION_ID}"}) == [
         STAGING_EXTENSION_ID
     ]
@@ -361,11 +319,6 @@ def test_the_default_matches_the_settings_field_it_shadows() -> None:
     field = Settings.model_fields["CHROME_EXTENSION_IDS"]
     assert field.default == DEFAULT_EXTENSION_ID
     assert DEFAULT_EXTENSION_ID == STAGING_EXTENSION_ID
-
-
-# ---------------------------------------------------------------------------
-# Check 3: what a code is
-# ---------------------------------------------------------------------------
 
 
 def test_a_code_round_trips_to_an_access_token(client: Any, private_key: Any) -> None:
@@ -508,11 +461,6 @@ def test_the_exchange_needs_no_bearer_token(client: Any, private_key: Any) -> No
     )
     response = client.post("/api/auth/extension/token", json={"code": issued.json()["code"]})
     assert response.status_code == 200
-
-
-# ---------------------------------------------------------------------------
-# The redirect target parser, on its own
-# ---------------------------------------------------------------------------
 
 
 def test_the_parser_agrees_with_the_frontends_validation() -> None:

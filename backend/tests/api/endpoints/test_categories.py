@@ -25,7 +25,6 @@ def get_unique_name(base_name: str) -> str:
     return f"{base_name}_{worker_id}_{pid}"
 
 
-# Helper function to create and login an admin user
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
@@ -34,7 +33,6 @@ def create_and_login_admin_user(
     email = f"admin_test_{username_suffix}@example.com"
     password = "testpassword"
 
-    # Create admin user directly in database
     admin_user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -47,7 +45,6 @@ def create_and_login_admin_user(
         )
     )
 
-    # Log in and get token
     login_data = {"username": username, "password": password}
     token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
     assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
@@ -56,7 +53,6 @@ def create_and_login_admin_user(
     return admin_user.__dict__, token
 
 
-# Helper function to create a user and log them in. Returns (user_id, token)
 def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[UUID, str]:
     username = f"category_test_user_{username_suffix}"
     email = f"category_test_user_{username_suffix}@example.com"
@@ -97,7 +93,6 @@ def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[UUI
     return user_id, token
 
 
-# Helper to create a car in DB for category tests (cars are seeded from backend source)
 def create_car_for_categories_test(
     db_session: Any,
     car_make: str = "TestMakeCategory",
@@ -111,7 +106,6 @@ def create_car_for_categories_test(
     return car["id"]
 
 
-# Helper function to create a build list for a car (cars are centrally managed, not owned by users)
 def create_build_list_for_car_cookie_auth(
     client: TestClient, token: str, car_id: UUID, bl_name: str = "TestBLCategory"
 ) -> UUID:
@@ -131,7 +125,6 @@ class TestCategories:
 
     def test_get_categories_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting all active categories."""
-        # Create a default category if none exist
         if CategoryRepository().count() == 0:
             default_category = Category(
                 name="test_category",
@@ -147,17 +140,14 @@ class TestCategories:
 
         categories: list[Any] = response.json()
         assert isinstance(categories, list)
-        # Should return at least the default categories
         assert len(categories) > 0
 
-        # Check that all returned categories are active
         category: Any
         for category in categories:
             assert category["is_active"] is True
 
     def test_get_category_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting a specific category."""
-        # Get a category ID from the database
         category_id = get_default_category_id(db_session)
 
         response = client.get(f"{settings.API_STR}/categories/{category_id}")
@@ -176,7 +166,6 @@ class TestCategories:
 
     def test_get_parts_by_category_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting parts by category."""
-        # Get a category ID from the database
         category_id = get_default_category_id(db_session)
 
         response = client.get(f"{settings.API_STR}/categories/{category_id}/parts")
@@ -189,19 +178,15 @@ class TestCategories:
         self, client: TestClient, test_part_manufacturer: PartManufacturer, db_session: Any
     ) -> None:
         """Test getting parts by category with pagination."""
-        # Get a category ID from the database
         category_id = get_default_category_id(db_session)
 
-        # Create a user and log them in
         _, token = create_and_login_user(client, "parts_by_category")
         headers = {"Authorization": f"Bearer {token}"}
 
         car_id = create_car_for_categories_test(db_session)
 
-        # Create a build list for the car
         build_list_id = create_build_list_for_car_cookie_auth(client, token, car_id)
 
-        # Create some parts in the category
         for i in range(3):
             part_data = {
                 "name": f"Test Part {i}",
@@ -223,7 +208,6 @@ class TestCategories:
 
     def test_get_parts_by_category_empty(self, client: TestClient, db_session: Any) -> None:
         """Test getting parts by category when no parts exist."""
-        # Get a category ID from the database
         category_id = get_default_category_id(db_session)
 
         response = client.get(f"{settings.API_STR}/categories/{category_id}/parts")
@@ -231,7 +215,6 @@ class TestCategories:
 
         parts = response.json()["items"]
         assert isinstance(parts, list)
-        # Note: This might not be empty if there are existing parts in the test database
 
     def test_create_category_removed(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend source; create endpoint is removed."""
@@ -274,14 +257,10 @@ class TestCategories:
 
         car_id = create_car_for_categories_test(db_session)
 
-        # Create a build list for the car
         build_list_id = create_build_list_for_car_cookie_auth(client, user_token, car_id)
 
-        # Get a category ID that has parts
         category_id = get_default_category_id(db_session)
 
-        # Create a part in that category
-        # Create a part_manufacturer for the part
         part_manufacturer = PartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
         )
@@ -296,20 +275,16 @@ class TestCategories:
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=user_headers)
         assert response.status_code == 200
 
-        # Re-login as admin user for the delete operation
         _, admin_token2 = create_and_login_admin_user(client, db_session, "delete_with_parts_admin")
         admin_headers = {"Authorization": f"Bearer {admin_token2}"}
 
-        # Delete endpoint is removed (categories are read-only)
         response = client.delete(f"{settings.API_STR}/categories/{category_id}", headers=admin_headers)
         assert response.status_code in (404, 405)
 
     def test_get_category_parts_count_success(self, client: TestClient, db_session: Any) -> None:
         """Test getting parts count for a category."""
-        # Get a category ID from the database
         category_id = get_default_category_id(db_session)
 
-        # Get initial count
         response = client.get(f"{settings.API_STR}/categories/{category_id}/parts-count")
         assert response.status_code == 200
         initial_data = response.json()
@@ -318,22 +293,18 @@ class TestCategories:
         assert isinstance(initial_count, int)
         assert initial_count >= 0
 
-        # Create a user and log them in
         _, user_token = create_and_login_user(client, "parts_count_user")
         user_headers = {"Authorization": f"Bearer {user_token}"}
 
         car_id = create_car_for_categories_test(db_session)
 
-        # Create a build list for the car
         build_list_id = create_build_list_for_car_cookie_auth(client, user_token, car_id)
 
-        # Create a part_manufacturer for the part
         part_manufacturer = PartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
         )
         part_manufacturer = save_catalog(part_manufacturer)
 
-        # Create a part in that category
         part_data = {
             "name": "Test Part for Count",
             "description": "Test part description",
@@ -343,7 +314,6 @@ class TestCategories:
         response = client.post(f"{settings.API_STR}/parts/", json=part_data, headers=user_headers)
         assert response.status_code == 200
 
-        # Get count again (should be increased by 1)
         response = client.get(f"{settings.API_STR}/categories/{category_id}/parts-count")
         assert response.status_code == 200
         updated_data = response.json()
@@ -361,10 +331,8 @@ class TestCategories:
 
     def test_get_category_parts_count_public_endpoint(self, client: TestClient, db_session: Any) -> None:
         """Test that getting parts count works without authentication."""
-        # Get a category ID from the database
         category_id = get_default_category_id(db_session)
 
-        # Get parts count (public endpoint, no auth required)
         client.cookies.clear()
         response = client.get(f"{settings.API_STR}/categories/{category_id}/parts-count")
         assert response.status_code == 200
@@ -384,7 +352,6 @@ class TestCategories:
 
     def test_count_categories_public_endpoint(self, client: TestClient, db_session: Any) -> None:
         """Test that counting categories works without authentication."""
-        # Count categories (public endpoint, no auth required)
         client.cookies.clear()
         response = client.get(f"{settings.API_STR}/categories/count")
         assert response.status_code == 200

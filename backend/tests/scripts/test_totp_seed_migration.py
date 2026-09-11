@@ -36,8 +36,6 @@ from app.db.dynamo.tables import USERS
 from scripts import migrate_totp_seeds_to_identity as script
 from tests.scripts.conftest import PREFIX, REGION
 
-#: A base32 seed in exactly the form `two_factor.py` stores: what
-#: `pyotp.random_base32()` produces, unpadded and uppercase.
 SEED = base64.b32encode(b"0123456789abcdefghij").decode("ascii").rstrip("=")
 OTHER_SEED = base64.b32encode(b"jihgfedcba9876543210").decode("ascii").rstrip("=")
 
@@ -98,11 +96,6 @@ def rows() -> list[dict[str, Any]]:
     return list(script.iter_user_rows(PREFIX))
 
 
-# ---------------------------------------------------------------------------
-# Sealing
-# ---------------------------------------------------------------------------
-
-
 def test_a_dry_run_writes_nothing(store: Any, cipher: Any, users: Any) -> None:
     user_id = make_user(users)
 
@@ -122,12 +115,10 @@ def test_apply_writes_the_factor_in_the_packages_shape(store: Any, cipher: Any, 
     factor = store.get(user_id)
     assert factor is not None
     assert factor.user_id == user_id
-    # The three envelope fields, all present and all base64.
     assert factor.secret_ciphertext and factor.secret_nonce and factor.wrapped_data_key
     for value in (factor.secret_ciphertext, factor.secret_nonce, factor.wrapped_data_key):
         base64.b64decode(value.encode("ascii"), validate=True)
     assert factor.created_at
-    # No watermark to carry: the legacy implementation keeps none.
     assert factor.last_used_step == 0
 
 
@@ -157,11 +148,6 @@ def test_the_encryption_context_binds_the_ciphertext_to_the_user(store: Any, cip
     assert script._open(stolen, victim, cipher) is None
 
 
-# ---------------------------------------------------------------------------
-# The shape must be one `MfaService` can read
-# ---------------------------------------------------------------------------
-
-
 def test_a_sealed_seed_verifies_through_the_packages_mfa_service(
     store: Any, cipher: Any, users: Any, data_key_arn: str, kms: Any
 ) -> None:
@@ -182,8 +168,6 @@ def test_a_sealed_seed_verifies_through_the_packages_mfa_service(
     settings = IdentitySettings(
         issuer="https://api.example.com/api/auth",
         audience="carmodpicker-api",
-        # A signing key is required to construct the settings and is not used
-        # here: nothing in this test mints a token, only verifies a factor.
         signing_key_arns=["arn:aws:kms:us-east-1:1:key/signing-not-used-here"],
         data_key_arn=data_key_arn,
         product_name="CarModPicker",
@@ -195,10 +179,8 @@ def test_a_sealed_seed_verifies_through_the_packages_mfa_service(
         kms_client=kms,
     )
 
-    # The factor is active, so the login challenge would ask for it.
     assert service.factors_for(user_id) == ["totp"]
 
-    # A code from the plaintext seed, generated exactly as `two_factor.py` does.
     code = pyotp.TOTP(SEED).now()
     assert service.verify_challenge(user_id, code) == AMR_OTP
 
@@ -242,11 +224,6 @@ def test_an_enabled_seed_activates(store: Any, cipher: Any, users: Any) -> None:
     factor = store.get(user_id)
     assert factor.activated_at
     assert factor.is_active is True
-
-
-# ---------------------------------------------------------------------------
-# Idempotence and conflicts
-# ---------------------------------------------------------------------------
 
 
 def test_a_rerun_is_idempotent(store: Any, cipher: Any, users: Any) -> None:
@@ -374,11 +351,6 @@ def test_the_same_seed_with_the_wrong_state_is_reset_not_a_conflict(store: Any, 
     assert store.get(user_id).is_active is True
 
 
-# ---------------------------------------------------------------------------
-# Skips
-# ---------------------------------------------------------------------------
-
-
 def test_a_user_with_no_seed_is_skipped(store: Any, cipher: Any, users: Any) -> None:
     user_id = make_user(users, seed=None, enabled=False)
 
@@ -397,11 +369,6 @@ def test_unique_sentinel_rows_are_not_users(store: Any, cipher: Any, users: Any)
 
     assert len(decisions) == 1
     assert summary["seal"] == 1
-
-
-# ---------------------------------------------------------------------------
-# The plaintext survives sealing, and only a later explicit pass removes it
-# ---------------------------------------------------------------------------
 
 
 def test_apply_leaves_the_plaintext_in_place(store: Any, cipher: Any, users: Any) -> None:
@@ -464,9 +431,7 @@ def test_clear_plaintext_removes_the_attribute_once_applied(store: Any, cipher: 
     summary, _ = script.clear_plaintext(rows(), store, cipher, prefix=PREFIX, apply=True)
 
     assert summary["cleared"] == 1
-    # REMOVE rather than a null, so the attribute is simply gone.
     assert "totp_secret" not in users.get_item(Key={"id": user_id})["Item"]
-    # And the sealed copy, the only one left, still opens.
     assert script._open(store.get(user_id), user_id, cipher) == SEED
 
 
@@ -501,11 +466,6 @@ def test_clear_plaintext_refuses_a_factor_holding_a_different_seed(store: Any, c
     assert users.get_item(Key={"id": user_id})["Item"]["totp_secret"] == SEED
 
 
-# ---------------------------------------------------------------------------
-# Nothing prints a seed, and the decisions cannot carry one
-# ---------------------------------------------------------------------------
-
-
 def test_no_output_contains_a_seed_or_any_envelope_field(store: Any, cipher: Any, users: Any, capsys: Any) -> None:
     """A TOTP seed is the secret itself, and CloudWatch is not where it belongs."""
     user_id = make_user(users)
@@ -538,11 +498,6 @@ def test_a_decision_carries_no_seed_field(store: Any, cipher: Any, users: Any) -
     }
     for decision in decisions:
         assert SEED not in "".join(str(value) for value in decision)
-
-
-# ---------------------------------------------------------------------------
-# The command line
-# ---------------------------------------------------------------------------
 
 
 def test_parse_args_requires_a_prefix(monkeypatch: pytest.MonkeyPatch) -> None:

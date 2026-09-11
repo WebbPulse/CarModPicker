@@ -69,7 +69,6 @@ def test_static_sitemap_is_valid_and_has_landing_pages(
     locs = _locs(resp.text)
     assert any(loc.endswith("/") for loc in locs)
     assert any(loc.endswith("/about") for loc in locs)
-    # Anything disallowed in robots.txt must never be advertised here.
     assert not any("/admin" in loc or "/profile" in loc for loc in locs)
 
 
@@ -88,9 +87,7 @@ def test_parts_sitemap_lists_canonical_only(client: TestClient, db_session: Any,
     locs = _locs(resp.text)
 
     assert any(loc.endswith(f"/parts/{canonical.id}") for loc in locs)
-    # The duplicate redirects to the canonical, so it must be excluded.
     assert not any(loc.endswith(f"/parts/{duplicate.id}") for loc in locs)
-    # <lastmod> must be present for entity URLs.
     assert root.find(f"{SM_NS}url/{SM_NS}lastmod") is not None
 
 
@@ -104,7 +101,6 @@ def test_build_lists_sitemap_lists_entries(client: TestClient, db_session: Any, 
 
 
 def test_empty_entity_sitemap_is_valid_xml(client: TestClient) -> None:
-    # No car generations seeded in the test DB -> still a valid empty urlset.
     resp = client.get("/sitemap-cars.xml")
     assert resp.status_code == 200
     root = ET.fromstring(resp.text)
@@ -126,7 +122,6 @@ def test_page_count_respects_url_cap() -> None:
 
 
 def test_pagination_offsets_results(client: TestClient, db_session: Any, test_user: User, monkeypatch) -> None:
-    # Shrink the page size so two parts span two pages without bulk seeding.
     monkeypatch.setattr(sitemap_service, "URLS_PER_PAGE", 1)
     p1 = _make_part(db_session, test_user, name="P1")
     p2 = _make_part(db_session, test_user, name="P2")
@@ -142,6 +137,5 @@ def test_pagination_offsets_results(client: TestClient, db_session: Any, test_us
     seen = {loc.rsplit("/", 1)[-1] for loc in locs1 + locs2}
     assert seen == all_ids
 
-    # Index should now advertise multiple part pages.
     idx = client.get("/sitemap.xml")
     assert any("sitemap-parts.xml?page=2" in loc for loc in _locs(idx.text))

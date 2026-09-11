@@ -34,8 +34,6 @@ from app.db.dynamo.catalog import Retailer as DBRetailer
 from app.db.dynamo.users import User
 from tests.conftest import get_default_category_id, save_catalog
 
-# --- helpers -----------------------------------------------------------------
-
 
 def _make_retailer(db: Any, slug: str) -> DBRetailer:
     retailer = DBRetailer(
@@ -103,9 +101,6 @@ def _add_history(
     return row
 
 
-# --- single-part tests -------------------------------------------------------
-
-
 def test_aggregate_single_part_basic(db_session: Any, test_user: User) -> None:
     retailer = _make_retailer(db_session, "basic")
     part = _make_part(db_session, test_user, name="Basic Part")
@@ -127,7 +122,6 @@ def test_aggregate_single_part_basic(db_session: Any, test_user: User) -> None:
     assert result.retailers[0].retailer_id == retailer.id
     assert result.retailers[0].observation_count == 3
     assert len(result.history) == 3
-    # DESC by observed_at: history[0] is the most recent (1200 cents).
     assert result.history[0].price_cents == 1200
     assert result.history[-1].price_cents == 1000
     assert result.window == "90d"
@@ -139,7 +133,6 @@ def test_aggregate_single_part_window_filters_old_observations(db_session: Any, 
     listing = _make_listing(db_session, part, retailer)
 
     now = datetime.now(UTC)
-    # 5 rows across 1 year — only the 30-day rows should appear with window='30d'.
     _add_history(db_session, listing, price_cents=4000, observed_at=now - timedelta(days=300))
     _add_history(db_session, listing, price_cents=3500, observed_at=now - timedelta(days=180))
     _add_history(db_session, listing, price_cents=3000, observed_at=now - timedelta(days=60))
@@ -156,7 +149,6 @@ def test_aggregate_single_part_window_filters_old_observations(db_session: Any, 
 
 def test_aggregate_single_part_empty_history(db_session: Any, test_user: User) -> None:
     part = _make_part(db_session, test_user, name="Empty Part")
-    # No listings, no history.
 
     result = aggregate_single_part(part.id, "90d")
 
@@ -174,11 +166,8 @@ def test_aggregate_single_part_empty_history(db_session: Any, test_user: User) -
 @pytest.mark.parametrize(
     "series,expected",
     [
-        # Steeply ascending — slope * (n-1) should clear the 1%-of-mean bar.
         ([1000, 1100, 1200, 1300, 1400], "up"),
-        # Steeply descending.
         ([1400, 1300, 1200, 1100, 1000], "down"),
-        # Flat (identical values).
         ([1000, 1000, 1000, 1000, 1000], "flat"),
     ],
 )
@@ -190,7 +179,6 @@ def test_aggregate_single_part_trend_up_down_flat(
     listing = _make_listing(db_session, part, retailer)
 
     now = datetime.now(UTC)
-    # Seed chronologically — oldest first — at 5-day spacing.
     for i, price in enumerate(series):
         _add_history(
             db_session,
@@ -207,12 +195,8 @@ def test_aggregate_single_part_invalid_window_raises(db_session: Any, test_user:
     part = _make_part(db_session, test_user, name="Bad Window Part")
     with pytest.raises(ValueError):
         aggregate_single_part(part.id, "99x")
-    # parse_window directly, too — keeps the contract obvious.
     with pytest.raises(ValueError):
         parse_window("year")
-
-
-# --- batch tests -------------------------------------------------------------
 
 
 def test_aggregate_batch_returns_entry_per_requested_id(db_session: Any, test_user: User) -> None:
@@ -237,7 +221,6 @@ def test_aggregate_batch_returns_entry_per_requested_id(db_session: Any, test_us
     assert result[part_a.id].last_cents == 1100
     assert result[part_b.id].observation_count == 1
     assert result[part_b.id].min_cents == 2000
-    # Empty entry shape.
     empty = result[part_empty.id]
     assert empty.observation_count == 0
     assert empty.min_cents is None
@@ -261,7 +244,6 @@ def test_aggregate_batch_canonical_dedup(db_session: Any, test_user: User) -> No
 
     result = aggregate_batch([canonical.id, duplicate.id], "90d")
 
-    # Both keys present; both share the same group → identical aggregates.
     assert canonical.id in result
     assert duplicate.id in result
     canon_item = result[canonical.id]

@@ -30,8 +30,6 @@ class TestManufacturerNameCanonical:
         assert manufacturer_name_canonical("   ") == ""
 
     def test_brand_subdivision_collapses_to_parent(self) -> None:
-        # The mandate clusters: ``APR Performance`` -> APR, ``AEM Electronics``
-        # / ``AEM Induction`` -> AEM, ``PRL Motorsports`` -> PRL.
         assert manufacturer_name_canonical("APR Performance") == "apr"
         assert manufacturer_name_canonical("APR") == "apr"
         assert manufacturer_name_canonical("AEM Electronics") == "aem"
@@ -44,7 +42,6 @@ class TestManufacturerNameCanonical:
         assert manufacturer_name_canonical("Burger Motorsport") == "burger"
 
     def test_corporate_suffix_strips(self) -> None:
-        # ``Katech Engineering`` / ``Katech Inc.`` -> ``katech``.
         assert manufacturer_name_canonical("Katech Engineering") == "katech"
         assert manufacturer_name_canonical("Katech Inc.") == "katech"
         assert manufacturer_name_canonical("Katech Inc") == "katech"
@@ -53,13 +50,11 @@ class TestManufacturerNameCanonical:
         assert manufacturer_name_canonical("CSF") == "csf"
 
     def test_iterative_trailing_token_strip(self) -> None:
-        # ``Titan 7 LLC`` / ``Titan7`` -> ``titan7`` (LLC peeled off the tail).
         assert manufacturer_name_canonical("Titan 7 LLC") == "titan7"
         assert manufacturer_name_canonical("Titan 7") == "titan7"
         assert manufacturer_name_canonical("Titan7") == "titan7"
 
     def test_punctuation_and_whitespace_collapse(self) -> None:
-        # Punctuation normalisation: apostrophes, hyphens, ampersands, spaces.
         assert manufacturer_name_canonical("A'PEX-i") == "apexi"
         assert manufacturer_name_canonical("APEXi") == "apexi"
         assert manufacturer_name_canonical("Apex-i") == "apexi"
@@ -73,9 +68,6 @@ class TestManufacturerNameCanonical:
         assert manufacturer_name_canonical("PowerStop") == "powerstop"
 
     def test_oem_naming_intentionally_distinct(self) -> None:
-        # ``Genuine BMW`` and ``BMW OEM`` are NOT the same canonical key —
-        # OEM-rename is a one-time migration step, not a runtime collapse.
-        # Adapters going forward should emit ``<Make> OEM`` directly.
         assert manufacturer_name_canonical("BMW OEM") == "bmwoem"
         assert manufacturer_name_canonical("Genuine BMW") == "genuinebmw"
         assert manufacturer_name_canonical("Genuine BMW Motorsport") == "genuinebmw"
@@ -100,9 +92,6 @@ class TestCuratedPMResolution:
         assert resolved.id == canonical.id
 
     def test_subdivision_resolves_to_parent_brand(self, db_session: Any) -> None:
-        # Post-migration ``APR`` is the canonical row. An adapter still
-        # emitting ``APR Performance`` must hit the existing row, not insert
-        # a new one.
         canonical = self._make_curated(db_session, "APR")
         resolved = get_or_create_part_manufacturer_by_name("APR Performance")
         assert resolved is not None
@@ -124,8 +113,6 @@ class TestCuratedPMResolution:
         assert resolved.id == canonical.id
 
     def test_unrelated_brand_creates_new_row(self, db_session: Any) -> None:
-        # Sanity: the canonical-key fallback must not accidentally collide
-        # distinct brands that happen to share a prefix.
         self._make_curated(db_session, "APR")
         resolved = get_or_create_part_manufacturer_by_name("AEM")
         assert resolved is not None

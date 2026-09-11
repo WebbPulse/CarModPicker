@@ -20,7 +20,6 @@ class TestMakeModelMatching:
         assert any(c.make == "Ford" and c.model == "Mustang" for c in candidates)
 
     def test_bare_model_requires_trusted_makes(self) -> None:
-        # Without trusted_makes, "Mustang Cold Air Kit" must NOT match.
         candidates = extract_fitment_candidates("Mustang Cold Air Kit")
         assert not any(c.model == "Mustang" for c in candidates)
 
@@ -29,7 +28,6 @@ class TestMakeModelMatching:
         assert any(c.make == "Ford" and c.model == "Mustang" for c in candidates)
 
     def test_trusted_makes_constrains_full_phrase_match_too(self) -> None:
-        # "Toyota Supra" full phrase must NOT match if Toyota isn't trusted.
         candidates = extract_fitment_candidates("Toyota Supra Carbon Fiber Lip", trusted_makes={"Ford"})
         assert not any(c.make == "Toyota" for c in candidates)
 
@@ -42,7 +40,6 @@ class TestYearPairing:
         assert ford_match.year_range == (2015, 2023)
 
     def test_year_range_pairs_to_closest_make_model(self) -> None:
-        # Two ranges in a multi-fitment title; each should pair with its model.
         candidates = extract_fitment_candidates(
             "2009-2014 Dodge Charger SRT8 / 2015-2023 Dodge Challenger Driveshaft",
             trusted_makes={"Dodge"},
@@ -61,7 +58,6 @@ class TestYearPairing:
         assert m.year_range is None
 
     def test_far_year_not_paired(self) -> None:
-        # Year is more than 50 chars away from the model — no pairing.
         title = "Mustang " + ("filler " * 10) + "(2015-2023)"
         candidates = extract_fitment_candidates(title, trusted_makes={"Ford"})
         m = next((c for c in candidates if c.model == "Mustang"), None)
@@ -96,12 +92,8 @@ class TestRealWorldTitles:
 
 class TestDeduplication:
     def test_duplicate_make_model_year_collapsed(self) -> None:
-        # Two mentions of the same fitment (different fragments of the title).
         candidates = extract_fitment_candidates("Subaru WRX strut brace, fits all WRX 2015-2018 trims")
         wrx = [c for c in candidates if c.model == "WRX"]
-        # First mention pairs with no year (none nearby), second with (2015, 2018).
-        # We deduplicate on (make, model, year_range) so both can coexist if year differs.
-        # Key contract: same (make, model, year_range) tuple appears at most once.
         keys = [(c.make, c.model, c.year_range) for c in wrx]
         assert len(keys) == len(set(keys))
 

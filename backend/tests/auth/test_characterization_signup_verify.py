@@ -38,9 +38,6 @@ def test_signup_and_verify_email(client: TestClient, db_session: Any) -> None:
     email = f"{username}@example.com"
     password = "test_password_123!"
 
-    # --- Step 1: Create unverified user directly in DB ---
-    # (In production the POST /api/users/ creates unverified users; in TESTING mode
-    # it auto-verifies.  We create directly to characterize the unverified→verified transition.)
     db_user = UserRepository().create_user(
         DBUser(
             username=username,
@@ -51,26 +48,21 @@ def test_signup_and_verify_email(client: TestClient, db_session: Any) -> None:
         )
     )
 
-    # DB: user exists; email_verified is False
     assert db_user is not None
     assert db_user.email_verified is False
 
-    # --- Step 2: Generate verification token (same logic as auth.py verify_email endpoint) ---
     token = create_access_token(
         data={"sub": email, "purpose": "verify_email"},
         expires_delta=timedelta(hours=1),
     )
 
-    # --- Step 3: Confirm via GET (redirects; follow_redirects=False) ---
     confirm = client.get(
         f"{settings.API_STR}/auth/verify-email/confirm",
         params={"token": token},
         follow_redirects=False,
     )
-    # The endpoint redirects to the frontend with status=success
     assert confirm.status_code == 302, confirm.text
     assert "status=success" in confirm.headers["location"]
 
-    # DB: email_verified flipped to True
     db_user = UserRepository().get_or_raise(db_user.id)
     assert db_user.email_verified is True

@@ -113,14 +113,13 @@ class TestBuildPlan:
         canonical = parts[str(rows["parts"][0]["id"])]
         linked = parts[str(rows["parts"][1]["id"])]
         assert canonical.car_ids == [rows["part_cars"][0]["car_id"]]
-        assert canonical.best_price_cents == 9900  # min across the link group
+        assert canonical.best_price_cents == 9900
         assert linked.best_price_cents == 9900
         assert canonical.net_votes == 2
         assert linked.net_votes == -1
 
     def test_creates_the_missing_build_log(self, dynamo_tables: Any) -> None:
         rows = sample_rows()
-        # psycopg2 returns uuid columns as strings; a list that already has a log must not get another.
         covered_list = str(uuid7())
         rows["build_lists"].append(
             _stamped(id=covered_list, name="Street build", user_id=rows["users"][0]["id"], car_id=None)
@@ -147,7 +146,7 @@ class TestBuildPlan:
         assert len(plan.lookups["car_makes"]) == 1
         assert len(plan.lookups["car_models"]) == 2
         assert len(plan.lookups["retailers"]) == 2
-        assert len(plan.lookups["parts"]) == 2  # gtin + manufacturer part number, canonical part only
+        assert len(plan.lookups["parts"]) == 2
         assert plan.lookups["votes"] == []
 
     def test_rejects_rows_that_collide_on_a_unique_attribute(self, dynamo_tables: Any) -> None:
@@ -181,7 +180,7 @@ class TestWritePlan:
 
         counts = backfill.verify_counts(plan, repos)
         assert all(expected == found for expected, found in counts.values()), counts
-        assert counts["users"] == (2, 2)  # lookups are not counted as rows
+        assert counts["users"] == (2, 2)
 
     def test_is_idempotent(self, dynamo_tables: Any) -> None:
         repos = get_repositories()

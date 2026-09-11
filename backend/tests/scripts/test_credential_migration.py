@@ -95,7 +95,6 @@ def test_apply_writes_the_credential_in_the_packages_shape(store: Any, users: An
     assert credential.user_id == user_id
     assert credential.credential_type == PASSWORD_CREDENTIAL_TYPE
     assert credential.secret == legacy
-    # The store fills both timestamps in when the record leaves them empty.
     assert credential.created_at
     assert credential.updated_at
 

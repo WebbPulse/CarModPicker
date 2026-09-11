@@ -11,17 +11,12 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings, settings
 
-# The Chrome Web Store id of the CarModPicker Browser Companion, shared by the
-# staging and production GitHub environments as `CWS_EXTENSION_ID`.
 STORE_EXTENSION_ID = "dbglgmnnfandmnacdpibkfggkadjikkg"
 STORE_ORIGIN = f"chrome-extension://{STORE_EXTENSION_ID}"
 
 
 def _settings(**overrides: object) -> Settings:
     return Settings(_env_file=None, SECRET_KEY="x", **overrides)  # type: ignore[call-arg]
-
-
-# --- Settings level ---------------------------------------------------------
 
 
 def test_store_extension_origin_is_allowed_by_default() -> None:
@@ -65,9 +60,6 @@ def test_empty_extension_ids_yields_no_extension_origins() -> None:
     s = _settings(CHROME_EXTENSION_IDS="")
     assert s.chrome_extension_origins_list == []
     assert not any(o.startswith("chrome-extension://") for o in s.allowed_origins_list)
-
-
-# --- Middleware level -------------------------------------------------------
 
 
 def _preflight(client: TestClient, origin: str) -> "object":
