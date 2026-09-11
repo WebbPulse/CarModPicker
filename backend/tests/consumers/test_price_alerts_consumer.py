@@ -1,30 +1,6 @@
-"""Split plan row 25: the `part_listings` stream consumer that mails price alerts.
-
-Three layers of test here, and each exists because the layer below it cannot
-prove the thing it proves.
-
-The first drives `app.consumers.price_alerts` against fake repositories. What
-that module actually does is decide, from two stream images, whether a price
-fell and which listing to evaluate once; the properties worth pinning are all
-about that decision and about which sequence numbers come back on a failure, not
-about DynamoDB. Fakes make the call counts assertable, which is the only way to
-show that five writes to one listing in a batch are one evaluation rather than
-five, and that a re-stamp of an unchanged price is zero.
-
-The second is the idempotency layer, and it is the one this row exists for. A
-DynamoDB stream is at-least-once, so the same record can arrive twice and the
-side effect here is an email that cannot be unsent. These tests replay records
-and assert that no second message reaches SES.
-
-The third puts a fake SES client under the real `app.core.email` send path, so
-the whole chain runs: stream record, drop detection, threshold, cooldown, the
-signed unsubscribe token, and the `sesv2.send_email` call itself. **No real mail
-is ever sent.** `boto3.client` is replaced, so there is no network call and no
-credentials involved; what is asserted is the request that would have gone out.
-That matters because `send_price_drop_alert_email` reaches `create_access_token`
-for the unsubscribe JWT, which is the hidden `SECRET_KEY` dependency that made
-this consumer set `secrets = true` where row 24's did not. A test that stubbed
-the send would never have touched it.
+"""Covers the part_listings stream consumer that mails price alerts: drop detection
+and grouping over fakes, idempotency against redelivery, and the real send path
+with only the SES transport faked.
 """
 
 from __future__ import annotations
@@ -53,13 +29,7 @@ def listing_image(
     price_cents: Optional[int],
     observed_at: datetime = OBSERVED_AT,
 ) -> Dict[str, Any]:
-    """One `part_listings` item in the low level wire format.
-
-    The `{"S": ...}` and `{"N": ...}` wrappers are the point. An event source
-    mapping delivers what the stream holds, not what `boto3.resource` would
-    deserialise, so a helper that emitted plain strings would let a handler bug
-    through that production hits on its first invoke.
-    """
+    """One part_listings item in the low level wire format the stream actually holds."""
     image: Dict[str, Any] = {
         "id": {"S": listing_id},
         "part_id": {"S": part_id},
@@ -84,12 +54,8 @@ def stream_record(
     event_name: str = "MODIFY",
     observed_at: datetime = OBSERVED_AT,
 ) -> Dict[str, Any]:
-    """One DynamoDB stream record in the shape an event source mapping delivers.
-
-    `previous_cents` of `None` on a MODIFY means the old image carries no price,
-    which the handler reads as "there was nothing to be below" and therefore as a
-    drop. Pass a number to build the far more common case, a listing whose price
-    was already known.
+    """One stream record as an event source mapping delivers it; previous_cents of None
+    on a MODIFY means the old image carried no price, which reads as a drop.
     """
     listing_id = listing_id or str(uuid4())
     part_id = part_id or str(uuid4())
@@ -123,6 +89,7 @@ class FakeAlert:
         threshold_cents: int,
         last_fired_at: Optional[datetime] = None,
     ) -> None:
+        """Hold the threshold and cooldown marker the evaluator reads and writes."""
         self.id = uuid4()
         self.user_id = user_id
         self.threshold_cents = threshold_cents
@@ -131,13 +98,17 @@ class FakeAlert:
 
 
 class FakeAlerts:
+    """A part_price_alerts repository, recording its queries and updates."""
+
     def __init__(self, alerts: Dict[str, List[FakeAlert]]) -> None:
+        """Start from a per part list of alerts."""
         self.alerts_by_part = alerts
         self.queries: List[Tuple[UUID, int]] = []
         self.updates: List[Tuple[UUID, Optional[datetime]]] = []
         self.raise_on_query: Optional[Exception] = None
 
     def active_at_or_below(self, part_id: UUID, price_cents: int) -> List[FakeAlert]:
+        """The active alerts for a part whose threshold the price meets, or raise on demand."""
         if self.raise_on_query is not None:
             raise self.raise_on_query
         self.queries.append((part_id, price_cents))
@@ -148,6 +119,7 @@ class FakeAlerts:
         ]
 
     def update(self, alert_id: UUID, **changes: Any) -> Any:
+        """Apply and record a change to one alert."""
         self.updates.append((alert_id, changes.get("last_fired_at")))
         for alerts in self.alerts_by_part.values():
             for alert in alerts:
@@ -159,28 +131,40 @@ class FakeAlerts:
 
 
 class FakeEntity:
+    """A part or retailer the email template only needs an id and a name from."""
+
     def __init__(self, name: str) -> None:
+        """Hold a generated id and the display name."""
         self.id = uuid4()
         self.name = name
 
 
 class FakeRepo:
+    """A repository the consumer only reads single items from by id."""
+
     def __init__(self, items: Dict[str, Any]) -> None:
+        """Start from a mapping of id to item."""
         self.items = items
         self.gets: List[str] = []
 
     def get(self, key: Any) -> Any:
+        """Return the item for a key, recording the lookup."""
         self.gets.append(str(key))
         return self.items.get(str(key))
 
 
 class FakeUser:
+    """A user the email path only needs an id and an address from."""
+
     def __init__(self, email: str) -> None:
+        """Hold a generated id and the address."""
         self.id = uuid4()
         self.email = email
 
 
 class FakeRepos:
+    """A repository bundle covering the four tables the evaluation reads."""
+
     def __init__(
         self,
         part_price_alerts: FakeAlerts,
@@ -188,6 +172,7 @@ class FakeRepos:
         retailers: FakeRepo,
         users: FakeRepo,
     ) -> None:
+        """Wire the four per table fakes into one bundle."""
         self.part_price_alerts = part_price_alerts
         self.parts = parts
         self.retailers = retailers
@@ -215,14 +200,11 @@ def build_world(
 
 @pytest.fixture
 def sent(monkeypatch: pytest.MonkeyPatch) -> List[Tuple[str, Any, Any, int, Any]]:
-    """Capture `send_price_drop_alert_email` calls without building a message.
-
-    Used by every layer except the SES one below, where the real send path runs
-    against a fake client instead.
-    """
+    """Capture send_price_drop_alert_email calls without building a message."""
     calls: List[Tuple[str, Any, Any, int, Any]] = []
 
     def fake_send(to_email: str, part: Any, retailer: Any, price_cents: int, alert: Any) -> bool:
+        """Record the call and report success."""
         calls.append((to_email, part, retailer, price_cents, alert))
         return True
 
@@ -231,7 +213,10 @@ def sent(monkeypatch: pytest.MonkeyPatch) -> List[Tuple[str, Any, Any, int, Any]
 
 
 class TestDropDetection:
+    """Which stream records read as a price drop worth evaluating."""
+
     def test_a_lower_price_is_a_drop(self) -> None:
+        """A lower price than the old image is a drop carrying the new price and timestamp."""
         drop = price_drop_from_record(stream_record(price_cents=9_000, previous_cents=11_000))
 
         assert drop is not None
@@ -239,11 +224,7 @@ class TestDropDetection:
         assert drop.observed_at == OBSERVED_AT
 
     def test_an_insert_with_a_price_is_a_drop(self) -> None:
-        """There was no previous price for it to be below.
-
-        A user who set a threshold before any retailer listed the part should
-        hear about the first listing that meets it.
-        """
+        """A first listing is a drop, because there was no previous price to be below."""
         drop = price_drop_from_record(stream_record(price_cents=9_000, event_name="INSERT"))
 
         assert drop is not None
@@ -251,25 +232,22 @@ class TestDropDetection:
 
     @pytest.mark.parametrize("previous", [9_000, 8_000])
     def test_an_unchanged_or_raised_price_is_not_a_drop(self, previous: int) -> None:
-        """The common case on a crawler revisiting a stable listing.
-
-        Every write in the capture path touches the listing, including the ones
-        that only re-stamp the timestamp, so without this test the consumer would
-        re-evaluate every alert on every revisit.
+        """A re-stamped or raised price is not a drop, which is the common case on a
+        crawler revisiting a stable listing.
         """
         assert price_drop_from_record(stream_record(price_cents=9_000, previous_cents=previous)) is None
 
     def test_a_remove_is_never_a_drop(self) -> None:
+        """A REMOVE is never a drop."""
         assert price_drop_from_record(stream_record(event_name="REMOVE")) is None
 
     def test_a_listing_with_no_price_is_not_a_drop(self) -> None:
+        """A listing with no price is not a drop."""
         assert price_drop_from_record(stream_record(price_cents=None)) is None
 
     def test_an_unreadable_part_id_is_skipped_rather_than_failed(self) -> None:
-        """None of the unreadable cases is retryable, so none of them fails.
-
-        Failing here would put a record on the dead letter queue that no
-        redelivery could ever fix.
+        """An unreadable part id is skipped rather than failed, because no redelivery
+        could ever fix it.
         """
         record = stream_record(price_cents=9_000, previous_cents=11_000)
         record["dynamodb"]["NewImage"]["part_id"] = {"S": "not-a-uuid"}
@@ -289,13 +267,11 @@ class TestDropDetection:
 
 
 class TestGrouping:
-    def test_several_writes_to_one_listing_collapse_to_one_evaluation(self) -> None:
-        """And the lowest price in the batch is the one kept.
+    """How several writes to one listing collapse into one evaluation."""
 
-        Evaluating each record would mail the same user several times for one
-        listing in one batch, and the cooldown marker would only suppress the
-        second and later ones after the first had written it, which is a race
-        rather than a guarantee.
+    def test_several_writes_to_one_listing_collapse_to_one_evaluation(self) -> None:
+        """Several writes to one listing collapse to one evaluation at the lowest price,
+        and every sequence number is retained for failure reporting.
         """
         listing_id, part_id, retailer_id = str(uuid4()), str(uuid4()), str(uuid4())
         records = [
@@ -312,12 +288,7 @@ class TestGrouping:
         assert sequence_numbers == ["1", "2", "3"]
 
     def test_a_rise_inside_a_batch_contributes_nothing(self) -> None:
-        """A record that is not a drop is not grouped, even alongside ones that are.
-
-        Without this, a batch holding a drop and a later rise would still report
-        the rise's sequence number on a failure, which retries a record whose
-        redelivery can never do anything.
-        """
+        """A rise alongside a drop is not grouped, so its sequence number is never retried."""
         listing_id, part_id, retailer_id = str(uuid4()), str(uuid4()), str(uuid4())
         records = [
             stream_record(listing_id, part_id, retailer_id, 9_000, 12_000, sequence_number="1"),
@@ -329,6 +300,7 @@ class TestGrouping:
         assert sequence_numbers == ["1"]
 
     def test_records_that_are_not_drops_are_absent_entirely(self) -> None:
+        """A batch with no drops groups to nothing."""
         records = [
             stream_record(price_cents=9_000, previous_cents=9_000),
             stream_record(event_name="REMOVE"),
@@ -338,7 +310,10 @@ class TestGrouping:
 
 
 class TestBatchHandling:
+    """What comes back from a batch, clean and partially failed."""
+
     def test_a_clean_batch_reports_no_failures(self, sent: List[Any]) -> None:
+        """A clean batch sends and reports no failures."""
         repos, part_id, retailer_id, _ = build_world()
 
         result = handle(
@@ -356,11 +331,8 @@ class TestBatchHandling:
         assert sent == []
 
     def test_only_the_failed_listing_is_reported(self, sent: List[Any]) -> None:
-        """A partial failure must not re-drive the records that succeeded.
-
-        This is a result carrying failures, not a raised exception. The
-        distinction is the whole point of `ReportBatchItemFailures`: the invoke
-        worked, one listing did not, and only its sequence numbers come back.
+        """A partial failure reports only the failing listing's sequence numbers, so the
+        records that succeeded are not re-driven.
         """
         repos, part_id, retailer_id, _ = build_world()
         bad_part_id = str(uuid4())
@@ -368,6 +340,7 @@ class TestBatchHandling:
         original = repos.part_price_alerts.active_at_or_below
 
         def flaky(query_part_id: UUID, price_cents: int) -> List[FakeAlert]:
+            """Raise for one part id and delegate for the rest."""
             if str(query_part_id) == bad_part_id:
                 raise RuntimeError("ProvisionedThroughputExceededException")
             return original(query_part_id, price_cents)
@@ -401,12 +374,11 @@ class TestBatchHandling:
 
 
 class TestIdempotency:
-    def test_a_redelivered_record_does_not_send_a_second_email(self, sent: List[Any]) -> None:
-        """The property this whole row turns on.
+    """The stream is at least once, so a redelivered record must not mail twice."""
 
-        A DynamoDB stream is at-least-once, so the mapping can hand the same
-        record over twice. `last_fired_at`, written by the first send, is what
-        stops the second one.
+    def test_a_redelivered_record_does_not_send_a_second_email(self, sent: List[Any]) -> None:
+        """A redelivered record sends nothing, because the cooldown marker written by the
+        first send suppresses it.
         """
         repos, part_id, retailer_id, alert = build_world()
         record = stream_record(part_id=part_id, retailer_id=retailer_id, previous_cents=15_000)
@@ -437,17 +409,15 @@ class TestIdempotency:
         assert len(sent) == 1
 
     def test_a_failed_send_leaves_the_marker_alone_so_the_retry_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """SES rejecting the message must not look like a send.
-
-        Writing the marker on a failure would turn a transient SES error into a
-        permanently missed alert, which is the failure mode this consumer is
-        least willing to have.
+        """A rejected send leaves the cooldown marker unset, so a transient error does not
+        become a permanently missed alert.
         """
         repos, part_id, retailer_id, alert = build_world()
         outcomes = [False, True]
         calls: List[str] = []
 
         def flaky_send(to_email: str, part: Any, retailer: Any, price_cents: int, sent_alert: Any) -> bool:
+            """Fail the first send and succeed on the second."""
             calls.append(to_email)
             return outcomes[len(calls) - 1]
 
@@ -492,36 +462,28 @@ class TestIdempotency:
 
 
 class FakeSesClient:
-    """Stands in for `boto3.client("sesv2")`. Sends nothing anywhere.
-
-    Recording the whole request rather than a boolean is deliberate: the
-    consumer's IAM policy grants `ses:SendEmail` on the identity and the
-    configuration set, and a request that named a different configuration set
-    would be denied in production while a boolean-returning stub stayed green.
+    """Stands in for the sesv2 client and sends nothing, recording the whole request
+    so a wrong configuration set cannot pass.
     """
 
     def __init__(self) -> None:
+        """Start with no requests recorded."""
         self.requests: List[Dict[str, Any]] = []
 
     def send_email(self, **kwargs: Any) -> Dict[str, str]:
+        """Record the request and return a fake message id."""
         self.requests.append(kwargs)
         return {"MessageId": f"fake-{len(self.requests)}"}
 
 
 class TestAgainstTheRealSendPath:
-    """The whole chain, with only the SES transport faked.
-
-    Everything above stubs `send_price_drop_alert_email`, which means none of it
-    exercises the template load, the unsubscribe JWT, or the `send_email` call
-    shape. This class runs all three. It is also the test that would have caught
-    the dependency that separates this consumer from row 24's: the unsubscribe
-    link is a signed token, so the send path reaches `create_access_token` and
-    the function needs `SECRET_KEY`, which is why its Terraform entry sets
-    `secrets = true` and its entrypoint calls `check_signing_key`.
+    """The whole chain with only the SES transport faked, so the template, the signed
+    unsubscribe token and the send request shape are all exercised.
     """
 
     @staticmethod
     def enable_ses(monkeypatch: pytest.MonkeyPatch) -> FakeSesClient:
+        """Point the email module at a fake SES client and enable sending."""
         from app.core import email as email_module
         from app.core.config import settings
 
@@ -533,6 +495,7 @@ class TestAgainstTheRealSendPath:
         return client
 
     def test_a_drop_reaches_ses_with_the_expected_request(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A drop reaches SES with the expected destination, sender and configuration set."""
         ses = self.enable_ses(monkeypatch)
         repos, part_id, retailer_id, alert = build_world()
 
@@ -550,12 +513,8 @@ class TestAgainstTheRealSendPath:
         assert alert.last_fired_at == OBSERVED_AT
 
     def test_the_body_carries_a_working_unsubscribe_token(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """The `SECRET_KEY` dependency, made visible.
-
-        The token in the link is a 30 day JWT signed with the app secret. If the
-        consumer did not carry `SECRET_KEY` this is where it would break, and it
-        would break by mailing a dead link rather than by failing an invoke,
-        which is exactly the kind of failure a stubbed send hides.
+        """The unsubscribe link carries a token signed with the app secret, which is the
+        secret dependency this consumer would otherwise break on silently.
         """
         ses = self.enable_ses(monkeypatch)
         repos, part_id, retailer_id, alert = build_world()
@@ -607,22 +566,13 @@ class TestAgainstTheRealSendPath:
 
 
 class TestEntrypoint:
-    """`app.entrypoints.admin_price_alerts_consumer`, the second stream consumer.
-
-    The consumer is a web application like every other entrypoint, because the
-    base image ships the Lambda Web Adapter and no runtime interface client. The
-    adapter is the runtime: for a non-HTTP trigger it POSTs the raw event JSON to
-    `AWS_LWA_PASS_THROUGH_PATH` and returns the response body as the function
-    result. So the contract under test is an HTTP one, and `TestClient` is
-    exactly the right instrument.
-
-    `GET /health` matters just as much. The Dockerfile sets
-    `AWS_LWA_READINESS_CHECK_PATH=/health`, so if that route ever went missing
-    the adapter would never mark the app ready and every invoke would time out.
+    """The Lambda entrypoint, whose contract is HTTP because the Web Adapter POSTs the
+    raw event and uses /health as the readiness check.
     """
 
     @staticmethod
     def client(monkeypatch: pytest.MonkeyPatch, repos: FakeRepos) -> Any:
+        """A test client over the entrypoint with its repositories stubbed."""
         from fastapi.testclient import TestClient
 
         from app.entrypoints import admin_price_alerts_consumer as entrypoint
@@ -631,11 +581,13 @@ class TestEntrypoint:
         return TestClient(entrypoint.app, raise_server_exceptions=False)
 
     def test_health_answers_the_readiness_check(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The readiness route answers."""
         repos, _, _, _ = build_world()
 
         assert self.client(monkeypatch, repos).get("/health").status_code == 200
 
     def test_events_sends_and_reports_no_failures(self, monkeypatch: pytest.MonkeyPatch, sent: List[Any]) -> None:
+        """A drop posted to /events sends and reports no failures."""
         repos, part_id, retailer_id, _ = build_world()
         client = self.client(monkeypatch, repos)
 
@@ -651,6 +603,7 @@ class TestEntrypoint:
     def test_events_returns_batch_item_failures_for_the_failed_listing_only(
         self, monkeypatch: pytest.MonkeyPatch, sent: List[Any]
     ) -> None:
+        """A failing listing comes back as a batchItemFailures entry with a 200."""
         repos, part_id, retailer_id, _ = build_world()
         repos.part_price_alerts.raise_on_query = RuntimeError("ProvisionedThroughputExceededException")
         client = self.client(monkeypatch, repos)
@@ -674,13 +627,8 @@ class TestEntrypoint:
         assert sent == []
 
     def test_an_unexpected_exception_becomes_a_5xx(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """The whole point of not catching: the adapter must see a failure.
-
-        Swallowing this into an empty `batchItemFailures` would tell the event
-        source mapping every record succeeded, and the batch would be dropped
-        with the subscribers on it never hearing about the drop. A non-2xx is
-        what makes the mapping bisect and retry, and what eventually routes the
-        batch to the stream DLQ.
+        """An unexpected exception is a 5xx, because acking the batch would drop it with
+        the subscribers on it never hearing about the drop.
         """
         from app.entrypoints import admin_price_alerts_consumer as entrypoint
 
@@ -708,17 +656,15 @@ class TestEntrypoint:
         assert response.status_code >= 500
 
     def test_service_name_is_distinct_from_the_http_admin_function(self) -> None:
+        """The consumer's service name is distinct from the domain's."""
         from app.entrypoints import admin_price_alerts_consumer as entrypoint
 
         assert entrypoint.SERVICE_NAME == f"{entrypoint.DOMAIN.service_name}-price-alerts-consumer"
         assert entrypoint.SERVICE_NAME != entrypoint.DOMAIN.service_name
 
     def test_the_events_path_matches_the_adapter_default(self) -> None:
-        """Terraform sets `AWS_LWA_PASS_THROUGH_PATH` to this same string.
-
-        If the two ever drift the adapter POSTs to a path FastAPI answers 404
-        on, which the adapter reports as a successful invoke with a 404 body.
-        Every record would be silently acked.
+        """The events path matches the adapter pass through path, since a drift would ack
+        every record on a 404.
         """
         from app.entrypoints import admin_price_alerts_consumer as entrypoint
 
@@ -733,6 +679,7 @@ class TestEntrypoint:
         built: List[int] = []
 
         def fake_bundle_for(domains: Any) -> Any:
+            """Count bundle builds and return a prebuilt world."""
             built.append(1)
             return build_world()[0]
 
@@ -745,13 +692,8 @@ class TestEntrypoint:
         assert len(built) == 1
 
     def test_it_runs_on_the_admin_domain_and_needs_no_bundle_widening(self) -> None:
-        """Seam 4 is an inversion rather than a widening.
-
-        Every repository the evaluation reaches is already in `admin`'s declared
-        set, because the alerts are the domain's own and the other three are
-        reached by `admin/stats` and `admin/db_ops`. If a later change removed
-        one of them from the domain descriptor this consumer would start raising
-        `RepositoryNotInBundle` at runtime, and this is where that is caught.
+        """Every repository the evaluation reaches is already in the admin domain's set,
+        so this consumer widens nothing.
         """
         from app.composition.domains import DOMAINS
         from app.entrypoints import admin_price_alerts_consumer as entrypoint
@@ -760,25 +702,14 @@ class TestEntrypoint:
         assert {"part_price_alerts", "parts", "retailers", "users"} <= set(DOMAINS["admin"].repositories)
 
     def test_the_admin_http_function_is_unchanged_by_this_row(self) -> None:
-        """The `admin` descriptor gets no SES anything.
-
-        The grant and the environment key live on the consumer's Terraform entry,
-        not on the domain, so the HTTP function that serves `admin`'s twelve
-        routes still holds no `ses:SendEmail`. Nothing in the descriptor should
-        have moved for this row.
-        """
+        """The admin domain descriptor gains no SES grant; that lives on the consumer."""
         from app.composition.domains import DOMAINS
 
         assert DOMAINS["admin"].requires_secrets == ("SECRET_KEY",)
 
     def test_neither_cors_nor_the_rate_limiter_is_mounted(self) -> None:
-        """The consumer has no `rate-limits` grant, so the limiter must be absent.
-
-        Mounting `add_shared_middleware` here would make the limiter fail open on
-        every single invoke, log a warning each time, and trip the shared
-        `rate-limit-failed-open` alarm on ordinary traffic. CORS is equally
-        pointless: the only caller is the adapter over loopback and it sends no
-        `Origin` header.
+        """Neither CORS nor the rate limiter is mounted, since the limiter has no grant
+        here and would fail open on every invoke.
         """
         from app.entrypoints import admin_price_alerts_consumer as entrypoint
 
@@ -789,11 +720,8 @@ class TestEntrypoint:
 
 
 def test_process_records_is_the_handler_without_the_envelope(sent: List[Any]) -> None:
-    """`handle` is `process_records` plus the shape the mapping reads.
-
-    Kept separate so the grouping and failure logic can be tested without the
-    `batchItemFailures` wrapper, and so a change to the envelope cannot quietly
-    change what is evaluated.
+    """process_records is the handler without the batchItemFailures envelope, so the
+    envelope cannot quietly change what is evaluated.
     """
     repos, part_id, retailer_id, _ = build_world()
     records = [stream_record(part_id=part_id, retailer_id=retailer_id, previous_cents=15_000)]

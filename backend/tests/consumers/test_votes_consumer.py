@@ -1,19 +1,5 @@
-"""Split plan row 24: the `votes` stream consumer that recomputes `net_votes`.
-
-Two layers of test here, deliberately.
-
-The first drives `app.consumers.votes` against fake repositories. The unit under
-test is a pure function of a batch and a repository pair, and the properties that
-matter (one recompute per part, tombstones skipped, which sequence numbers come
-back on a failure) are all about how the handler groups and reports, not about
-DynamoDB. Fakes let each of those be asserted exactly, including the counts of
-calls made, which is the only way to show that fifty records on one part are one
-query rather than fifty.
-
-The second runs the same handler against moto through the real repositories, so
-the wire format the fakes assume is checked against the one the real
-`PartRepository` and `VoteRepository` produce. A fake that agrees with a wrong
-assumption proves nothing; this is what stops that.
+"""Covers the votes stream consumer that recomputes net_votes: grouping, recompute
+and failure reporting over fakes, then the same handler against real repositories.
 """
 
 from __future__ import annotations
@@ -42,12 +28,7 @@ def stream_record(
     event_name: str = "INSERT",
     image_key: str = "NewImage",
 ) -> Dict[str, Any]:
-    """One DynamoDB stream record in the shape an event source mapping delivers.
-
-    The low level wire format is the point: `{"S": "..."}` rather than a plain
-    string. A helper that emitted plain strings would let a handler bug through
-    that production would hit on its first invoke.
-    """
+    """One votes stream record in the low level wire shape an event source mapping delivers."""
     image = {
         "id": {"S": str(uuid4())},
         "entity_type": {"S": entity_type},
@@ -69,17 +50,22 @@ def stream_record(
 
 
 class FakeParts:
+    """A parts repository recording its reads and writes."""
+
     def __init__(self, parts: Dict[str, Any]) -> None:
+        """Start from a mapping of part id to part."""
         self.parts = parts
         self.updates: List[Tuple[str, int]] = []
         self.gets: List[str] = []
         self.raise_on_update: Exception | None = None
 
     def get(self, part_id: str) -> Any:
+        """Return the part for an id, recording the lookup."""
         self.gets.append(part_id)
         return self.parts.get(part_id)
 
     def update(self, part_id: str, **changes: Any) -> Any:
+        """Apply and record a net_votes write, or raise on demand."""
         if self.raise_on_update is not None:
             raise self.raise_on_update
         self.updates.append((part_id, changes["net_votes"]))
@@ -89,17 +75,24 @@ class FakeParts:
 
 
 class FakeVotes:
+    """A votes repository returning a fixed upvote and downvote count per entity."""
+
     def __init__(self, counts: Dict[str, Tuple[int, int]]) -> None:
+        """Start from a mapping of entity id to counts."""
         self.counts_by_entity = counts
         self.calls: List[Tuple[str, UUID]] = []
 
     def counts(self, entity_type: str, entity_id: UUID) -> Tuple[int, int]:
+        """Return the counts for an entity, recording the call."""
         self.calls.append((entity_type, entity_id))
         return self.counts_by_entity.get(str(entity_id), (0, 0))
 
 
 class FakeRepos:
+    """A repository bundle carrying just the parts and votes fakes."""
+
     def __init__(self, parts: FakeParts, votes: FakeVotes) -> None:
+        """Wire the two fakes into one bundle."""
         self.parts = parts
         self.votes = votes
 
@@ -108,12 +101,16 @@ class FakePart:
     """Only the two attributes the consumer reads."""
 
     def __init__(self, net_votes: int = 0, deleted: bool = False) -> None:
+        """Hold the vote total and the tombstone flag."""
         self.net_votes = net_votes
         self.deleted = deleted
 
 
 class TestRecordParsing:
+    """Which votes stream records name a part that needs recounting."""
+
     def test_part_vote_yields_its_entity_id(self) -> None:
+        """A part vote yields the part id to recount."""
         part_id = uuid4()
         assert part_id_from_record(stream_record(entity_id=str(part_id))) == part_id
 
@@ -129,9 +126,11 @@ class TestRecordParsing:
         assert part_id_from_record(record) == part_id
 
     def test_record_with_no_image_is_dropped(self) -> None:
+        """A record carrying no image is dropped."""
         assert part_id_from_record({"sequenceNumber": "1", "dynamodb": {}}) is None
 
     def test_record_with_no_dynamodb_key_is_dropped(self) -> None:
+        """A record with no dynamodb key is dropped."""
         assert part_id_from_record({"sequenceNumber": "1"}) is None
 
     def test_malformed_entity_id_is_dropped_not_failed(self) -> None:
@@ -140,6 +139,7 @@ class TestRecordParsing:
         assert part_id_from_record(record) is None
 
     def test_grouping_collapses_records_per_part_and_keeps_every_sequence(self) -> None:
+        """Grouping collapses records per part while keeping every sequence number."""
         part_a, part_b = str(uuid4()), str(uuid4())
         records = [
             stream_record(entity_id=part_a, sequence_number="1"),
@@ -155,7 +155,10 @@ class TestRecordParsing:
 
 
 class TestRecompute:
+    """What recompute writes, and when it declines to write at all."""
+
     def test_writes_the_difference_of_the_counts(self) -> None:
+        """The written total is upvotes minus downvotes."""
         part_id = uuid4()
         parts = FakeParts({str(part_id): FakePart(net_votes=0)})
         votes = FakeVotes({str(part_id): (7, 2)})
@@ -184,6 +187,7 @@ class TestRecompute:
         assert votes.calls == []
 
     def test_unchanged_aggregate_skips_the_write(self) -> None:
+        """An unchanged total skips the write entirely."""
         part_id = uuid4()
         parts = FakeParts({str(part_id): FakePart(net_votes=3)})
         votes = FakeVotes({str(part_id): (3, 0)})
@@ -192,6 +196,7 @@ class TestRecompute:
         assert parts.updates == []
 
     def test_part_deleted_between_the_read_and_the_write(self) -> None:
+        """A part deleted between the read and the write is not an error."""
         part_id = uuid4()
         parts = FakeParts({str(part_id): FakePart(net_votes=0)})
         parts.raise_on_update = ItemNotFound("carmodpicker-parts", {"id": str(part_id)})
@@ -201,6 +206,8 @@ class TestRecompute:
 
 
 class TestIdempotency:
+    """The stream is at least once, so replays must converge rather than accumulate."""
+
     def test_replaying_the_same_record_converges(self) -> None:
         """At-least-once delivery: the same batch twice must not double the count."""
         part_id = uuid4()
@@ -217,6 +224,7 @@ class TestIdempotency:
         assert parts.updates == [(str(part_id), 4)]
 
     def test_many_records_on_one_part_are_one_recompute(self) -> None:
+        """Fifty records on one part are one query and one write."""
         part_id = uuid4()
         parts = FakeParts({str(part_id): FakePart(net_votes=0)})
         votes = FakeVotes({str(part_id): (50, 0)})
@@ -229,7 +237,10 @@ class TestIdempotency:
 
 
 class TestBatchHandling:
+    """What comes back from a batch, clean and partially failed."""
+
     def test_mixed_batch_recomputes_only_the_parts(self) -> None:
+        """A batch mixing entity types recomputes only the parts."""
         part_a, part_b = str(uuid4()), str(uuid4())
         parts = FakeParts({part_a: FakePart(), part_b: FakePart()})
         votes = FakeVotes({part_a: (3, 1), part_b: (0, 2)})
@@ -251,10 +262,14 @@ class TestBatchHandling:
         assert handle({}, FakeRepos(FakeParts({}), FakeVotes({}))) == {"batchItemFailures": []}
 
     def test_one_failing_part_reports_only_its_own_records(self) -> None:
+        """A failing part reports only its own sequence numbers."""
         part_ok, part_bad = str(uuid4()), str(uuid4())
 
         class ExplodingVotes(FakeVotes):
+            """A votes repository that raises for one part id."""
+
             def counts(self, entity_type: str, entity_id: UUID) -> Tuple[int, int]:
+                """Raise for the failing part and delegate for the rest."""
                 if str(entity_id) == part_bad:
                     raise RuntimeError("ProvisionedThroughputExceededException")
                 return super().counts(entity_type, entity_id)
@@ -273,6 +288,7 @@ class TestBatchHandling:
         assert parts.updates == [(part_ok, 2)]
 
     def test_process_records_returns_sequence_numbers(self) -> None:
+        """process_records returns the failing sequence numbers without the envelope."""
         part_id = str(uuid4())
         parts = FakeParts({part_id: FakePart()})
         parts.raise_on_update = RuntimeError("throttled")
@@ -290,6 +306,9 @@ class TestAgainstRealRepositories:
     """The same handler, moto, and the repositories the Lambda actually builds."""
 
     def test_recompute_writes_the_real_part(self, dynamo_tables: Any) -> None:
+        """The handler writes the real part through the real repositories, and a replay
+        leaves the total unchanged.
+        """
         category = next(iter(CategoryRepository().list_all()), None)
         if category is None:
             category = CategoryRepository().create(
@@ -312,6 +331,8 @@ class TestAgainstRealRepositories:
         votes.create(Vote(user_id=uuid4(), entity_type="part", entity_id=part.id, vote_type="downvote"))
 
         class RealRepos:
+            """A bundle over the real parts and votes repositories."""
+
             parts = PartRepository()
             votes = VoteRepository()
 
@@ -325,20 +346,8 @@ class TestAgainstRealRepositories:
 
 
 class TestEntrypoint:
-    """`app.entrypoints.catalog_votes_consumer`, the tenth deployed function.
-
-    The consumer is a web application like every other entrypoint, because the
-    base image ships the Lambda Web Adapter and no runtime interface client. The
-    adapter is the runtime: for a non-HTTP trigger it POSTs the raw event JSON to
-    `AWS_LWA_PASS_THROUGH_PATH` and returns the response body as the function
-    result. So the contract under test is an HTTP one, and `TestClient` is
-    exactly the right instrument: the same batches the handler tests use, driven
-    through `POST /events`, must come back as the same `batchItemFailures` the
-    event source mapping expects.
-
-    `GET /health` matters just as much. The Dockerfile sets
-    `AWS_LWA_READINESS_CHECK_PATH=/health`, so if that route ever went missing
-    the adapter would never mark the app ready and every invoke would time out.
+    """The Lambda entrypoint, whose contract is HTTP because the Web Adapter POSTs the
+    raw event and uses /health as the readiness check.
     """
 
     @staticmethod
@@ -347,6 +356,7 @@ class TestEntrypoint:
         parts: "FakeParts",
         votes: "FakeVotes",
     ) -> Any:
+        """A test client over the entrypoint with its repositories stubbed."""
         from fastapi.testclient import TestClient
 
         from app.entrypoints import catalog_votes_consumer as entrypoint
@@ -363,6 +373,7 @@ class TestEntrypoint:
         assert response.status_code == 200
 
     def test_events_recomputes_and_reports_no_failures(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A vote posted to /events recomputes and reports no failures."""
         part_id = str(uuid4())
         parts = FakeParts({part_id: FakePart()})
         votes = FakeVotes({part_id: (2, 0)})
@@ -394,6 +405,7 @@ class TestEntrypoint:
         assert sorted(parts.gets) == sorted([first, second])
 
     def test_events_skips_tombstoned_parts(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A tombstoned part is skipped rather than written back."""
         part_id = str(uuid4())
         parts = FakeParts({part_id: FakePart(deleted=True)})
         votes = FakeVotes({part_id: (7, 0)})
@@ -406,16 +418,16 @@ class TestEntrypoint:
         assert parts.updates == []
 
     def test_events_returns_batch_item_failures_for_the_failed_part_only(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """A partial failure must not re-drive the records that succeeded.
-
-        This is a 200 carrying failures, not a 5xx. The distinction is the whole
-        point of `ReportBatchItemFailures`: the invoke worked, some records did
-        not, and only those sequence numbers come back.
+        """A partial failure is a 200 carrying only the failing sequence numbers, so the
+        records that succeeded are not re-driven.
         """
         good, bad = str(uuid4()), str(uuid4())
 
         class ExplodingVotes(FakeVotes):
+            """A votes repository that raises for one part id."""
+
             def counts(self, entity_type: str, entity_id: UUID) -> Tuple[int, int]:
+                """Raise for the failing part and delegate for the rest."""
                 if str(entity_id) == bad:
                     raise RuntimeError("ProvisionedThroughputExceededException")
                 return super().counts(entity_type, entity_id)
@@ -436,12 +448,8 @@ class TestEntrypoint:
         assert parts.updates == [(good, 1)]
 
     def test_an_unexpected_exception_becomes_a_5xx(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """The whole point of not catching: the adapter must see a failure.
-
-        Swallowing this into an empty `batchItemFailures` would tell the event
-        source mapping every record succeeded, and the batch would be dropped.
-        A non-2xx is what makes the mapping bisect and retry, and what eventually
-        routes the batch to the stream DLQ.
+        """An unexpected exception is a 5xx, because acking the batch would drop it
+        instead of letting the mapping bisect and retry.
         """
         from app.entrypoints import catalog_votes_consumer as entrypoint
 
@@ -469,18 +477,15 @@ class TestEntrypoint:
         assert response.status_code >= 500
 
     def test_service_name_is_distinct_from_the_http_catalog_function(self) -> None:
+        """The consumer's service name is distinct from the domain's."""
         from app.entrypoints import catalog_votes_consumer as entrypoint
 
         assert entrypoint.SERVICE_NAME == f"{entrypoint.DOMAIN.service_name}-votes-consumer"
         assert entrypoint.SERVICE_NAME != entrypoint.DOMAIN.service_name
 
     def test_the_events_path_matches_the_adapter_default(self) -> None:
-        """Terraform sets `AWS_LWA_PASS_THROUGH_PATH` to this same string.
-
-        If the two ever drift the adapter POSTs to a path FastAPI answers 404
-        on, which the adapter reports as a successful invoke with a 404 body.
-        Every record would be silently acked. Pinning the constant here is the
-        cheap half of keeping that from happening.
+        """The events path matches the adapter pass through path, since a drift would ack
+        every record on a 404.
         """
         from app.entrypoints import catalog_votes_consumer as entrypoint
 
@@ -495,6 +500,7 @@ class TestEntrypoint:
         built: List[int] = []
 
         def fake_bundle_for(domains: Any) -> Any:
+            """Count bundle builds and return a placeholder bundle."""
             built.append(1)
             return FakeRepos(FakeParts({}), FakeVotes({}))
 
@@ -507,13 +513,8 @@ class TestEntrypoint:
         assert len(built) == 1
 
     def test_neither_cors_nor_the_rate_limiter_is_mounted(self) -> None:
-        """The consumer has no `rate-limits` grant, so the limiter must be absent.
-
-        Mounting `add_shared_middleware` here would make the limiter fail open on
-        every single invoke, log a warning each time, and trip the shared
-        `rate-limit-failed-open` alarm on ordinary traffic. CORS is equally
-        pointless: the only caller is the adapter over loopback and it sends no
-        `Origin` header.
+        """Neither CORS nor the rate limiter is mounted, since the limiter has no grant
+        here and would fail open on every invoke.
         """
         from app.entrypoints import catalog_votes_consumer as entrypoint
 

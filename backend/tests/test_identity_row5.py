@@ -1,49 +1,6 @@
-"""Row 5: the identity hooks, and the package router mounted on the identity app.
-
-This row adds two files and one mount. `app/composition/identity_hooks.py` is
-the product policy half of the seam and `app/composition/identity.py` is the
-composition half, and `build_domain_app` includes the second one on the identity
-domain application only, guarded on `IDENTITY_ISSUER` being set.
-
-What this file does not test is the package's own behaviour. That a TOTP code
-verifies inside its window, that a refresh token rotates, that a reset link is
-single use: the package's suite covers all of it, and asserting it again here
-would pin the same behaviour twice and say nothing about CarModPicker.
-
-What it tests is the four things only this repository can be wrong about.
-
-**The hooks answer this product's questions.** `may_authenticate` has to refuse
-a disabled account, a service account and an unverified address, because those
-three flags are CarModPicker's own and the package has never heard of them.
-`claims_for` has to put this product's two roles and its username into the
-token, because every other domain reads them from there. The protocol is
-asserted structurally with `isinstance`, which is what turns a package release
-that grows a hook into a failure here rather than an `AttributeError` mid-login
-in staging.
-
-**The mount is conditional and the condition is the issuer.** With
-`IDENTITY_ISSUER` unset the identity application is byte for byte the one row 4
-left behind, which is what keeps `tests/fixtures/route_contract.json`, the
-per-domain counts in `tests/entrypoints/test_route_split.py` and the OpenAPI
-snapshot valid without regenerating any of them. Set it, and twenty-one routes
-appear. Both halves are asserted, because a mount that fired unconditionally
-would break three pinned fixtures and a mount that never fired would look
-exactly like success from the outside.
-
-**The public paths are `/api/auth/...` with no prefix of this repository's
-own.** `build_identity_router` places every route under `identity_prefix`, which
-is the path component of the issuer, so the caller mounts with no prefix and the
-issuer is the single thing that decides where the routes land. Passing a prefix
-here would double it to `/api/api/auth`. The test asserts the paths rather than
-the absence of an argument, because the path is what API Gateway routes on.
-
-**The legacy routes still win the two collisions.** `POST /api/auth/logout` and
-`POST /api/auth/verify-email` exist on both sides. The package router is
-included after the legacy routers and FastAPI keeps the first match, so the
-legacy handler answers both, which is what makes this row additive rather than a
-cutover. The assertion is on the winning endpoint's module, so a reordering of
-the include is a failure here rather than a silent change of behaviour on two
-paths the frontend uses today.
+"""Covers the CarModPicker identity hooks and the conditional mount of the identity
+package router: this product's own auth policy, the issuer guard, the public
+paths, and the legacy handlers winning the two colliding routes.
 """
 
 from __future__ import annotations
@@ -97,18 +54,16 @@ COLLISIONS = (
 
 
 class FakeKms:
-    """A KMS client for one key, signing for real with a local private key.
-
-    Faithful in the two ways the rendered documents depend on: it signs the
-    digest it is handed without re-hashing it, which is what `MessageType`
-    `DIGEST` means, and it returns the DER SubjectPublicKeyInfo that the `kid`
-    is the base64url SHA-256 of. It differs from KMS only in who holds the key.
+    """A KMS client for one key that signs the digest it is handed with a local private
+    key and returns the DER public key the kid is derived from.
     """
 
     def __init__(self, key: rsa.RSAPrivateKey) -> None:
+        """Hold the local private key this fake signs with."""
         self._key = key
 
     def get_public_key(self, *, KeyId: str) -> dict[str, Any]:
+        """Return the DER SubjectPublicKeyInfo for the key."""
         from webbpulse.identity import KMS_SIGNING_ALGORITHM
 
         return {
@@ -123,6 +78,7 @@ class FakeKms:
         }
 
     def sign(self, *, KeyId: str, Message: bytes, MessageType: str, SigningAlgorithm: str) -> dict[str, Any]:
+        """Sign the digest without re-hashing it, which is what MessageType DIGEST means."""
         return {
             "KeyId": KeyId,
             "Signature": self._key.sign(Message, padding.PKCS1v15(), utils.Prehashed(hashes.SHA256())),
@@ -138,15 +94,8 @@ def private_key() -> rsa.RSAPrivateKey:
 
 @pytest.fixture
 def identity_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The `IDENTITY_*` environment the deployed identity function receives.
-
-    `IDENTITY_SIGNING_KEY_ARNS` is JSON because `jsonencode` is what renders it
-    in `terraform/identity.tf`. The settings refuse a bare comma separated list,
-    so the format is load bearing rather than incidental.
-
-    `IDENTITY_EMAIL_FROM` is set because it is what decides whether the four M3
-    routes exist: `build_email_sender` returns `None` without it and the package
-    mounts no email ceremony when the sender is `None`.
+    """The IDENTITY_ environment the deployed identity function receives, with the
+    signing key arns as JSON because that is what Terraform renders.
     """
     from app.core.config import settings as app_settings
 
@@ -171,17 +120,13 @@ def identity_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def identity_app(identity_env: None, private_key: rsa.RSAPrivateKey, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
-    """The identity domain application, built in process with the mount on.
-
-    Hermetic in the two ways that matter. `boto3.client` is replaced so that
-    building the router constructs no real client and reaches no network, and
-    the KMS client it would have built is the local signer above. Nothing here
-    touches DynamoDB: the stores are constructed, which is a table name and a
-    resource handle, and no route is called.
+    """The identity domain application built in process with the mount on, hermetic:
+    boto3.client is replaced so no real client is built and no network is reached.
     """
     import boto3
 
     def fake_client(service: str, *args: Any, **kwargs: Any) -> Any:
+        """Return the local KMS signer, refusing every service the build should not reach."""
         if service == "kms":
             return FakeKms(private_key)
         if service == "sesv2":
@@ -197,12 +142,8 @@ def identity_app(identity_env: None, private_key: rsa.RSAPrivateKey, monkeypatch
 
 @pytest.fixture
 def hooks(dynamo_tables: Any) -> CarModPickerIdentityHooks:
-    """Hooks over the real repositories, against moto's in-memory DynamoDB.
-
-    Real repositories rather than fakes because the hooks are almost entirely
-    calls into them, and a fake would be asserting that this file's own stub
-    behaves the way this file's own stub behaves. `dynamo_tables` creates every
-    table the repositories address.
+    """Hooks over the real repositories against moto, since the hooks are almost
+    entirely calls into them.
     """
     return CarModPickerIdentityHooks()
 
@@ -224,16 +165,8 @@ def _user(**overrides: Any) -> User:
 
 
 def test_the_hooks_satisfy_the_protocol_structurally() -> None:
-    """`isinstance` against the runtime checkable Protocol, with no inheritance.
-
-    `CarModPickerIdentityHooks` subclasses nothing from the package, which is
-    the point: the seam is structural, so a product's own class satisfies it
-    without an import-time dependency on a package base class.
-
-    This is also the release canary. `IdentityHooks` is `runtime_checkable`, so
-    `isinstance` checks that every method name is present. A package release
-    that adds a hook fails here, in a test that names the file to change, rather
-    than at the first call in staging with an `AttributeError`.
+    """The hooks satisfy the runtime checkable protocol by shape, so a package release
+    that grows a hook fails here rather than at the first call in staging.
     """
     from webbpulse.identity import IdentityHooks
 
@@ -241,12 +174,8 @@ def test_the_hooks_satisfy_the_protocol_structurally() -> None:
 
 
 def test_the_hooks_inherit_nothing_from_the_package() -> None:
-    """Structural satisfaction, asserted as the absence of a base class.
-
-    If a later edit makes this class extend `BaseIdentityHooks`, the `isinstance`
-    above keeps passing while the failure mode changes completely: a forgotten
-    hook starts raising `HookNotImplemented` at call time instead of failing the
-    protocol check. Both are defensible; silently moving between them is not.
+    """The hooks extend no package base class, because inheriting one would silently
+    change a missing hook from a protocol failure into a call time error.
     """
     from webbpulse.identity import BaseIdentityHooks
 
@@ -272,12 +201,8 @@ def test_may_authenticate_admits_an_ordinary_verified_user(
 def test_may_authenticate_refuses_each_of_this_products_three_flags(
     hooks: CarModPickerIdentityHooks, user: dict[str, Any], error_code: str
 ) -> None:
-    """Three flags the package has never heard of, each with its own code.
-
-    The `error_code` is the half the frontend branches on, so it is asserted
-    rather than only the fact of the refusal. The message deliberately does not
-    distinguish them: telling a caller which of the three applies to an address
-    they guessed is information about somebody else's account.
+    """Disabled, service account and unverified each refuse with their own error code,
+    while the message stays uniform so it leaks nothing about the account.
     """
     from webbpulse.identity import AuthenticationRefused
 
@@ -305,12 +230,7 @@ def test_every_refusal_carries_the_same_message(hooks: CarModPickerIdentityHooks
 
 
 def test_a_missing_flag_reads_as_unverified(hooks: CarModPickerIdentityHooks) -> None:
-    """An empty mapping is refused, which is the failing-safe direction.
-
-    `user.get("email_verified")` on a record that predates the attribute is
-    `None`, and `not None` refuses. A record with no flags at all should not be
-    a record that may sign in.
-    """
+    """A record carrying no flags at all is refused, which is the failing safe direction."""
     from webbpulse.identity import AuthenticationRefused
 
     with pytest.raises(AuthenticationRefused):
@@ -330,12 +250,8 @@ def test_a_missing_flag_reads_as_unverified(hooks: CarModPickerIdentityHooks) ->
 def test_claims_for_maps_the_two_boolean_columns_onto_roles(
     hooks: CarModPickerIdentityHooks, flags: dict[str, Any], roles: list[str]
 ) -> None:
-    """Two booleans in the users table, one `roles` array in the token.
-
-    Every other domain authorises off this array, so the mapping is the contract
-    between the identity function and the eight others. The order is asserted
-    too, because an array is what lands in the token and a reordering would show
-    up in a snapshot somewhere as a spurious diff.
+    """The two boolean columns map onto one ordered roles array, which is the contract
+    every other domain authorises off.
     """
     claims = hooks.claims_for({"username": "someone", **flags})
 
@@ -343,11 +259,8 @@ def test_claims_for_maps_the_two_boolean_columns_onto_roles(
 
 
 def test_claims_for_carries_the_username(hooks: CarModPickerIdentityHooks) -> None:
-    """The frontend renders it and the API Gateway authorizer passes it through.
-
-    It is a required key rather than an optional one: `user["username"]` raises
-    on a record without it, which is correct, because a CarModPicker user always
-    has one and a record without one is a bug worth seeing.
+    """The username is a required claim, since the frontend and the authorizer both
+    pass it through.
     """
     assert hooks.claims_for({"username": "tyler"})["username"] == "tyler"
 
@@ -355,13 +268,8 @@ def test_claims_for_carries_the_username(hooks: CarModPickerIdentityHooks) -> No
 def test_load_user_by_id_round_trips_a_created_user(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """And the id comes back as a string, not a UUID.
-
-    That conversion is the whole reason `_as_mapping` calls `model_dump` in JSON
-    mode. The package puts this value straight into `sub`, and a `UUID` object
-    there is not JSON serialisable, so the failure without it is a 500 at the
-    end of an otherwise successful login rather than anything a type checker
-    sees.
+    """A created user round trips, with the id as a string because the package puts it
+    straight into a JSON claim.
     """
     created = hooks.create_user(email="round@example.com", attributes={"username": "round"})
 
@@ -387,17 +295,15 @@ def test_load_user_by_email_finds_the_same_record(
 def test_load_user_by_id_answers_none_for_an_unknown_id(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
+    """An unknown id answers None."""
     assert hooks.load_user_by_id(str(uuid4())) is None
 
 
 def test_load_user_by_id_answers_none_for_a_value_that_is_not_an_id(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """A `sub` claim is caller-supplied, so it may be anything at all.
-
-    Answering `None` rather than raising is what makes an unparseable `sub`
-    behave exactly like an id that names no user, which is a 401 rather than a
-    500. Raising here would turn a malformed token into an error page.
+    """An unparseable subject answers None rather than raising, so a malformed token is
+    a 401 rather than a 500.
     """
     assert hooks.load_user_by_id("not-a-uuid") is None
 
@@ -405,16 +311,15 @@ def test_load_user_by_id_answers_none_for_a_value_that_is_not_an_id(
 def test_load_user_by_email_answers_none_for_an_unknown_address(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
+    """An unknown address answers None."""
     assert hooks.load_user_by_email("nobody@example.com") is None
 
 
 def test_create_user_derives_a_username_from_the_address(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """The package's register flow supplies an email and no username.
-
-    CarModPicker requires one and it is unique, so something has to invent it.
-    The local part is the obvious choice and the one a user would have picked.
+    """A username is derived from the local part, because the package's register flow
+    supplies only an email and this product requires one.
     """
     created = hooks.create_user(email="derived@example.com", attributes={})
 
@@ -433,11 +338,8 @@ def test_create_user_prefers_a_supplied_username(
 def test_create_user_writes_the_address_it_was_given(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """The `email` argument wins over anything in `attributes`.
-
-    The package verified the address in the argument, not one that arrived in a
-    free-form attributes mapping, so letting the mapping win would let a
-    registration claim an address it never proved.
+    """The email argument wins over the attributes mapping, so a registration cannot
+    claim an address it never proved.
     """
     created = hooks.create_user(
         email="actual@example.com",
@@ -450,12 +352,8 @@ def test_create_user_writes_the_address_it_was_given(
 def test_create_user_refuses_to_carry_a_password_across_the_seam(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """`hashed_password` is dropped, whatever the attributes say.
-
-    The package owns credentials now, in its own `credentials` table. A password
-    written onto the legacy user row here would be a second copy that the
-    package never rotates and `has_other_sign_in_method` would then read as a
-    live sign-in method forever.
+    """A hashed password in the attributes is dropped, because the package owns
+    credentials and a second copy would never be rotated.
     """
     created = hooks.create_user(
         email="nopass@example.com",
@@ -466,11 +364,7 @@ def test_create_user_refuses_to_carry_a_password_across_the_seam(
 
 
 def test_create_user_ignores_a_supplied_id(hooks: CarModPickerIdentityHooks) -> None:
-    """The repository mints a uuid7, and a caller does not get to choose it.
-
-    uuid7 is time ordered, which is what makes the users table scan in creation
-    order, and an id from outside would break that ordering silently.
-    """
+    """The repository mints its own time ordered id, so a supplied one is ignored."""
     chosen = str(uuid4())
 
     created = hooks.create_user(email="ownid@example.com", attributes={"username": "ownid", "id": chosen})
@@ -481,13 +375,8 @@ def test_create_user_ignores_a_supplied_id(hooks: CarModPickerIdentityHooks) -> 
 def test_create_user_is_transactional_on_the_unique_attributes(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """A duplicate username fails the whole registration, atomically.
-
-    `create_user` on the repository writes the row and its two `#unique#`
-    sentinel rows inside one `TransactWriteItems`, so a collision on either
-    attribute rolls the user row back with it. Without that, a taken username
-    would leave a half-created account that can never log in and can never be
-    registered again.
+    """A duplicate username rolls the whole registration back, so a collision cannot
+    leave a half created account.
     """
     from app.db.dynamo.users import UniqueAttributeTaken
 
@@ -502,11 +391,8 @@ def test_create_user_is_transactional_on_the_unique_attributes(
 def test_mark_email_verified_flips_the_flag_may_authenticate_reads(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """The two halves of the verification story, asserted as one sequence.
-
-    This is the hook the package documents as having no safe default, and this
-    is why: a product that confirmed a link without setting this flag would tell
-    the user their address was verified and then go on refusing every login.
+    """Verification flips the same flag may_authenticate reads, so a confirmed link
+    actually lets the user in.
     """
     from webbpulse.identity import AuthenticationRefused
 
@@ -524,13 +410,7 @@ def test_mark_email_verified_flips_the_flag_may_authenticate_reads(
 def test_mark_email_verified_raises_for_an_unknown_user(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """A consumed link that names no user is an error, not a silent success.
-
-    CarModPicker's repository raises `ItemNotFound` where Portfolio's `update`
-    returns `None`, so this hook translates it. Either way the caller has to
-    learn that the address is not verified, because the token is spent and the
-    user needs a new link.
-    """
+    """A consumed link naming no user raises rather than reporting success."""
     with pytest.raises(ValueError):
         hooks.mark_email_verified(str(uuid4()))
 
@@ -538,10 +418,8 @@ def test_mark_email_verified_raises_for_an_unknown_user(
 def test_mark_email_verified_raises_for_a_value_that_is_not_an_id(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """Unlike the loaders, this one raises rather than answering quietly.
-
-    A read that finds nothing is an ordinary outcome; a write that cannot even
-    parse its target is a bug in the caller, and the id belongs in the message.
+    """A write whose target cannot be parsed raises, unlike the loaders, because that
+    is a bug in the caller.
     """
     with pytest.raises(ValueError):
         hooks.mark_email_verified("not-a-uuid")
@@ -557,11 +435,8 @@ def test_has_other_sign_in_method_is_false_for_a_user_with_nothing(
 
 
 def test_a_legacy_password_counts(hooks: CarModPickerIdentityHooks) -> None:
-    """`users.hashed_password` is how every account created before this row signs in.
-
-    It is still a live sign-in method until row 7's migration moves it into the
-    package's `credentials` table, so unlinking an OAuth account for a user who
-    has one must be permitted.
+    """A legacy password row counts as a sign in method, so unlinking OAuth stays
+    permitted for accounts that predate the package.
     """
     user = hooks.user_repository().create_user(_user(hashed_password="$2b$12$notreal"))
 
@@ -596,11 +471,8 @@ def test_a_legacy_google_link_counts(hooks: CarModPickerIdentityHooks, dynamo_ta
 
 
 def test_a_totp_factor_does_not_count(hooks: CarModPickerIdentityHooks) -> None:
-    """A second factor is not a sign-in method, and treating it as one locks people out.
-
-    A user whose only remaining method is TOTP cannot sign in at all: there is
-    no first factor to present it after. Counting it would let the package
-    remove the last real method and report the account as still reachable.
+    """A second factor is not a sign in method, since counting it would let the package
+    remove the last real one.
     """
     user = hooks.user_repository().create_user(_user(totp_enabled=True, totp_secret="JBSWY3DPEHPK3PXP"))
 
@@ -610,16 +482,15 @@ def test_a_totp_factor_does_not_count(hooks: CarModPickerIdentityHooks) -> None:
 def test_has_other_sign_in_method_is_false_for_an_unknown_user(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
+    """An unknown user reports no alternative sign in method."""
     assert hooks.has_other_sign_in_method(str(uuid4())) is False
 
 
 def test_has_other_sign_in_method_is_false_for_a_value_that_is_not_an_id(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """The refusing side: an unparseable id reports no alternative method.
-
-    That is the answer that makes the package refuse the removal, which is the
-    safe direction when the caller has handed us something we cannot interpret.
+    """An unparseable id reports no alternative method, which makes the package refuse
+    the removal.
     """
     assert hooks.has_other_sign_in_method("not-a-uuid") is False
 
@@ -627,22 +498,15 @@ def test_has_other_sign_in_method_is_false_for_a_value_that_is_not_an_id(
 def test_on_user_created_does_nothing_and_says_so(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """CarModPicker runs no side effect on registration, so this returns None.
-
-    It exists because the protocol has it, and it is asserted because a hook
-    that grew a side effect without a test would be a side effect nobody knew
-    ran on every registration.
-    """
+    """Registration runs no side effect here, asserted so one cannot be added unnoticed."""
     assert hooks.on_user_created({"id": "whatever"}, "register") is None
 
 
 def test_user_repository_hands_back_this_products_users_table(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
-    """Section 4.2's ownership convention, expressed as the returned object.
-
-    The user record is owned by the `users` domain and `identity` is a writer of
-    the authentication columns only. This is the seam where that is stated.
+    """The hook hands back this product's own users repository, which is where the
+    ownership convention is stated.
     """
     from app.db.dynamo.users import UserRepository
 
@@ -652,14 +516,8 @@ def test_user_repository_hands_back_this_products_users_table(
 def test_without_an_issuer_the_identity_app_is_exactly_what_row_four_left(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The guard, asserted from the outside: no issuer, no package routes.
-
-    This is the half that keeps `tests/fixtures/route_contract.json`, the
-    per-domain counts in `tests/entrypoints/test_route_split.py` and the OpenAPI
-    snapshot valid without regenerating any of them. The monolith and every
-    local run leave `IDENTITY_ISSUER` empty, so they build the application they
-    always built. A mount that fired unconditionally would break three pinned
-    fixtures at once.
+    """With no issuer set the identity application is unchanged, which keeps the route
+    contract, the per domain counts and the OpenAPI snapshot valid.
     """
     from app.core.config import settings as app_settings
 
@@ -675,13 +533,8 @@ def test_without_an_issuer_the_identity_app_is_exactly_what_row_four_left(
 
 
 def test_with_an_issuer_every_package_route_is_mounted(identity_app: Any) -> None:
-    """All twenty-one, at their public paths.
-
-    Nineteen rather than fifteen because `IDENTITY_EMAIL_FROM` is set, which is
-    what makes `build_email_sender` return a sender and the package mount M3's
-    four email routes. The deployed function gets that variable from
-    `terraform/lambda_domains.tf`, so twenty-one, those nineteen plus the two
-    unconditional discovery routes, is the deployed number.
+    """With an issuer set every package route is mounted at its public path, including
+    the email ceremony routes the sender enables.
     """
     served = _pairs(identity_app)
 
@@ -693,15 +546,8 @@ def test_with_an_issuer_every_package_route_is_mounted(identity_app: Any) -> Non
 def test_the_router_is_mounted_with_no_prefix_of_this_repositorys_own(
     identity_app: Any,
 ) -> None:
-    """`/api/auth/login`, not `/api/api/auth/login`.
-
-    `build_identity_router` already places every route under
-    `identity_prefix(settings)`, which is the path component of the issuer. The
-    caller therefore mounts with no prefix, and the issuer is the single thing
-    that decides where the routes land. Passing this domain's `router_prefix`
-    as well, which is what `load_routers` does for every legacy router, would
-    double it. The assertion is on the served paths rather than on the absence
-    of an argument, because the path is what API Gateway routes on.
+    """The router is mounted with no prefix of this repository's own, since the package
+    already places every route under the issuer's path.
     """
     from webbpulse.identity import identity_prefix
 
@@ -715,11 +561,8 @@ def test_the_router_is_mounted_with_no_prefix_of_this_repositorys_own(
 
 
 def test_the_issuers_path_is_where_the_routes_land(identity_app: Any) -> None:
-    """Every package route sits under the issuer's own path and nowhere else.
-
-    This is the property that makes the mount correct rather than coincidentally
-    right: change the issuer and the routes move with it, which is what keeps
-    the discovery document's URLs and the served paths from ever disagreeing.
+    """Every package route sits under the issuer's path and nowhere else, so the
+    discovery document and the served paths cannot disagree.
     """
     from urllib.parse import urlparse
 
@@ -732,17 +575,8 @@ def test_the_issuers_path_is_where_the_routes_land(identity_app: Any) -> None:
 
 
 def test_the_legacy_handlers_win_both_collisions(identity_app: Any) -> None:
-    """Two paths exist on both sides, and the legacy handler answers both.
-
-    `composition/domains.py` loads the legacy routers and `wiring.py` includes
-    the package router after them, and FastAPI keeps the first match. That
-    ordering is what makes this row additive: the legacy flow the frontend uses
-    today is unchanged, and no package route is reachable from the SPA until
-    row 6 wires `@webbpulse/auth`.
-
-    Asserted on the winning endpoint's module rather than on the mount order, so
-    that a reordering of the include is a failure here rather than a silent
-    change of behaviour on two live paths.
+    """The legacy handler answers both colliding paths, asserted on the winning
+    endpoint's module so a reordered include fails here.
     """
     winners: dict[tuple[str, str], Any] = {}
     for route in _effective_routes(identity_app):
@@ -759,12 +593,7 @@ def test_the_legacy_handlers_win_both_collisions(identity_app: Any) -> None:
 
 
 def test_the_legacy_auth_surface_is_unchanged_by_the_mount(identity_app: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Every legacy `/api/auth` route still exists once the package is mounted.
-
-    The collision test says the two shared paths still reach the legacy handler.
-    This one says the other twenty-two are still there at all, which is the
-    stronger form of "the legacy CMP auth routes must keep working in this row".
-    """
+    """Every legacy auth route still exists once the package is mounted."""
     from app.core.config import settings as app_settings
 
     with_package = {pair for pair in _pairs(identity_app) if pair[1].startswith("/api/auth")}
@@ -780,22 +609,8 @@ def test_the_legacy_auth_surface_is_unchanged_by_the_mount(identity_app: Any, mo
 def test_the_mount_adds_exactly_the_package_routes_and_nothing_else(
     identity_app: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The difference between the two applications is the nineteen new pairs,
-    plus row 10's two.
-
-    Nineteen rather than twenty-one because two of the twenty-one already
-    existed on the legacy side. Pinning the difference rather than a total is
-    what makes this test survive row 8 adding a route to some other part of the
-    domain, while still failing if this mount starts declaring something it did
-    not before.
-
-    Row 10 is a deliberate instance of exactly that: the same
-    `if domain.name == "identity"` block in `app/composition/wiring.py` now also
-    mounts `app/composition/identity_extension.py`, which declares two routes
-    that are CarModPicker's own rather than the package's. They are named here
-    rather than folded into `PACKAGE_PATHS` because that tuple is the inventory
-    of what `webbpulse.identity` serves, and these two are not in it: no version
-    of the package declares them. `tests/test_identity_row10.py` owns them.
+    """The mount adds exactly the new package routes plus the two extension routes,
+    pinned as a difference so unrelated additions elsewhere do not fail it.
     """
     from app.core.config import settings as app_settings
 
@@ -814,13 +629,8 @@ def test_the_mount_adds_exactly_the_package_routes_and_nothing_else(
 def test_the_settings_are_read_from_the_environment_and_not_passed_in(
     identity_env: None,
 ) -> None:
-    """`IdentitySettings` reads `IDENTITY_*` itself, which is the whole wiring.
-
-    `app/core/config.py` names exactly one of those variables, `IDENTITY_ISSUER`,
-    and only because `build_domain_app` has to consult it before deciding to
-    mount. Everything else reaches the package directly from the environment, so
-    a Terraform rename shows up as a settings value that is wrong here rather
-    than as a keyword argument that no longer exists.
+    """The package reads its settings from the environment itself, so a Terraform
+    rename surfaces as a wrong value rather than a missing argument.
     """
     from app.composition.identity import build_identity_settings
     from app.core.config import settings as app_settings
@@ -834,18 +644,8 @@ def test_the_settings_are_read_from_the_environment_and_not_passed_in(
 
 
 def test_no_oauth_route_is_mounted(identity_app: Any) -> None:
-    """M6 shipped in 0.14.0 and this row deliberately does not turn it on.
-
-    The package mounts its five OAuth routes only when the stores carry both an
-    `oauth_states` and an `oauth_links`, and `app/composition/identity.py`
-    supplies neither, because `terraform/identity.tf` on PR 399 creates the six
-    M1 to M4 tables and not the two OAuth ones. Supplying a store for a table
-    that does not exist would turn a route that is absent from the OpenAPI
-    document into one that 500s on the first click.
-
-    CarModPicker's own Google flow under `/api/auth/oauth/*` is untouched and
-    still serves, which is why this asserts on the package's own OAuth paths
-    rather than on the absence of the word "oauth".
+    """The package's OAuth routes stay unmounted because no store is supplied for
+    tables that do not exist; this product's own Google flow is untouched.
     """
     served = {path for _, path in _pairs(identity_app)}
 
@@ -855,12 +655,7 @@ def test_no_oauth_route_is_mounted(identity_app: Any) -> None:
 
 
 def test_building_the_router_opens_no_network_connection(identity_app: Any) -> None:
-    """The fixture is the assertion: `boto3.client` raises for anything unexpected.
-
-    `identity_app`'s fake refuses every service but `kms` and `sesv2`, so the
-    application above was built without one real client, and this test exists to
-    say that the hermetic property is deliberate rather than incidental. A
-    future edit that reached for DynamoDB or SSM at build time would fail the
-    fixture, not this assertion, which is the point.
+    """Building the router opens no network connection, which the fixture enforces by
+    refusing every unexpected client.
     """
     assert identity_app is not None
