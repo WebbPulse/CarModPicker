@@ -10,9 +10,11 @@ from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, login_user
 
+
 def get_auth_headers(token: str) -> dict[str, str]:
     """Get Authorization headers with Bearer token."""
     return auth_headers(token)
+
 
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
@@ -37,6 +39,7 @@ def create_and_login_admin_user(
 
     return admin_user.__dict__, token
 
+
 def create_and_login_superuser(
     client: TestClient, db_session: Any, username_suffix: str = "superuser"
 ) -> tuple[dict[str, Any], str]:
@@ -60,6 +63,7 @@ def create_and_login_superuser(
 
     return superuser.__dict__, token
 
+
 def create_and_login_regular_user(
     client: TestClient, db_session: Any, username_suffix: str = "regular"
 ) -> tuple[dict[str, Any], str]:
@@ -82,6 +86,7 @@ def create_and_login_regular_user(
     token = login_user(client, username)
 
     return regular_user.__dict__, token
+
 
 class TestAdminUserManagement:
     """Test cases for admin user management endpoints."""

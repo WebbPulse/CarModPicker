@@ -148,6 +148,7 @@ FAILING_ACTIONS = ("mismatch", "missing_credential", "errors")
 
 ACTIONS = ("cleared", "already_clear", "mismatch", "missing_credential", "errors")
 
+
 class Decision(NamedTuple):
     """What one user needs, decided without writing anything.
 
@@ -164,6 +165,7 @@ class Decision(NamedTuple):
     action: str
     detail: str
     fields: tuple[str, ...] = ()
+
 
 def build_credential_store(
     prefix: str, endpoint_url: str | None = None, region_name: str | None = None
@@ -186,6 +188,7 @@ def build_credential_store(
         )
     )
 
+
 def build_totp_store(prefix: str, endpoint_url: str | None = None, region_name: str | None = None) -> "TotpFactorStore":
     """The package's `DynamoTotpFactorStore` over the `totp-factors` table.
 
@@ -206,6 +209,7 @@ def build_totp_store(prefix: str, endpoint_url: str | None = None, region_name: 
             region_name=region_name or None,
         )
     )
+
 
 def iter_user_rows(
     prefix: str, endpoint_url: str | None = None, region_name: str | None = None
@@ -249,6 +253,7 @@ def iter_user_rows(
         start_key = response.get("LastEvaluatedKey")
         if not start_key:
             return
+
 
 def _classify(
     user: dict[str, Any],
@@ -297,6 +302,7 @@ def _classify(
         tuple(fields),
     )
 
+
 def plan(
     user_rows: Iterable[dict[str, Any]],
     credentials: "CredentialStore",
@@ -309,6 +315,7 @@ def plan(
     happen before a single row is touched.
     """
     return [_classify(user, credentials, totp_factors) for user in user_rows]
+
 
 def clear(
     user_rows: Iterable[dict[str, Any]],
@@ -370,6 +377,7 @@ def clear(
             )
     return summary, written
 
+
 def report(summary: dict[str, int], decisions: list[Decision], apply: bool) -> None:
     mode = "applied" if apply else "dry run, nothing written"
     print(f"legacy credential clearing ({mode})")
@@ -385,6 +393,7 @@ def report(summary: dict[str, int], decisions: list[Decision], apply: bool) -> N
             "that every user with a legacy column holds its replacement.",
             file=sys.stderr,
         )
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -419,6 +428,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--prefix is required when DYNAMODB_TABLE_PREFIX is not set")
     return args
 
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
@@ -437,6 +447,7 @@ def main(argv: list[str] | None = None) -> int:
     if any(summary[action] for action in FAILING_ACTIONS):
         return 1
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

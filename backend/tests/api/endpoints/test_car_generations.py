@@ -9,6 +9,7 @@ from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user
 
+
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
@@ -31,6 +32,7 @@ def create_and_login_admin_user(
     token = login_user(client, username)
 
     return admin_user.__dict__, token
+
 
 def create_and_login_user(client: TestClient, username_suffix: str, db_session: Any | None = None) -> tuple[int, str]:
     """Create a regular user and log them in; returns the user dict and token."""
@@ -72,9 +74,11 @@ def create_and_login_user(client: TestClient, username_suffix: str, db_session: 
         raise Exception(f"User ID for {username} could not be determined.")
     return (user_id, token)
 
+
 def get_auth_headers(token: str) -> dict[str, str]:
     """Get Authorization headers with Bearer token."""
     return auth_headers(token)
+
 
 def test_admin_create_car_removed(client: TestClient, db_session: Any) -> None:
     """Cars are seeded from backend source; admin create endpoint is removed."""
@@ -90,6 +94,7 @@ def test_admin_create_car_removed(client: TestClient, db_session: Any) -> None:
     response = client.post(f"{settings.API_STR}/car-generations/admin/cars", json=car_data, headers=headers)
     assert response.status_code in (404, 405)
 
+
 def test_read_car_success(client: TestClient, db_session: Any) -> None:
     """Test reading a car (public endpoint)."""
     car = create_car_in_db(db_session, "Mazda", "3", "4th Gen", 2019, 2023)
@@ -104,10 +109,12 @@ def test_read_car_success(client: TestClient, db_session: Any) -> None:
     assert read_car_data["generation_name"] == car["generation_name"]
     assert "user_id" not in read_car_data
 
+
 def test_read_car_not_found(client: TestClient, db_session: Any) -> None:
     """Test reading a non-existent car."""
     response = client.get(f"{settings.API_STR}/car-generations/{INVALID_UUID_STR}")
     assert response.status_code == 404
+
 
 def test_get_cars_by_make_success(client: TestClient, db_session: Any) -> None:
     """Test getting cars by make."""
@@ -127,6 +134,7 @@ def test_get_cars_by_make_success(client: TestClient, db_session: Any) -> None:
     for car in cars:
         assert car["car_make_name"] == "Toyota"
 
+
 def test_get_cars_by_make_no_results(client: TestClient, db_session: Any) -> None:
     """Test getting cars by make with no results."""
     client.cookies.clear()
@@ -137,6 +145,7 @@ def test_get_cars_by_make_no_results(client: TestClient, db_session: Any) -> Non
     cars: list[Any] = response.json()["items"]
     assert isinstance(cars, list)
     assert len(cars) == 0
+
 
 def test_get_cars_by_make_model_success(client: TestClient, db_session: Any) -> None:
     """Test getting cars by make and model."""
@@ -157,6 +166,7 @@ def test_get_cars_by_make_model_success(client: TestClient, db_session: Any) -> 
         assert car["car_make_name"] == "Honda"
         assert car["car_model_name"] == "Civic"
 
+
 def test_search_cars_by_make(client: TestClient, db_session: Any) -> None:
     """Test searching cars by make."""
     create_car_in_db(db_session, "Tesla", "Model 3", "1st Gen", 2017, 2023)
@@ -174,6 +184,7 @@ def test_search_cars_by_make(client: TestClient, db_session: Any) -> None:
     tesla_found = any(car["car_make_name"] == "Tesla" for car in cars)
     assert tesla_found
 
+
 def test_search_cars_by_model(client: TestClient, db_session: Any) -> None:
     """Test searching cars by model."""
     create_car_in_db(db_session, "BMW", "M3", "G80", 2021, 2024)
@@ -190,12 +201,14 @@ def test_search_cars_by_model(client: TestClient, db_session: Any) -> None:
     m3_found = any(car["car_model_name"] == "M3" for car in cars)
     assert m3_found
 
+
 def test_search_cars_no_query(client: TestClient, db_session: Any) -> None:
     """Test search without query parameter."""
     client.cookies.clear()
 
     response = client.get(f"{settings.API_STR}/car-generations/search")
     assert response.status_code == 422
+
 
 def test_search_cars_no_results(client: TestClient, db_session: Any) -> None:
     """Test search with no matching results."""
@@ -207,6 +220,7 @@ def test_search_cars_no_results(client: TestClient, db_session: Any) -> None:
     cars: list[Any] = response.json()["items"]
     assert isinstance(cars, list)
     assert len(cars) == 0
+
 
 def test_get_car_make_stats(client: TestClient, db_session: Any) -> None:
     """Test getting car make statistics."""
@@ -223,6 +237,7 @@ def test_get_car_make_stats(client: TestClient, db_session: Any) -> None:
     assert isinstance(stats, dict)
     assert "Honda" in stats or "Toyota" in stats
 
+
 def test_count_makes(client: TestClient, db_session: Any) -> None:
     """Test counting makes (Make entities)."""
     client.cookies.clear()
@@ -235,6 +250,7 @@ def test_count_makes(client: TestClient, db_session: Any) -> None:
     assert isinstance(data["count"], int)
     assert data["count"] >= 0
 
+
 def test_count_car_models(client: TestClient, db_session: Any) -> None:
     """Test counting car models (CarModel entities)."""
     client.cookies.clear()
@@ -246,6 +262,7 @@ def test_count_car_models(client: TestClient, db_session: Any) -> None:
     assert "count" in data
     assert isinstance(data["count"], int)
     assert data["count"] >= 0
+
 
 def test_admin_car_write_endpoints_removed(client: TestClient, db_session: Any) -> None:
     """Cars are seeded from backend source; admin write endpoints are removed (405)."""
@@ -262,6 +279,7 @@ def test_admin_car_write_endpoints_removed(client: TestClient, db_session: Any) 
     assert response.status_code in (404, 405)
     response = client.delete(f"{settings.API_STR}/car-generations/admin/cars", headers=headers)
     assert response.status_code in (404, 405)
+
 
 def test_count_cars_success(client: TestClient, db_session: Any) -> None:
     """Test counting cars."""
@@ -285,6 +303,7 @@ def test_count_cars_success(client: TestClient, db_session: Any) -> None:
     response = client.get(f"{settings.API_STR}/car-generations/count")
     assert response.status_code == 200
     assert response.json()["count"] == initial_count
+
 
 def test_count_cars_public_endpoint(client: TestClient, db_session: Any) -> None:
     """Test that counting cars works without authentication."""

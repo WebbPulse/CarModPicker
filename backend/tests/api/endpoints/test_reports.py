@@ -9,11 +9,13 @@ from app.core.config import settings
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user, save_catalog
 
+
 def get_unique_name(base_name: str) -> str:
     """Generate a unique name for parallel testing."""
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
     pid = os.getpid()
     return f"{base_name}_{worker_id}_{pid}"
+
 
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
@@ -39,6 +41,7 @@ def create_and_login_admin_user(
     token = login_user(client, username)
 
     return admin_user.__dict__, token
+
 
 class TestUnifiedReports:
     """Test cases for unified reports endpoints."""

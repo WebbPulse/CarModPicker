@@ -78,6 +78,7 @@ from app.db.dynamo.users import User, UserRepository
 ISSUER = "https://api.staging.carmodpicker.com/api/auth"
 AUDIENCE = "carmodpicker-staging-api"
 
+
 def access_claims(subject: str, **overrides: Any) -> dict[str, str]:
     """A claim set shaped as an authorizer delivers one, with every value a string."""
     claims = {
@@ -94,9 +95,11 @@ def access_claims(subject: str, **overrides: Any) -> dict[str, str]:
     claims.update({key: str(value) for key, value in overrides.items()})
     return claims
 
+
 def native_context(subject: str, **overrides: Any) -> str:
     """The request context header the native JWT authorizer produces, as plain JSON."""
     return json.dumps({"authorizer": {"jwt": {"claims": access_claims(subject, **overrides)}}})
+
 
 def gate_context(subject: str, **overrides: Any) -> str:
     """The request context header the staging access gate's Lambda authorizer produces."""
@@ -114,12 +117,14 @@ def gate_context(subject: str, **overrides: Any) -> str:
         }
     )
 
+
 @pytest.fixture(autouse=True)
 def _clean_token_service() -> Iterator[None]:
     """Drop the memoised token service around every test, since it caches failures too."""
     reset_token_service()
     yield
     reset_token_service()
+
 
 @pytest.fixture
 def identity_user(db_session: Any, dynamo_tables: Any) -> User:
@@ -134,6 +139,7 @@ def identity_user(db_session: Any, dynamo_tables: Any) -> User:
         )
     )
 
+
 def _request(header_value: str | None = None, authorization: str | None = None) -> Request:
     """Build a bare ASGI request carrying the headers this resolver reads."""
     headers: list[tuple[bytes, bytes]] = []
@@ -143,15 +149,18 @@ def _request(header_value: str | None = None, authorization: str | None = None) 
         headers.append((b"authorization", authorization.encode()))
     return Request({"type": "http", "method": "GET", "path": "/", "headers": headers})
 
+
 def test_the_native_authorizer_shape_is_read() -> None:
     """Production's `authorizer.jwt.claims` resolves through the package's reader."""
     subject = str(uuid4())
     assert identity_subject(_request(native_context(subject))) == subject
 
+
 def test_the_staging_gate_shape_is_read() -> None:
     """The staging gate's claims key resolves, which the package alone does not handle."""
     subject = str(uuid4())
     assert identity_subject(_request(gate_context(subject))) == subject
+
 
 def test_both_shapes_coerce_to_the_same_claims() -> None:
     """Both authorizer shapes coerce to equal Python values, not merely equal subjects."""
@@ -163,19 +172,23 @@ def test_both_shapes_coerce_to_the_same_claims() -> None:
     assert isinstance(native["exp"], int) and isinstance(gate["exp"], int)
     assert native["sub"] == gate["sub"] == subject
 
+
 def test_a_request_with_no_authorizer_is_nobody_rather_than_an_error() -> None:
     """A request with no authorizer resolves to nobody rather than raising."""
     assert identity_subject(_request()) == ""
     assert identity_subject(_request(json.dumps({"http": {"sourceIp": "203.0.113.1"}}))) == ""
+
 
 def test_an_unparseable_gate_payload_is_refused_rather_than_guessed() -> None:
     """A claims payload that does not parse resolves to nobody rather than a guess."""
     broken = json.dumps({"authorizer": {"lambda": {GATE_CLAIMS_KEY: "not json at all"}}})
     assert identity_subject(_request(broken)) == ""
 
+
 def test_in_process_verification_is_off_without_the_identity_environment() -> None:
     """Without the identity environment in-process verification answers nobody."""
     assert verify_bearer_subject(_request(authorization="Bearer whatever")) == ""
+
 
 def test_sub_resolves_to_the_user_row_by_id(identity_user: User) -> None:
     """The subject is the user id and resolves by a single lookup, with no link table."""
@@ -185,15 +198,18 @@ def test_sub_resolves_to_the_user_row_by_id(identity_user: User) -> None:
     assert resolved.id == identity_user.id
     assert resolved.username == identity_user.username
 
+
 def test_a_username_in_sub_does_not_resolve(identity_user: User) -> None:
     """A username in the subject resolves to nobody, keeping the two flows apart."""
     repos = get_repositories()
     assert resolve_identity_user(_request(native_context(identity_user.username)), repos) is None
 
+
 def test_a_sub_that_is_not_a_uuid_resolves_to_nobody() -> None:
     """A token this product did not mint is "no such user" rather than a 500."""
     repos = get_repositories()
     assert resolve_identity_user(_request(native_context("not-a-uuid")), repos) is None
+
 
 def test_a_disabled_account_is_refused_on_the_identity_path(identity_user: User) -> None:
     """A disabled account is refused even with a token minted before it was disabled."""
@@ -201,11 +217,13 @@ def test_a_disabled_account_is_refused_on_the_identity_path(identity_user: User)
     repos = get_repositories()
     assert resolve_identity_user(_request(native_context(str(identity_user.id))), repos) is None
 
+
 def test_an_unverified_address_is_refused_on_the_identity_path(identity_user: User) -> None:
     """An unverified account is refused, matching what `get_current_user` already does."""
     UserRepository().update_user(identity_user.id, email_verified=False)
     repos = get_repositories()
     assert resolve_identity_user(_request(native_context(str(identity_user.id))), repos) is None
+
 
 def _dual_mode_app() -> FastAPI:
     """A minimal application carrying the two resolvers this change touches."""
@@ -222,6 +240,7 @@ def _dual_mode_app() -> FastAPI:
         return {"id": str(user.id)} if user is not None else {"id": ""}
 
     return app
+
 
 @pytest.fixture
 def legacy_secret(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -241,6 +260,7 @@ def legacy_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core.config import settings as app_settings
 
     monkeypatch.setattr(app_settings, "SECRET_KEY_SETTING", "test-signing-key-not-a-real-one")
+
 
 def test_the_legacy_session_no_longer_resolves(identity_user: User, dynamo_tables: Any, legacy_secret: None) -> None:
     """An HS256 token with a username in `sub` is nobody, which is row 13's point.
@@ -270,6 +290,7 @@ def test_the_legacy_session_no_longer_resolves(identity_user: User, dynamo_table
     assert optional.status_code == 200
     assert optional.json()["id"] == ""
 
+
 def test_an_unsubscribe_token_is_not_a_session_for_the_user_it_names(
     identity_user: User, dynamo_tables: Any, legacy_secret: None
 ) -> None:
@@ -294,6 +315,7 @@ def test_an_unsubscribe_token_is_not_a_session_for_the_user_it_names(
     assert optional.status_code == 200
     assert optional.json()["id"] == ""
 
+
 def test_an_identity_token_resolves_through_the_gate_context(identity_user: User, dynamo_tables: Any) -> None:
     """An identity caller resolves from the gate context with no authorization header."""
     client = TestClient(_dual_mode_app())
@@ -303,6 +325,7 @@ def test_an_identity_token_resolves_through_the_gate_context(identity_user: User
     )
     assert response.status_code == 200
     assert response.json()["id"] == str(identity_user.id)
+
 
 def test_an_identity_token_resolves_through_the_native_context(identity_user: User, dynamo_tables: Any) -> None:
     """Production's shape resolves end to end too, so the promotion changes nothing here."""
@@ -314,6 +337,7 @@ def test_an_identity_token_resolves_through_the_native_context(identity_user: Us
     assert response.status_code == 200
     assert response.json()["id"] == str(identity_user.id)
 
+
 def test_an_unknown_subject_is_a_401_and_not_a_500(dynamo_tables: Any) -> None:
     """A well formed subject naming no user is a quiet 401."""
     client = TestClient(_dual_mode_app())
@@ -323,6 +347,7 @@ def test_an_unknown_subject_is_a_401_and_not_a_500(dynamo_tables: Any) -> None:
     )
     assert response.status_code == 401
 
+
 def test_the_optional_resolver_is_anonymous_without_a_token(dynamo_tables: Any) -> None:
     """A public read stays public. This is what would break if the optional
     resolver had been made to raise on a missing claim section."""
@@ -330,6 +355,7 @@ def test_the_optional_resolver_is_anonymous_without_a_token(dynamo_tables: Any) 
     response = client.get("/maybe")
     assert response.status_code == 200
     assert response.json()["id"] == ""
+
 
 def test_the_optional_resolver_reads_an_identity_token(identity_user: User, dynamo_tables: Any) -> None:
     """A public read that carries an identity token sees the user behind it."""
@@ -340,6 +366,7 @@ def test_the_optional_resolver_reads_an_identity_token(identity_user: User, dyna
     )
     assert response.status_code == 200
     assert response.json()["id"] == str(identity_user.id)
+
 
 def test_a_bare_request_still_gets_the_unchanged_401_body(dynamo_tables: Any) -> None:
     """A request carrying no credential gets the same 401 body it always did."""

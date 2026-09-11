@@ -9,13 +9,16 @@ from app.core.config import settings
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import auth_headers, create_car_in_db, login_user
 
+
 def _unique(base: str) -> str:
     """Make a name unique per worker and process so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{base}_{worker}_{os.getpid()}"
 
+
 def _auth(token: str) -> dict[str, str]:
     return auth_headers(token)
+
 
 def _create_build_list(
     client: TestClient,
@@ -34,6 +37,7 @@ def _create_build_list(
     resp = client.post(f"{settings.API_STR}/build-lists/", json=body, headers=headers)
     assert resp.status_code == 200, resp.text
     return resp.json()
+
 
 class TestBuildListLaborEstimatesCRUD:
     """Creating, listing, updating and deleting labor estimates, and who may."""
@@ -145,6 +149,7 @@ class TestBuildListLaborEstimatesCRUD:
         anon_list = client.get(f"{settings.API_STR}/build-lists/{bl['id']}/labor-estimates")
         assert anon_list.status_code == 200
 
+
 class TestBuildListLaborEstimatePhase:
     """How an estimate relates to a build list phase."""
 
@@ -207,6 +212,7 @@ class TestBuildListLaborEstimatePhase:
         items = client.get(f"{settings.API_STR}/build-lists/{bl['id']}/labor-estimates").json()
         survivor = next(item for item in items if item["id"] == labor["id"])
         assert survivor["build_list_phase_id"] is None
+
 
 class TestBuildListLaborEstimateCostRollup:
     """How labor estimates enter the build list cost rollup."""

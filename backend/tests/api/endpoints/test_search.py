@@ -10,11 +10,13 @@ from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 from tests.conftest import auth_headers, create_car_in_db, login_user
 
+
 def get_unique_name(base_name: str) -> str:
     """Generate a unique name for parallel testing."""
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
     pid = os.getpid()
     return f"{base_name}_{worker_id}_{pid}"
+
 
 def get_auth_token(client: TestClient, username: str, password: str = "testpassword") -> str:
     """The credential for `username`, for use with `auth_headers`.
@@ -26,9 +28,11 @@ def get_auth_token(client: TestClient, username: str, password: str = "testpassw
     """
     return login_user(client, username, password)
 
+
 def get_auth_headers(token: str) -> Dict[str, str]:
     """Get Authorization headers with Bearer token."""
     return auth_headers(token)
+
 
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
@@ -52,6 +56,7 @@ def create_and_login_admin_user(
     token = login_user(client, username)
 
     return admin_user.__dict__, token
+
 
 class TestSearch:
     """Test cases for search endpoint."""
@@ -432,7 +437,9 @@ class TestSearch:
             found = any(item.get("name") == build_list_name for item in data["build_lists"]["items"])
             assert found, f"Search with '{query}' should find '{build_list_name}'"
 
+
 RESERVED_TLD_SEARCH_EMAIL_DOMAIN = "staging.invalid"
+
 
 class TestSearchReservedTldEmail:
     """A seeded `@staging.invalid` user must be searchable, not a 500."""
@@ -444,7 +451,6 @@ class TestSearchReservedTldEmail:
             DBUser(
                 username=username,
                 email=f"{username}@{RESERVED_TLD_SEARCH_EMAIL_DOMAIN}",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )

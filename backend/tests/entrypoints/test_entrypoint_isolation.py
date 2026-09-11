@@ -38,6 +38,7 @@ print(json.dumps({{
 }}))
 """
 
+
 def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """Run one snippet in a fresh interpreter with an all but empty environment.
 
@@ -60,6 +61,7 @@ def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     assert result.returncode == 0, f"subprocess failed with an empty environment:\n{result.stderr}"
     return json.loads(result.stdout.strip().splitlines()[-1])
 
+
 @pytest.fixture(scope="module")
 def probes() -> Dict[str, Dict[str, Any]]:
     """One subprocess per domain, reused across the tests in this module."""
@@ -71,11 +73,13 @@ def probes() -> Dict[str, Dict[str, Any]]:
         for domain in DOMAIN_NAMES
     }
 
+
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_builds_with_no_credentials(domain: str, probes: Dict[str, Dict[str, Any]]) -> None:
     """Every entrypoint builds its application with no AWS credentials available."""
     assert probes[domain]["routes"] > 0
     assert probes[domain]["domain"] == domain
+
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_imports_only_its_own_endpoint_modules(domain: str, probes: Dict[str, Dict[str, Any]]) -> None:
@@ -99,10 +103,12 @@ def test_an_entrypoint_imports_only_its_own_endpoint_modules(domain: str, probes
     assert imported, f"{domain} imported no endpoint module at all"
     assert imported == expected, f"{domain} imported {imported}, but owns {expected}"
 
+
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_reports_its_own_service_name(domain: str, probes: Dict[str, Dict[str, Any]]) -> None:
     """Each entrypoint reports the service name of its own domain."""
     assert probes[domain]["service_name"] == f"carmodpicker-{domain}"
+
 
 def test_only_the_domains_that_verify_a_legacy_token_need_the_secret(
     probes: Dict[str, Dict[str, Any]],
@@ -150,6 +156,7 @@ def test_only_the_domains_that_verify_a_legacy_token_need_the_secret(
             "unsubscribe link. See docs/identity-adoption.md row 13."
         )
 
+
 def test_importing_the_descriptors_imports_no_endpoint_module() -> None:
     """Importing the domain descriptors imports no endpoint module.
 
@@ -162,12 +169,14 @@ def test_importing_the_descriptors_imports_no_endpoint_module() -> None:
     )
     assert result == []
 
+
 def test_no_entrypoint_imports_the_monolith_composition_root() -> None:
     """No entrypoint imports app.main, which would build every domain at import."""
     for domain in DOMAIN_NAMES:
         source = (BACKEND / "app" / "entrypoints" / f"{ENTRYPOINT_MODULES[domain]}.py").read_text()
         assert "app.main" not in source
         assert "from ..main" not in source
+
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:

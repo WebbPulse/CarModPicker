@@ -12,11 +12,13 @@ from app.db.dynamo.moderation import VoteRepository
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import save_catalog
 
+
 def get_unique_name(base_name: str) -> str:
     """Generate a unique name for parallel testing."""
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
     pid = os.getpid()
     return f"{base_name}_{worker_id}_{pid}"
+
 
 class TestVoteService:
     """Test cases for vote service."""

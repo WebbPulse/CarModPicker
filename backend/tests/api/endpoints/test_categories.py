@@ -20,11 +20,13 @@ from tests.conftest import (
     test_part_manufacturer,
 )
 
+
 def get_unique_name(base_name: str) -> str:
     """Generate a unique name for parallel testing."""
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
     pid = os.getpid()
     return f"{base_name}_{worker_id}_{pid}"
+
 
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
@@ -48,6 +50,7 @@ def create_and_login_admin_user(
     token = login_user(client, username)
 
     return admin_user.__dict__, token
+
 
 def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[UUID, str]:
     """Create a regular user and log them in; returns the user dict and token."""
@@ -83,6 +86,7 @@ def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[UUI
         raise Exception(f"User ID for {username} could not be determined.")
     return user_id, token
 
+
 def create_car_for_categories_test(
     db_session: Any,
     car_make: str = "TestMakeCategory",
@@ -94,6 +98,7 @@ def create_car_for_categories_test(
     """Create a car in DB for category tests and return the car ID."""
     car = create_car_in_db(db_session, car_make, car_model, generation_name, start_year, end_year)
     return car["id"]
+
 
 def create_build_list_for_car_cookie_auth(
     client: TestClient, token: str, car_id: UUID, bl_name: str = "TestBLCategory"
@@ -107,6 +112,7 @@ def create_build_list_for_car_cookie_auth(
     response = client.post(f"{settings.API_STR}/build-lists/", json=build_list_data, headers=headers)
     assert response.status_code == 200, f"Failed to create build list for category tests: {response.text}"
     return UUID(response.json()["id"])
+
 
 class TestCategories:
     """Test cases for category endpoints."""

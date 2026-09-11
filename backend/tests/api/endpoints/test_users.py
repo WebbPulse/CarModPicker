@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, login_user
 
+
 def create_and_login_user(
     client: TestClient, username_suffix: str, password_override: Optional[str] = None
 ) -> tuple[Dict[str, Any], str]:
@@ -53,6 +54,7 @@ def create_and_login_user(
 
     return created_user_data, token
 
+
 def get_auth_headers(token: str) -> Dict[str, str]:
     """Headers that authenticate as the holder of `token`.
 
@@ -61,6 +63,7 @@ def get_auth_headers(token: str) -> Dict[str, str]:
     is an `x-amzn-request-context` credential, not an `Authorization` header.
     """
     return auth_headers(token)
+
 
 def test_create_user_success(client: TestClient, db_session: Any) -> None:
     """A valid signup creates the user and returns it."""
@@ -80,6 +83,7 @@ def test_create_user_success(client: TestClient, db_session: Any) -> None:
     assert "id" in created_user
     assert "hashed_password" not in created_user
 
+
 def test_create_user_duplicate_username(client: TestClient, db_session: Any) -> None:
     """A taken username is refused as a conflict."""
     user_info, _ = create_and_login_user(client, "duplicate_username_test")
@@ -92,6 +96,7 @@ def test_create_user_duplicate_username(client: TestClient, db_session: Any) -> 
     response = client.post(f"{settings.API_STR}/users/", json=duplicate_user_data)
     assert response.status_code == 409, response.text
     assert "username already registered" in response.json()["message"].lower()
+
 
 def test_create_user_duplicate_email(client: TestClient, db_session: Any) -> None:
     """A taken email is refused as a conflict."""
@@ -106,6 +111,7 @@ def test_create_user_duplicate_email(client: TestClient, db_session: Any) -> Non
     assert response.status_code == 409, response.text
     assert "email already registered" in response.json()["message"].lower()
 
+
 def test_create_user_rejects_short_password(client: TestClient) -> None:
     """A password under the minimum length is a validation error."""
     response = client.post(
@@ -114,6 +120,7 @@ def test_create_user_rejects_short_password(client: TestClient) -> None:
     )
     assert response.status_code == 422, response.text
 
+
 def test_create_user_rejects_overlong_password(client: TestClient) -> None:
     """A password over the maximum length is a validation error."""
     response = client.post(
@@ -121,6 +128,7 @@ def test_create_user_rejects_overlong_password(client: TestClient) -> None:
         json={"username": "long_pw_user", "email": "long_pw@example.com", "password": "a" * 73},
     )
     assert response.status_code == 422, response.text
+
 
 def test_read_users_me_success(client: TestClient, db_session: Any) -> None:
     """An authenticated caller reads their own record."""
@@ -134,10 +142,12 @@ def test_read_users_me_success(client: TestClient, db_session: Any) -> None:
     assert me_user["email"] == user_info["email"]
     assert me_user["id"] == user_info["id"]
 
+
 def test_read_users_me_unauthenticated(client: TestClient, db_session: Any) -> None:
     """Reading the current user with no credential is refused."""
     response = client.get(f"{settings.API_STR}/users/me")
     assert response.status_code == 401
+
 
 def test_read_user_by_id_success(client: TestClient, db_session: Any) -> None:
     """A user can be read by id."""
@@ -151,6 +161,7 @@ def test_read_user_by_id_success(client: TestClient, db_session: Any) -> None:
     assert read_user["id"] == user_id_to_read
     assert read_user["username"] == user_info["username"]
 
+
 def test_read_user_by_id_not_found(client: TestClient, db_session: Any) -> None:
     """An unknown user id answers not found."""
     _, token = create_and_login_user(client, "read_not_found_test")
@@ -158,6 +169,7 @@ def test_read_user_by_id_not_found(client: TestClient, db_session: Any) -> None:
     response = client.get(f"{settings.API_STR}/users/{INVALID_UUID_STR}", headers=headers)
     assert response.status_code == 404
     assert "not found" in response.json()["message"].lower()
+
 
 def test_update_own_user_success(client: TestClient, db_session: Any) -> None:
     """A user can update their own record."""
@@ -175,6 +187,7 @@ def test_update_own_user_success(client: TestClient, db_session: Any) -> None:
     updated_user = response.json()
     assert updated_user["email"] == update_payload["email"]
     assert updated_user["username"] == user_info["username"]
+
 
 def test_update_own_user_change_password_success(client: TestClient, db_session: Any) -> None:
     """A password change succeeds when the current password is supplied."""
@@ -199,6 +212,7 @@ def test_update_own_user_change_password_success(client: TestClient, db_session:
     assert verify_password(initial_password, stored) is False
     assert username
 
+
 def test_update_own_user_incorrect_current_password(client: TestClient, db_session: Any) -> None:
     """A password change with the wrong current password is refused."""
     user_info, token = create_and_login_user(client, "update_wrong_curr_pass")
@@ -212,6 +226,7 @@ def test_update_own_user_incorrect_current_password(client: TestClient, db_sessi
     response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload, headers=headers)
     assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.text
     assert "incorrect current password" in response.json()["message"].lower()
+
 
 def test_update_other_user_forbidden(client: TestClient, db_session: Any) -> None:
     """Updating another user's record is forbidden."""
@@ -230,6 +245,7 @@ def test_update_other_user_forbidden(client: TestClient, db_session: Any) -> Non
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert response.json()["message"] == "Not authorized to update this user"
 
+
 def test_update_user_unauthenticated(client: TestClient, db_session: Any) -> None:
     """Updating with no credential is refused."""
     user_info, _ = create_and_login_user(client, "update_unauth_target")
@@ -239,6 +255,7 @@ def test_update_user_unauthenticated(client: TestClient, db_session: Any) -> Non
     update_payload = {"username": "UnauthUpdate"}
     response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload)
     assert response.status_code == 401
+
 
 def test_update_user_not_found(client: TestClient, db_session: Any) -> None:
     """Updating an unknown user id answers not found."""
@@ -253,6 +270,7 @@ def test_update_user_not_found(client: TestClient, db_session: Any) -> None:
     response = client.put(f"{settings.API_STR}/users/{INVALID_UUID_STR}", json=update_payload, headers=headers)
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert "not found" in response.json()["message"].lower()
+
 
 def test_delete_own_user_success(client: TestClient, db_session: Any) -> None:
     """A user can delete their own account."""
@@ -269,6 +287,7 @@ def test_delete_own_user_success(client: TestClient, db_session: Any) -> None:
     deleted_user_check = UserRepository().get_by_username(username)
     assert deleted_user_check is None, "User should no longer exist in database"
 
+
 def test_delete_other_user_forbidden(client: TestClient, db_session: Any) -> None:
     """Deleting another user's account is forbidden."""
     user_a_info, _ = create_and_login_user(client, "user_a_delete_target")
@@ -281,6 +300,7 @@ def test_delete_other_user_forbidden(client: TestClient, db_session: Any) -> Non
     assert response.status_code == 403
     assert response.json()["message"] == "Not authorized to delete this user"
 
+
 def test_delete_user_unauthenticated(client: TestClient, db_session: Any) -> None:
     """Deleting with no credential is refused."""
     user_info, _ = create_and_login_user(client, "delete_unauth_target")
@@ -290,6 +310,7 @@ def test_delete_user_unauthenticated(client: TestClient, db_session: Any) -> Non
     response = client.delete(f"{settings.API_STR}/users/{user_id}")
     assert response.status_code == 401
 
+
 def test_delete_user_not_found(client: TestClient, db_session: Any) -> None:
     """Deleting an unknown user id answers not found."""
     _, token = create_and_login_user(client, "deleter_user_notfound")
@@ -298,6 +319,7 @@ def test_delete_user_not_found(client: TestClient, db_session: Any) -> None:
     response = client.delete(f"{settings.API_STR}/users/{INVALID_UUID_STR}", headers=headers)
     assert response.status_code == 403
     assert response.json()["message"] == "Not authorized to delete this user"
+
 
 def test_update_user_conflict_username(client: TestClient, db_session: Any) -> None:
     """Updating to a taken username is refused as a conflict."""
@@ -313,6 +335,7 @@ def test_update_user_conflict_username(client: TestClient, db_session: Any) -> N
     assert response.status_code == 409
     assert "username already registered" in response.json()["message"].lower()
 
+
 def test_update_user_conflict_email(client: TestClient, db_session: Any) -> None:
     """Updating to a taken email is refused as a conflict."""
     user_a_info, _ = create_and_login_user(client, "conflict_email_A")
@@ -326,6 +349,7 @@ def test_update_user_conflict_email(client: TestClient, db_session: Any) -> None
     response = client.put(f"{settings.API_STR}/users/{user_b_info['id']}", json=update_payload, headers=headers)
     assert response.status_code == 409
     assert "email already registered" in response.json()["message"].lower()
+
 
 def test_upload_profile_picture_success(client: TestClient, db_session: Any) -> None:
     """Test uploading a profile picture."""
@@ -348,6 +372,7 @@ def test_upload_profile_picture_success(client: TestClient, db_session: Any) -> 
         data = response.json()
         assert "image_urls" in data
 
+
 def test_upload_profile_picture_unauthorized(client: TestClient) -> None:
     """Test uploading a profile picture without authentication."""
     from PIL import Image
@@ -361,6 +386,7 @@ def test_upload_profile_picture_unauthorized(client: TestClient) -> None:
     response = client.post(f"{settings.API_STR}/users/me/profile-picture", files=files)
     assert response.status_code == 401
 
+
 def test_upload_profile_picture_invalid_file_type(client: TestClient, db_session: Any) -> None:
     """Test uploading a non-image file as profile picture."""
     user_info, token = create_and_login_user(client, "profile_pic_invalid")
@@ -370,6 +396,7 @@ def test_upload_profile_picture_invalid_file_type(client: TestClient, db_session
     response = client.post(f"{settings.API_STR}/users/me/profile-picture", files=files, headers=headers)
 
     assert response.status_code in [400, 422, 500, 503], f"Unexpected status: {response.text}"
+
 
 def test_delete_profile_picture_success(client: TestClient, db_session: Any) -> None:
     """Test deleting a profile picture."""
@@ -394,6 +421,7 @@ def test_delete_profile_picture_success(client: TestClient, db_session: Any) -> 
             data = response.json()
             assert data.get("image_urls") is None or "image_urls" not in data
 
+
 def test_delete_profile_picture_not_found(client: TestClient, db_session: Any) -> None:
     """Test deleting a profile picture when none exists."""
     user_info, token = create_and_login_user(client, "profile_pic_no_pic")
@@ -402,10 +430,12 @@ def test_delete_profile_picture_not_found(client: TestClient, db_session: Any) -
     response = client.delete(f"{settings.API_STR}/users/me/profile-picture", headers=headers)
     assert response.status_code in [200, 404, 500, 503], f"Unexpected status: {response.text}"
 
+
 def test_delete_profile_picture_unauthorized(client: TestClient) -> None:
     """Test deleting a profile picture without authentication."""
     response = client.delete(f"{settings.API_STR}/users/me/profile-picture")
     assert response.status_code == 401
+
 
 def test_upload_profile_picture_replaces_old_one(client: TestClient, db_session: Any) -> None:
     """Test that uploading a new profile picture replaces the old one."""
@@ -441,6 +471,7 @@ def test_upload_profile_picture_replaces_old_one(client: TestClient, db_session:
             new_image_urls = data2.get("image_urls")
             assert "image_urls" in data2
 
+
 def test_delete_profile_picture_idempotency(client: TestClient, db_session: Any) -> None:
     """Test that deleting profile picture twice is idempotent (second should return 404)."""
     from PIL import Image
@@ -463,6 +494,7 @@ def test_delete_profile_picture_idempotency(client: TestClient, db_session: Any)
         delete_response2 = client.delete(f"{settings.API_STR}/users/me/profile-picture", headers=headers)
         assert delete_response2.status_code == 404
 
+
 def test_upload_profile_picture_max_file_size(client: TestClient, db_session: Any) -> None:
     """Test profile picture upload with maximum file size (boundary testing)."""
     from PIL import Image
@@ -482,6 +514,7 @@ def test_upload_profile_picture_max_file_size(client: TestClient, db_session: An
 
     assert response.status_code in [200, 400, 422, 500, 503], f"Unexpected status: {response.text}"
 
+
 def test_upload_profile_picture_min_file_size(client: TestClient, db_session: Any) -> None:
     """Test profile picture upload with minimum file size (very small images)."""
     from PIL import Image
@@ -498,6 +531,7 @@ def test_upload_profile_picture_min_file_size(client: TestClient, db_session: An
     response = client.post(f"{settings.API_STR}/users/me/profile-picture", files=files, headers=headers)
 
     assert response.status_code in [200, 500, 503], f"Unexpected status: {response.text}"
+
 
 def test_upload_profile_picture_non_square(client: TestClient, db_session: Any) -> None:
     """Test profile picture upload with non-square image (verify auto-cropping/resizing to square)."""
@@ -519,6 +553,7 @@ def test_upload_profile_picture_non_square(client: TestClient, db_session: Any) 
     if response.status_code == 200:
         data = response.json()
         assert "image_urls" in data
+
 
 def test_upload_profile_picture_concurrent_requests(client: TestClient, db_session: Any) -> None:
     """Test race condition - uploading two profile pictures simultaneously (should handle gracefully)."""
@@ -560,6 +595,7 @@ def test_upload_profile_picture_concurrent_requests(client: TestClient, db_sessi
     status_codes = [status for _, status in results]
     assert any(code in [200, 500, 503] for code in status_codes), "At least one request should complete"
 
+
 def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_session: Any) -> None:
     """Test rollback behavior if storage service fails after DB update (should rollback DB change)."""
     from PIL import Image
@@ -586,6 +622,7 @@ def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_
 
         user_before = UserRepository().get_or_raise(user_id)
         assert user_before.image_urls == initial_image_urls, "DB should be rolled back on storage failure"
+
 
 def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_session: Any) -> None:
     """Test graceful handling when storage deletion fails but DB update succeeds."""
@@ -617,7 +654,9 @@ def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_
                 user_before = UserRepository().get_or_raise(user_id)
                 assert user_before.image_urls == old_image_urls, "DB should be rolled back on storage deletion failure"
 
+
 RESERVED_TLD_EMAIL = "row12-cutover-check@staging.invalid"
+
 
 def test_read_user_with_reserved_tld_email_returns_200(client: TestClient, db_session: Any) -> None:
     """Reading a user whose stored email has a reserved TLD returns 200, not 500."""
@@ -637,6 +676,7 @@ def test_read_user_with_reserved_tld_email_returns_200(client: TestClient, db_se
     by_id_response = client.get(f"{settings.API_STR}/users/{user_id}", headers=headers)
     assert by_id_response.status_code == 200, by_id_response.text
     assert by_id_response.json()["email"] == RESERVED_TLD_EMAIL
+
 
 def test_write_path_still_rejects_reserved_tld_email(client: TestClient, db_session: Any) -> None:
     """Relaxing the read models must not let a new bad address in through the API."""

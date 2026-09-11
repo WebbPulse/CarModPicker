@@ -10,6 +10,7 @@ from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 from tests.conftest import auth_headers, login_user, save_catalog
 
+
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
@@ -33,6 +34,7 @@ def create_and_login_admin_user(
 
     return admin_user.__dict__, token
 
+
 def create_and_login_regular_user(
     client: TestClient, db_session: Any, username_suffix: str = "regular"
 ) -> tuple[dict[str, Any], str]:
@@ -55,6 +57,7 @@ def create_and_login_regular_user(
     token = login_user(client, username)
 
     return regular_user.__dict__, token
+
 
 class TestCategoriesAdminAuthentication:
     """Category create/update/delete are removed; categories are seeded from backend source.

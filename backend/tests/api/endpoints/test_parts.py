@@ -11,16 +11,19 @@ from app.db.dynamo.catalog import Category, PartManufacturer, Retailer
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, login_user, save_catalog
 
+
 def get_unique_name(base_name: str) -> str:
     """Generate a unique name for parallel testing."""
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
     pid = os.getpid()
     return f"{base_name}_{worker_id}_{pid}"
 
+
 def get_auth_token_and_headers(client: TestClient, username: str, password: str = "testpassword") -> dict[str, str]:
     """Login and return Authorization headers with Bearer token."""
     token = login_user(client, username)
     return auth_headers(token)
+
 
 class TestParts:
     """Test cases for global parts endpoints."""
@@ -611,6 +614,7 @@ class TestParts:
         assert "count" in data
         assert isinstance(data["count"], int)
         assert data["count"] >= 0
+
 
 class TestPartListingsAuth:
     """`POST /api/parts/{part_id}/listings` was public until it was brought in

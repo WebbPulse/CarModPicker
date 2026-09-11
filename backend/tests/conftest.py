@@ -44,16 +44,19 @@ from app.db.dynamo.catalog import (  # noqa: E402
 from app.db.dynamo.users import User, UserRepository  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 
+
 class TestDatabase:
     """A per-test marker handed to tests as db_session, now that every table is in DynamoDB.
 
     The name survives because tests use it to order fixtures and derive unique names.
     """
 
+
 @pytest.fixture(scope="function")
 def db_session(dynamo_tables: Any) -> TestDatabase:
     """Yield the per-test marker tests accept as db_session."""
     return TestDatabase()
+
 
 @pytest.fixture
 def client(db_session: TestDatabase, dynamo_tables: Any) -> Generator[TestClient, None, None]:
@@ -62,6 +65,7 @@ def client(db_session: TestDatabase, dynamo_tables: Any) -> Generator[TestClient
     Not a context manager on purpose: lifespan would seed thousands of car rows per test.
     """
     yield TestClient(fastapi_app)
+
 
 @pytest.fixture(scope="function")
 def test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
@@ -75,6 +79,7 @@ def test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
         is_superuser=False,
     )
     return UserRepository().create_user(user)
+
 
 @pytest.fixture(scope="function")
 def premium_test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
@@ -92,6 +97,7 @@ def premium_test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     )
     return UserRepository().create_user(user)
 
+
 @pytest.fixture(scope="function")
 def test_category(db_session: TestDatabase, dynamo_tables: Any) -> Category:
     """Create a test category for testing."""
@@ -104,6 +110,7 @@ def test_category(db_session: TestDatabase, dynamo_tables: Any) -> Category:
     )
     return CategoryRepository().create_unique(category)
 
+
 @pytest.fixture(scope="function")
 def test_part_manufacturer(db_session: TestDatabase, dynamo_tables: Any) -> PartManufacturer:
     """Create a test part_manufacturer for testing."""
@@ -113,6 +120,7 @@ def test_part_manufacturer(db_session: TestDatabase, dynamo_tables: Any) -> Part
         is_active=True,
     )
     return PartManufacturerRepository().create_unique(part_manufacturer)
+
 
 @pytest.fixture(scope="function")
 def test_admin_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
@@ -127,6 +135,7 @@ def test_admin_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     )
     return UserRepository().create_user(user)
 
+
 @pytest.fixture(scope="function")
 def test_superuser_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     """Create a superuser for testing."""
@@ -139,6 +148,7 @@ def test_superuser_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
         is_superuser=True,
     )
     return UserRepository().create_user(user)
+
 
 _CATALOG_REPOSITORIES: Dict[type, type] = {
     CarMake: CarMakeRepository,
@@ -153,9 +163,11 @@ _CATALOG_REPOSITORIES: Dict[type, type] = {
     PartPriceHistory: PartPriceHistoryRepository,
 }
 
+
 def catalog_repository(model: type) -> Any:
     """Return the repository class registered for a catalog model."""
     return _CATALOG_REPOSITORIES[model]()
+
 
 def save_catalog(entity: Any, car_ids: Optional[list[UUID]] = None) -> Any:
     """Persist a catalog model through its repository and return the stored copy."""
@@ -168,6 +180,7 @@ def save_catalog(entity: Any, car_ids: Optional[list[UUID]] = None) -> Any:
     if hasattr(repository, "create_unique"):
         return repository.create_unique(entity)
     return repository.create(entity)
+
 
 def get_default_category_id(db_session: TestDatabase) -> UUID:
     """Get the ID of the 'other' category for testing."""
@@ -184,6 +197,7 @@ def get_default_category_id(db_session: TestDatabase) -> UUID:
             )
         )
     return category.id
+
 
 def identity_context(subject: str) -> str:
     """The `x-amzn-request-context` header an authorizer produces for `subject`.
@@ -218,6 +232,7 @@ def identity_context(subject: str) -> str:
     }
     return json.dumps({"authorizer": {"jwt": {"claims": claims}}})
 
+
 def auth_headers_for(user_id: Any) -> Dict[str, str]:
     """Request headers that authenticate as `user_id`.
 
@@ -230,6 +245,7 @@ def auth_headers_for(user_id: Any) -> Dict[str, str]:
     from webbpulse.http import REQUEST_CONTEXT_HEADER
 
     return {REQUEST_CONTEXT_HEADER: identity_context(str(user_id))}
+
 
 def auth_headers(credential: str) -> Dict[str, str]:
     """Turn a credential from `login_user` into request headers.
@@ -244,6 +260,7 @@ def auth_headers(credential: str) -> Dict[str, str]:
 
     return {REQUEST_CONTEXT_HEADER: credential}
 
+
 def login_user(client: TestClient, username: str, password: str = "testpassword") -> str:
     """The credential for `username`, as the value tests put in a header.
 
@@ -257,6 +274,7 @@ def login_user(client: TestClient, username: str, password: str = "testpassword"
     user = UserRepository().get_by_username(username)
     assert user is not None, f"No such user to authenticate: {username}"
     return identity_context(str(user.id))
+
 
 def create_and_login_user(
     client: TestClient,
@@ -280,6 +298,7 @@ def create_and_login_user(
 
     return user_data_response
 
+
 def create_car_for_user_cookie_auth(client: TestClient) -> UUID:
     """Deprecated. Create a car for the logged-in user; prefer create_car_in_db."""
     import warnings
@@ -295,6 +314,7 @@ def create_car_for_user_cookie_auth(client: TestClient) -> UUID:
         "create_car_for_user_cookie_auth is deprecated. Cars are now centrally managed. "
         "Use create_car_in_db(db_session, ...) for test setup instead."
     )
+
 
 def _create_car_generation(
     make: str,
@@ -327,6 +347,7 @@ def _create_car_generation(
         )
     )
 
+
 def create_car_in_db(
     db: Any,
     make: str = "Honda",
@@ -350,6 +371,7 @@ def create_car_in_db(
         "updated_at": car.updated_at.isoformat() if car.updated_at else None,
     }
 
+
 def create_car_orm_in_db(
     db: Any,
     make: str = "Honda",
@@ -365,6 +387,7 @@ def create_car_orm_in_db(
     car = _create_car_generation(make, model, generation_name, start_year, end_year, description)
     return CarGenerationService().hydrate_one(car)
 
+
 @pytest.fixture
 def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFixture:
     """caplog with the log context filter installed, so records carry request and user ids.
@@ -376,7 +399,9 @@ def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFi
     caplog.handler.addFilter(LogContextFilter())
     return caplog
 
+
 from sentry_sdk.transport import Transport as _SentryTransport  # noqa: E402
+
 
 class _CapturingTransport(_SentryTransport):
     """An in-memory Sentry transport collecting envelopes in a shared class level list."""
@@ -400,6 +425,7 @@ class _CapturingTransport(_SentryTransport):
         """Killing is a no-op for the in-memory transport."""
         pass
 
+
 @pytest.fixture
 def sentry_events(monkeypatch: pytest.MonkeyPatch):
     """Yield the list Sentry envelopes are appended to, closing the client on teardown."""
@@ -420,6 +446,7 @@ def sentry_events(monkeypatch: pytest.MonkeyPatch):
         client = sentry_sdk.get_client()
         if client is not None:
             client.close()
+
 
 @pytest.fixture
 def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, None]:
@@ -446,6 +473,7 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
             "user_images_bucket": "test-user-images",
         }
 
+
 @pytest.fixture(autouse=True)
 def _isolate_aws(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set fake AWS credentials and drop any profile, so no test reaches a real account."""
@@ -454,6 +482,7 @@ def _isolate_aws(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
     monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
     monkeypatch.delenv("AWS_PROFILE", raising=False)
+
 
 @pytest.fixture
 def dynamo_tables(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]:
@@ -478,6 +507,7 @@ def dynamo_tables(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]
         finally:
             dynamo_client.reset_clients()
 
+
 @pytest.fixture(scope="module")
 def vcr_config() -> dict:
     """VCR configuration consumed by pytest-recording's @pytest.mark.vcr."""
@@ -500,6 +530,7 @@ def vcr_config() -> dict:
         "record_mode": "none",
         "match_on": ("method", "scheme", "host", "port", "path", "query"),
     }
+
 
 def create_and_login_admin_user(client: TestClient, username: str) -> User:
     """Create an admin user and log them in."""

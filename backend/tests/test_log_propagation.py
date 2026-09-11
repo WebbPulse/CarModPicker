@@ -24,9 +24,11 @@ _IN_SCOPE_LOGGER_ROOTS = (
     "webbpulse",
 )
 
+
 def _in_request_scope(rec: logging.LogRecord) -> bool:
     """True if the record comes from code that should be inside a request scope."""
     return any(rec.name == n or rec.name.startswith(f"{n}.") for n in _IN_SCOPE_LOGGER_ROOTS)
+
 
 def test_log_propagation_request_scope(
     client: TestClient,
@@ -78,6 +80,7 @@ def test_log_propagation_request_scope(
         assert getattr(rec, "request_id", "-") != "-", f"missing request_id on '{rec.getMessage()}' (logger={rec.name})"
         assert getattr(rec, "user_id", "-") != "-", f"missing user_id on '{rec.getMessage()}' (logger={rec.name})"
 
+
 def test_task_context(caplog_with_context) -> None:
     """task_context sets request_id=bg:{task}:{job} + user_id=bg."""
     caplog_with_context.set_level(logging.DEBUG)
@@ -90,6 +93,7 @@ def test_task_context(caplog_with_context) -> None:
     assert rec.request_id == "bg:crawler:job-1"
     assert rec.user_id == "bg"
 
+
 def test_task_context_job_id_none(caplog_with_context) -> None:
     """task_context with no job_id renders 'bg:{task}:-'."""
     caplog_with_context.set_level(logging.DEBUG)
@@ -98,6 +102,7 @@ def test_task_context_job_id_none(caplog_with_context) -> None:
         logger.info("sweep running")
     rec = next(r for r in caplog_with_context.records if "sweep running" in r.getMessage())
     assert rec.request_id == "bg:sweep:-"
+
 
 def test_task_context_resets(caplog_with_context) -> None:
     """Leaving a task context restores the previous values by token, not the module defaults, so xdist ordering cannot affect it."""
@@ -112,6 +117,7 @@ def test_task_context_resets(caplog_with_context) -> None:
     finally:
         request_id_var.reset(rid_token)
         user_id_var.reset(uid_token)
+
 
 def test_cli_log_context(caplog_with_context) -> None:
     """CLI scope produces request_id=cli:<pid>, user_id=cli."""

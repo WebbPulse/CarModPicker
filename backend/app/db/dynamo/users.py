@@ -21,6 +21,7 @@ PROVIDER_ACCOUNT = "provider_account"
 USER_PROVIDER = "user_provider"
 CREDENTIAL_ID = "credential_id"
 
+
 def _not_tombstoned() -> Any:
     """Condition matching rows that carry no tombstone.
 
@@ -28,6 +29,7 @@ def _not_tombstoned() -> Any:
     row 23 lacks `deleted` entirely, and must still read as live.
     """
     return Attr(DELETED_ATTRIBUTE).not_exists() | Attr(DELETED_ATTRIBUTE).eq(False)
+
 
 class UniqueAttributeTaken(DynamoError):
     """A username, email, provider link or credential id is already claimed."""
@@ -37,10 +39,11 @@ class UniqueAttributeTaken(DynamoError):
         self.attribute = attribute
         super().__init__(f"{attribute} is already taken")
 
+
 class User(TimestampedDynamoModel):
     """A user account, its profile, its subscription and its tombstone flags."""
 
-    id: UUID = Field(default_factory=uuid7)
+    id: UUID = Field(default_factory=uuid7)  # pyright: ignore[reportIncompatibleVariableOverride]
     username: str
     email: str
     image_urls: list[str] | None = None
@@ -62,20 +65,22 @@ class User(TimestampedDynamoModel):
     deleted: bool = False
     deleted_at: datetime | None = None
 
+
 class OAuthAccount(DynamoModel):
     """A third party identity linked to a user account."""
 
-    id: UUID = Field(default_factory=uuid7)
+    id: UUID = Field(default_factory=uuid7)  # pyright: ignore[reportIncompatibleVariableOverride]
     user_id: UUID
     provider: str
     provider_account_id: str
     email: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
 
+
 class WebAuthnCredential(DynamoModel):
     """A registered passkey: its key material, counter and metadata."""
 
-    id: UUID = Field(default_factory=uuid7)
+    id: UUID = Field(default_factory=uuid7)  # pyright: ignore[reportIncompatibleVariableOverride]
     user_id: UUID
     credential_id: bytes
     public_key: bytes
@@ -87,6 +92,7 @@ class WebAuthnCredential(DynamoModel):
     backup_state: bool = False
     created_at: datetime = Field(default_factory=utc_now)
     last_used_at: datetime | None = None
+
 
 def run_unique_transaction(actions: list[dict[str, Any]], labels: list[str | None]) -> None:
     """Run a transaction, raising UniqueAttributeTaken for a labelled failed claim.
@@ -101,6 +107,7 @@ def run_unique_transaction(actions: list[dict[str, Any]], labels: list[str | Non
             if label is not None and reason.get("Code") == "ConditionalCheckFailed":
                 raise UniqueAttributeTaken(label) from exc
         raise
+
 
 class UserRepository(DynamoRepository[User]):
     """User accounts, with username and email uniqueness held by reservation rows."""
@@ -217,6 +224,7 @@ class UserRepository(DynamoRepository[User]):
             ]
         )
 
+
 class OAuthAccountRepository(DynamoRepository[OAuthAccount]):
     """Third party identity links, unique per provider account and per user provider."""
 
@@ -281,6 +289,7 @@ class OAuthAccountRepository(DynamoRepository[OAuthAccount]):
         """Delete every link this user holds."""
         for account in self.list_by_user(user_id):
             self.delete_link(account)
+
 
 class WebAuthnCredentialRepository(DynamoRepository[WebAuthnCredential]):
     """Registered passkeys, unique by credential id."""

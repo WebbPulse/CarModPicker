@@ -39,17 +39,20 @@ router = APIRouter()
 
 user_service = UserService()
 
+
 def _raise_duplicate(error: UniqueAttributeTaken) -> None:
     """Raise the 409 matching whichever unique attribute was already taken."""
     if error.attribute == EMAIL:
         ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
     ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
 
+
 def _delete_user_everywhere(repos: Repositories, user: DBUser) -> None:
     """Mark a user deleted and cascade the removal to everything referencing them."""
     repos.users.update(str(user.id), deleted=True, deleted_at=utc_now())
 
     repos.users.delete_user(user)
+
 
 def _user_page(
     users: list[DBUser], params: CursorParams, repos: Repositories, full: bool
@@ -74,6 +77,7 @@ def _user_page(
         transform=PublicUserRead.model_validate,
     )
 
+
 @router.get("/me", response_model=UserRead)
 async def read_users_me_route(
     current_user: DBUser = Depends(get_current_user),
@@ -83,6 +87,7 @@ async def read_users_me_route(
     Fetch the current logged in user.
     """
     return user_read(current_user, repos)
+
 
 @router.get(
     "/count",
@@ -101,6 +106,7 @@ async def count_users() -> Dict[str, int]:
     except Exception as e:
         logger.error(f"Error counting users: {str(e)}")
         raise
+
 
 @router.post("/me/profile-picture", response_model=UserRead)
 async def upload_profile_picture(
@@ -144,6 +150,7 @@ async def upload_profile_picture(
             detail="An unexpected error occurred during profile picture upload",
         )
 
+
 @router.delete("/me/profile-picture", response_model=UserRead)
 async def delete_profile_picture(
     current_user: DBUser = Depends(get_current_user),
@@ -177,6 +184,7 @@ async def delete_profile_picture(
             detail="An unexpected error occurred during profile picture deletion",
         )
 
+
 @router.get(
     "/{user_id}",
     response_model=Union[UserRead, PublicUserRead],
@@ -205,6 +213,7 @@ async def get_user(
         user_id_str = "anonymous" if current_user is None else str(current_user.id)
         logger.info(f"User {user_id_str} retrieved public user data for user {user_id}")
         return PublicUserRead.model_validate(db_user)
+
 
 @router.get(
     "/",
@@ -235,6 +244,7 @@ async def list_users(
         user_id_str = "anonymous" if current_user is None else str(current_user.id)
         logger.info(f"User {user_id_str} retrieved {len(page.items)} users with public data")
     return page
+
 
 @router.post(
     "/",
@@ -270,6 +280,7 @@ async def create_user(
     repos.users.set_legacy_password_hash(db_user.id, hashed_password)
     logger.info(msg=f"User added to database: {db_user.id}")
     return user_read(db_user, repos)
+
 
 @router.put(
     "/{user_id}",
@@ -359,6 +370,7 @@ async def update_user(
         _raise_duplicate(e)
     return user_read(db_user, repos)
 
+
 @router.delete(
     "/{user_id}",
     response_model=UserRead,
@@ -385,6 +397,7 @@ async def delete_user(
     _delete_user_everywhere(repos, db_user)
     logger.info(f"User {current_user.id} deleted their own account")
     return deleted_user_data
+
 
 @router.get(
     "/admin/users",
@@ -416,6 +429,7 @@ async def get_all_users(
         + (f" with search: '{search}'" if search else "")
     )
     return page
+
 
 @router.put(
     "/admin/users/{user_id}",
@@ -456,6 +470,7 @@ async def admin_update_user(
     except UniqueAttributeTaken as e:
         logger.warning(f"Duplicate {e.attribute} during admin user update")
         ResponsePatterns.raise_conflict("Username or email already exists", "USERNAME_EMAIL_EXISTS")
+
 
 @router.delete(
     "/admin/users/{user_id}",

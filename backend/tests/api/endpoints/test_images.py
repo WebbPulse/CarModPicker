@@ -14,11 +14,13 @@ from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user
 
+
 def get_unique_name(base_name: str) -> str:
     """Generate a unique name for parallel testing."""
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
     pid = os.getpid()
     return f"{base_name}_{worker_id}_{pid}"
+
 
 def get_auth_token(client: TestClient, username: str, password: str = "testpassword") -> str:
     """The credential for `username`, for use with `auth_headers`.
@@ -30,9 +32,11 @@ def get_auth_token(client: TestClient, username: str, password: str = "testpassw
     """
     return login_user(client, username, password)
 
+
 def get_auth_headers(token: str) -> Dict[str, str]:
     """Get Authorization headers with Bearer token."""
     return auth_headers(token)
+
 
 def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
@@ -57,6 +61,7 @@ def create_and_login_admin_user(
 
     return admin_user.__dict__, token
 
+
 def create_test_image() -> io.BytesIO:
     """Create a test image for uploading."""
     img = Image.new("RGB", (100, 100), color="red")
@@ -64,6 +69,7 @@ def create_test_image() -> io.BytesIO:
     img.save(img_bytes, format="PNG")
     img_bytes.seek(0)
     return img_bytes
+
 
 class TestImages:
     """Test cases for images endpoints."""
