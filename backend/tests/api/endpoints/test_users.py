@@ -1,3 +1,5 @@
+"""Endpoint tests for the user routes: creation, reads, updates, deletion and avatars."""
+
 import io
 from typing import Any, Dict, Optional
 from unittest.mock import patch
@@ -66,6 +68,7 @@ def get_auth_headers(token: str) -> Dict[str, str]:
 
 
 def test_create_user_success(client: TestClient, db_session: Any) -> None:
+    """A valid signup creates the user and returns it."""
     username = "new_unique_user"
     email = "new_unique_user@example.com"
     password = "password123"
@@ -84,6 +87,7 @@ def test_create_user_success(client: TestClient, db_session: Any) -> None:
 
 
 def test_create_user_duplicate_username(client: TestClient, db_session: Any) -> None:
+    """A taken username is refused as a conflict."""
     user_info, _ = create_and_login_user(client, "duplicate_username_test")
 
     duplicate_user_data = {
@@ -97,6 +101,7 @@ def test_create_user_duplicate_username(client: TestClient, db_session: Any) -> 
 
 
 def test_create_user_duplicate_email(client: TestClient, db_session: Any) -> None:
+    """A taken email is refused as a conflict."""
     user_info, _ = create_and_login_user(client, "duplicate_email_test")
 
     duplicate_user_data = {
@@ -110,6 +115,7 @@ def test_create_user_duplicate_email(client: TestClient, db_session: Any) -> Non
 
 
 def test_create_user_rejects_short_password(client: TestClient) -> None:
+    """A password under the minimum length is a validation error."""
     response = client.post(
         f"{settings.API_STR}/users/",
         json={"username": "short_pw_user", "email": "short_pw@example.com", "password": "short"},
@@ -118,6 +124,7 @@ def test_create_user_rejects_short_password(client: TestClient) -> None:
 
 
 def test_create_user_rejects_overlong_password(client: TestClient) -> None:
+    """A password over the maximum length is a validation error."""
     response = client.post(
         f"{settings.API_STR}/users/",
         json={"username": "long_pw_user", "email": "long_pw@example.com", "password": "a" * 73},
@@ -126,6 +133,7 @@ def test_create_user_rejects_overlong_password(client: TestClient) -> None:
 
 
 def test_read_users_me_success(client: TestClient, db_session: Any) -> None:
+    """An authenticated caller reads their own record."""
     user_info, token = create_and_login_user(client, "me_test")
 
     headers = get_auth_headers(token)
@@ -138,11 +146,13 @@ def test_read_users_me_success(client: TestClient, db_session: Any) -> None:
 
 
 def test_read_users_me_unauthenticated(client: TestClient, db_session: Any) -> None:
+    """Reading the current user with no credential is refused."""
     response = client.get(f"{settings.API_STR}/users/me")
     assert response.status_code == 401
 
 
 def test_read_user_by_id_success(client: TestClient, db_session: Any) -> None:
+    """A user can be read by id."""
     user_info, token = create_and_login_user(client, "read_by_id_test")
     user_id_to_read = user_info["id"]
 
@@ -155,6 +165,7 @@ def test_read_user_by_id_success(client: TestClient, db_session: Any) -> None:
 
 
 def test_read_user_by_id_not_found(client: TestClient, db_session: Any) -> None:
+    """An unknown user id answers not found."""
     _, token = create_and_login_user(client, "read_not_found_test")
     headers = get_auth_headers(token)
     response = client.get(f"{settings.API_STR}/users/{INVALID_UUID_STR}", headers=headers)
@@ -163,6 +174,7 @@ def test_read_user_by_id_not_found(client: TestClient, db_session: Any) -> None:
 
 
 def test_update_own_user_success(client: TestClient, db_session: Any) -> None:
+    """A user can update their own record."""
     user_info, token = create_and_login_user(client, "update_self")
     user_id = user_info["id"]
     current_password = "testpassword"
@@ -180,6 +192,7 @@ def test_update_own_user_success(client: TestClient, db_session: Any) -> None:
 
 
 def test_update_own_user_change_password_success(client: TestClient, db_session: Any) -> None:
+    """A password change succeeds when the current password is supplied."""
     username_suffix = "change_pass"
     initial_password = "initialPassword123"
     new_password = "newStrongPassword456"
@@ -206,6 +219,7 @@ def test_update_own_user_change_password_success(client: TestClient, db_session:
 
 
 def test_update_own_user_incorrect_current_password(client: TestClient, db_session: Any) -> None:
+    """A password change with the wrong current password is refused."""
     user_info, token = create_and_login_user(client, "update_wrong_curr_pass")
     user_id = user_info["id"]
 
@@ -220,6 +234,7 @@ def test_update_own_user_incorrect_current_password(client: TestClient, db_sessi
 
 
 def test_update_other_user_forbidden(client: TestClient, db_session: Any) -> None:
+    """Updating another user's record is forbidden."""
     user_a_info, _ = create_and_login_user(client, "user_a_update_target")
     user_a_id = user_a_info["id"]
 
@@ -237,6 +252,7 @@ def test_update_other_user_forbidden(client: TestClient, db_session: Any) -> Non
 
 
 def test_update_user_unauthenticated(client: TestClient, db_session: Any) -> None:
+    """Updating with no credential is refused."""
     user_info, _ = create_and_login_user(client, "update_unauth_target")
     user_id = user_info["id"]
     client.cookies.clear()
@@ -247,6 +263,7 @@ def test_update_user_unauthenticated(client: TestClient, db_session: Any) -> Non
 
 
 def test_update_user_not_found(client: TestClient, db_session: Any) -> None:
+    """Updating an unknown user id answers not found."""
     _, token = create_and_login_user(client, "updater_user_notfound")
     logged_in_user_password = "testpassword"
 
@@ -261,6 +278,7 @@ def test_update_user_not_found(client: TestClient, db_session: Any) -> None:
 
 
 def test_delete_own_user_success(client: TestClient, db_session: Any) -> None:
+    """A user can delete their own account."""
     user_info, token = create_and_login_user(client, "delete_self")
     user_id = user_info["id"]
     username = user_info["username"]
@@ -283,6 +301,7 @@ def test_delete_own_user_success(client: TestClient, db_session: Any) -> None:
 
 
 def test_delete_other_user_forbidden(client: TestClient, db_session: Any) -> None:
+    """Deleting another user's account is forbidden."""
     user_a_info, _ = create_and_login_user(client, "user_a_delete_target")
     user_a_id = user_a_info["id"]
 
@@ -295,6 +314,7 @@ def test_delete_other_user_forbidden(client: TestClient, db_session: Any) -> Non
 
 
 def test_delete_user_unauthenticated(client: TestClient, db_session: Any) -> None:
+    """Deleting with no credential is refused."""
     user_info, _ = create_and_login_user(client, "delete_unauth_target")
     user_id = user_info["id"]
     client.cookies.clear()
@@ -304,6 +324,7 @@ def test_delete_user_unauthenticated(client: TestClient, db_session: Any) -> Non
 
 
 def test_delete_user_not_found(client: TestClient, db_session: Any) -> None:
+    """Deleting an unknown user id answers not found."""
     _, token = create_and_login_user(client, "deleter_user_notfound")
 
     headers = get_auth_headers(token)
@@ -313,6 +334,7 @@ def test_delete_user_not_found(client: TestClient, db_session: Any) -> None:
 
 
 def test_update_user_conflict_username(client: TestClient, db_session: Any) -> None:
+    """Updating to a taken username is refused as a conflict."""
     user_a_info, _ = create_and_login_user(client, "conflict_username_A")
     user_b_info, token_b = create_and_login_user(client, "conflict_username_B")
 
@@ -327,6 +349,7 @@ def test_update_user_conflict_username(client: TestClient, db_session: Any) -> N
 
 
 def test_update_user_conflict_email(client: TestClient, db_session: Any) -> None:
+    """Updating to a taken email is refused as a conflict."""
     user_a_info, _ = create_and_login_user(client, "conflict_email_A")
     user_b_info, token_b = create_and_login_user(client, "conflict_email_B")
 
@@ -566,6 +589,7 @@ def test_upload_profile_picture_concurrent_requests(client: TestClient, db_sessi
     results = []
 
     def upload_image(img_bytes: io.BytesIO, color_name: str) -> None:
+        """Post one profile picture and record the colour and status code."""
         files = {"file": (f"profile_{color_name}.png", img_bytes, "image/png")}
         response = client.post(f"{settings.API_STR}/users/me/profile-picture", files=files, headers=headers)
         results.append((color_name, response.status_code))

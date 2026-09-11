@@ -7,26 +7,32 @@ class TestInferCategory:
     """Test infer_category returns expected category names."""
 
     def test_wheels_from_name(self) -> None:
+        """Wheel names infer the wheels category."""
         assert infer_category("Rays Gram Lights 57CR A90 Supra Wheels Bronze", None) == "wheels"
         assert infer_category("Enkei RPF1 18x9.5", "Lightweight wheel.") == "wheels"
 
     def test_exhaust_from_name_and_description(self) -> None:
+        """Exhaust parts infer the exhaust category from name or description."""
         assert infer_category("HKS Hi-Power Exhaust", "Cat-back exhaust system.") == "exhaust"
         assert infer_category("Muffler", "Axle-back muffler.") == "exhaust"
 
     def test_brakes(self) -> None:
+        """Brake parts infer the brakes category."""
         assert infer_category("Brembo Brake Pads", "Front brake pads.") == "brakes"
         assert infer_category("Slotted Rotors", None) == "brakes"
 
     def test_suspension(self) -> None:
+        """Suspension parts infer the suspension category."""
         assert infer_category("BC Racing Coilovers", "Coilover kit.") == "suspension"
         assert infer_category("Sway Bar", "Rear sway bar.") == "suspension"
 
     def test_engine(self) -> None:
+        """Engine parts infer the engine category."""
         assert infer_category("Cold Air Intake", "Intake system.") == "engine"
         assert infer_category("Turbo Kit", "Turbocharger kit.") == "engine"
 
     def test_body(self) -> None:
+        """Body parts infer the body category."""
         assert infer_category("Carbon Fiber Lip", "Front lip spoiler.") == "body"
         assert infer_category("Widebody Kit", None) == "body"
 
@@ -36,10 +42,12 @@ class TestInferCategory:
         assert infer_category("Racing Decals Pack", "Vinyl decals for exterior.") == "body"
 
     def test_interior(self) -> None:
+        """Interior parts infer the interior category."""
         assert infer_category("Recaro Seat", "Bucket seat.") == "interior"
         assert infer_category("Shift Knob", "Weighted shift knob.") == "interior"
 
     def test_steering_wheels_interior_not_wheels(self) -> None:
+        """A steering wheel is interior rather than wheels."""
         assert (
             infer_category(
                 "Rexpeed Forged Carbon Steering Wheels Shift Paddles Extension Supra GR 2020+",
@@ -50,25 +58,31 @@ class TestInferCategory:
         assert infer_category("Steering Wheel Cover", None) == "interior"
 
     def test_lighting(self) -> None:
+        """Lighting parts infer the lighting category."""
         assert infer_category("Oracle RGB DRL Headlight Upgrade", None) == "lighting"
         assert infer_category("Fog Light Kit", "LED fog lights.") == "lighting"
 
     def test_drivetrain(self) -> None:
+        """Drivetrain parts infer the drivetrain category."""
         assert infer_category("LSD Differential", "Limited slip differential.") == "drivetrain"
         assert infer_category("Clutch Kit", "Stage 2 clutch.") == "drivetrain"
 
     def test_other_when_no_match(self) -> None:
+        """Text matching nothing infers the other category."""
         assert infer_category("Random Part XYZ", "Some generic description.") == "other"
 
     def test_none_when_empty(self) -> None:
+        """Empty input infers no category."""
         assert infer_category("", "") is None
         assert infer_category(None, None) is None
         assert infer_category("  ", None) is None
 
     def test_name_weighted_higher(self) -> None:
+        """The name outweighs the description when the two disagree."""
         assert infer_category("Gram Lights Wheel", "Exhaust tip included.") == "wheels"
 
     def test_chassis_and_power_brace_suspension(self) -> None:
+        """Chassis and power braces infer suspension."""
         assert (
             infer_category(
                 "Cusco Rear Chassis Power Brace MKV Supra GR A90 / A91",
@@ -80,6 +94,7 @@ class TestInferCategory:
         assert infer_category("HKS - Full Carbon Strut Brace, MKV A90 Supra", "Carbon strut brace.") == "suspension"
 
     def test_fuel_pressure_gauge_engine(self) -> None:
+        """A fuel pressure gauge infers engine."""
         assert (
             infer_category(
                 "Radium Engineering 0-100 PSI Fuel Pressure Gauge",
@@ -89,6 +104,7 @@ class TestInferCategory:
         )
 
     def test_tubing_kit_engine(self) -> None:
+        """A tubing kit infers engine."""
         assert (
             infer_category(
                 "P3 - Tubing Kit MKV Supra A90",
@@ -98,17 +114,21 @@ class TestInferCategory:
         )
 
     def test_door_garnish_and_tow_hook_body(self) -> None:
+        """Door garnish and tow hooks infer body."""
         assert infer_category("Rexpeed V1 Forged Carbon Side Door Garnish MKV Supra GR", None) == "body"
         assert infer_category("Perrin Performance Front Tow Hook, MKV Supra GR", "Tow hook for show.") == "body"
 
     def test_engine_cover_and_ignition_engine(self) -> None:
+        """Engine covers and ignition parts infer engine."""
         assert infer_category("Eventuri Toyota A90 Supra Black Carbon Engine Cover", None) == "engine"
         assert infer_category("Dinan - Ignition Coil B Series Red MKV Supra A90", "Ignition coils.") == "engine"
 
     def test_storage_compartment_interior(self) -> None:
+        """A storage compartment infers interior."""
         assert infer_category("Rexpeed Dry Carbon Storage Compartment Cover, MKV Supra", None) == "interior"
 
     def test_door_switch_panel_interior(self) -> None:
+        """A door switch panel infers interior."""
         assert (
             infer_category(
                 "Revel GT Dry Carbon Door Switch Panel - Toyota GR Supra A90 2020+",
@@ -118,9 +138,11 @@ class TestInferCategory:
         )
 
     def test_lug_bolt_wheels(self) -> None:
+        """A lug bolt infers wheels."""
         assert infer_category("Dinan Lug Bolts M14X1.25 33MM MKV Supra A90", "Lug bolts for spacers.") == "wheels"
 
     def test_wind_buffeting_body(self) -> None:
+        """A wind buffeting part infers body."""
         assert infer_category("AMS Performance Anti-Wind Buffeting Kit - MKV Supra", "Fixes wind noise.") == "body"
 
     def test_other_export_engine_lighting_body_drivetrain(self) -> None:

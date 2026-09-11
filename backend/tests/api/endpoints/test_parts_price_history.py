@@ -1,9 +1,6 @@
-"""Endpoint coverage for `GET /api/parts/{id}/price-history` (S05/T02).
+"""Endpoint tests for the part price history reads, single and batch.
 
-Exercises the aggregated object response. The pre-S05 `legacy=true` shim was
-removed in S13/T03 — only the object shape remains. Seeding mirrors
-`tests/services/test_part_price_aggregation_service.py` so the per-row schema
-matches what the aggregation service produces.
+Seeding mirrors the aggregation service tests so the per-row schema matches.
 """
 
 from __future__ import annotations
@@ -35,26 +32,18 @@ def _auth_headers(client: TestClient, user: User) -> dict[str, str]:
 
 
 def _api_key_headers(key: str = TEST_API_KEY) -> dict[str, str]:
-    """`X-API-Key` headers for the machine path onto the batch POST.
-
-    The batch route takes `require_api_key_or_admin`, so an end-user token is
-    not enough; the seeding tests below use the key rather than logging an
-    admin in on every case.
-    """
+    """API key headers for the machine path onto the batch route."""
     return {"X-API-Key": key}
 
 
 @pytest.fixture(autouse=True)
 def _configured_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Point `settings.EXTENSION_API_KEY` at a known value for this module.
-
-    `_resolve_secret` consults the live `os.environ` before anything else, so
-    setting the variable is enough and no Secrets Manager call is ever made.
-    """
+    """Point the extension API key setting at a known value for this module."""
     monkeypatch.setenv("EXTENSION_API_KEY", TEST_API_KEY)
 
 
 def _make_retailer(db: Any, slug: str) -> DBRetailer:
+    """Create an active retailer with a unique name and domain."""
     retailer = DBRetailer(
         name=f"retailer_{slug}_{uuid.uuid4().hex[:8]}",
         domain=f"{slug}-{uuid.uuid4().hex[:8]}.example.com",
@@ -72,6 +61,7 @@ def _make_part(
     canonical_part_id: uuid.UUID | None = None,
     name: str = "Test Part",
 ) -> DBPart:
+    """Create a universal part owned by the given user."""
     part = DBPart(
         name=name,
         category_id=get_default_category_id(db),
@@ -84,6 +74,7 @@ def _make_part(
 
 
 def _make_listing(db: Any, part: DBPart, retailer: DBRetailer) -> DBPartListing:
+    """Create a listing for a part at a retailer."""
     listing = DBPartListing(
         part_id=part.id,
         retailer_id=retailer.id,
@@ -100,6 +91,7 @@ def _add_history(
     price_cents: int,
     observed_at: datetime,
 ) -> DBPartPriceHistory:
+    """Add one price observation to a listing."""
     row = DBPartPriceHistory(
         part_listing_id=listing.id,
         price_cents=price_cents,
@@ -112,6 +104,7 @@ def _add_history(
 def test_get_price_history_default_window_returns_summary_object(
     client: TestClient, db_session: Any, test_user: User
 ) -> None:
+    """The default window returns the aggregated summary object."""
     retailer = _make_retailer(db_session, "default-window")
     part = _make_part(db_session, test_user, name="Default Window Part")
     listing = _make_listing(db_session, part, retailer)
@@ -132,6 +125,7 @@ def test_get_price_history_default_window_returns_summary_object(
 
 
 def test_get_price_history_window_30d_filters_old(client: TestClient, db_session: Any, test_user: User) -> None:
+    """A thirty day window excludes older observations."""
     retailer = _make_retailer(db_session, "win30")
     part = _make_part(db_session, test_user, name="Window 30 Part")
     listing = _make_listing(db_session, part, retailer)
@@ -151,6 +145,7 @@ def test_get_price_history_window_30d_filters_old(client: TestClient, db_session
 
 
 def test_get_price_history_window_all_includes_everything(client: TestClient, db_session: Any, test_user: User) -> None:
+    """The all window includes every observation."""
     retailer = _make_retailer(db_session, "win-all")
     part = _make_part(db_session, test_user, name="Window All Part")
     listing = _make_listing(db_session, part, retailer)
@@ -168,6 +163,7 @@ def test_get_price_history_window_all_includes_everything(client: TestClient, db
 
 
 def test_get_price_history_invalid_window_returns_422(client: TestClient, db_session: Any, test_user: User) -> None:
+    """An unrecognised window is a validation error."""
     part = _make_part(db_session, test_user, name="Bad Window Part")
 
     response = client.get(PRICE_HISTORY_PATH.format(part_id=part.id), params={"window": "99x"})
@@ -182,6 +178,7 @@ def test_get_price_history_invalid_window_returns_422(client: TestClient, db_ses
 def test_get_price_history_retailer_filter_narrows_summary(
     client: TestClient, db_session: Any, test_user: User
 ) -> None:
+    """A retailer filter narrows the summary to that retailer's listings."""
     retailer_a = _make_retailer(db_session, "filt-a")
     retailer_b = _make_retailer(db_session, "filt-b")
     part = _make_part(db_session, test_user, name="Retailer Filter Part")
@@ -209,11 +206,13 @@ def test_get_price_history_retailer_filter_narrows_summary(
 
 
 def test_get_price_history_part_not_found_returns_404(client: TestClient) -> None:
+    """An unknown part id answers not found."""
     response = client.get(PRICE_HISTORY_PATH.format(part_id=INVALID_UUID_STR))
     assert response.status_code == 404
 
 
 def test_post_batch_price_history_basic(client: TestClient, db_session: Any, test_user: User) -> None:
+    """The batch route returns one entry per requested part."""
     retailer = _make_retailer(db_session, "batch-basic")
     parts = []
     now = datetime.now(UTC)
@@ -243,6 +242,7 @@ def test_post_batch_price_history_basic(client: TestClient, db_session: Any, tes
 
 
 def test_post_batch_price_history_includes_empty_entries(client: TestClient, db_session: Any, test_user: User) -> None:
+    """Parts with no history still get an entry rather than being omitted."""
     retailer = _make_retailer(db_session, "batch-empty")
     now = datetime.now(UTC)
     part_with = _make_part(db_session, test_user, name="HasHistory")
@@ -273,6 +273,7 @@ def test_post_batch_price_history_includes_empty_entries(client: TestClient, db_
 
 
 def test_post_batch_price_history_window_default_90d(client: TestClient, db_session: Any, test_user: User) -> None:
+    """The batch route defaults to a ninety day window."""
     retailer = _make_retailer(db_session, "batch-default-window")
     part = _make_part(db_session, test_user, name="Default Window Batch")
     listing = _make_listing(db_session, part, retailer)
@@ -289,6 +290,7 @@ def test_post_batch_price_history_window_default_90d(client: TestClient, db_sess
 
 
 def test_post_batch_price_history_window_custom(client: TestClient, db_session: Any, test_user: User) -> None:
+    """The batch route honours an explicit window."""
     retailer = _make_retailer(db_session, "batch-custom-window")
     part = _make_part(db_session, test_user, name="Custom Window Batch")
     listing = _make_listing(db_session, part, retailer)
@@ -312,6 +314,7 @@ def test_post_batch_price_history_window_custom(client: TestClient, db_session: 
 def test_post_batch_price_history_invalid_window_returns_422(
     client: TestClient, db_session: Any, test_user: User
 ) -> None:
+    """An unrecognised batch window is a validation error."""
     part = _make_part(db_session, test_user, name="Bad Window Batch")
 
     response = client.post(
@@ -325,6 +328,7 @@ def test_post_batch_price_history_invalid_window_returns_422(
 
 
 def test_post_batch_price_history_empty_part_ids_returns_422(client: TestClient, test_user: User) -> None:
+    """An empty part id list is a validation error."""
     response = client.post(
         BATCH_PRICE_HISTORY_PATH,
         json={"part_ids": []},
@@ -336,6 +340,7 @@ def test_post_batch_price_history_empty_part_ids_returns_422(client: TestClient,
 
 
 def test_post_batch_price_history_too_many_ids_returns_422(client: TestClient, test_user: User) -> None:
+    """More part ids than the limit is a validation error."""
     too_many = [str(uuid.uuid4()) for _ in range(101)]
     response = client.post(
         BATCH_PRICE_HISTORY_PATH,
@@ -350,6 +355,7 @@ def test_post_batch_price_history_too_many_ids_returns_422(client: TestClient, t
 
 
 def test_post_batch_price_history_unknown_ids_return_empty_entries(client: TestClient, test_user: User) -> None:
+    """Unknown part ids come back as empty entries."""
     unknown_a = str(uuid.uuid4())
     unknown_b = str(uuid.uuid4())
     response = client.post(
@@ -369,6 +375,7 @@ def test_post_batch_price_history_unknown_ids_return_empty_entries(client: TestC
 
 
 def test_post_batch_price_history_aggregates_link_group(client: TestClient, db_session: Any, test_user: User) -> None:
+    """Linked parts aggregate into one entry for the canonical part."""
     retailer_a = _make_retailer(db_session, "batch-lg-a")
     retailer_b = _make_retailer(db_session, "batch-lg-b")
     canonical = _make_part(db_session, test_user, name="Batch Canon")
@@ -396,6 +403,7 @@ def test_post_batch_price_history_aggregates_link_group(client: TestClient, db_s
 
 
 def _batch_body() -> dict[str, Any]:
+    """A minimal batch request body naming one random part id."""
     return {"part_ids": [str(uuid.uuid4())]}
 
 
