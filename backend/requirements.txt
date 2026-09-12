@@ -33,8 +33,8 @@ pybreaker==1.4.1
 
 curl_cffi==0.16.3
 
-boto3==1.43.89
-boto3-stubs[s3,sesv2,dynamodb]==1.43.89
+boto3==1.43.90
+boto3-stubs[s3,sesv2,dynamodb]==1.43.90
 Pillow==12.3.0
 
 sentry-sdk>=2.68.1,<3
