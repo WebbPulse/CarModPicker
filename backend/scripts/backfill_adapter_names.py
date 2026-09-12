@@ -46,7 +46,7 @@ def read_registry_map() -> dict[str, str]:
             continue
         if cls_name in class_to_slug and class_to_slug[cls_name] != slug:
             print(
-                f"ERROR: class {cls_name} mapped to both " f"{class_to_slug[cls_name]!r} and {slug!r}",
+                f"ERROR: class {cls_name} mapped to both {class_to_slug[cls_name]!r} and {slug!r}",
                 file=sys.stderr,
             )
             raise SystemExit(1)

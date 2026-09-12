@@ -346,7 +346,8 @@ def create_or_update_listing_and_price(
 ) -> PartListing:
     """
     Create or update PartListing for (part_id, retailer_id).
-    If price_cents is provided, append PartPriceHistory and update listing's last_known_price_cents/last_price_updated_at.
+    If price_cents is provided, append PartPriceHistory and update listing's
+    last_known_price_cents/last_price_updated_at.
     Returns the PartListing.
     """
     repos = get_repositories()

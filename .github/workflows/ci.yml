@@ -79,10 +79,7 @@ jobs:
         python -m pip install --upgrade pip &&
         pip install -r requirements.txt &&
         pip install pytest-cov pytest-xdist pyright bandit pip-audit
-      ruff-target: ""
-      lint-commands: |
-        black --config pyproject.toml --check --diff .
-        isort . --check-only --diff
+      ruff-target: "app tests"
       typecheck-command: pyright
       security-commands: |
         bandit -r app -ll

@@ -93,7 +93,10 @@ class StorageService:
                 if error_code == "404":
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"S3 bucket '{self.bucket_name}' not found. Ensure the bucket is created and variables are referenced correctly.",
+                        detail=(
+                            f"S3 bucket '{self.bucket_name}' not found. Ensure the bucket is "
+                            "created and variables are referenced correctly."
+                        ),
                     )
                 elif error_code == "403":
                     raise HTTPException(
@@ -139,7 +142,10 @@ class StorageService:
         if not file_extension or file_extension not in self.allowed_extensions:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File extension '{file_extension}' not allowed. Allowed extensions: {', '.join(self.allowed_extensions)}",
+                detail=(
+                    f"File extension '{file_extension}' not allowed. "
+                    f"Allowed extensions: {', '.join(self.allowed_extensions)}"
+                ),
             )
 
         try:

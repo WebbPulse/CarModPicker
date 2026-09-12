@@ -1,6 +1,6 @@
 """Tests for image utility functions."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from app.api.utils.image_utils import get_presigned_url_from_file_key, is_file_key
 

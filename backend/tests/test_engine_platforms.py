@@ -24,9 +24,9 @@ class TestEnginePlatformsLoad:
                 assert models is not None, f"{engine_name}: unknown make {make}"
                 model_entry = next((m for m in models if m["model"] == model), None)
                 assert model_entry is not None, f"{engine_name}: unknown ({make}, {model})"
-                assert any(
-                    g["generation_name"] == gen_name for g in model_entry["generations"]
-                ), f"{engine_name}: unknown ({make}, {model}, {gen_name})"
+                assert any(g["generation_name"] == gen_name for g in model_entry["generations"]), (
+                    f"{engine_name}: unknown ({make}, {model}, {gen_name})"
+                )
 
 
 class TestInferCarGenerationsViaEngine:

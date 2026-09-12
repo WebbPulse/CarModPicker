@@ -62,13 +62,13 @@ def _now_iso() -> str:
 def _normalize_triple(t: Any) -> tuple[str, str, str]:
     """Coerce a (make, model, generation) tuple to three strings, raising TypeError otherwise."""
     if not isinstance(t, tuple):
-        raise TypeError(f"car triple must be a tuple of (make, model, generation), got " f"{type(t).__name__}={t!r}")
+        raise TypeError(f"car triple must be a tuple of (make, model, generation), got {type(t).__name__}={t!r}")
     if len(t) != 3:
-        raise TypeError(f"car triple must have exactly 3 elements (make, model, generation), " f"got {len(t)} in {t!r}")
+        raise TypeError(f"car triple must have exactly 3 elements (make, model, generation), got {len(t)} in {t!r}")
     out: list[str] = []
     for i, part in enumerate(t):
         if not isinstance(part, str):
-            raise TypeError(f"car triple element {i} must be str, got " f"{type(part).__name__}={part!r}")
+            raise TypeError(f"car triple element {i} must be str, got {type(part).__name__}={part!r}")
         out.append(_normalize_string(part) or "")
     return (out[0], out[1], out[2])
 

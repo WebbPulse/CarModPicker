@@ -20,7 +20,10 @@ class BuildListCreate(BaseModel):
     image_urls: Optional[List[str]] = Field(
         None,
         max_length=MAX_IMAGES_PER_BUILDLIST,
-        description="Images: file keys (from images/upload) and/or external URLs; max 12. First entry is the primary/display image.",
+        description=(
+            "Images: file keys (from images/upload) and/or external URLs; max 12. "
+            "First entry is the primary/display image."
+        ),
     )
     base_price_cents: int = Field(
         0,

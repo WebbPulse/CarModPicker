@@ -4,6 +4,7 @@ The crawler uses this to attach scraped parts to the right generations. Returns
 (make, model, generation_name) triples for `resolve_car_triples_to_ids` to resolve.
 """
 
+import datetime as _dt
 import re
 from typing import Optional
 from uuid import UUID
@@ -2484,8 +2485,6 @@ def infer_car_generations(
     return _maybe_narrow_by_combined_year_ranges(result, combined)
 
 
-import datetime as _dt
-
 _YEAR_LO: int = 1960
 _YEAR_HI_OFFSET: int = 1
 
@@ -2883,8 +2882,7 @@ def _load_engine_platforms() -> dict:
             model_entry = next((m for m in models if m["model"] == model), None)
             if model_entry is None:
                 raise RuntimeError(
-                    f"engine_platforms[{engine_name!r}] references unknown "
-                    f"({make!r}, {model!r}) — model not in seed"
+                    f"engine_platforms[{engine_name!r}] references unknown ({make!r}, {model!r}) — model not in seed"
                 )
             if not any(g["generation_name"] == gen_name for g in model_entry["generations"]):
                 raise RuntimeError(

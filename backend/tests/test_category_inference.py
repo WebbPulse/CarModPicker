@@ -86,7 +86,8 @@ class TestInferCategory:
         assert (
             infer_category(
                 "Cusco Rear Chassis Power Brace MKV Supra GR A90 / A91",
-                "Cusco Rear Chassis Power Brace for the 2020 GR Supra A90 connects multiple mounting points under the car to maximize stability and rigidity.",
+                "Cusco Rear Chassis Power Brace for the 2020 GR Supra A90 connects multiple "
+                "mounting points under the car to maximize stability and rigidity.",
             )
             == "suspension"
         )

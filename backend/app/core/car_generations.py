@@ -25,8 +25,6 @@ def load_car_generations() -> dict:
             continue
         payload = json.loads(entry.read_text(encoding="utf-8"))
         for make, models in payload.items():
-            assert make not in merged, (
-                f"Duplicate make key '{make}' across seed files " f"(found again in {entry.name})"
-            )
+            assert make not in merged, f"Duplicate make key '{make}' across seed files (found again in {entry.name})"
             merged[make] = models
     return merged

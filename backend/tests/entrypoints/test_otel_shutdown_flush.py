@@ -72,9 +72,9 @@ def test_lifespan_shutdown_flushes_tracing_once(tracing_configured: None, monkey
     monkeypatch.setattr(otel, "shutdown_tracing", record)
 
     app = _build()
-    assert app.router.lifespan_context.__qualname__.startswith(
-        "_wrap_lifespan_with_shutdown_flush"
-    ), "the builder instrumented the app without wrapping its lifespan"
+    assert app.router.lifespan_context.__qualname__.startswith("_wrap_lifespan_with_shutdown_flush"), (
+        "the builder instrumented the app without wrapping its lifespan"
+    )
 
     asyncio.run(_drive_lifespan(app))
 

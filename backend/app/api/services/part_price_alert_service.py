@@ -117,7 +117,7 @@ def evaluate_alerts_for_listing(
     retailer = repos.retailers.get(str(retailer_id))
     if part is None or retailer is None:
         logger.warning(
-            "price_alert_evaluator_missing_entity: part_id=%s retailer_id=%s " "part_present=%s retailer_present=%s",
+            "price_alert_evaluator_missing_entity: part_id=%s retailer_id=%s part_present=%s retailer_present=%s",
             part_id,
             retailer_id,
             part is not None,

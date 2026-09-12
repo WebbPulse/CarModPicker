@@ -1,6 +1,8 @@
 """Fixtures for the identity migration script tests.
 
-The scripts reach DynamoDB through webbpulse.dynamodb.Repository, so this module pins AWS_DEFAULT_REGION to match the moto tables and resets the package's cached resource around every test.
+The scripts reach DynamoDB through webbpulse.dynamodb.Repository, so this module pins
+AWS_DEFAULT_REGION to match the moto tables and resets the package's cached resource
+around every test.
 """
 
 from __future__ import annotations

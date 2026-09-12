@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
 from webbpulse.log_context import (
@@ -105,7 +104,10 @@ def test_task_context_job_id_none(caplog_with_context) -> None:
 
 
 def test_task_context_resets(caplog_with_context) -> None:
-    """Leaving a task context restores the previous values by token, not the module defaults, so xdist ordering cannot affect it."""
+    """Leaving a task context restores the previous values by token.
+
+    The module defaults are not used, so xdist ordering cannot affect it.
+    """
     rid_token = request_id_var.set("before-rid")
     uid_token = user_id_var.set("before-uid")
     try:

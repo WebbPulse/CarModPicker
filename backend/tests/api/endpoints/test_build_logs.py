@@ -41,7 +41,6 @@ def create_and_login_admin_user(
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
-    password = "testpassword"
 
     admin_user = UserRepository().create_user(
         DBUser(
@@ -287,7 +286,7 @@ class TestBuildLogs:
         user1_headers = get_auth_headers(user1_token)
 
         username2 = get_unique_name("user2")
-        user2 = UserRepository().create_user(
+        UserRepository().create_user(
             DBUser(
                 username=username2,
                 email=f"{username2}@example.com",
@@ -329,7 +328,7 @@ class TestBuildLogs:
         car = create_car_in_db(db_session)
 
         username2 = get_unique_name("user2")
-        user2 = UserRepository().create_user(
+        UserRepository().create_user(
             DBUser(
                 username=username2,
                 email=f"{username2}@example.com",
@@ -414,7 +413,7 @@ class TestBuildLogs:
         car = create_car_in_db(db_session)
 
         username2 = get_unique_name("user2")
-        user2 = UserRepository().create_user(
+        UserRepository().create_user(
             DBUser(
                 username=username2,
                 email=f"{username2}@example.com",
@@ -453,7 +452,7 @@ class TestBuildLogs:
         car = create_car_in_db(db_session)
 
         username2 = get_unique_name("user2")
-        user2 = UserRepository().create_user(
+        UserRepository().create_user(
             DBUser(
                 username=username2,
                 email=f"{username2}@example.com",
@@ -482,7 +481,7 @@ class TestBuildLogs:
             headers=user2_headers,
         )
         assert response.status_code == 201
-        post_id = response.json()["id"]
+        response.json()["id"]
 
         build_list_data2 = {
             "name": get_unique_name("test_build_list2"),
@@ -686,7 +685,7 @@ class TestBuildLogs:
             headers=user2_headers,
         )
         assert response.status_code == 201
-        post_id = response.json()["id"]
+        response.json()["id"]
 
         UserRepository().delete_user(user2)
 
@@ -828,9 +827,9 @@ class TestBuildLogs:
 
         assert build_logs.for_build_list(UUID(build_list_id)) is None, "Build log should be deleted with its list"
 
-        assert all(
-            build_log_posts.get(UUID(p)) is None for p in post_ids
-        ), "All posts should be deleted when build list is deleted"
+        assert all(build_log_posts.get(UUID(p)) is None for p in post_ids), (
+            "All posts should be deleted when build list is deleted"
+        )
 
     def test_access_build_log_after_build_list_deletion(
         self, client: TestClient, test_user: DBUser, db_session: Any

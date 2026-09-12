@@ -27,7 +27,10 @@ class PartCreate(BaseModel):
     image_urls: Optional[List[str]] = Field(
         None,
         max_length=MAX_IMAGES_PER_PART,
-        description="Images: file keys (from images/upload) and/or external URLs (scraped); max 12. First entry is the primary/display image.",
+        description=(
+            "Images: file keys (from images/upload) and/or external URLs (scraped); max 12. "
+            "First entry is the primary/display image."
+        ),
     )
     product_url: Optional[str] = Field(
         None, description="Product URL at retailer (used only with retailer_id for listing)"

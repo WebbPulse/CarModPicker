@@ -8,9 +8,8 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.db.dynamo.catalog import Category, PartManufacturer
-from app.db.dynamo.users import User
+from app.db.dynamo.users import User, UserRepository
 from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user
 
 
@@ -32,7 +31,6 @@ def create_and_login_admin_user(
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
-    password = "testpassword"
 
     admin_user = UserRepository().create_user(
         DBUser(
@@ -1169,7 +1167,7 @@ class TestBuildListParts:
         )
         assert response.status_code == 404
 
-    def test_remove_part_from_build_list_success(
+    def test_remove_part_from_build_list_by_part_id_success(
         self,
         client: TestClient,
         test_user: User,
@@ -1225,7 +1223,9 @@ class TestBuildListParts:
         data = response.json()
         assert len(data) == 0
 
-    def test_remove_part_from_build_list_not_found(self, client: TestClient, test_user: User, db_session: Any) -> None:
+    def test_remove_part_from_build_list_by_part_id_not_found(
+        self, client: TestClient, test_user: User, db_session: Any
+    ) -> None:
         """Test removing a non-existent global part from a build list."""
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)

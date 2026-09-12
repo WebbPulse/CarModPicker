@@ -12,7 +12,7 @@ from uuid6 import uuid7
 
 from app.core.config import settings
 from app.db.dynamo.build_logs import BuildLog, BuildLogPost, BuildLogPostRepository, BuildLogRepository
-from app.db.dynamo.catalog import Category, Part, PartManufacturer, PartRepository
+from app.db.dynamo.catalog import Category, PartManufacturer, PartRepository
 from app.db.dynamo.moderation import Report, ReportRepository, Vote, VoteRepository
 from app.db.dynamo.users import User, UserRepository
 from tests.conftest import auth_headers, create_car_in_db, login_user

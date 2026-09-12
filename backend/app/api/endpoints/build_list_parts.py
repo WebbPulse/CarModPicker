@@ -217,8 +217,7 @@ async def add_part_to_build_list(
     )
 
     logger.info(
-        f"Part {part_id} added to build list {build_list_id} "
-        f"as build list part {created.id} by user {current_user.id}"
+        f"Part {part_id} added to build list {build_list_id} as build list part {created.id} by user {current_user.id}"
     )
     return BuildListPartRead.model_validate(created)
 

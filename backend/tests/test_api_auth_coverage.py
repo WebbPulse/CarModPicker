@@ -1,6 +1,7 @@
 """Sweeps every protected route under /api/ outside /api/admin and /api/auth and asserts anonymous requests get a 401.
 
-Public routes are allow-listed, so drift in either direction fails: a lost auth dependency, a leaked one, or a new route nobody classified.
+Public routes are allow-listed, so drift in either direction fails: a lost auth
+dependency, a leaked one, or a new route nobody classified.
 """
 
 from __future__ import annotations
@@ -129,7 +130,7 @@ def test_public_routes_all_exist() -> None:
     api_set = set(API_ROUTES)
     stale = sorted(PUBLIC_ROUTES - api_set)
     assert not stale, (
-        f"PUBLIC_ROUTES has {len(stale)} entries that don't match any route in the app: {stale}. " "Remove them."
+        f"PUBLIC_ROUTES has {len(stale)} entries that don't match any route in the app: {stale}. Remove them."
     )
 
 

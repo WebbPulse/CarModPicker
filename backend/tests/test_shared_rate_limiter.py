@@ -25,7 +25,10 @@ from app.api.middleware.shared_rate_limiter import (
 
 
 class FakeTable:
-    """An in-memory table implementing the three calls the limiter makes, with DynamoDB's conditional write semantics."""
+    """An in-memory table implementing the three calls the limiter makes.
+
+    Matches DynamoDB's conditional write semantics.
+    """
 
     def __init__(self, *, clock: Optional[list[int]] = None) -> None:
         """Start empty, with no configured failure and an optional shared clock."""

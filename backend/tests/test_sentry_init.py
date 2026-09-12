@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -172,8 +171,7 @@ class TestIgnoreErrorsIntegration:
             sentry_sdk.capture_exception(exc)
 
         assert len(_CapturingTransport.events) == 0, (
-            "HTTPException leaked to Sentry — ignore_errors string format "
-            "not working on this SDK version (Landmine 1)"
+            "HTTPException leaked to Sentry — ignore_errors string format not working on this SDK version (Landmine 1)"
         )
         client = sentry_sdk.get_client()
         if client is not None:

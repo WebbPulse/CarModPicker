@@ -44,7 +44,6 @@ def create_and_login_admin_user(
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
-    password = "testpassword"
 
     admin_user = UserRepository().create_user(
         DBUser(
@@ -144,7 +143,7 @@ class TestImages:
         build_list_id = response.json()["id"]
 
         username2 = get_unique_name("user2")
-        user2 = UserRepository().create_user(
+        UserRepository().create_user(
             DBUser(
                 username=username2,
                 email=f"{username2}@example.com",
@@ -680,7 +679,7 @@ class TestImages:
         assert response2.status_code in [200, 500, 503], f"Unexpected status on second delete: {response2.text}"
 
     def test_upload_image_failure_rollback(self, client: TestClient, test_user: DBUser) -> None:
-        """Test that if database update fails after storage upload, the uploaded file is cleaned up (requires mocking)."""
+        """Test the uploaded file is cleaned up when the database update fails after upload."""
         token = get_auth_token(client, test_user.username)
         headers = get_auth_headers(token)
 
@@ -689,7 +688,7 @@ class TestImages:
         with (
             patch("app.api.endpoints.images.storage_service.upload_image") as mock_upload,
             patch("app.api.endpoints.images.storage_service.get_presigned_url") as mock_presigned,
-            patch("app.api.endpoints.images.storage_service.delete_image") as mock_delete,
+            patch("app.api.endpoints.images.storage_service.delete_image"),
         ):
             mock_upload.return_value = "user/test_hash/test-image.png"
             mock_presigned.return_value = "https://example.com/presigned-url"

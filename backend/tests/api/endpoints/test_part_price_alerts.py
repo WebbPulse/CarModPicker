@@ -9,10 +9,9 @@ import uuid
 from datetime import timedelta
 from typing import Any, Dict, Tuple
 
-import jwt
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import ALGORITHM, create_access_token
+from app.api.dependencies.auth import create_access_token
 from app.core.config import settings
 from app.db.dynamo.catalog import Part as DBPart
 from app.db.dynamo.part_price_alerts import PartPriceAlertRepository
@@ -500,5 +499,5 @@ def test_unsubscribe_is_registered_before_parameterised_routes() -> None:
     assert parameterised_indexes, paths
 
     assert unsubscribe_index < min(parameterised_indexes), (
-        "/unsubscribe must be registered before the /{alert_id} routes, " f"got order {paths}"
+        f"/unsubscribe must be registered before the /{{alert_id}} routes, got order {paths}"
     )

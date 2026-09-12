@@ -51,5 +51,8 @@ def test_shared_requirements_pin_identical_versions() -> None:
 
 
 def test_the_shared_package_is_installed_by_the_runtime_file() -> None:
-    """webbpulse reaches the image, since the application imports it at module scope and its absence is a cold start crash."""
+    """webbpulse reaches the image.
+
+    The application imports it at module scope, so its absence is a cold start crash.
+    """
     assert "webbpulse" in _parse(LAMBDA)

@@ -58,9 +58,9 @@ def test_an_entrypoint_does_not_initialise_sentry(domain: str) -> None:
         elif isinstance(node, ast.Import):
             imported.extend(alias.name for alias in node.names)
 
-    assert not [
-        name for name in imported if "sentry" in name.lower()
-    ], f"{domain} imports Sentry; row 16 removed it from the domain functions"
+    assert not [name for name in imported if "sentry" in name.lower()], (
+        f"{domain} imports Sentry; row 16 removed it from the domain functions"
+    )
 
     called = _called_names(tree.body)
     assert "init_sentry" not in called, f"{domain} still calls init_sentry"
@@ -115,9 +115,9 @@ def test_the_module_level_app_is_not_the_one_main_serves(domain: str) -> None:
     assert len(served) == 1, f"{domain}: expected exactly one run_uvicorn call"
 
     argument = served[0].value.args[0]
-    assert isinstance(argument, ast.Call) and isinstance(
-        argument.func, ast.Name
-    ), f"{domain}: run_uvicorn is not passed a freshly built application"
+    assert isinstance(argument, ast.Call) and isinstance(argument.func, ast.Name), (
+        f"{domain}: run_uvicorn is not passed a freshly built application"
+    )
     assert argument.func.id == "build_app", (
         f"{domain}: run_uvicorn serves {ast.dump(argument)} rather than build_app(), "
         "so it serves an application built before tracing was configured"

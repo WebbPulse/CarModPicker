@@ -125,9 +125,7 @@ def generate_sitemap_index() -> str:
         for page in range(1, pages + 1):
             suffix = "" if page == 1 else f"?page={page}"
             loc = f"{api}/sitemap-{name}.xml{suffix}"
-            sitemaps.append(
-                "  <sitemap>\n" f"    <loc>{escape(loc)}</loc>\n" f"    <lastmod>{now}</lastmod>\n" "  </sitemap>"
-            )
+            sitemaps.append(f"  <sitemap>\n    <loc>{escape(loc)}</loc>\n    <lastmod>{now}</lastmod>\n  </sitemap>")
 
     add(SITEMAP_STATIC, 1)
     add(SITEMAP_PARTS, page_count(len(_canonical_parts())))

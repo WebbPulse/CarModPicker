@@ -597,9 +597,7 @@ class TestParts:
         self, client: TestClient, test_user: User, test_category: Category, test_part_manufacturer: PartManufacturer
     ) -> None:
         """Test check-url with non-existent URL returns null."""
-        response = client.get(
-            f"{settings.API_STR}/parts/check-url" "?product_url=https://example.com/nonexistent/product"
-        )
+        response = client.get(f"{settings.API_STR}/parts/check-url?product_url=https://example.com/nonexistent/product")
         assert response.status_code == 200
         data = response.json()
         assert data["existing_part_id"] is None

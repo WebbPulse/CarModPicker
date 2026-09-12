@@ -53,8 +53,8 @@ pytest -n auto -k "test_name"             # single test
 # Rate limiting is disabled in tests by default; set ENABLE_RATE_LIMITING=true to test it
 
 # Linting / formatting
-black --config pyproject.toml .
-isort .
+ruff format .
+ruff check .
 pyright
 bandit -r app
 ```

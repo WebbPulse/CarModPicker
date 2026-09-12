@@ -60,7 +60,7 @@ def _require_type(d: dict, key: str, expected: type | tuple[type, ...], *, conte
         ok = isinstance(value, expected) and not (expected is int and isinstance(value, bool))
     if not ok:
         raise BaselineSchemaError(
-            f"baseline {context}: field {key!r} must be {expected!r}, " f"got {type(value).__name__}={value!r}"
+            f"baseline {context}: field {key!r} must be {expected!r}, got {type(value).__name__}={value!r}"
         )
 
 

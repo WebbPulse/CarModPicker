@@ -40,7 +40,6 @@ def create_and_login_admin_user(
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
-    password = "testpassword"
 
     admin_user = UserRepository().create_user(
         DBUser(
@@ -257,8 +256,7 @@ class TestSearch:
         assert data["build_lists"]["next_cursor"]
 
         response = client.get(
-            f"{settings.API_STR}/search/?q={base_name}&limit=2"
-            f"&build_lists_cursor={data['build_lists']['next_cursor']}"
+            f"{settings.API_STR}/search/?q={base_name}&limit=2&build_lists_cursor={data['build_lists']['next_cursor']}"
         )
         assert response.status_code == 200
         second = response.json()

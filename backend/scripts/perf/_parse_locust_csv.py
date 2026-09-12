@@ -39,9 +39,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-REMEDIATION_NOTE = (
-    "Perf gate missed. Open R036 (materialized part_price_summary) per D004 " "— see .gsd/REQUIREMENTS.md."
-)
+REMEDIATION_NOTE = "Perf gate missed. Open R036 (materialized part_price_summary) per D004 — see .gsd/REQUIREMENTS.md."
 
 DEFAULT_GET_NAME = "GET /api/parts/{id}/price-history"
 DEFAULT_POST_NAME = "POST /api/parts/price-history"

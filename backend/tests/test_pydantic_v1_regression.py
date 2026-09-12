@@ -1,4 +1,7 @@
-"""Guards against Pydantic v1 patterns returning: a grep over backend/app and a round trip run with v2 deprecations raised as errors."""
+"""Guards against Pydantic v1 patterns returning.
+
+A grep over backend/app plus a round trip run with v2 deprecations raised as errors.
+"""
 
 from __future__ import annotations
 
