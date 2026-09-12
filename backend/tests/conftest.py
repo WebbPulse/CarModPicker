@@ -7,6 +7,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from webbpulse.log_context import UNSET, request_id_var, user_id_var
 
 os.environ["TESTING"] = "true"
 os.environ["ENABLE_RATE_LIMITING"] = "false"
@@ -475,6 +476,19 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
             "client": s3,
             "user_images_bucket": "test-user-images",
         }
+
+
+@pytest.fixture(autouse=True)
+def _isolate_log_context() -> Generator[None, None, None]:
+    """Reset the request and user id context variables to UNSET after every test.
+
+    `resolve_identity_user` and the other production setters bind these for the
+    life of their own request context and do not reset them, which is correct in
+    a server but leaks into the next test when a test calls them directly.
+    """
+    yield
+    request_id_var.set(UNSET)
+    user_id_var.set(UNSET)
 
 
 @pytest.fixture(autouse=True)
