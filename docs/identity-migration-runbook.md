@@ -953,9 +953,12 @@ reverts by reverting the pull request. Step 4 does not.
 3. Verify, below. Nothing has been deleted from any row at this point.
 4. After step 3 verifies clean:
      cd backend
-     python scripts/clear_legacy_credentials.py --prefix carmodpicker-<env>-
+     # No trailing hyphen: webbpulse.dynamodb.Repository supplies the separator,
+     # so carmodpicker-<env>- resolves to carmodpicker-<env>--users and the scan
+     # fails with ResourceNotFoundException.
+     python scripts/clear_legacy_credentials.py --prefix carmodpicker-<env>
      # read the summary, then
-     python scripts/clear_legacy_credentials.py --prefix carmodpicker-<env>- --apply
+     python scripts/clear_legacy_credentials.py --prefix carmodpicker-<env> --apply
 5. Only after step 4 has run clean in both environments, delete the
    SECRET_KEY material. See the owner checklist below.
 ```
@@ -1043,8 +1046,100 @@ of them should be done before step 4 has run clean in both environments.
    delete the `SECRET_KEY` key from the `carmodpicker-<env>/app` secret first,
    confirm nothing 500s, then delete the `secret_key` HCP workspace variable and
    remove `var.secret_key` from `terraform/variables.tf`.
-3. **Confirm the `identity` function no longer holds a Secrets Manager grant.**
-   Row 13 dropped `SECRET_KEY` from its descriptor, so its runtime policy should
-   have lost the `secretsmanager:GetSecretValue` statement and its environment
-   should have lost `APP_SECRETS_ARN`. The apply does this; the check is that it
-   actually did.
+3. **Confirm the five flipped functions no longer hold a Secrets Manager grant.**
+   `build-lists`, `build-logs`, `media`, `moderation` and `users` each lose the
+   `secretsmanager:GetSecretValue` statement from their runtime policy and
+   `APP_SECRETS_ARN` from their environment. The apply does this; the check is
+   that it actually did.
+
+   **`identity` keeps its grant, and that is correct.** Row 13 empties its
+   `requires_secrets`, but `build_oauth_client_secrets` in
+   `app/composition/identity.py` calls `fetch_app_secrets` directly to read the
+   Google and GitHub OAuth client secrets, deliberately bypassing `Settings`.
+   `requires_secrets` is therefore not the same question as the Terraform grant.
+   `admin` keeps its grant for `SECRET_KEY` and `catalog` for
+   `EXTENSION_API_KEY`. Expect three functions to still hold the grant after the
+   apply, not zero.
+
+## Executed 2026-09-12, staging
+
+Row 13 is **done on staging**. Merge commit `bd9c9bc3` ("Row 13: retire the
+legacy auth path (#421)") into `staging`, applied in the staging account
+(748861776298), workspace `CarModPicker-staging` / `ws-dNLoiEHVxr2o81XM`.
+
+### What ran
+
+`bootstrap_image_tag` was refreshed to `sha-857efab3...` before the merge, the
+`origin/staging` head at the time, because the previous value had aged toward the
+keep-last-10 ECR expiry. It is only ever a seed: `image_uri` is on the
+`lambda-function` module's `ignore_changes` list, so it does not appear in the
+plan for a function that already exists.
+
+The HCP run for the merge was `run-a7CQFUZzEQkumnVX`: **0 to add, 13 to change,
+0 to destroy**, all updates in place, no replacements. Ten of the thirteen are
+row 13's own, exactly as the pull request predicted:
+
+- `aws_iam_role_policy.lambda_domain[...]` for `build-lists`, `build-logs`,
+  `media`, `moderation` and `users`, each dropping the
+  `secretsmanager:GetSecretValue` statement.
+- `module.lambda_domain[...].aws_lambda_function.this` for the same five, each
+  dropping `APP_SECRETS_ARN`.
+
+**The other three were not row 13's.** They were
+`module.staging_access_gate[0].aws_cloudfront_function.gate` and the gate's two
+Lambdas (`authorizer`, `login`), and they are comment-only drift inherited from
+the already-merged #444: the CloudFront function's code is byte identical once
+comments are stripped, and the two Lambdas differ only in `source_code_hash` and
+`last_modified`. The same `authorizer` churn appears in `run-Bh8mGQywZRKRY6jv`,
+which applied cleanly an hour earlier. Worth knowing before the production cut,
+where the same three will ride along and the expected count is 13 rather than 10.
+
+### Verification
+
+All 13 image Lambdas moved to the merge sha, compared by digest rather than by
+tag because `deploy-backend.yml` pins every function by digest.
+
+`scripts/identity_smoke.py --env staging --verify-email` reported **80 passed, 1
+failed**. The one failure is a defect in the script, not in the cut:
+`POST /api/auth/logout` is in its `LEGACY_OPERATIONS` list but is also the
+identity package's own route (`LOGOUT_PATH = "/logout"` in
+`webbpulse/identity/router.py`), and it answered `200 {"signed_out": true}` from
+the package. Three of the 24 legacy probes are package routes at the same path
+and are expected not to 404:
+
+| Route | Status | Why |
+|---|---|---|
+| `POST /api/auth/logout` | 200 | package `LOGOUT_PATH` |
+| `POST /api/auth/verify-email` | 200 | package `VERIFY_REQUEST_PATH` |
+| `GET /api/auth/verify-email/confirm` | 405 | package route exists as POST |
+| `POST /api/auth/oauth/google/link` | 403 | package `/oauth/{provider}/link`, refusing without a JWT |
+
+The other 20 answered 404. All eight `FORBIDDEN_BUNDLE_STRINGS` are absent from
+the deployed bundle and both `REQUIRED_BUNDLE_STRINGS` are present, across 85 JS
+chunks.
+
+Login, cookie refresh, `logout-all`, passkey register options, passkey login
+options and register all succeeded against a throwaway account, which was
+deleted afterwards. The access token is RS256 with
+`iss=https://api.staging.carmodpicker.com/api/auth` and
+`aud=carmodpicker-staging-api`. `POST /api/users/` answers 405. `logout-all`
+answered 200, so the 500 that row 12 left open is closed by webbpulse 0.20.0.
+
+Zero 5xx in `/aws/apigateway/carmodpicker-staging-api` for the 30 minutes after
+the deploy, and all 11 staging alarms were OK, none in ALARM or
+INSUFFICIENT_DATA.
+
+The soak gate was checked directly in the access logs rather than inferred: over
+the seven days before the merge, 560 requests reached the routes row 13 removes
+and **not one carried a browser user agent**. Every one was
+`carmodpicker-identity-smoke`, `curl`, `node`, `Python-urllib` or a
+`verify-identity-*` probe.
+
+### Step 4 has not run
+
+`clear_legacy_credentials.py` was run **dry only**, and reported
+`cleared=0, already_clear=64, mismatch=0, missing_credential=0, errors=0`,
+exit 0. There is nothing to clear: every staging row already carries neither
+legacy column, because the credential migration and the TOTP sealing both ran
+earlier in the sequence. Applying it is still a separate decision, and it is
+still the one way door.
