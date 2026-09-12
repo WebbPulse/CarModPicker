@@ -169,10 +169,15 @@ locals {
     "GET /api/bug-reports/count" = { integration = "moderation" }
   }
 
-  sitemap_route_keys = {
-    "GET /sitemap.xml"        = { integration = "vehicles" }
-    "GET /sitemap-{name}.xml" = { integration = "vehicles" }
-  }
+  sitemap_child_names = ["static", "parts", "cars", "build-lists"]
+
+  sitemap_route_keys = merge(
+    { "GET /sitemap.xml" = { integration = "vehicles" } },
+    {
+      for name in local.sitemap_child_names :
+      "GET /sitemap-${name}.xml" => { integration = "vehicles" }
+    },
+  )
 
   lambda_domain_route_keys = merge(
     local.lambda_domain_generated_route_keys,
