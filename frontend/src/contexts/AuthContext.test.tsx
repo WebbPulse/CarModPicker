@@ -45,22 +45,12 @@ const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
           pendingMfa: null,
         };
       },
-      getAccessToken: () => (state.hasAccessToken ? 'tok' : null),
       subscribe: (listener: (next: unknown) => void) => {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
       initialize: vi.fn(),
       logout: vi.fn(),
-      dispose: vi.fn(),
-      login: vi.fn(),
-      completeTotp: vi.fn(),
-      signInWithPasskey: vi.fn(),
-      registerPasskey: vi.fn(),
-      listPasskeys: vi.fn(),
-      renamePasskey: vi.fn(),
-      deletePasskey: vi.fn(),
-      startOAuth: vi.fn(),
       setUser: vi.fn((user: unknown) => {
         setState({ user });
       }),
