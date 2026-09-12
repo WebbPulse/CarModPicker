@@ -10,11 +10,11 @@ from collections.abc import Mapping
 from typing import Any
 from uuid import UUID
 
+from webbpulse.dynamodb import ItemNotFound
 from webbpulse.identity import AuthenticationRefused
 from webbpulse.identity.oauth import OAuthLinkStore
 from webbpulse.identity.storage import PasskeyStore
 
-from app.db.dynamo.errors import ItemNotFound
 from app.db.dynamo.users import (
     OAuthAccountRepository,
     User,

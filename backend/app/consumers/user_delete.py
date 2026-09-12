@@ -196,8 +196,9 @@ def purge_owned_parts(repos: Any, user_id: UUID) -> Dict[str, int]:
     Each part goes through `PartService.purge`, whose tombstone the part purge
     consumer drains. An already-purged part is the success case on a replay.
     """
+    from webbpulse.dynamodb import ItemNotFound
+
     from app.api.services.part_service import PartService
-    from app.db.dynamo.errors import ItemNotFound
 
     service = PartService(repos)
     purged = 0
