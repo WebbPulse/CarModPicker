@@ -51,4 +51,4 @@ httpx==0.28.1
 ruff==0.16.6
 watchdog==6.0.0
 
-locust>=2.46.4
+locust>=2.46.5
