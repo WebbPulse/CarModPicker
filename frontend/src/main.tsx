@@ -1,6 +1,6 @@
 /**
- * Browser entry point. Starts Sentry and mounts the app inside the router and
- * the auth and settings providers.
+ * Browser entry point. Mounts the app inside the router and the auth and
+ * settings providers.
  */
 
 import { StrictMode } from 'react';
@@ -12,10 +12,7 @@ import ErrorBoundary from './components/shell/ErrorBoundary';
 import { AppSettingsProvider } from './contexts/AppSettingsContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { GOOGLE_CLIENT_ID } from './config/google';
-import { initSentry } from './lib/sentry';
 import './index.css';
-
-initSentry();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

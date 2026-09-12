@@ -100,7 +100,6 @@ vi.mock('../api/client', () => ({
     error instanceof ApiError,
 }));
 
-vi.mock('@sentry/react', () => ({ setUser: vi.fn() }));
 
 vi.mock('react-router-dom', async () => {
   const actual =

@@ -5,16 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 /**
  * Covers ErrorBoundary: the styled fallback replaces the children tree on a
- * throw and the error reaches Sentry.captureException.
+ * throw and the error is logged with its component stack.
  */
-
-const { mockedCapture } = vi.hoisted(() => ({
-  mockedCapture: vi.fn(),
-}));
-
-vi.mock('@sentry/react', () => ({
-  captureException: mockedCapture,
-}));
 
 import ErrorBoundary from './ErrorBoundary';
 
@@ -27,20 +19,22 @@ function Safe(): ReactNode {
 }
 
 describe('ErrorBoundary', () => {
-  it('renders children when no error is thrown and does NOT call Sentry', () => {
-    mockedCapture.mockClear();
+  it('renders children when no error is thrown', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
     render(
       <ErrorBoundary>
         <Safe />
       </ErrorBoundary>
     );
+
     expect(screen.getByText('all good')).toBeInTheDocument();
-    expect(mockedCapture).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+
+    errorSpy.mockRestore();
   });
 
-  it('renders fallback UI and reports to Sentry when a child throws', () => {
-    mockedCapture.mockClear();
-
+  it('renders fallback UI and logs the error when a child throws', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     render(
@@ -49,18 +43,13 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
 
-    expect(mockedCapture).toHaveBeenCalledTimes(1);
-    const call = mockedCapture.mock.calls[0] as [
-      Error,
-      { extra: { componentStack: string } },
-    ];
-    const [errorArg, extraArg] = call;
-    expect(errorArg).toBeInstanceOf(Error);
-    expect(errorArg.message).toBe('boom');
-    expect(typeof extraArg.extra.componentStack).toBe('string');
-    expect(extraArg).toMatchObject({
-      extra: { componentStack: expect.any(String) as unknown },
-    });
+    const logged = errorSpy.mock.calls.find(
+      (call) => call[0] === 'ErrorBoundary caught an error:'
+    ) as [string, Error, { componentStack?: string | null }] | undefined;
+    expect(logged).toBeDefined();
+    expect(logged?.[1]).toBeInstanceOf(Error);
+    expect(logged?.[1].message).toBe('boom');
+    expect(typeof logged?.[2].componentStack).toBe('string');
 
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
 
