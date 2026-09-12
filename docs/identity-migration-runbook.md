@@ -934,14 +934,13 @@ would break.
 
 The pull request is opened as a draft and stays a draft until that is true.
 
-**`clear_legacy_credentials.py` must not run yet.** Read
-`docs/identity-adoption.md`, "What row 13 could not remove, and why". Two routes
-in the users domain still write `hashed_password`, and clearing the column while
-they do breaks signup and password change. The script refuses a row whose
-identity credential is missing, but it cannot refuse on account of a route that
-still writes. The follow up row that ports those two writes is what unblocks
-step 4 below, and until it ships steps 1 through 3 are the whole of this
-runbook.
+**`clear_legacy_credentials.py` is unblocked.** An earlier draft of this row
+held step 4 back because two routes in the users domain still wrote
+`hashed_password`. This row deletes those routes: registration is the package's
+`POST /api/auth/register` and a password change its `POST /api/auth/password`,
+both of which write the `credentials` table the identity function owns. No route
+in the application writes the legacy column, so step 4 runs once steps 1 through
+3 have.
 
 ## Order of operations
 
@@ -952,7 +951,7 @@ reverts by reverting the pull request. Step 4 does not.
 1. Merge the pull request into staging, once the soak is clean.
 2. Let the deploy land. Nine domain images plus the frontend bundle.
 3. Verify, below. Nothing has been deleted from any row at this point.
-4. Only after the users-domain follow up has shipped:
+4. After step 3 verifies clean:
      cd backend
      python scripts/clear_legacy_credentials.py --prefix carmodpicker-<env>-
      # read the summary, then

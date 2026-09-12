@@ -1,8 +1,8 @@
-"""Password bounds and the OAuth account read that outlive the legacy auth routers.
+"""The OAuth account read that outlives the legacy auth routers.
 
-Row 13 deleted the `/api/auth` routers and every model only they declared. The
-password bounds still constrain the users domain's own schemas, and the 72 byte
-bcrypt cap is expressed in characters so a value that validates always hashes.
+Row 13 deleted the `/api/auth` routers and every model only they declared, and
+the users domain follow up deleted the password bounds with the last route that
+took a password. This read is still returned inside `UserRead`.
 """
 
 from datetime import datetime
@@ -10,9 +10,6 @@ from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
-
-PASSWORD_MIN_LENGTH = 8
-PASSWORD_MAX_LENGTH = 72
 
 
 class OAuthAccountRead(BaseModel):

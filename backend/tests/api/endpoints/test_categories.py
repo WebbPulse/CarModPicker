@@ -53,38 +53,30 @@ def create_and_login_admin_user(
 
 
 def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[UUID, str]:
-    """Create a regular user and log them in; returns the user dict and token."""
+    """Create a user row and log them in. Returns (user_id, token).
+
+    A direct repository write since the users domain follow up deleted
+    `POST /api/users/`. Reuses an existing row so repeat suffixes stay idempotent.
+    """
     username = f"category_test_user_{username_suffix}"
     email = f"category_test_user_{username_suffix}@example.com"
-    password = "testpassword"
 
-    user_data = {
-        "username": username,
-        "email": email,
-        "password": password,
-    }
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    user_id: UUID | None = None
-    if response.status_code == 200:
-        user_id = UUID(response.json()["id"])
-    elif response.status_code == 400 and "already registered" in response.json().get("detail", ""):
-        pass
-    else:
-        response.raise_for_status()
+    users = UserRepository()
+    user = users.get_by_username(username)
+    if user is None:
+        user = users.create_user(
+            DBUser(
+                username=username,
+                email=email,
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
+        )
 
     token = login_user(client, username)
-
-    if user_id is None:
-        headers = auth_headers(token)
-        me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
-        if me_response.status_code == 200:
-            user_id = UUID(me_response.json()["id"])
-        else:
-            raise Exception(f"Could not retrieve user_id for existing user {username} via /users/me.")
-
-    if user_id is None:
-        raise Exception(f"User ID for {username} could not be determined.")
-    return user_id, token
+    return user.id, token
 
 
 def create_car_for_categories_test(

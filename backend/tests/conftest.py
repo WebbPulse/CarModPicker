@@ -281,22 +281,25 @@ def create_and_login_user(
     username: str,
     password_override: str = "testpassword",
 ) -> Dict[str, Any]:
-    """Create a user and log them in, returning the user info."""
-    from app.core.config import settings
+    """Create a user row and return it in the shape `UserRead` serialises to.
 
-    user_data = {
-        "username": username,
-        "email": f"{username}@example.com",
-        "password": password_override,
-    }
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    assert response.status_code == 200
-    user_data_response: Dict[str, Any] = response.json()
-    assert isinstance(user_data_response, dict)
+    A direct repository write since the users domain follow up deleted
+    `POST /api/users/`: registration is the identity package's route now, and it
+    mints a credential this harness has no use for. `password_override` is
+    accepted and ignored for the same reason `login_user` ignores its password.
+    """
+    del password_override
 
-    login_user(client, username, password_override)
+    user = UserRepository().create_user(
+        User(
+            username=username,
+            email=f"{username}@example.com",
+            email_verified=True,
+        )
+    )
+    login_user(client, username)
 
-    return user_data_response
+    return user.model_dump(mode="json")
 
 
 def create_car_for_user_cookie_auth(client: TestClient) -> UUID:

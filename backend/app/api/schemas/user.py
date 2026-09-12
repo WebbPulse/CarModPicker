@@ -4,9 +4,9 @@ from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer, field_validator
 
-from app.api.schemas.auth import PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, OAuthAccountRead
+from app.api.schemas.auth import OAuthAccountRead
 from app.api.schemas.part import apply_image_url_presigning
 
 SOCIAL_URL_MAX_LENGTH = 500
@@ -39,24 +39,13 @@ def _validate_social_url(value: Any, platform: str, allowed_host_substrings: lis
     return str(url)
 
 
-class UserCreate(BaseModel):
-    """Request body for registering an account."""
-
-    username: str
-    email: EmailStr
-    password: str = Field(..., min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
-
-
 class UserUpdate(BaseModel):
     """Request body for a user editing their own account."""
 
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     disabled: Optional[bool] = None
-    password: Optional[str] = Field(default=None, min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
     image_urls: Optional[List[str]] = None
-    current_password: Optional[str] = None
-    otp: Optional[str] = None
     instagram_url: Optional[str] = None
     facebook_url: Optional[str] = None
     reddit_url: Optional[str] = None
@@ -101,7 +90,6 @@ class AdminUserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     disabled: Optional[bool] = None
-    password: Optional[str] = Field(default=None, min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
     image_urls: Optional[List[str]] = None
     is_superuser: Optional[bool] = None
     is_admin: Optional[bool] = None

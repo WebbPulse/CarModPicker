@@ -44,36 +44,32 @@ def create_and_login_admin_user(
 
 
 def create_and_login_user(client: TestClient, username_suffix: str, db_session: Any | None = None) -> tuple[UUID, str]:
-    """Create a user and log them in. Returns (user_id, token).
-    If db_session is provided, verify email in DB so user can create global parts.
+    """Create a user row and log them in. Returns (user_id, token).
+
+    A direct repository write since the users domain follow up deleted
+    `POST /api/users/`. Reuses an existing row so repeat suffixes stay idempotent.
     """
+    del db_session
+
     username = f"part_manufacturer_user_{username_suffix}"
     email = f"part_manufacturer_user_{username_suffix}@example.com"
-    password = "testpassword"
 
-    user_data = {"username": username, "email": email, "password": password}
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    user_id: UUID | None = None
-    if response.status_code == 200:
-        user_id = UUID(response.json()["id"])
-    elif response.status_code == 400 and "already registered" in response.json().get("detail", ""):
-        pass
-    else:
-        response.raise_for_status()
-
-    if db_session is not None:
-        user = UserRepository().get_by_username(username)
-        if user:
-            UserRepository().update(user.id, email_verified=True)
+    users = UserRepository()
+    user = users.get_by_username(username)
+    if user is None:
+        user = users.create_user(
+            DBUser(
+                username=username,
+                email=email,
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
+        )
 
     token = login_user(client, username)
-
-    if user_id is None:
-        headers = auth_headers(token)
-        me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
-        assert me_response.status_code == 200
-        user_id = UUID(me_response.json()["id"])
-    return user_id, token
+    return user.id, token
 
 
 def create_part_manufacturer_via_api(

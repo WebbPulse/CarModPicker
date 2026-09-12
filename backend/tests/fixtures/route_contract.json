@@ -561,10 +561,6 @@
   ],
   [
     "POST",
-    "/api/users/"
-  ],
-  [
-    "POST",
     "/api/users/me/profile-picture"
   ],
   [

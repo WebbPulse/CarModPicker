@@ -57,7 +57,6 @@ function UserManagement() {
     username: null,
     email: null,
     disabled: null,
-    password: null,
     image_urls: null,
     is_superuser: null,
     is_admin: null,
@@ -179,10 +178,6 @@ function UserManagement() {
       subscription_expires_at: formData.subscription_expires_at || null,
     };
 
-    if (formData.password) {
-      updateData.password = formData.password;
-    }
-
     const result = await executeUpdate({
       userId: selectedUser.id,
       data: updateData,
@@ -194,7 +189,6 @@ function UserManagement() {
         username: null,
         email: null,
         disabled: null,
-        password: null,
         image_urls: null,
         is_superuser: null,
         is_admin: null,
@@ -230,7 +224,6 @@ function UserManagement() {
       username: user.username,
       email: user.email,
       disabled: user.disabled,
-      password: null, // Don't populate password
       image_urls: user.image_urls || null,
       is_superuser: user.is_superuser,
       is_admin: user.is_admin,
@@ -255,7 +248,6 @@ function UserManagement() {
       username: null,
       email: null,
       disabled: null,
-      password: null,
       image_urls: null,
       is_superuser: null,
       is_admin: null,
@@ -540,26 +532,6 @@ function UserManagement() {
                 }
                 placeholder="Email address"
                 required
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor="edit-password"
-                className="block text-sm font-medium text-foreground"
-              >
-                New Password (leave empty to keep current)
-              </label>
-              <Input
-                id="edit-password"
-                type="password"
-                value={formData.password || ''}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    password: e.target.value || null,
-                  })
-                }
-                placeholder="New password"
               />
             </div>
             <div className="space-y-1">

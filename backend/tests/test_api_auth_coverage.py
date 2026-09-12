@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 from tests.route_enumeration import schema_routes
 
 PUBLIC_ROUTES: set[tuple[str, str]] = {
-    ("POST", "/api/users/"),
     ("GET", "/api/users/"),
     ("GET", "/api/users/count"),
     ("GET", "/api/users/{user_id}"),

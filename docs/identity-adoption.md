@@ -96,9 +96,11 @@ denies every request while logging no reason.
 
 `IDENTITY_REGISTRATION_ENABLED` is `"true"`, which is one of the two places
 CarModPicker diverges from Portfolio. Portfolio is a single administrator
-product whose one account is seeded; CarModPicker allows public sign up through
-`POST /api/users/` today, and turning registration off would remove a shipped
-feature at cutover.
+product whose one account is seeded; CarModPicker allows public sign up, and
+turning registration off would remove a shipped feature. Since row 13 that
+setting is the only thing standing between the sign up form and a new account:
+`POST /api/users/` is deleted and `POST /api/auth/register` is the sole
+registration route.
 
 ## The issuer
 
@@ -492,7 +494,7 @@ unchanged per environment, so no passkey is re-enrolled and no link is re-made.
 | 11 | Domains read authorizer claims; `sub` becomes the user id | 8, 9 | landed |
 | 12a | Terraform: 80 explicit domain route keys behind `domain_jwt_enforced`, default off | 11 | landed |
 | 12 | Cutover: flip `VITE_AUTH_MODE`, run migrations, verify, then `domain_jwt_enforced = true` | 7, 9, 10, 11, 12a | staging: landed. Frontend flipped and verified; enforcement on since 2026-09-11 and verified at the gateway. The 4KB environment blocker is fixed upstream in `staging-access-gate` 2.11.0 |
-| 13 | Retire legacy: 24 routes, `hashed_password`, `totp_secret`, `SECRET_KEY` | 12, soak | **this change**, draft until the row 12 soak |
+| 13 | Retire legacy: 24 routes, `hashed_password`, `totp_secret`, `SECRET_KEY` | 12, soak | **this change**, draft until the row 12 soak. Includes the users domain password port: `POST /api/users/` deleted, password change and admin password set deleted, both legacy hash helpers deleted |
 
 Row 6 ships dark behind a flag, which makes row 12 a variable flip rather than a
 deploy. Until row 13 lands, the whole sequence rolls back by setting that flag
@@ -539,8 +541,8 @@ lookup anywhere. A request either carries an identity access token the gateway
 authorizer verified, or it is refused.
 
 **`hashed_password` and `totp_secret`.** Both columns are off the `User` model,
-its schemas, the repository's ordinary read and write path, the admin seeder and
-the tests. They are not yet off the rows in DynamoDB, which is what
+its schemas, the whole repository including the two legacy hash helpers, the
+admin seeder and the tests. They are not yet off the rows in DynamoDB, which is what
 `backend/scripts/clear_legacy_credentials.py` does, and that script runs after
 the deploy rather than before it. See the runbook for the order and why.
 
@@ -562,27 +564,28 @@ content is replacing that link with something the identity service can issue, or
 with an opaque unsubscribe id stored against the alert. Until then the estate
 still holds one HS256 signing key, used by one route, on one function.
 
-**Two `hashed_password` call sites survive in the users domain.**
-`POST /api/users/` and the password change on `PUT /api/users/{user_id}` are the
-users domain's own routes, not legacy auth routes, and the frontend still calls
-both: `Register.tsx` posts the first, and `ChangePasswordDialog.tsx` and
-`SecuritySettingsDialog.tsx` put the second. The package serves
-`POST /api/auth/register` and `POST /api/auth/password`, which supersede them,
-but porting the writes across needs the users function to hold a grant on the
-identity `credentials` table, and `module.identity` in
-`terraform-aws-platform-modules` takes exactly one role through
-`identity_role_name` and `identity_role_arn` with no input for a second. Granting
-a second role means either a platform module release in another repository or a
-hand written policy over module owned ARNs, and either is its own row.
+**The `hashed_password` call sites are gone too, in this same change.**
+An earlier draft of this row held them back on the theory that porting the
+writes needed the users function to hold a grant on the identity `credentials`
+table. That premise was wrong. The users domain does not need to write a
+credential at all: the identity function already owns both
+`POST /api/auth/register` and `POST /api/auth/password`, and registration
+already creates the CarModPicker profile row through
+`CarModPickerIdentityHooks.create_user`. Pointing the SPA at those two routes
+leaves the users domain with no password to store, so it needs no grant on a
+table another Lambda owns, which is the arrangement each domain owning its own
+data asks for anyway.
 
-So the field is gone from the model, the schemas and the ordinary repository
-path, and what is left is two named methods on `UserRepository`,
-`get_legacy_password_hash` and `set_legacy_password_hash`, which read and write
-the raw attribute and are the only two places it is spelled. The follow up row
-deletes them. **Until that row ships,
-`backend/scripts/clear_legacy_credentials.py` must not be run against an
-environment**, because clearing the column would break password change and
-signup on those three routes. The script's own docstring says so at the top.
+So `POST /api/users/` is deleted rather than reworked, the password branch of
+`PUT /api/users/{user_id}` and the admin password set on
+`PUT /api/users/admin/users/{user_id}` are deleted, and with them
+`UserRepository.get_legacy_password_hash` and `set_legacy_password_hash`, the
+`UserCreate` schema, the password fields of `UserUpdate` and `AdminUserUpdate`,
+and the `PASSWORD_MIN_LENGTH` and `PASSWORD_MAX_LENGTH` bounds. `Register.tsx`
+calls the package's register, and `ChangePasswordDialog.tsx` and
+`SecuritySettingsDialog.tsx` call its password change. No route in the
+application takes a password any more, and
+`backend/scripts/clear_legacy_credentials.py` is unblocked.
 
 ## Open questions for the owner
 

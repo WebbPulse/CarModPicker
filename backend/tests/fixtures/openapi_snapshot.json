@@ -74,19 +74,6 @@
             ],
             "title": "Is Superuser"
           },
-          "password": {
-            "anyOf": [
-              {
-                "maxLength": 72,
-                "minLength": 8,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Password"
-          },
           "subscription_expires_at": {
             "anyOf": [
               {
@@ -4776,33 +4763,6 @@
         "title": "SetPrimaryImageRequest",
         "type": "object"
       },
-      "UserCreate": {
-        "description": "Request body for registering an account.",
-        "properties": {
-          "email": {
-            "format": "email",
-            "title": "Email",
-            "type": "string"
-          },
-          "password": {
-            "maxLength": 72,
-            "minLength": 8,
-            "title": "Password",
-            "type": "string"
-          },
-          "username": {
-            "title": "Username",
-            "type": "string"
-          }
-        },
-        "required": [
-          "username",
-          "email",
-          "password"
-        ],
-        "title": "UserCreate",
-        "type": "object"
-      },
       "UserRead": {
         "description": "A user account as returned to its owner.",
         "properties": {
@@ -4971,17 +4931,6 @@
       "UserUpdate": {
         "description": "Request body for a user editing their own account.",
         "properties": {
-          "current_password": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Current Password"
-          },
           "disabled": {
             "anyOf": [
               {
@@ -5040,30 +4989,6 @@
               }
             ],
             "title": "Instagram Url"
-          },
-          "otp": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Otp"
-          },
-          "password": {
-            "anyOf": [
-              {
-                "maxLength": 72,
-                "minLength": 8,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Password"
           },
           "reddit_url": {
             "anyOf": [
@@ -13235,48 +13160,6 @@
           }
         ],
         "summary": "List Users",
-        "tags": [
-          "users"
-        ]
-      },
-      "post": {
-        "description": "Creates a new user in the database.",
-        "operationId": "create_user_api_users__post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "201": {
-            "description": "User created successfully"
-          },
-          "400": {
-            "description": "Invalid user data"
-          },
-          "403": {
-            "description": "Not authorized to create user"
-          },
-          "422": {
-            "description": "Validation error"
-          }
-        },
-        "summary": "Create User",
         "tags": [
           "users"
         ]

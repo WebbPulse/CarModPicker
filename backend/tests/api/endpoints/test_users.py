@@ -1,4 +1,4 @@
-"""Endpoint tests for the user routes: creation, reads, updates, deletion and avatars."""
+"""Endpoint tests for the user routes: reads, updates, deletion and avatars."""
 
 import io
 from typing import Any, Dict, Optional
@@ -9,6 +9,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, login_user
 
@@ -16,41 +17,28 @@ from tests.conftest import INVALID_UUID_STR, auth_headers, login_user
 def create_and_login_user(
     client: TestClient, username_suffix: str, password_override: Optional[str] = None
 ) -> tuple[Dict[str, Any], str]:
-    """Create a user, log them in, and return (user_data, token)."""
+    """Create a user row, log them in, and return (user_data, token).
+
+    A direct repository write since the users domain follow up deleted
+    `POST /api/users/`. `password_override` is accepted and ignored, because no
+    route in this application takes a password any more.
+    """
+    del password_override
+
     username = f"user_test_{username_suffix}"
     email = f"user_test_{username_suffix}@example.com"
-    password = password_override or "testpassword"
 
-    user_data_create = {
-        "username": username,
-        "email": email,
-        "password": password,
-    }
+    users = UserRepository()
+    user = users.get_by_username(username)
+    if user is None:
+        user = users.create_user(DBUser(username=username, email=email, email_verified=True))
 
-    response = client.post(f"{settings.API_STR}/users/", json=user_data_create)
-    created_user_data: Dict[str, Any] = {}
-
-    if response.status_code == 200:
-        created_user_data = response.json()
-    elif response.status_code == 400 and "already registered" in response.json().get("detail", "").lower():
-        pass
-    else:
-        response.raise_for_status()
-
-    token = login_user(client, username, password)
+    token = login_user(client, username)
     headers = auth_headers(token)
 
-    if not created_user_data:
-        me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
-        if me_response.status_code == 200:
-            created_user_data = me_response.json()
-        else:
-            raise Exception(
-                f"Could not retrieve user data for {username} via /users/me after login. Status: {me_response.status_code}, Detail: {me_response.text}"
-            )
-
-    if not created_user_data or "id" not in created_user_data:
-        raise Exception(f"User ID or data for {username} could not be determined.")
+    me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
+    assert me_response.status_code == 200, me_response.text
+    created_user_data: Dict[str, Any] = me_response.json()
 
     return created_user_data, token
 
@@ -63,71 +51,6 @@ def get_auth_headers(token: str) -> Dict[str, str]:
     is an `x-amzn-request-context` credential, not an `Authorization` header.
     """
     return auth_headers(token)
-
-
-def test_create_user_success(client: TestClient, db_session: Any) -> None:
-    """A valid signup creates the user and returns it."""
-    username = "new_unique_user"
-    email = "new_unique_user@example.com"
-    password = "password123"
-    user_data = {
-        "username": username,
-        "email": email,
-        "password": password,
-    }
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    assert response.status_code == 200, response.text
-    created_user = response.json()
-    assert created_user["username"] == username
-    assert created_user["email"] == email
-    assert "id" in created_user
-    assert "hashed_password" not in created_user
-
-
-def test_create_user_duplicate_username(client: TestClient, db_session: Any) -> None:
-    """A taken username is refused as a conflict."""
-    user_info, _ = create_and_login_user(client, "duplicate_username_test")
-
-    duplicate_user_data = {
-        "username": user_info["username"],
-        "email": "another_email@example.com",
-        "password": "password123",
-    }
-    response = client.post(f"{settings.API_STR}/users/", json=duplicate_user_data)
-    assert response.status_code == 409, response.text
-    assert "username already registered" in response.json()["message"].lower()
-
-
-def test_create_user_duplicate_email(client: TestClient, db_session: Any) -> None:
-    """A taken email is refused as a conflict."""
-    user_info, _ = create_and_login_user(client, "duplicate_email_test")
-
-    duplicate_user_data = {
-        "username": "another_username_for_email_test",
-        "email": user_info["email"],
-        "password": "password123",
-    }
-    response = client.post(f"{settings.API_STR}/users/", json=duplicate_user_data)
-    assert response.status_code == 409, response.text
-    assert "email already registered" in response.json()["message"].lower()
-
-
-def test_create_user_rejects_short_password(client: TestClient) -> None:
-    """A password under the minimum length is a validation error."""
-    response = client.post(
-        f"{settings.API_STR}/users/",
-        json={"username": "short_pw_user", "email": "short_pw@example.com", "password": "short"},
-    )
-    assert response.status_code == 422, response.text
-
-
-def test_create_user_rejects_overlong_password(client: TestClient) -> None:
-    """A password over the maximum length is a validation error."""
-    response = client.post(
-        f"{settings.API_STR}/users/",
-        json={"username": "long_pw_user", "email": "long_pw@example.com", "password": "a" * 73},
-    )
-    assert response.status_code == 422, response.text
 
 
 def test_read_users_me_success(client: TestClient, db_session: Any) -> None:
@@ -189,45 +112,6 @@ def test_update_own_user_success(client: TestClient, db_session: Any) -> None:
     assert updated_user["username"] == user_info["username"]
 
 
-def test_update_own_user_change_password_success(client: TestClient, db_session: Any) -> None:
-    """A password change succeeds when the current password is supplied."""
-    username_suffix = "change_pass"
-    initial_password = "initialPassword123"
-    new_password = "newStrongPassword456"
-
-    user_info, token = create_and_login_user(client, username_suffix, password_override=initial_password)
-    user_id = user_info["id"]
-    username = user_info["username"]
-
-    update_payload = {"current_password": initial_password, "password": new_password}
-    headers = get_auth_headers(token)
-    response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload, headers=headers)
-    assert response.status_code == 200, response.text
-
-    from app.api.dependencies.auth import verify_password
-
-    stored = UserRepository().get_legacy_password_hash(UUID(user_id))
-    assert stored is not None
-    assert verify_password(new_password, stored) is True
-    assert verify_password(initial_password, stored) is False
-    assert username
-
-
-def test_update_own_user_incorrect_current_password(client: TestClient, db_session: Any) -> None:
-    """A password change with the wrong current password is refused."""
-    user_info, token = create_and_login_user(client, "update_wrong_curr_pass")
-    user_id = user_info["id"]
-
-    update_payload = {
-        "current_password": "thisisnotthepassword",
-        "email": "new_email_for_wrong_pass@example.com",
-    }
-    headers = get_auth_headers(token)
-    response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload, headers=headers)
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.text
-    assert "incorrect current password" in response.json()["message"].lower()
-
-
 def test_update_other_user_forbidden(client: TestClient, db_session: Any) -> None:
     """Updating another user's record is forbidden."""
     user_a_info, _ = create_and_login_user(client, "user_a_update_target")
@@ -260,12 +144,8 @@ def test_update_user_unauthenticated(client: TestClient, db_session: Any) -> Non
 def test_update_user_not_found(client: TestClient, db_session: Any) -> None:
     """Updating an unknown user id answers not found."""
     _, token = create_and_login_user(client, "updater_user_notfound")
-    logged_in_user_password = "testpassword"
 
-    update_payload = {
-        "username": "NonExistent",
-        "current_password": logged_in_user_password,
-    }
+    update_payload = {"username": "NonExistent"}
     headers = get_auth_headers(token)
     response = client.put(f"{settings.API_STR}/users/{INVALID_UUID_STR}", json=update_payload, headers=headers)
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -680,12 +560,12 @@ def test_read_user_with_reserved_tld_email_returns_200(client: TestClient, db_se
 
 def test_write_path_still_rejects_reserved_tld_email(client: TestClient, db_session: Any) -> None:
     """Relaxing the read models must not let a new bad address in through the API."""
-    response = client.post(
-        f"{settings.API_STR}/users/",
-        json={
-            "username": "reserved_tld_write_attempt",
-            "email": RESERVED_TLD_EMAIL,
-            "password": "password123",
-        },
+    user_info, token = create_and_login_user(client, "reserved_tld_write_attempt")
+    headers = get_auth_headers(token)
+
+    response = client.put(
+        f"{settings.API_STR}/users/{user_info['id']}",
+        json={"email": RESERVED_TLD_EMAIL},
+        headers=headers,
     )
     assert response.status_code == 422, response.text

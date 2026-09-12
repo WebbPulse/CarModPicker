@@ -173,24 +173,6 @@ class UserRepository(DynamoRepository[User]):
         run_unique_transaction(actions, labels)
         return user
 
-    def get_legacy_password_hash(self, user_id: UUID) -> str | None:
-        """The stored bcrypt hash, read straight off the item.
-
-        A raw read rather than a model attribute, because `User` no longer
-        declares the field and `model_config` is `extra="ignore"`, so loading the
-        row would silently drop it.
-        """
-        response = self.table.get_item(Key=self.key(user_id))
-        item = response.get("Item")
-        if item is None:
-            return None
-        value = item.get("hashed_password")
-        return str(value) if isinstance(value, str) and value else None
-
-    def set_legacy_password_hash(self, user_id: UUID, hashed_password: str) -> None:
-        """Write the stored bcrypt hash, leaving every other attribute alone."""
-        self.update(user_id, hashed_password=hashed_password)
-
     def update_user(self, user_id: UUID, **changes: Any) -> User:
         """Apply changes, moving the username and email reservations when either changes."""
         current = self.get_or_raise(user_id)

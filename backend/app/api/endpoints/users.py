@@ -1,7 +1,6 @@
-"""User account routes: registration, profile reads and updates, and deletion."""
+"""User profile routes: reads, updates and deletion. Passwords live in identity."""
 
 import logging
-import os
 from typing import Any, Dict, Optional, Union
 from uuid import UUID
 
@@ -11,15 +10,12 @@ from app.api.dependencies.auth import (
     get_current_admin_user,
     get_current_user,
     get_optional_current_user,
-    get_password_hash,
-    verify_password,
 )
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.pagination import CursorPage
 from app.api.schemas.user import (
     AdminUserUpdate,
     PublicUserRead,
-    UserCreate,
     UserRead,
     UserUpdate,
 )
@@ -246,42 +242,6 @@ async def list_users(
     return page
 
 
-@router.post(
-    "/",
-    response_model=UserRead,
-    responses=crud_responses("user", "create"),
-)
-async def create_user(
-    user: UserCreate,
-    repos: Repositories = Depends(get_repositories),
-) -> UserRead:
-    """
-    Creates a new user in the database.
-    """
-    if repos.users.get_by_username(user.username):
-        ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
-
-    if repos.users.get_by_email(user.email):
-        ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
-
-    hashed_password = get_password_hash(user.password)
-    email_verified = os.environ.get("TESTING") == "true"
-
-    db_user = DBUser(
-        username=user.username,
-        email=user.email,
-        email_verified=email_verified,
-    )
-
-    try:
-        repos.users.create_user(db_user)
-    except UniqueAttributeTaken as e:
-        _raise_duplicate(e)
-    repos.users.set_legacy_password_hash(db_user.id, hashed_password)
-    logger.info(msg=f"User added to database: {db_user.id}")
-    return user_read(db_user, repos)
-
-
 @router.put(
     "/{user_id}",
     response_model=UserRead,
@@ -304,20 +264,7 @@ async def update_user(
         logger.warning(f"User {current_user.id} attempt to update user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
-    update_data_dict = user.model_dump(exclude_unset=True)
-    password_is_being_changed = "password" in update_data_dict and update_data_dict["password"]
-    current_password_provided = user.current_password is not None
-
-    if password_is_being_changed or current_password_provided:
-        if password_is_being_changed and not current_password_provided:
-            ResponsePatterns.raise_bad_request("Current password is required to change your password")
-        assert user.current_password is not None
-        stored_hash = repos.users.get_legacy_password_hash(user_id)
-        if not verify_password(user.current_password, stored_hash):
-            logger.warning(f"User {current_user.id} provided incorrect current password for update.")
-            ResponsePatterns.raise_unauthorized("Incorrect current password")
-
-    update_data = user.model_dump(exclude_unset=True, exclude={"current_password", "otp"})
+    update_data = user.model_dump(exclude_unset=True)
     username_changed = False
     session_expire_minutes_changed = False
     changes: dict[str, Any] = {}
@@ -345,19 +292,12 @@ async def update_user(
             changes["session_expire_minutes"] = clamped
         del update_data["session_expire_minutes"]
 
-    new_password_hash: str | None = None
-    if "password" in update_data and update_data["password"]:
-        new_password_hash = get_password_hash(update_data["password"])
-        del update_data["password"]
-
     for field, value in update_data.items():
         if value is not None:
             changes[field] = value
 
     try:
         db_user = repos.users.update_user(user_id, **changes) if changes else db_user
-        if new_password_hash is not None:
-            repos.users.set_legacy_password_hash(user_id, new_password_hash)
         logger.info(f"User {user_id} updated successfully by user {current_user.id}.")
 
         if username_changed:
@@ -454,17 +394,12 @@ async def admin_update_user(
 
     update_data = user_update.model_dump(exclude_unset=True)
 
-    admin_password_hash: str | None = None
-    if "password" in update_data:
-        admin_password_hash = get_password_hash(update_data.pop("password"))
     for key in ("username", "email"):
         if key in update_data and update_data[key] is None:
             del update_data[key]
 
     try:
         updated = repos.users.update_user(user_id, **update_data) if update_data else db_user
-        if admin_password_hash is not None:
-            repos.users.set_legacy_password_hash(user_id, admin_password_hash)
         logger.info(f"Admin {current_user.id} updated user {user_id}")
         return user_read(updated, repos)
     except UniqueAttributeTaken as e:

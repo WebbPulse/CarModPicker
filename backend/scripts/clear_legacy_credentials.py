@@ -20,31 +20,25 @@ operations for row 13.
 
 ## READ THIS BEFORE RUNNING IT
 
-**Row 13 did not finish retiring `hashed_password`, and running this script
-before the row that does will lock every password account out.**
+**No route in the application writes `hashed_password` any more, so this script
+is safe to run once the two migration scripts have.**
 
-Three routes still write that column, and none of them is an `/api/auth` route,
-so row 13 did not delete them:
+Row 13 deleted the `/api/auth` routers, and the users domain follow up deleted
+the three routes that were the last writers of the column:
 
-  - `POST /api/users/` (public registration)
-  - the password change on `PUT /api/users/{user_id}`
-  - the admin password set on `PUT /api/users/admin/users/{user_id}`
+  - `POST /api/users/` (public registration), deleted outright
+  - the password change on `PUT /api/users/{user_id}`, deleted
+  - the admin password set on `PUT /api/users/admin/users/{user_id}`, deleted
 
-They write through `UserRepository.set_legacy_password_hash`, which is the only
-code left in the backend that knows the column exists, and the long note on that
-method says why they could not be ported in this row: the package's
-`credentials` table and its IAM grant belong to `module.identity`, which takes
-exactly one role, and the users Lambda holds no grant on it.
+Registration is the package's `POST /api/auth/register` now and a password
+change is its `POST /api/auth/password`; both write the `credentials` table the
+identity function owns, so the users domain writes no password at all.
+`UserRepository.get_legacy_password_hash` and `set_legacy_password_hash` are
+gone with them, and nothing in the backend reads or writes the column.
 
-So today a password set through any of those three routes exists **only** in the
-legacy column. Clearing it would take away the only copy. The follow up row that
-points the SPA at the package's own `POST /api/auth/register` and
-`POST /api/auth/password`, or that grants the users function the `credentials`
-table, is what makes this script safe to run.
-
-The refusal rules below catch this in practice rather than relying on somebody
-having read this paragraph: a password set through those routes after the
-migration ran classifies as `mismatch`, and a `mismatch` refuses the whole run.
+The refusal rules below still stand as the practical check: a password that
+exists only in the legacy column classifies as `mismatch`, and a `mismatch`
+refuses the whole run.
 
 ## What it will not do
 
@@ -94,9 +88,8 @@ before writing this:
     loads with the attribute dropped rather than refused.
   - `app/api/schemas/user.py`'s `UserRead` never mentioned either, so no
     response model can fail on a missing column.
-  - `UserRepository.get_legacy_password_hash` reads the attribute off the raw
-    item and answers `None` when it is absent, which `verify_password` turns
-    into a refusal rather than an exception.
+  - No repository method reads the attribute since the users domain follow up
+    deleted `get_legacy_password_hash`, so a row without it cannot fail a read.
   - `totp_enabled` stays on the model and is untouched here. It is the flag the
     profile UI renders; the seed it refers to lives sealed in `totp-factors`.
 

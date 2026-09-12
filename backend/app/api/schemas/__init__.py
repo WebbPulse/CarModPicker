@@ -43,7 +43,7 @@ from .report import (
     ReportWithDetails,
 )
 from .retailer import RetailerCreate, RetailerRead, RetailerUpdate
-from .user import PublicUserRead, UserCreate, UserRead, UserUpdate
+from .user import PublicUserRead, UserRead, UserUpdate
 from .vote import (
     EntityType,
     FlaggedEntitySummary,
@@ -57,7 +57,6 @@ from .vote import (
 __all__ = [
     "UserRead",
     "PublicUserRead",
-    "UserCreate",
     "UserUpdate",
     "CarGenerationRead",
     "CarGenerationCreate",

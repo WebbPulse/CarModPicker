@@ -6,13 +6,10 @@ truncates silently, and bcrypt 5.0.0, which this app pins, raises
 
     ValueError: password cannot be longer than 72 bytes
 
-The schemas cap a password at `PASSWORD_MAX_LENGTH` characters, and the comment
-there says the cap exists because of that bcrypt limit. But a character is not a
-byte. The cap is enforced by pydantic's `max_length`, which counts characters, so
-72 accented, CJK or emoji characters are 144 bytes or more, pass validation
-cleanly, and then reached `bcrypt.hashpw` and became a 500. Signup, password
-reset and password change were all affected, and login against such an account
-was unreachable because the account could never be created in the first place.
+A character is not a byte, so 72 accented, CJK or emoji characters are 144 bytes
+or more. Such a password passed every character-counting length check, reached
+`bcrypt.hashpw`, and became a 500. Signup, password reset and password change
+were all affected.
 
 `webbpulse.security` truncates to 72 **bytes** before bcrypt sees the value, on a
 byte boundary rather than a character boundary, so these now hash and verify like
@@ -20,42 +17,27 @@ any other password. Byte truncation is what keeps the hash identical to what any
 other implementation writes for the same input; trimming back to the last whole
 character would feed bcrypt different bytes.
 
-These tests use a multi-byte password rather than a long ASCII one on purpose.
-An ASCII password of 73 characters is rejected by the schema with a 422, which is
-correct behaviour and not the bug. The multi-byte case is the one that got past
-validation, and it is the case that regressed.
-
 Row 13 of `docs/identity-adoption.md` deleted the four routers under `/api/auth`,
-and with them the login and password reset halves of this regression. What is
-left is the half that still has live callers: the hashing primitives, and
-`POST /api/users/` which is the users domain's own route and still takes a
-password. Login against an over limit account is now the package's business and
-is covered by the package's own tests.
+and the users domain follow up deleted `POST /api/users/` and the password change
+on `PUT /api/users/{user_id}`. No route in this application takes a password any
+more, so what is left here is the primitive: the hashing helpers that
+`app/api/dependencies/auth.py` still exports. Every password-carrying route is
+the identity package's, and the package's own tests cover them.
 """
 
 from __future__ import annotations
 
-import os
-from typing import Any
-
-from fastapi.testclient import TestClient
-
 from app.api.dependencies.auth import get_password_hash, verify_password
-from app.api.schemas.auth import PASSWORD_MAX_LENGTH
 
-OVER_LIMIT_PASSWORD = "é" * PASSWORD_MAX_LENGTH
+BCRYPT_BYTE_LIMIT = 72
 
-
-def _uniq(base: str) -> str:
-    """A name unique to this worker and process, so parallel runs do not collide."""
-    worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
-    return f"{base}_{worker}_{os.getpid()}"
+OVER_LIMIT_PASSWORD = "é" * BCRYPT_BYTE_LIMIT
 
 
 def test_the_test_password_is_the_shape_this_regression_is_about() -> None:
-    """Guard the fixture itself: within the char cap, over bcrypt's byte limit."""
-    assert len(OVER_LIMIT_PASSWORD) <= PASSWORD_MAX_LENGTH
-    assert len(OVER_LIMIT_PASSWORD.encode("utf-8")) > 72
+    """Guard the fixture itself: 72 characters, and over bcrypt's byte limit."""
+    assert len(OVER_LIMIT_PASSWORD) == BCRYPT_BYTE_LIMIT
+    assert len(OVER_LIMIT_PASSWORD.encode("utf-8")) > BCRYPT_BYTE_LIMIT
 
 
 def test_hashing_a_password_over_72_bytes_does_not_raise() -> None:
@@ -72,34 +54,3 @@ def test_a_wrong_password_still_fails_against_an_over_limit_hash() -> None:
     hashed = get_password_hash(OVER_LIMIT_PASSWORD)
 
     assert verify_password("something else entirely", hashed) is False
-
-
-def test_signup_with_a_password_over_72_bytes(client: TestClient, db_session: Any) -> None:
-    """Signup 500'd on this password before the swap. Now it creates the account."""
-    username = _uniq("longpw_signup")
-
-    signup = client.post(
-        "/api/users/",
-        json={
-            "username": username,
-            "email": f"{username}@example.com",
-            "password": OVER_LIMIT_PASSWORD,
-        },
-    )
-    assert signup.status_code == 200, signup.text
-    assert signup.json()["username"] == username
-
-
-def test_an_ascii_password_past_the_char_cap_is_still_a_422(client: TestClient, db_session: Any) -> None:
-    """Over-long ASCII is still a validation error, so the schema cap is unchanged."""
-    username = _uniq("longpw_ascii")
-
-    signup = client.post(
-        "/api/users/",
-        json={
-            "username": username,
-            "email": f"{username}@example.com",
-            "password": "a" * (PASSWORD_MAX_LENGTH + 1),
-        },
-    )
-    assert signup.status_code == 422

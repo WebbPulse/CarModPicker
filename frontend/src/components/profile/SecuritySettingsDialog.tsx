@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FaClock, FaKey, FaLink, FaLock, FaShieldAlt } from 'react-icons/fa';
 import { useAuth } from '../../hooks/useAuth';
 import { identityAvailability } from '../../api/authMode';
+import { changePassword } from '../../api/identityAuth';
 import IdentityTotpSettings from './IdentityTotpSettings';
 import { usersApi } from '../../api/users';
 import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
@@ -179,22 +180,12 @@ function SecuritySettingsDialog({
     setIsChangingPassword(true);
 
     try {
-      const updateData: {
-        current_password: string;
-        password: string;
-        otp?: string;
-      } = {
-        current_password: passwordData.currentPassword,
-        password: passwordData.newPassword,
-      };
+      const result = await changePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword
+      );
 
-      if (user?.totp_enabled) {
-        updateData.otp = passwordData.otp;
-      }
-
-      const response = await usersApi.updateUser(user!.id, updateData);
-
-      if (response.data) {
+      if (result.status === 'changed') {
         setPasswordSuccess('Password changed successfully!');
         setTimeout(() => {
           setPasswordData({
@@ -205,15 +196,9 @@ function SecuritySettingsDialog({
           });
           onPasswordChanged();
         }, 1500);
+      } else {
+        setPasswordError(result.error);
       }
-    } catch (err: unknown) {
-      let errorMessage = 'Failed to change password';
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      } else if (typeof err === 'object' && err !== null && 'response' in err) {
-        errorMessage = getApiErrorMessage(err, errorMessage);
-      }
-      setPasswordError(errorMessage);
     } finally {
       setIsChangingPassword(false);
     }

@@ -6,9 +6,14 @@ import {
   fireEvent,
   testScenarios,
 } from '../../test/utils/test-utils';
-import { apiClient } from '../../api/client';
-import { mockUser } from '../../test/mocks/api';
+import { register } from '../../api/identityAuth';
 import Register from './Register';
+
+vi.mock('../../api/identityAuth', () => ({
+  register: vi.fn(),
+}));
+
+const registerMock = vi.mocked(register);
 
 const getInputs = () => ({
   username: screen.getByPlaceholderText(/choose a username/i),
@@ -61,8 +66,8 @@ describe('Register page', () => {
     expect(screen.getByText(/join carmodpicker/i)).toBeInTheDocument();
   });
 
-  it('submits a UserCreate body to /users/ and navigates to /login on success', async () => {
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: mockUser });
+  it('registers through identity and navigates to /login on success', async () => {
+    registerMock.mockResolvedValueOnce({ status: 'registered' });
 
     render(<Register />, testScenarios.unauthenticated);
     fillAndSubmit({
@@ -72,20 +77,31 @@ describe('Register page', () => {
     });
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalled();
+      expect(registerMock).toHaveBeenCalledTimes(1);
+    });
+    expect(registerMock).toHaveBeenCalledWith(
+      'newuser',
+      'new@example.com',
+      'password123'
+    );
+  });
+
+  it('surfaces the identity failure and stays on the form', async () => {
+    registerMock.mockResolvedValueOnce({
+      status: 'failed',
+      error: 'That address is already registered.',
     });
 
-    expect(vi.mocked(apiClient.post).mock.calls[0]?.[0]).toBe('/users/');
+    render(<Register />, testScenarios.unauthenticated);
+    fillAndSubmit({
+      username: 'taken',
+      email: 'taken@example.com',
+      password: 'password123',
+    });
 
-    const rawBody: unknown = vi.mocked(apiClient.post).mock.calls[0]?.[1];
-    const body = rawBody as {
-      username: string;
-      email: string;
-      password: string;
-    };
-    expect(body.username).toBe('newuser');
-    expect(body.email).toBe('new@example.com');
-    expect(body.password).toBe('password123');
+    expect(
+      await screen.findByText('That address is already registered.')
+    ).toBeInTheDocument();
   });
 
   it('shows a validation error when passwords do not match (and does NOT call the API)', async () => {
@@ -102,7 +118,7 @@ describe('Register page', () => {
         screen.getAllByText(/passwords don't match/i).length
       ).toBeGreaterThan(0);
     });
-    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(registerMock).not.toHaveBeenCalled();
   });
 
   it('rejects a password shorter than 8 characters without calling the API', async () => {
@@ -118,6 +134,6 @@ describe('Register page', () => {
         screen.getByText(/password must be at least 8 characters long/i)
       ).toBeInTheDocument();
     });
-    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(registerMock).not.toHaveBeenCalled();
   });
 });

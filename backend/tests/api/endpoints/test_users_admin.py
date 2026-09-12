@@ -4,7 +4,6 @@ from typing import Any, List
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import verify_password
 from app.core.config import settings
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
@@ -333,8 +332,13 @@ class TestAdminUserManagement:
         assert updated_user["email"] == update_data["email"]
         assert updated_user["is_superuser"] == update_data["is_superuser"]
 
-    def test_admin_update_user_password(self, client: TestClient, db_session: Any) -> None:
-        """Test that admin can update user password."""
+    def test_admin_update_user_ignores_a_password(self, client: TestClient, db_session: Any) -> None:
+        """An admin cannot set a password here; `AdminUserUpdate` no longer has the field.
+
+        The users domain writes no credential since the follow up to row 13. A
+        password in the body is an unknown field rather than a write, so the row
+        it names carries no hash afterwards.
+        """
         test_user = UserRepository().create_user(
             DBUser(
                 username="test_update_password",
@@ -348,18 +352,16 @@ class TestAdminUserManagement:
 
         _, token = create_and_login_admin_user(client, db_session, "update_password")
 
-        update_data = {
-            "password": "newpassword123",
-        }
-
         headers = get_auth_headers(token)
-        response = client.put(f"{settings.API_STR}/users/admin/users/{test_user.id}", json=update_data, headers=headers)
-        assert response.status_code == 200, f"Admin should be able to update user password: {response.text}"
+        response = client.put(
+            f"{settings.API_STR}/users/admin/users/{test_user.id}",
+            json={"password": "newpassword123"},
+            headers=headers,
+        )
+        assert response.status_code == 200, response.text
 
-        stored = UserRepository().get_legacy_password_hash(test_user.id)
-        assert stored is not None
-        assert verify_password("newpassword123", stored) is True
-        assert verify_password("oldpassword", stored) is False
+        item = UserRepository().table.get_item(Key=UserRepository().key(test_user.id)).get("Item") or {}
+        assert "hashed_password" not in item
 
     def test_admin_cannot_remove_own_admin_privileges(self, client: TestClient, db_session: Any) -> None:
         """Test that admin cannot remove their own admin privileges."""

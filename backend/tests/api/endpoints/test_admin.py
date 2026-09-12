@@ -38,17 +38,20 @@ def create_and_login_user(client: TestClient, db_session: Any, username_suffix: 
     email = f"admin_ep_user_{username_suffix}@example.com"
     password = "testpassword"
 
-    user_data = {"username": username, "email": email, "password": password}
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    if response.status_code != 200:
-        response.raise_for_status()
+    del password, db_session
 
-    if db_session:
-        user = UserRepository().get_by_username(username)
-        if user:
-            UserRepository().update(user.id, email_verified=True)
+    UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            is_admin=False,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
+    )
 
-    return login_user(client, username, password)
+    return login_user(client, username)
 
 
 class TestAdminDeleteAllPartManufacturers:

@@ -5,9 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import useApiRequest from '../../hooks/UseApiRequest';
-import { apiClient } from '../../api/client';
-import type { UserCreate, UserRead } from '../../types/Api';
+import { register } from '../../api/identityAuth';
 
 /** Account registration form. */
 function Register() {
@@ -18,16 +16,8 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
-
-  const registerRequestFn = (payload: UserCreate) =>
-    apiClient.post<UserRead>('/users/', payload);
-
-  const {
-    error: apiError,
-    isLoading,
-    executeRequest: performRegistration,
-    setError: setApiError,
-  } = useApiRequest(registerRequestFn);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -48,19 +38,16 @@ function Register() {
       return;
     }
 
-    const payload: UserCreate = {
-      username: username,
-      email: email,
-      password: password,
-    };
-
+    setIsLoading(true);
     try {
-      const result = await performRegistration(payload);
-      if (result) {
+      const result = await register(username, email, password);
+      if (result.status === 'registered') {
         void navigate('/login');
+      } else {
+        setApiError(result.error);
       }
-    } catch {
-      // Registration failed
+    } finally {
+      setIsLoading(false);
     }
   };
 

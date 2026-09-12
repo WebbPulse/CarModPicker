@@ -4,7 +4,9 @@
  * here rather than a thrown error, and a null client is a refusal to show.
  */
 import { describeAuthError, getAuthErrorCode } from '@webbpulse/auth';
+import { apiClient } from './client';
 import { getIdentityClient } from './identityClient';
+import { getApiErrorMessage } from '../utils/apiError';
 import type { UserRead } from '../types/Api';
 
 /** Shown when the identity client could not be built. One wording, one cause. */
@@ -166,4 +168,78 @@ export const requestPasswordReset = async (
           'If an account with that email exists, a password reset link has been sent.',
       }
     : { ok: false, message: outcome.message };
+};
+
+/** What a registration attempt produced. */
+export type RegisterResult =
+  { status: 'registered' } | { status: 'failed'; error: string };
+
+/**
+ * Registers an account through the identity service, which creates the
+ * credential and, through this product's `create_user` hook, the users-domain
+ * profile row in the same call. `attributes` carries the product fields the
+ * hook reads; `username` is the only one CarModPicker sets.
+ */
+export const register = async (
+  username: string,
+  email: string,
+  password: string
+): Promise<RegisterResult> => {
+  const identity = getIdentityClient();
+  if (identity === null) {
+    return { status: 'failed', error: CLIENT_UNAVAILABLE };
+  }
+  try {
+    await identity.register({ email, password, attributes: { username } });
+    return { status: 'registered' };
+  } catch (error) {
+    return { status: 'failed', error: describeRegistrationFailure(error) };
+  }
+};
+
+/**
+ * Turns a thrown registration error into a sentence for a form. A taken address
+ * is answered identically to a fresh one by design, so it never reaches here.
+ */
+export const describeRegistrationFailure = (error: unknown): string => {
+  switch (getAuthErrorCode(error)) {
+    case 'PASSWORD_TOO_SHORT':
+    case 'PASSWORD_TOO_LONG':
+    case 'PASSWORD_REJECTED':
+    case 'WEAK_PASSWORD':
+      return describeAuthError(error, 'Choose a stronger password.');
+    default:
+      return describeAuthError(
+        error,
+        'Could not create the account. Please try again.'
+      );
+  }
+};
+
+/** What a password change produced. */
+export type PasswordChangeResult =
+  { status: 'changed' } | { status: 'failed'; error: string };
+
+/**
+ * Changes the signed-in account's password through the identity service, which
+ * owns the credential. Posted over `apiClient` rather than `AuthClient`, which
+ * exposes no method for this route; the shared client already carries the
+ * access token and refreshes it, so the subject comes from the verified claims.
+ */
+export const changePassword = async (
+  currentPassword: string,
+  newPassword: string
+): Promise<PasswordChangeResult> => {
+  try {
+    await apiClient.post('/auth/password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+    return { status: 'changed' };
+  } catch (error) {
+    return {
+      status: 'failed',
+      error: getApiErrorMessage(error, 'Failed to change password'),
+    };
+  }
 };

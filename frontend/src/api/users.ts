@@ -7,7 +7,6 @@ import type {
   AdminUserUpdate,
   PaginatedResponse,
   PublicUserRead,
-  UserCreate,
   UserRead,
   UserUpdate,
 } from '../types/Api';
@@ -15,7 +14,6 @@ import type {
 /** User profile, settings, and subscription endpoints. */
 export const usersApi = {
   getMe: () => apiClient.get<UserRead>('/users/me'),
-  createUser: (data: UserCreate) => apiClient.post<UserRead>('/users/', data),
   getUser: (userId: string) =>
     apiClient.get<UserRead | PublicUserRead>(`/users/${userId}`),
   updateUser: (userId: string, data: UserUpdate) =>
