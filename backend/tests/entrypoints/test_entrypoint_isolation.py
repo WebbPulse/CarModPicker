@@ -209,7 +209,7 @@ def _main_calls(domain: str) -> List[str]:
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:
-    """Every entrypoint exposes a main for the process and a handler for Lambda.
+    """Every entrypoint exposes a build_app and the main the process runs.
 
     The wiring helpers are asserted to be called by main and to be the ones
     app.composition.wiring defines, which is the module that owns process-wide
@@ -220,7 +220,6 @@ def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:
     module = __import__(f"app.entrypoints.{ENTRYPOINT_MODULES[domain]}", fromlist=["main"])
     assert callable(module.build_app)
     assert callable(module.main)
-    assert module.handler is not None
 
     called = _main_calls(domain)
     for helper in RUNTIME_WIRING_HELPERS:

@@ -331,7 +331,7 @@ def test_identity_uses_the_web_adapter_request_context() -> None:
     assert client_identity(request) == "203.0.113.7"  # type: ignore[arg-type]
 
 
-def test_identity_falls_back_to_the_mangum_event_scope() -> None:
+def test_identity_falls_back_to_the_aws_event_scope() -> None:
     """The zip runtime is still serving traffic during the migration."""
     request = FakeRequest(scope={"aws.event": {"requestContext": {"http": {"sourceIp": "198.51.100.9"}}}})
     assert client_identity(request) == "198.51.100.9"  # type: ignore[arg-type]
