@@ -566,19 +566,20 @@ class TestM004S02AliasBaseline:
             f"removing a corpus-vote-derived alias."
         )
 
-    def test_s02_marker_comment_present_in_module_source(self) -> None:
-        """The S02 marker string stays in car_inference, because the audit walker locates
-        the additions block by it.
+    def test_s02_slice_is_declared_in_the_corpus_additions_registry(self) -> None:
+        """The S02 slice stays addressable, because the milestone audit locates it by key.
+
+        S02's outcome was a zero-state: the slice derived no alias. The empty
+        list records that, where the marker comment it replaces recorded it only
+        by sitting in the source text.
         """
-        import inspect
+        from app.core.car_inference import CORPUS_DERIVED_ADDITIONS
 
-        from app.core import car_inference
-
-        source = inspect.getsource(car_inference)
-        assert "M004/S02 corpus-derived additions" in source, (
-            "M004/S02 marker comment missing from car_inference.py. T04's CSV walker "
-            "uses this string to locate the additions block."
+        assert "M004/S02" in CORPUS_DERIVED_ADDITIONS, (
+            "M004/S02 missing from CORPUS_DERIVED_ADDITIONS. The milestone audit "
+            "locates a slice's additions by this key."
         )
+        assert CORPUS_DERIVED_ADDITIONS["M004/S02"] == []
 
 
 class TestM004S04AliasBaseline:
@@ -599,16 +600,44 @@ class TestM004S04AliasBaseline:
             f"verify it is not removing a corpus-vote-derived alias."
         )
 
-    def test_s04_marker_comment_present_in_module_source(self) -> None:
-        """The S04 marker string stays in car_inference, because audit walkers anchor on it."""
-        import inspect
+    def test_s04_additions_are_declared_and_merged_into_the_aliases(self) -> None:
+        """The S04 slice is addressable by key and its aliases reach CAR_ALIASES.
 
+        Both halves matter: the registry is the anchor the milestone audit and
+        future S04+ extensions address, and the membership check proves the
+        registry is wired into the table inference actually reads.
+        """
+        from app.core.car_inference import CAR_ALIASES, CORPUS_DERIVED_ADDITIONS
+
+        additions = CORPUS_DERIVED_ADDITIONS["M004/S04"]
+        assert additions, "M004/S04 derived two FL5 aliases; the registry records none"
+        for entry in additions:
+            assert entry in CAR_ALIASES, f"{entry[0]} is declared for S04 but never reaches CAR_ALIASES"
+
+    def test_dropping_a_declared_addition_would_change_inference(self) -> None:
+        """The negative case: the registry is load-bearing, not decorative.
+
+        Inference is re-run over a table with the S04 aliases removed. It must
+        stop resolving FL5, which is what proves the passing assertions above
+        are carried by the registry rather than by a duplicate alias elsewhere.
+        """
         from app.core import car_inference
+        from app.core.car_inference import CAR_ALIASES, CORPUS_DERIVED_ADDITIONS
 
-        source = inspect.getsource(car_inference)
-        assert "M004/S04 corpus-derived additions" in source, (
-            "M004/S04 marker comment missing from car_inference.py. The marker is "
-            "the anchor for milestone-close audit walkers and future S04+ extensions."
+        dropped = set(CORPUS_DERIVED_ADDITIONS["M004/S04"])
+        without = [entry for entry in CAR_ALIASES if entry not in dropped]
+        assert len(without) == len(CAR_ALIASES) - len(dropped)
+
+        original = car_inference.CAR_ALIASES
+        try:
+            car_inference.CAR_ALIASES = without
+            result = infer_car_generations("Skunk2 Mega Power Header — 2023+ Honda Civic Type R", None)
+        finally:
+            car_inference.CAR_ALIASES = original
+
+        assert ("Honda", "Civic Type R", "FL5") not in result, (
+            "FL5 still resolves with the S04 aliases removed, so the tests above "
+            "do not actually prove the registry reaches inference"
         )
 
     def test_fl5_year_range_aliases_resolve_to_civic_type_r(self) -> None:

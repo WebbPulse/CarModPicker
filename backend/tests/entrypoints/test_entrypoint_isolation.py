@@ -5,14 +5,16 @@ Each domain image carries only its own domain and builds with no credentials.
 
 from __future__ import annotations
 
+import ast
 import json
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pytest
 
+from app.composition import wiring
 from app.composition.domains import DOMAIN_NAMES, ENTRYPOINT_MODULES
 
 BACKEND = Path(__file__).resolve().parents[2]
@@ -178,16 +180,54 @@ def test_no_entrypoint_imports_the_monolith_composition_root() -> None:
         assert "from ..main" not in source
 
 
+RUNTIME_WIRING_HELPERS = ("configure_logging", "configure_tracing", "check_signing_key")
+
+
+def _main_calls(domain: str) -> List[str]:
+    """The names called inside an entrypoint's main, read off the syntax tree.
+
+    Parsed rather than executed because main binds a port, and parsed rather
+    than matched as text so a mention in a docstring or a comment cannot
+    satisfy the assertion.
+    """
+    tree = ast.parse((BACKEND / "app" / "entrypoints" / f"{ENTRYPOINT_MODULES[domain]}.py").read_text())
+    main = next(
+        (node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"),
+        None,
+    )
+    assert main is not None, f"{domain} entrypoint has no main()"
+    called: List[str] = []
+    for node in ast.walk(main):
+        if isinstance(node, ast.Call):
+            function = node.func
+            if isinstance(function, ast.Name):
+                called.append(function.id)
+            elif isinstance(function, ast.Attribute):
+                called.append(function.attr)
+    return called
+
+
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:
     """Every entrypoint exposes a main for the process and a handler for Lambda.
 
-    Read from the source tree, since calling main would bind a port.
+    The wiring helpers are asserted to be called by main and to be the ones
+    app.composition.wiring defines, which is the module that owns process-wide
+    logging, tracing and the signing key check. Sentry initialisation is
+    asserted absent by test_otel_wiring.py, since these functions report
+    through OpenTelemetry.
     """
     module = __import__(f"app.entrypoints.{ENTRYPOINT_MODULES[domain]}", fromlist=["main"])
     assert callable(module.build_app)
     assert callable(module.main)
     assert module.handler is not None
-    source = Path(module.__file__).read_text()
-    for helper in ("configure_logging", "init_sentry", "check_signing_key"):
-        assert helper in source, f"{domain} entrypoint does not call {helper}"
+
+    called = _main_calls(domain)
+    for helper in RUNTIME_WIRING_HELPERS:
+        assert helper in called, f"{domain} entrypoint's main does not call {helper}"
+        bound = getattr(module, helper, None)
+        assert bound is not None, f"{domain} entrypoint does not import {helper}"
+        assert bound is getattr(wiring, helper), (
+            f"{domain} entrypoint's {helper} is not the one app.composition.wiring defines, "
+            "so the wiring it configures process-wide is not the wiring the app builds with"
+        )

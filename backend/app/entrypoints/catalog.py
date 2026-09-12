@@ -39,7 +39,6 @@ def main() -> None:
     configure_logging(service=DOMAIN.service_name)
     configure_tracing(DOMAIN)
     check_signing_key([DOMAIN])
-    # No init_sentry here: these functions report through OpenTelemetry.
     run_uvicorn(build_app())
 
 

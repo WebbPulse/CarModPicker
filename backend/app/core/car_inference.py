@@ -2320,11 +2320,23 @@ CAR_ALIASES: list[tuple[str, str, str, str]] = [
     ("subaru outback bm / br", "Subaru", "Outback XT", "BM/BR"),
     ("05-09 subaru outback", "Subaru", "Outback XT", "BL/BP"),
     ("10-14 subaru outback", "Subaru", "Outback XT", "BM/BR"),
-    # --- M004/S02 corpus-derived additions ---
-    # --- M004/S04 corpus-derived additions ---
-    ("2023+ honda civic type r", "Honda", "Civic Type R", "FL5"),
-    ("2023+ civic type r", "Honda", "Civic Type R", "FL5"),
 ]
+
+CORPUS_DERIVED_ADDITIONS: dict[str, list[tuple[str, str, str, str]]] = {
+    "M004/S02": [],
+    "M004/S04": [
+        ("2023+ honda civic type r", "Honda", "Civic Type R", "FL5"),
+        ("2023+ civic type r", "Honda", "Civic Type R", "FL5"),
+    ],
+}
+"""Aliases added from corpus-vote analysis, keyed by the slice that derived them.
+
+A dict rather than a marker comment so the milestone audit can locate a slice's
+additions by key, and so an empty slice stays visible after a comment sweep.
+"""
+
+for _slice_additions in CORPUS_DERIVED_ADDITIONS.values():
+    CAR_ALIASES.extend(_slice_additions)
 
 _SHORT_PHRASE_MAX_LEN = 8
 
