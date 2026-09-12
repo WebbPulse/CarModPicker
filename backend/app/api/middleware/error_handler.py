@@ -4,6 +4,8 @@ Every error response in this API is the org standard envelope::
 {"success": false, "status": 404, "message": "...", "request_id": "...",
 """
 
+from typing import Any
+
 from fastapi import FastAPI, status
 from webbpulse.http import ErrorSpec
 
@@ -24,24 +26,41 @@ DYNAMO_EXCEPTION_MAP: dict[type[BaseException], int | ErrorSpec] = {
 }
 
 
-def register_error_handlers(app: FastAPI) -> None:
-    """Install the shared envelope handlers plus CarModPicker's DynamoDB ones.
+def error_handler_options() -> dict[str, Any]:
+    """CarModPicker's error handler arguments, shared by `create_app` and the suite.
 
     `error_codes=True` keeps the `error_code` key every existing client and test
-    reads. `validation_details=True` keeps the 422 `details` list. A route that
+    reads. `validation_details=True` keeps the 422 `details` list. `error_envelope`
+    is deliberately unset: the exact-body tests pin the current shape.
     """
     from webbpulse.http import DynamoDBErrorHandlerOptions
-    from webbpulse.http import register_error_handlers as register_shared_handlers
 
-    register_shared_handlers(
-        app,
-        error_codes=True,
-        validation_details=True,
-        dynamodb=True,
-        dynamodb_errors=DynamoDBErrorHandlerOptions(
+    return {
+        "error_codes": True,
+        "validation_details": True,
+        "dynamodb_handlers": True,
+        "dynamodb_error_handlers": DynamoDBErrorHandlerOptions(
             not_found_message=NOT_FOUND_MESSAGE,
             conflict_message=CONFLICT_MESSAGE,
             internal_error_message=INTERNAL_ERROR_MESSAGE,
         ),
-        exception_map=DYNAMO_EXCEPTION_MAP,
+        "exception_map": DYNAMO_EXCEPTION_MAP,
+    }
+
+
+def register_error_handlers(app: FastAPI) -> None:
+    """Install the shared envelope handlers plus CarModPicker's DynamoDB ones.
+
+    The standalone path, for an app not built through `create_app`.
+    """
+    from webbpulse.http import register_error_handlers as register_shared_handlers
+
+    options = error_handler_options()
+    register_shared_handlers(
+        app,
+        error_codes=options["error_codes"],
+        validation_details=options["validation_details"],
+        dynamodb=options["dynamodb_handlers"],
+        dynamodb_errors=options["dynamodb_error_handlers"],
+        exception_map=options["exception_map"],
     )

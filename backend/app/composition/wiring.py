@@ -13,8 +13,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, Iterable, Sequence, Tuple
 
 from fastapi import FastAPI, Query, Response
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from webbpulse.http import DEFAULT_CORS_ALLOW_HEADERS
 
 from app.core.config import settings
 
@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 API_PREFIX = settings.API_STR
 
 SERVICE_NAME_TEMPLATE = "carmodpicker-{domain}"
+
+OPENAPI_VERSION = "0.1.0"
+"""Pinned so `create_app` publishes the version the OpenAPI snapshot records."""
 
 
 @dataclass(frozen=True)
@@ -76,8 +79,6 @@ def configure_logging(service: "str | None" = None) -> None:
 
 OTLP_ENDPOINT_ENV = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
 
-_TRACING_CONFIGURED = False
-
 
 def configure_tracing(domain: "Domain") -> bool:
     """Wire OpenTelemetry for one domain, but only when an OTLP endpoint is set.
@@ -85,7 +86,6 @@ def configure_tracing(domain: "Domain") -> bool:
     The gate is deliberate: without it the package would default to the X-Ray
     endpoint and every process would retry a 403 in silence.
     """
-    global _TRACING_CONFIGURED
     import os
 
     if not os.environ.get(OTLP_ENDPOINT_ENV, "").strip():
@@ -98,13 +98,11 @@ def configure_tracing(domain: "Domain") -> bool:
     from webbpulse.otel import configure_tracing as _configure_tracing
     from webbpulse.otel import resolve_sample_ratio
 
-    configured = _configure_tracing(
+    return _configure_tracing(
         domain.service_name,
         environment=settings.environment,
         sample_ratio=resolve_sample_ratio(),
     )
-    _TRACING_CONFIGURED = _TRACING_CONFIGURED or configured
-    return configured
 
 
 def check_signing_key(domains: "Iterable[Domain]") -> None:
@@ -157,36 +155,23 @@ def run_startup_tasks() -> None:
         logger.exception("Failed to initialize car generations on startup")
 
 
+CORS_ALLOW_HEADERS: Tuple[str, ...] = (
+    *DEFAULT_CORS_ALLOW_HEADERS,
+    "X-Requested-With",
+    "X-Admin-Cron-Key",
+)
+"""The package default set, plus the two headers `terraform/apigateway.tf` also allows."""
+
+
 def add_shared_middleware(app: FastAPI) -> None:
-    """CORS, request context, rate limiting and the error handlers, for both roots.
+    """Rate limiting, added inside the CORS and request id `create_app` installed.
 
     The order is load-bearing: Starlette runs middleware outermost-first in the
-    order added, so CORS wraps request context which wraps the rate limiter.
+    order added, so CORS wraps the request id middleware which wraps the rate limiter.
     """
-    from app.api.middleware import rate_limit_middleware, request_context_middleware
-    from app.api.middleware.error_handler import register_error_handlers
+    from app.api.middleware import rate_limit_middleware
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.allowed_origins_list,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allow_headers=[
-            "Content-Type",
-            "Authorization",
-            "Accept",
-            "Origin",
-            "X-Requested-With",
-            "X-Admin-Cron-Key",
-            "X-Request-Id",
-            "X-Retry-Attempt",
-        ],
-        expose_headers=["*"],
-    )
-
-    app.middleware("http")(request_context_middleware)
     app.middleware("http")(rate_limit_middleware)
-    register_error_handlers(app)
 
 
 _SITEMAP_CACHE = "public, max-age=3600"
@@ -302,11 +287,22 @@ def build_domain_app(
             (startup_tasks or run_startup_tasks)()
         yield
 
-    app = FastAPI(
+    from webbpulse.http import create_app
+
+    from app.api.middleware.error_handler import error_handler_options
+
+    app = create_app(
         title=title if title is not None else settings.PROJECT_NAME,
+        version=OPENAPI_VERSION,
+        service_name=resolved[0].service_name if len(resolved) == 1 else settings.PROJECT_NAME,
+        cors_allow_origins=settings.allowed_origins_list,
+        cors_allow_headers=CORS_ALLOW_HEADERS,
+        include_health=False,
+        instrument=False,
         openapi_url=f"{settings.API_STR}/openapi.json",
         debug=settings.DEBUG,
         lifespan=lifespan,
+        **error_handler_options(),
         **{k: v for domain in resolved for k, v in domain.extra.items()},
     )
 
@@ -334,11 +330,8 @@ def build_domain_app(
     if include_root_routes:
         add_root_routes(app)
 
-    from webbpulse.otel import is_tracing_enabled
+    from webbpulse.otel import instrument_fastapi
 
-    if _TRACING_CONFIGURED and is_tracing_enabled():
-        from webbpulse.otel import instrument_fastapi
-
-        instrument_fastapi(app)
+    instrument_fastapi(app)
 
     return app
