@@ -310,6 +310,8 @@ def add_shared_middleware(app: FastAPI) -> None:
             "Origin",
             "X-Requested-With",
             "X-Admin-Cron-Key",
+            "X-Request-Id",
+            "X-Retry-Attempt",
         ],
         expose_headers=["*"],
     )
