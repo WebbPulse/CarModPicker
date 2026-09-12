@@ -42,9 +42,4 @@ def build_app(startup_tasks: Optional[Callable[[], None]] = None) -> "FastAPI":
 
 configure_logging()
 
-from app.core.sentry import init_sentry  # noqa: E402
-
-init_sentry(server_name="apprunner-backend")
-
-
 app = build_app()

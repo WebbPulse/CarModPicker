@@ -35,7 +35,6 @@ scripts/
 README.md
 
 pytest.ini
-mypy.ini
 pyproject.toml
 pyrightconfig.json
 runtime.txt

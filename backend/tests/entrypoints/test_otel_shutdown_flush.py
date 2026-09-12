@@ -1,11 +1,11 @@
 """The shutdown span flush webbpulse 0.22.0 installs is reachable on a built domain app.
 
-CMP instruments conditionally inside `build_domain_app` rather than through
-`webbpulse.http.create_app`, so the wrapper's reachability is a property of this
-repo's own ordering: the lifespan has to be attached before `instrument_fastapi`
-runs, and the middleware stack has to still be unbuilt. Driving a real ASGI
-lifespan shutdown is what proves it, since a wrapper attached to the wrong object
-still looks attached.
+CMP builds through `webbpulse.http.create_app` with `instrument=False` and calls
+`instrument_fastapi` itself last, so the wrapper's reachability is a property of
+this repo's own ordering: the lifespan has to be attached before
+`instrument_fastapi` runs, and the middleware stack has to still be unbuilt.
+Driving a real ASGI lifespan shutdown is what proves it, since a wrapper attached
+to the wrong object still looks attached.
 """
 
 from __future__ import annotations
@@ -27,7 +27,6 @@ def tracing_configured(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv(wiring.OTLP_ENDPOINT_ENV, OTLP_ENDPOINT)
     monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
     monkeypatch.delenv("WEBBPULSE_OTEL_DISABLED", raising=False)
-    monkeypatch.setattr(wiring, "_TRACING_CONFIGURED", True)
     yield
 
 
@@ -83,7 +82,7 @@ def test_lifespan_shutdown_flushes_tracing_once(tracing_configured: None, monkey
 
 
 def test_an_uninstrumented_app_does_not_flush(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With tracing unconfigured the builder leaves the lifespan alone."""
+    """With tracing disabled the builder leaves the lifespan alone."""
     from webbpulse import otel
 
     calls: list[int | None] = []
@@ -92,7 +91,7 @@ def test_an_uninstrumented_app_does_not_flush(monkeypatch: pytest.MonkeyPatch) -
         "shutdown_tracing",
         lambda timeout_millis=None: calls.append(timeout_millis),
     )
-    monkeypatch.setattr(wiring, "_TRACING_CONFIGURED", False)
+    monkeypatch.setenv("WEBBPULSE_OTEL_DISABLED", "true")
 
     app = _build()
     assert not app.router.lifespan_context.__qualname__.startswith("_wrap_lifespan_with_shutdown_flush")

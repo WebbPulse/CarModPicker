@@ -77,23 +77,10 @@ variable "email_from" {
   nullable    = true
 }
 
-variable "sentry_dsn" {
-  description = "Sentry DSN for backend error reporting. Empty = Sentry disabled (env-gate handles gracefully). Populated out-of-band via `aws secretsmanager put-secret-value` per D-55."
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 variable "extension_api_key" {
   description = "Shared secret the batch price-history route accepts in the X-API-Key header, for the Chrome extension and ingestion jobs. Empty = API-key auth disabled and only an admin bearer token is accepted. Set as a sensitive variable on each HCP workspace."
   type        = string
   sensitive   = true
-  default     = ""
-}
-
-variable "sentry_release" {
-  description = "Sentry release identifier (typically git commit SHA, set by GitHub Actions per D-02)."
-  type        = string
   default     = ""
 }
 

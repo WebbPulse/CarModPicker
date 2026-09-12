@@ -403,54 +403,6 @@ def caplog_with_context(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFi
     return caplog
 
 
-from sentry_sdk.transport import Transport as _SentryTransport  # noqa: E402
-
-
-class _CapturingTransport(_SentryTransport):
-    """An in-memory Sentry transport collecting envelopes in a shared class level list."""
-
-    events: list = []
-
-    def __init__(self, options=None):
-        """Accept whatever options the SDK passes and keep the shared list."""
-        super().__init__(options)
-        self.__class__.events = []
-
-    def capture_envelope(self, envelope) -> None:
-        """Record one envelope."""
-        self.__class__.events.append(envelope)
-
-    def flush(self, timeout=None, callback=None) -> None:
-        """Flushing is a no-op for the in-memory transport."""
-        pass
-
-    def kill(self) -> None:
-        """Killing is a no-op for the in-memory transport."""
-        pass
-
-
-@pytest.fixture
-def sentry_events(monkeypatch: pytest.MonkeyPatch):
-    """Yield the list Sentry envelopes are appended to, closing the client on teardown."""
-    import sentry_sdk
-
-    monkeypatch.setenv("TESTING", "")
-    monkeypatch.setenv("APP_ENVIRONMENT", "staging")
-    monkeypatch.setenv("SENTRY_DSN", "http://key@localhost/1")
-
-    sentry_sdk.init(
-        dsn="http://key@localhost/1",
-        transport=_CapturingTransport,
-        before_send=lambda ev, h: ev,
-    )
-    try:
-        yield _CapturingTransport.events
-    finally:
-        client = sentry_sdk.get_client()
-        if client is not None:
-            client.close()
-
-
 @pytest.fixture
 def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, None]:
     """An in-memory S3 through moto, with the storage service pointed at it."""

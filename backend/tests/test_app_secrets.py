@@ -32,7 +32,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 @pytest.fixture
 def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Clear the secret-backed variables, set fake AWS credentials, and reset the cache."""
-    for name in ("APP_SECRETS_ARN", "SECRET_KEY", "SENTRY_DSN", "NOT_A_SETTING", "ACCESS_TOKEN_EXPIRE_MINUTES"):
+    for name in ("APP_SECRETS_ARN", "SECRET_KEY", "EXTENSION_API_KEY", "NOT_A_SETTING", "ACCESS_TOKEN_EXPIRE_MINUTES"):
         monkeypatch.setenv(name, "")
         monkeypatch.delenv(name)
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-west-2")
@@ -62,20 +62,20 @@ def test_load_app_secrets_populates_env_before_settings_are_built(
     clean_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Loading the secret puts its keys in the environment before settings are constructed."""
-    client, arn = create_app_secret({"SECRET_KEY": "from-secret", "SENTRY_DSN": "https://k@sentry.example/1"})
+    client, arn = create_app_secret({"SECRET_KEY": "from-secret", "EXTENSION_API_KEY": "ext-secret"})
     monkeypatch.setenv("APP_SECRETS_ARN", arn)
     monkeypatch.setenv("DEBUG", "false")
     monkeypatch.setenv("APP_ENVIRONMENT", "staging")
 
     applied = load_app_secrets(client=client)
 
-    assert applied == {"SECRET_KEY": "from-secret", "SENTRY_DSN": "https://k@sentry.example/1"}
+    assert applied == {"SECRET_KEY": "from-secret", "EXTENSION_API_KEY": "ext-secret"}
     assert os.environ["SECRET_KEY"] == "from-secret"
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         built = Settings()
     assert built.SECRET_KEY == "from-secret"
-    assert built.SENTRY_DSN == "https://k@sentry.example/1"
+    assert built.EXTENSION_API_KEY == "ext-secret"
     assert not [w for w in caught if "SECRET_KEY is empty" in str(w.message)]
 
 
@@ -115,7 +115,7 @@ def test_config_module_overlays_secrets_before_constructing_settings(
     clean_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The config module overlays secret values before it constructs Settings."""
-    _, arn = create_app_secret({"SECRET_KEY": "from-secret", "SENTRY_DSN": ""})
+    _, arn = create_app_secret({"SECRET_KEY": "from-secret", "EXTENSION_API_KEY": ""})
     monkeypatch.setenv("APP_SECRETS_ARN", arn)
     monkeypatch.setenv("DEBUG", "false")
     monkeypatch.setenv("APP_ENVIRONMENT", "staging")
@@ -125,7 +125,7 @@ def test_config_module_overlays_secrets_before_constructing_settings(
         fresh = import_fresh_config()
 
     assert fresh.settings.SECRET_KEY == "from-secret"
-    assert fresh.settings.SENTRY_DSN == ""
+    assert fresh.settings.EXTENSION_API_KEY == ""
     assert not [w for w in caught if "SECRET_KEY is empty" in str(w.message)]
 
 
@@ -201,17 +201,17 @@ def test_env_var_wins_over_the_secret(clean_env: None, monkeypatch: pytest.Monke
 @mock_aws
 def test_apply_app_secrets_sets_env_and_settings(clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Applying the secret sets both the settings fields and the environment."""
-    client, arn = create_app_secret({"SECRET_KEY": "from-secret", "SENTRY_DSN": "https://k@sentry.example/1"})
+    client, arn = create_app_secret({"SECRET_KEY": "from-secret", "EXTENSION_API_KEY": "ext-secret"})
     monkeypatch.setenv("APP_SECRETS_ARN", arn)
 
-    settings = Settings(SECRET_KEY="", SENTRY_DSN="")
+    settings = Settings(SECRET_KEY="", EXTENSION_API_KEY="")
     applied = apply_app_secrets(settings, client=client)
 
-    assert applied == {"SECRET_KEY": "from-secret", "SENTRY_DSN": "https://k@sentry.example/1"}
+    assert applied == {"SECRET_KEY": "from-secret", "EXTENSION_API_KEY": "ext-secret"}
     assert settings.SECRET_KEY == "from-secret"
-    assert settings.SENTRY_DSN == "https://k@sentry.example/1"
+    assert settings.EXTENSION_API_KEY == "ext-secret"
     assert os.environ["SECRET_KEY"] == "from-secret"
-    assert os.environ["SENTRY_DSN"] == "https://k@sentry.example/1"
+    assert os.environ["EXTENSION_API_KEY"] == "ext-secret"
 
 
 @mock_aws
@@ -248,7 +248,7 @@ def test_config_imports_with_no_aws_credentials_present(monkeypatch: pytest.Monk
         "AWS_DEFAULT_REGION",
         "AWS_REGION",
         "SECRET_KEY",
-        "SENTRY_DSN",
+        "EXTENSION_API_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("APP_SECRETS_ARN", MISSING_SECRET_ARN)
@@ -344,9 +344,7 @@ def test_first_read_fetches_once_and_later_reads_do_not(
     clean_env: None, monkeypatch: pytest.MonkeyPatch, counting_client
 ) -> None:
     """The blob is fetched once per execution environment however many fields are read."""
-    client = counting_client(
-        {"SECRET_KEY": "from-secret", "SENTRY_DSN": "https://k@sentry.example/1", "EXTENSION_API_KEY": "ext-key"}
-    )
+    client = counting_client({"SECRET_KEY": "from-secret", "EXTENSION_API_KEY": "ext-key"})
     monkeypatch.setenv("APP_SECRETS_ARN", "arn:aws:secretsmanager:us-west-2:123456789012:secret:cmp/app-AbCdEf")
 
     settings = Settings()
@@ -356,7 +354,6 @@ def test_first_read_fetches_once_and_later_reads_do_not(
     assert client.calls == 1
 
     assert settings.SECRET_KEY == "from-secret"
-    assert settings.SENTRY_DSN == "https://k@sentry.example/1"
     assert settings.EXTENSION_API_KEY == "ext-key"
     assert Settings().SECRET_KEY == "from-secret"
     assert client.calls == 1

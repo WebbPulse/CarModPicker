@@ -124,7 +124,6 @@ Browser / Chrome Extension
 - **`api/middleware/`** — Rate limiting + content-length guard + error handlers.
 - **`api/utils/`** — Shared patterns: `BaseDynamoEndpointRouter` (generic CRUD router over `BaseDynamoCRUDService`), `EndpointRegistry` (standardized router registration), pagination, authorization, subscription checks.
 - **`core/`** — Config, logging, email templates (React Email HTML, sent via SES), car/category seed data.
-- **`backend/app/core/sentry.py`** — Sentry SDK 2.x init helper. Env-gated (TESTING+APP_ENVIRONMENT+DSN). Scope processor reads request_id/user_id from log_context ContextVars.
 
 **Auth:** JWT (HS256, configurable expiry 15 min–7 days per user preference) + bcrypt passwords + optional TOTP 2FA. Requires email verification before login is allowed. Email sent via AWS SES with IAM role auth.
 

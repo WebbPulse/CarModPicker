@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react';
 import React, { Component, type ReactNode } from 'react';
 
 interface Props {
@@ -12,8 +11,8 @@ interface State {
 }
 
 /**
- * The app-root error boundary: renders a styled fallback and reports the error
- * to Sentry via captureException.
+ * The app-root error boundary: renders a styled fallback and logs the error
+ * with its component stack.
  */
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -27,9 +26,6 @@ class ErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    Sentry.captureException(error, {
-      extra: { componentStack: errorInfo.componentStack },
-    });
   }
 
   override render() {

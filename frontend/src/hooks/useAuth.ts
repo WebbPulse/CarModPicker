@@ -1,12 +1,11 @@
 /**
  * Accessor for the session that fails loudly outside its provider. A thin
- * wrapper over `useAuth` from `@webbpulse/auth/react`, adding the three pieces
- * that package does not own: the Sentry user effect, the `UserRead` typing of
- * the user object, and a logout that returns to the home page.
+ * wrapper over `useAuth` from `@webbpulse/auth/react`, adding the two pieces
+ * that package does not own: the `UserRead` typing of the user object, and a
+ * logout that returns to the home page.
  */
 
-import * as Sentry from '@sentry/react';
-import { useContext, useEffect } from 'react';
+import { useContext } from 'react';
 import { useAuth as usePackageAuth } from '@webbpulse/auth/react';
 import { AuthExtrasContext } from '../contexts/AuthContextDefinition';
 import type { AuthContextType } from '../contexts/AuthContextDefinition';
@@ -20,10 +19,6 @@ export const useAuth = (): AuthContextType => {
   }
   const { isAuthenticated, isLoading, user } = usePackageAuth<UserRead>();
   const { login, logout, checkAuthStatus } = extras;
-
-  useEffect(() => {
-    Sentry.setUser(user ? { id: String(user.id) } : null);
-  }, [user]);
 
   return { isAuthenticated, user, isLoading, login, logout, checkAuthStatus };
 };
