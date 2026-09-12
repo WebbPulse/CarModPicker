@@ -162,6 +162,7 @@ locals {
         require_identity_jwt = var.domain_jwt_enforced
       }
     }
+    if contains(local.routed_lambda_domains, domain)
   ]...)
 
   domain_anonymous_guard_route_keys = {
