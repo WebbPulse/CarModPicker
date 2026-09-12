@@ -73,9 +73,6 @@ test-root = "tests"
 identity = [
     "tests/auth",
     "tests/dependencies",
-    "tests/api/endpoints/test_auth.py",
-    "tests/api/endpoints/test_webauthn.py",
-    "tests/api/endpoints/test_google_oauth.py",
     "tests/utils/test_google_oauth_nonce.py",
     "tests/test_identity_row5.py",
     "tests/test_identity_row9.py",

@@ -10,13 +10,12 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 from uuid6 import uuid7
 
-from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
 from app.db.dynamo.build_logs import BuildLog, BuildLogPost, BuildLogPostRepository, BuildLogRepository
 from app.db.dynamo.catalog import Category, Part, PartManufacturer, PartRepository
 from app.db.dynamo.moderation import Report, ReportRepository, Vote, VoteRepository
 from app.db.dynamo.users import User, UserRepository
-from tests.conftest import create_car_in_db, login_user
+from tests.conftest import auth_headers, create_car_in_db, login_user
 
 
 def _unique(base: str) -> str:
@@ -26,8 +25,7 @@ def _unique(base: str) -> str:
 
 
 def _headers(token: str) -> dict[str, str]:
-    """Build the bearer authorization header for a token."""
-    return {"Authorization": f"Bearer {token}"}
+    return auth_headers(token)
 
 
 def _tombstone_part(part_id: UUID) -> None:
@@ -231,7 +229,6 @@ class TestSearchExcludesTombstonedRows:
             User(
                 username=username,
                 email=f"{username}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
             )
         )
@@ -271,7 +268,6 @@ class TestBuildLogsDropsTombstonedAuthors:
             User(
                 username=_unique("author"),
                 email=f"{_unique('author')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
             )
         )
@@ -311,7 +307,6 @@ class TestModerationTreatsTombstonesAsAbsent:
             User(
                 username=reporter_name,
                 email=f"{reporter_name}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
             )
         )
@@ -381,7 +376,6 @@ class TestModerationTreatsTombstonesAsAbsent:
             User(
                 username=_unique("reporter"),
                 email=f"{_unique('reporter')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
             )
         )

@@ -36,19 +36,6 @@ describe('usersApi — CRUD', () => {
     expect(result.data).toEqual(mockUser);
   });
 
-  it('createUser POSTs /users/ with the UserCreate body', async () => {
-    const body = {
-      username: 'newuser',
-      email: 'new@example.com',
-      password: 'pw12345678',
-    };
-    postMock.mockResolvedValueOnce({ data: mockUser });
-
-    await usersApi.createUser(body);
-
-    expect(postMock).toHaveBeenCalledWith('/users/', body);
-  });
-
   it('getUser GETs /users/:id', async () => {
     getMock.mockResolvedValueOnce({ data: mockUser });
 

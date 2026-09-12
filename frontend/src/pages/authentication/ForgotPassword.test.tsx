@@ -6,8 +6,12 @@ import {
   fireEvent,
   testScenarios,
 } from '../../test/utils/test-utils';
-import { apiClient } from '../../api/client';
+import { requestPasswordReset } from '../../api/identityAuth';
 import ForgotPassword from './ForgotPassword';
+
+vi.mock('../../api/identityAuth', () => ({
+  requestPasswordReset: vi.fn(),
+}));
 
 const submitForm = (email: string) => {
   const emailInput = screen.getByPlaceholderText(/you@example\.com/i);
@@ -34,23 +38,18 @@ describe('ForgotPassword page', () => {
   });
 
   it('submits the email and shows a confirmation message on success', async () => {
-    vi.mocked(apiClient.post).mockResolvedValueOnce({
-      data: { message: 'Email sent' },
+    vi.mocked(requestPasswordReset).mockResolvedValueOnce({
+      ok: true,
+      message:
+        'If an account with that email exists, a password reset link has been sent.',
     });
 
     render(<ForgotPassword />, testScenarios.unauthenticated);
     submitForm('user@example.com');
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalled();
+      expect(requestPasswordReset).toHaveBeenCalledWith('user@example.com');
     });
-    expect(vi.mocked(apiClient.post).mock.calls[0]?.[0]).toBe(
-      '/auth/reset-password'
-    );
-
-    const rawBody: unknown = vi.mocked(apiClient.post).mock.calls[0]?.[1];
-    const body = rawBody as { email: string };
-    expect(body.email).toBe('user@example.com');
 
     await waitFor(() => {
       expect(
@@ -61,7 +60,7 @@ describe('ForgotPassword page', () => {
     });
   });
 
-  it('rejects an empty email without calling the API', async () => {
+  it('rejects an empty email without asking for a mail', async () => {
     render(<ForgotPassword />, testScenarios.unauthenticated);
     submitForm('');
 
@@ -70,6 +69,6 @@ describe('ForgotPassword page', () => {
         screen.getByText(/email address cannot be empty/i)
       ).toBeInTheDocument();
     });
-    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(requestPasswordReset).not.toHaveBeenCalled();
   });
 });

@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from webbpulse.http import ErrorSpec, error_body
 
 from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
+from app.db.dynamo.users import UniqueAttributeTaken
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,11 @@ DYNAMO_EXCEPTION_MAP: dict[type[BaseException], int | ErrorSpec] = {
     ConditionFailed: ErrorSpec(
         status.HTTP_409_CONFLICT,
         message="Resource already exists or was modified concurrently",
+        error_code="CONFLICT",
+    ),
+    UniqueAttributeTaken: ErrorSpec(
+        status.HTTP_409_CONFLICT,
+        message="That username or email is already taken",
         error_code="CONFLICT",
     ),
 }

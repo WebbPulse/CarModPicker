@@ -17,18 +17,8 @@ RouterSpec = Tuple["APIRouter", str, Tuple[str, ...]]
 
 
 def _identity_routers() -> "Sequence[RouterSpec]":
-    """The four auth routers: core, 2FA, WebAuthn and OAuth."""
-    from app.api.endpoints.auth import core as auth_core
-    from app.api.endpoints.auth import oauth as auth_oauth
-    from app.api.endpoints.auth import two_factor as auth_2fa
-    from app.api.endpoints.auth import webauthn as auth_webauthn
-
-    return [
-        (auth_core.router, "/auth", ("authentication",)),
-        (auth_2fa.router, "/auth/2fa", ("authentication",)),
-        (auth_webauthn.router, "/auth/webauthn", ("authentication",)),
-        (auth_oauth.router, "/auth/oauth", ("authentication",)),
-    ]
+    """No routers of its own since row 13. The package's router is all of `/api/auth`."""
+    return []
 
 
 def _users_routers() -> "Sequence[RouterSpec]":
@@ -221,21 +211,18 @@ DOMAINS: Dict[str, Domain] = {
         title="CarModPicker identity",
         load_routers=_identity_routers,
         repositories=_IDENTITY_REPOSITORIES,
-        requires_secrets=("SECRET_KEY",),
     ),
     "users": Domain(
         name="users",
         title="CarModPicker users",
         load_routers=_users_routers,
         repositories=_USERS_REPOSITORIES,
-        requires_secrets=("SECRET_KEY",),
     ),
     "catalog": Domain(
         name="catalog",
         title="CarModPicker catalog",
         load_routers=_catalog_routers,
         repositories=_CATALOG_REPOSITORIES,
-        requires_secrets=("SECRET_KEY",),
     ),
     "vehicles": Domain(
         name="vehicles",
@@ -249,28 +236,24 @@ DOMAINS: Dict[str, Domain] = {
         title="CarModPicker build lists",
         load_routers=_build_lists_routers,
         repositories=_BUILD_LISTS_REPOSITORIES,
-        requires_secrets=("SECRET_KEY",),
     ),
     "build-logs": Domain(
         name="build-logs",
         title="CarModPicker build logs",
         load_routers=_build_logs_routers,
         repositories=_BUILD_LOGS_REPOSITORIES,
-        requires_secrets=("SECRET_KEY",),
     ),
     "moderation": Domain(
         name="moderation",
         title="CarModPicker moderation",
         load_routers=_moderation_routers,
         repositories=_MODERATION_REPOSITORIES,
-        requires_secrets=("SECRET_KEY",),
     ),
     "media": Domain(
         name="media",
         title="CarModPicker media",
         load_routers=_media_routers,
         repositories=_MEDIA_REPOSITORIES,
-        requires_secrets=("SECRET_KEY",),
     ),
     "admin": Domain(
         name="admin",

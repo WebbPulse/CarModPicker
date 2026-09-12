@@ -1,7 +1,7 @@
 """The build-lists domain's entrypoint, run as `python -m app.entrypoints.build_lists`.
 
 Build lists and their parts, phases and labor estimates: 34 routes.
-Needs `SECRET_KEY`.
+Verifies identity access tokens, so it needs no application secret.
 """
 
 from typing import TYPE_CHECKING

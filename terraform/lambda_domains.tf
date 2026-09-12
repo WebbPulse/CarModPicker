@@ -2,7 +2,7 @@
 locals {
   lambda_domains_declared = {
     media = {
-      secrets        = true
+      secrets        = false
       s3             = true
       s3_delete_only = false
       ses            = false
@@ -11,7 +11,7 @@ locals {
       read_tables    = ["users", "car_generations", "parts", "build_lists"]
     }
     build-logs = {
-      secrets        = true
+      secrets        = false
       s3             = false
       s3_delete_only = false
       ses            = false
@@ -20,7 +20,7 @@ locals {
       read_tables    = ["users", "build_lists", "build_logs"]
     }
     moderation = {
-      secrets        = true
+      secrets        = false
       s3             = false
       s3_delete_only = false
       ses            = false
@@ -77,7 +77,7 @@ locals {
       ]
     }
     build-lists = {
-      secrets        = true
+      secrets        = false
       s3             = true
       s3_delete_only = true
       ses            = false
@@ -140,7 +140,7 @@ locals {
       ]
     }
     users = {
-      secrets        = true
+      secrets        = false
       s3             = true
       s3_delete_only = false
       ses            = false

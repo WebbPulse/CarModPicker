@@ -1,6 +1,51 @@
 """Tests for resolving a caller from the authorizer's claims, where sub is the user id.
 
-Covers both authorizer shapes, the unchanged legacy session, and the id lookup.
+Row 11 of `docs/identity-adoption.md`. Rows 8 and 9 put the identity access
+token in front of fifteen `/api/auth` route keys at the gateway; this row is
+where `app/api/dependencies/auth.py` turns a verified token into a `DBUser`.
+Row 11 did that alongside the legacy HS256 session rather than instead of it;
+row 13 deleted the legacy branch, so the identity claims are the only path a
+resolver takes now.
+
+## What is worth testing here
+
+Three properties, and each one fails loudly if the code it covers is deleted.
+
+1. **The legacy session is gone.** Row 12 was the cutover and row 13 retired the
+   legacy flow. Through row 12 this file asserted the opposite, that a dual-mode
+   change had not quietly regressed the shipped path, and those assertions were
+   deliberate restatements of behaviour that was already true. Row 13 inverted
+   the one that named the HS256 session: what it protects now is that no
+   resolver takes an `Authorization: Bearer` HS256 token as proof of a session,
+   which is the property that makes deleting `SECRET_KEY` from the identity
+   domain safe.
+2. **Both authorizer shapes resolve, and to the same user.** Production's native
+   JWT authorizer puts claims at `authorizer.jwt.claims`; the staging access gate
+   publishes one JSON string at `authorizer.lambda["jwt.claims"]`. The whole
+   point of row 11's reader is that a caller sees one answer either way, so the
+   two shapes are driven through the same request and compared.
+3. **`sub` is the user id and not the username.** This is the mapping the row
+   turns on and it is the one thing that would be silently wrong if it were
+   guessed: the legacy session's `sub` is a **username**, the identity token's
+   `sub` is a **uuid7 user id**, and a reader that tried the wrong lookup would
+   still find a user on a system where someone's username happens to parse.
+
+## What is deliberately not tested
+
+**Not the signature.** Whether an RS256 token verifies is `webbpulse.identity`'s
+own test, and on a flagged route key the gateway has already checked it before
+this application runs. What is tested here is that a claim set reaches the
+resolver and that a user id comes out.
+
+**Not the gateway.** Which route keys are flagged is `terraform/apigateway.tf`
+and the staging access gate module's own tests. This file starts from the event
+those produce.
+
+**Not in-process verification on a domain function.** `verify_bearer_subject`
+answers `""` without `IDENTITY_SIGNING_KEY_ARNS` and a `kms:GetPublicKey` grant,
+which no domain but `identity` has. That is asserted as the deployment fact it
+is, rather than mocked into passing, because mocking it would test a
+configuration this estate does not have.
 """
 
 from __future__ import annotations
@@ -197,13 +242,78 @@ def _dual_mode_app() -> FastAPI:
     return app
 
 
-def test_the_legacy_session_still_resolves(identity_user: User, dynamo_tables: Any) -> None:
-    """The legacy HS256 session still resolves unchanged."""
+@pytest.fixture
+def legacy_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A non-empty `SECRET_KEY`, so an HS256 token can be minted at all.
+
+    The test environment leaves it empty, which row 13 made the normal state:
+    nothing in the identity domain signs with it any more. The two tests below
+    have to mint a legacy token in order to assert it is refused, and `PyJWT`
+    raises `InvalidKeyError` on an empty HMAC key before the resolver is ever
+    reached. Set here rather than in `conftest.py` so that the emptiness stays
+    the default everywhere else.
+
+    `SECRET_KEY` is a read-only property that resolves `SECRET_KEY_SETTING`
+    through the secrets loader, so the backing field is what is patched. Same
+    approach as `tests/consumers/test_price_alerts_consumer.py`.
+    """
+    from app.core.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "SECRET_KEY_SETTING", "test-signing-key-not-a-real-one")
+
+
+def test_the_legacy_session_no_longer_resolves(identity_user: User, dynamo_tables: Any, legacy_secret: None) -> None:
+    """An HS256 token with a username in `sub` is nobody, which is row 13's point.
+
+    Through row 12 this asserted the opposite: `POST /api/auth/token` minted
+    exactly this token and the resolver had to keep accepting it, and if the
+    identity branch had swallowed that path this was the test that failed.
+
+    Row 13 deleted the route that minted it and the branch that read it. The
+    token still verifies as a signature, because `create_access_token` survives
+    for the price alert unsubscribe link, so this is not a test that the secret
+    is gone. It is a test that a validly signed HS256 token is no longer a
+    session: the resolver reads identity claims and nothing else, so a caller
+    presenting one resolves to nobody rather than to `identity_user`.
+
+    The distinction matters because the unsubscribe token is minted with the
+    same key and would otherwise be a bearer token for whichever user its `sub`
+    happened to name.
+    """
     client = TestClient(_dual_mode_app())
     token = create_access_token({"sub": identity_user.username})
+
     response = client.get("/whoami", headers={"Authorization": f"Bearer {token}"})
-    assert response.status_code == 200
-    assert response.json()["id"] == str(identity_user.id)
+    assert response.status_code == 401
+
+    optional = client.get("/maybe", headers={"Authorization": f"Bearer {token}"})
+    assert optional.status_code == 200
+    assert optional.json()["id"] == ""
+
+
+def test_an_unsubscribe_token_is_not_a_session_for_the_user_it_names(
+    identity_user: User, dynamo_tables: Any, legacy_secret: None
+) -> None:
+    """The concrete form of the risk above, with the real token this key still signs.
+
+    `app/core/email.py` mints a 30 day token whose `sub` is a price alert id and
+    whose purpose is `price_alert_unsubscribe`, and it is the one caller of
+    `create_access_token` that outlived the legacy session. A resolver that
+    still read HS256 would turn every unsubscribe link in every inbox into a
+    bearer token. Pinned with the user's own id in `sub`, which is the worst
+    case: a uuid that does resolve to a row.
+    """
+    client = TestClient(_dual_mode_app())
+    token = create_access_token(
+        {"sub": str(identity_user.id), "purpose": "price_alert_unsubscribe"},
+    )
+
+    response = client.get("/whoami", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
+
+    optional = client.get("/maybe", headers={"Authorization": f"Bearer {token}"})
+    assert optional.status_code == 200
+    assert optional.json()["id"] == ""
 
 
 def test_an_identity_token_resolves_through_the_gate_context(identity_user: User, dynamo_tables: Any) -> None:

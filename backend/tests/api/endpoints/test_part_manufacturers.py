@@ -6,12 +6,11 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
 from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
+from tests.conftest import INVALID_UUID_STR, auth_headers, get_default_category_id, login_user, save_catalog
 
 
 def get_unique_name(base_name: str) -> str:
@@ -33,7 +32,6 @@ def create_and_login_admin_user(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=True,
             is_superuser=False,
             email_verified=True,
@@ -41,54 +39,44 @@ def create_and_login_admin_user(
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login admin: {token_response.text}"
-    token = token_response.json()["access_token"]
+    token = login_user(client, username)
     return admin_user.__dict__, token
 
 
 def create_and_login_user(client: TestClient, username_suffix: str, db_session: Any | None = None) -> tuple[UUID, str]:
-    """Create a user and log them in. Returns (user_id, token).
-    If db_session is provided, verify email in DB so user can create global parts.
+    """Create a user row and log them in. Returns (user_id, token).
+
+    A direct repository write since the users domain follow up deleted
+    `POST /api/users/`. Reuses an existing row so repeat suffixes stay idempotent.
     """
+    del db_session
+
     username = f"part_manufacturer_user_{username_suffix}"
     email = f"part_manufacturer_user_{username_suffix}@example.com"
-    password = "testpassword"
 
-    user_data = {"username": username, "email": email, "password": password}
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    user_id: UUID | None = None
-    if response.status_code == 200:
-        user_id = UUID(response.json()["id"])
-    elif response.status_code == 400 and "already registered" in response.json().get("detail", ""):
-        pass
-    else:
-        response.raise_for_status()
+    users = UserRepository()
+    user = users.get_by_username(username)
+    if user is None:
+        user = users.create_user(
+            DBUser(
+                username=username,
+                email=email,
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
+        )
 
-    if db_session is not None:
-        user = UserRepository().get_by_username(username)
-        if user:
-            UserRepository().update(user.id, email_verified=True)
-
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login user: {token_response.text}"
-    token = token_response.json()["access_token"]
-
-    if user_id is None:
-        headers = {"Authorization": f"Bearer {token}"}
-        me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
-        assert me_response.status_code == 200
-        user_id = UUID(me_response.json()["id"])
-    return user_id, token
+    token = login_user(client, username)
+    return user.id, token
 
 
 def create_part_manufacturer_via_api(
     client: TestClient, token: str, name: str, description: str | None = None
 ) -> dict[str, Any]:
     """Create a part_manufacturer via API and return the response JSON."""
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = auth_headers(token)
     payload = {"name": name, "description": description, "is_active": True}
     response = client.post(f"{settings.API_STR}/part-manufacturers/", json=payload, headers=headers)
     assert response.status_code == 200, f"Failed to create part_manufacturer: {response.text}"
@@ -167,7 +155,7 @@ class TestPartManufacturers:
     def test_create_part_manufacturer_success(self, client: TestClient, db_session: Any) -> None:
         """Test creating a part_manufacturer as authenticated user (non-admin)."""
         _, token = create_and_login_user(client, "create")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
 
         name = get_unique_name("NewPartManufacturer")
         payload = {"name": name, "description": "A new part_manufacturer", "is_active": True}
@@ -205,7 +193,7 @@ class TestPartManufacturers:
         created = create_part_manufacturer_via_api(client, user_token, get_unique_name("ToUpdate"))
 
         _, admin_token = create_and_login_admin_user(client, db_session, "update_admin")
-        headers = {"Authorization": f"Bearer {admin_token}"}
+        headers = auth_headers(admin_token)
 
         update_data = {
             "name": get_unique_name("UpdatedName"),
@@ -227,7 +215,7 @@ class TestPartManufacturers:
         created = create_part_manufacturer_via_api(client, creator_token, get_unique_name("NoUpdate"))
 
         _, other_token = create_and_login_user(client, "update_forbidden_other")
-        headers = {"Authorization": f"Bearer {other_token}"}
+        headers = auth_headers(other_token)
 
         response = client.put(
             f"{settings.API_STR}/part-manufacturers/{created['id']}",
@@ -246,7 +234,7 @@ class TestPartManufacturers:
         curated = save_catalog(curated)
 
         _, token = create_and_login_user(client, "update_curated_forbidden")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.put(
             f"{settings.API_STR}/part-manufacturers/{curated.id}",
             json={"description": "Hacked"},
@@ -257,7 +245,7 @@ class TestPartManufacturers:
     def test_update_part_manufacturer_not_found(self, client: TestClient, db_session: Any) -> None:
         """Test updating a non-existent part_manufacturer."""
         _, token = create_and_login_admin_user(client, db_session, "update_nf")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.put(
             f"{settings.API_STR}/part-manufacturers/{INVALID_UUID_STR}",
             json={"description": "Missing"},
@@ -271,7 +259,7 @@ class TestPartManufacturers:
         created = create_part_manufacturer_via_api(client, user_token, get_unique_name("ToDelete"))
 
         _, admin_token = create_and_login_admin_user(client, db_session, "delete_admin")
-        headers = {"Authorization": f"Bearer {admin_token}"}
+        headers = auth_headers(admin_token)
 
         response = client.delete(f"{settings.API_STR}/part-manufacturers/{created['id']}", headers=headers)
         assert response.status_code == 200
@@ -287,7 +275,7 @@ class TestPartManufacturers:
         created = create_part_manufacturer_via_api(client, creator_token, get_unique_name("NoDelete"))
 
         _, other_token = create_and_login_user(client, "delete_forbidden_other")
-        headers = {"Authorization": f"Bearer {other_token}"}
+        headers = auth_headers(other_token)
 
         response = client.delete(f"{settings.API_STR}/part-manufacturers/{created['id']}", headers=headers)
         assert response.status_code == 403
@@ -295,7 +283,7 @@ class TestPartManufacturers:
     def test_delete_part_manufacturer_not_found(self, client: TestClient, db_session: Any) -> None:
         """Test deleting a non-existent part_manufacturer."""
         _, token = create_and_login_admin_user(client, db_session, "delete_nf")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.delete(f"{settings.API_STR}/part-manufacturers/{INVALID_UUID_STR}", headers=headers)
         assert response.status_code == 404
 
@@ -305,7 +293,7 @@ class TestPartManufacturers:
         created = create_part_manufacturer_via_api(client, user_token, get_unique_name("PartManufacturerWithParts"))
         part_manufacturer_id = created["id"]
         category_id = str(get_default_category_id(db_session))
-        headers = {"Authorization": f"Bearer {user_token}"}
+        headers = auth_headers(user_token)
 
         part_data = {
             "name": get_unique_name("PartForPartManufacturer"),
@@ -317,7 +305,7 @@ class TestPartManufacturers:
         assert part_resp.status_code == 200
 
         _, admin_token = create_and_login_admin_user(client, db_session, "delete_wp_admin")
-        admin_headers = {"Authorization": f"Bearer {admin_token}"}
+        admin_headers = auth_headers(admin_token)
         response = client.delete(f"{settings.API_STR}/part-manufacturers/{part_manufacturer_id}", headers=admin_headers)
         assert response.status_code == 409
         body = response.json()
@@ -330,7 +318,7 @@ class TestPartManufacturers:
         created = create_part_manufacturer_via_api(client, token, get_unique_name("PartManufacturerForParts"))
         part_manufacturer_id = created["id"]
         category_id = str(get_default_category_id(db_session))
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
 
         part_data = {
             "name": get_unique_name("PartInPartManufacturer"),
@@ -353,7 +341,7 @@ class TestPartManufacturers:
         created = create_part_manufacturer_via_api(client, token, get_unique_name("PartManufacturerPag"))
         part_manufacturer_id = created["id"]
         category_id = str(get_default_category_id(db_session))
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
 
         for i in range(3):
             part_data = {
@@ -379,7 +367,7 @@ class TestPartManufacturers:
         created = create_part_manufacturer_via_api(client, token, get_unique_name("PartManufacturerCount"))
         part_manufacturer_id = created["id"]
         category_id = str(get_default_category_id(db_session))
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
 
         response = client.get(f"{settings.API_STR}/part-manufacturers/{part_manufacturer_id}/parts-count")
         assert response.status_code == 200
@@ -488,7 +476,7 @@ class TestPartManufacturers:
                 "category_id": category_id,
                 "part_manufacturer_id": pm["id"],
             },
-            headers={"Authorization": f"Bearer {creator_token}"},
+            headers=auth_headers(creator_token),
         )
         assert part_resp.status_code == 200
 
@@ -505,7 +493,7 @@ class TestPartManufacturers:
         response = client.put(
             f"{settings.API_STR}/part-manufacturers/{created['id']}",
             json={"name": get_unique_name("Renamed"), "description": "Renamed by owner"},
-            headers={"Authorization": f"Bearer {token}"},
+            headers=auth_headers(token),
         )
         assert response.status_code == 403
 

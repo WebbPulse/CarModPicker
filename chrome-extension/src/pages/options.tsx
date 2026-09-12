@@ -10,11 +10,12 @@ type ApiEnvironment = keyof typeof API_URLS;
 
 /**
  * Which sign in the extension uses. A runtime setting rather than a build flag,
- * because the extension ships one artifact to the store.
+ * because the extension ships one artifact to the store. Defaults to identity
+ * since row 13, and the checkbox stays as the lever for older installs.
  */
 type AuthMode = "legacy" | "identity";
 
-const DEFAULT_AUTH_MODE: AuthMode = "legacy";
+const DEFAULT_AUTH_MODE: AuthMode = "identity";
 
 /** Settings page for the API environment, sign in mode and ingestion key. */
 function Options() {
@@ -43,7 +44,7 @@ function Options() {
         if (result["openInNewTab"] !== undefined) {
           setOpenInNewTab(result["openInNewTab"] as boolean);
         }
-        setAuthMode(result["authMode"] === "identity" ? "identity" : "legacy");
+        setAuthMode(result["authMode"] === "legacy" ? "legacy" : "identity");
       },
     );
 
@@ -161,12 +162,13 @@ function Options() {
                   />
                   <div>
                     <div className="text-sm font-medium text-neutral-300">
-                      Use the new sign in
+                      Use the current sign in
                     </div>
                     <div className="text-xs text-neutral-400">
                       Signs in through the CarModPicker website and hands the
-                      result straight back to the extension. Leave this off
-                      unless you have been asked to try it.
+                      result straight back to the extension. Leave this on:
+                      turning it off selects an older sign in that CarModPicker
+                      no longer runs, and it will not be able to sign you in.
                     </div>
                   </div>
                 </label>

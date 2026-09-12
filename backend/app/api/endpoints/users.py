@@ -1,27 +1,21 @@
-"""User account routes: registration, profile reads and updates, and deletion."""
+"""User profile routes: reads, updates and deletion. Passwords live in identity."""
 
 import logging
-import os
 from typing import Any, Dict, Optional, Union
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
 from app.api.dependencies.auth import (
-    create_access_token,
-    get_access_token_expires_delta_for_user,
     get_current_admin_user,
     get_current_user,
     get_optional_current_user,
-    get_password_hash,
-    verify_password,
 )
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.pagination import CursorPage
 from app.api.schemas.user import (
     AdminUserUpdate,
     PublicUserRead,
-    UserCreate,
     UserRead,
     UserUpdate,
 )
@@ -248,42 +242,6 @@ async def list_users(
     return page
 
 
-@router.post(
-    "/",
-    response_model=UserRead,
-    responses=crud_responses("user", "create"),
-)
-async def create_user(
-    user: UserCreate,
-    repos: Repositories = Depends(get_repositories),
-) -> UserRead:
-    """
-    Creates a new user in the database.
-    """
-    if repos.users.get_by_username(user.username):
-        ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
-
-    if repos.users.get_by_email(user.email):
-        ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
-
-    hashed_password = get_password_hash(user.password)
-    email_verified = os.environ.get("TESTING") == "true"
-
-    db_user = DBUser(
-        username=user.username,
-        email=user.email,
-        hashed_password=hashed_password,
-        email_verified=email_verified,
-    )
-
-    try:
-        repos.users.create_user(db_user)
-    except UniqueAttributeTaken as e:
-        _raise_duplicate(e)
-    logger.info(msg=f"User added to database: {db_user.id}")
-    return user_read(db_user, repos)
-
-
 @router.put(
     "/{user_id}",
     response_model=UserRead,
@@ -292,7 +250,6 @@ async def create_user(
 async def update_user(
     user_id: UUID,
     user: UserUpdate,
-    response: Response,
     repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
@@ -307,24 +264,7 @@ async def update_user(
         logger.warning(f"User {current_user.id} attempt to update user {user_id} " f"without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
-    update_data_dict = user.model_dump(exclude_unset=True)
-    password_is_being_changed = "password" in update_data_dict and update_data_dict["password"]
-    current_password_provided = user.current_password is not None
-
-    if password_is_being_changed:
-        if not current_password_provided:
-            ResponsePatterns.raise_bad_request("Current password is required to change your password")
-        assert user.current_password is not None
-        if not verify_password(user.current_password, db_user.hashed_password):
-            logger.warning(f"User {current_user.id} provided incorrect current password for update.")
-            ResponsePatterns.raise_unauthorized("Incorrect current password")
-    elif current_password_provided:
-        assert user.current_password is not None
-        if not verify_password(user.current_password, db_user.hashed_password):
-            logger.warning(f"User {current_user.id} provided incorrect current password for update.")
-            ResponsePatterns.raise_unauthorized("Incorrect current password")
-
-    update_data = user.model_dump(exclude_unset=True, exclude={"current_password", "otp"})
+    update_data = user.model_dump(exclude_unset=True)
     username_changed = False
     session_expire_minutes_changed = False
     changes: dict[str, Any] = {}
@@ -352,10 +292,6 @@ async def update_user(
             changes["session_expire_minutes"] = clamped
         del update_data["session_expire_minutes"]
 
-    if "password" in update_data and update_data["password"]:
-        changes["hashed_password"] = get_password_hash(update_data["password"])
-        del update_data["password"]
-
     for field, value in update_data.items():
         if value is not None:
             changes[field] = value
@@ -364,21 +300,10 @@ async def update_user(
         db_user = repos.users.update_user(user_id, **changes) if changes else db_user
         logger.info(f"User {user_id} updated successfully by user {current_user.id}.")
 
-        if username_changed or session_expire_minutes_changed:
-            if username_changed:
-                logger.info(
-                    f"Username for user {user_id} changed to '{db_user.username}'. "
-                    f"Client should re-authenticate to get new token."
-                )
-            if session_expire_minutes_changed:
-                logger.info(
-                    f"Session expiry preference updated for user {user_id}. "
-                    f"Returning new token with updated expiry."
-                )
-            new_access_token_data = {"sub": db_user.username}
-            expires_delta = get_access_token_expires_delta_for_user(db_user)
-            new_access_token = create_access_token(data=new_access_token_data, expires_delta=expires_delta)
-            response.headers["X-New-Access-Token"] = new_access_token
+        if username_changed:
+            logger.info(f"Username for user {user_id} changed to '{db_user.username}'.")
+        if session_expire_minutes_changed:
+            logger.info(f"Session expiry preference updated for user {user_id}.")
 
     except UniqueAttributeTaken as e:
         logger.warning(f"Duplicate {e.attribute} during user update for user {user_id}")
@@ -469,8 +394,6 @@ async def admin_update_user(
 
     update_data = user_update.model_dump(exclude_unset=True)
 
-    if "password" in update_data:
-        update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
     for key in ("username", "email"):
         if key in update_data and update_data[key] is None:
             del update_data[key]

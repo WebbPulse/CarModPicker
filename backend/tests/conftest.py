@@ -11,6 +11,8 @@ from fastapi.testclient import TestClient
 os.environ["TESTING"] = "true"
 os.environ["ENABLE_RATE_LIMITING"] = "false"
 
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-a-real-one")
+
 INVALID_UUID: UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 INVALID_UUID_STR: str = str(INVALID_UUID)
 
@@ -71,7 +73,6 @@ def test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     user = User(
         username=f"test_user_{os.getpid()}_{id(db_session)}",
         email=f"test_user_{os.getpid()}_{id(db_session)}@example.com",
-        hashed_password=get_password_hash("testpassword"),
         email_verified=True,
         disabled=False,
         is_admin=False,
@@ -86,7 +87,6 @@ def premium_test_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     user = User(
         username=f"premium_user_{os.getpid()}_{id(db_session)}",
         email=f"premium_user_{os.getpid()}_{id(db_session)}@example.com",
-        hashed_password=get_password_hash("testpassword"),
         email_verified=True,
         disabled=False,
         is_admin=False,
@@ -128,7 +128,6 @@ def test_admin_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     user = User(
         username=f"admin_user_{os.getpid()}_{id(db_session)}",
         email=f"admin_user_{os.getpid()}_{id(db_session)}@example.com",
-        hashed_password=get_password_hash("testpassword"),
         email_verified=True,
         disabled=False,
         is_admin=True,
@@ -143,7 +142,6 @@ def test_superuser_user(db_session: TestDatabase, dynamo_tables: Any) -> User:
     user = User(
         username=f"superuser_{os.getpid()}_{id(db_session)}",
         email=f"superuser_{os.getpid()}_{id(db_session)}@example.com",
-        hashed_password=get_password_hash("testpassword"),
         email_verified=True,
         disabled=False,
         is_admin=True,
@@ -201,16 +199,81 @@ def get_default_category_id(db_session: TestDatabase) -> UUID:
     return category.id
 
 
-def login_user(client: TestClient, username: str, password: str = "testpassword") -> str:
-    """Login a user and return the Bearer token for use in Authorization headers."""
-    from app.core.config import settings
+def identity_context(subject: str) -> str:
+    """The `x-amzn-request-context` header an authorizer produces for `subject`.
 
-    login_data = {"username": username, "password": password}
-    response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert response.status_code == 200
-    response_data = response.json()
-    assert "access_token" in response_data
-    return response_data["access_token"]
+    Row 13 of `docs/identity-adoption.md` deleted `POST /api/auth/token`, which
+    is what this suite used to call to get a credential. There is no in-process
+    replacement for it: the package's login is mounted only where the
+    `IDENTITY_*` settings and a KMS signing key exist, and verifying an RS256
+    token in process needs `kms:GetPublicKey`, neither of which a unit test has.
+
+    So the suite authenticates the way production actually delivers a verified
+    credential to this application: as claims an authorizer already checked,
+    flattened into the request context. That is the native shape,
+    `authorizer.jwt.claims`, and `app/api/dependencies/identity_claims.py` reads
+    it through the package's own reader. Every value is a string, `exp`
+    included, because that is what API Gateway puts there; see the fixture note
+    in `tests/test_identity_row11.py`, which this mirrors deliberately rather
+    than duplicating a second shape of the same header.
+    """
+    import json
+
+    claims = {
+        "sub": subject,
+        "iss": "https://api.carmodpicker.test/api/auth",
+        "aud": "carmodpicker-test-api",
+        "typ": "access",
+        "iat": "1788938046",
+        "exp": "1788938646",
+        "jti": "976037a1ea4847da8a633b3338d61f65",
+        "username": "test",
+        "roles": "[]",
+    }
+    return json.dumps({"authorizer": {"jwt": {"claims": claims}}})
+
+
+def auth_headers_for(user_id: Any) -> Dict[str, str]:
+    """Request headers that authenticate as `user_id`.
+
+    The one place the suite builds a credential. `REQUEST_CONTEXT_HEADER` is the
+    header the Lambda Web Adapter sets from the invoke event, and an inbound
+    header of that name never reaches it in a deployment, which is why carrying
+    it here is a test harness rather than a hole: `TestClient` is the adapter's
+    position in this process.
+    """
+    from webbpulse.http import REQUEST_CONTEXT_HEADER
+
+    return {REQUEST_CONTEXT_HEADER: identity_context(str(user_id))}
+
+
+def auth_headers(credential: str) -> Dict[str, str]:
+    """Turn a credential from `login_user` into request headers.
+
+    The counterpart to `login_user`, and the replacement for the
+    `{"Authorization": f"Bearer {token}"}` literal that used to appear at every
+    call site. Written as a function taking the credential rather than the user,
+    so that a test which already holds one from `login_user` does not have to
+    reach back for the user row.
+    """
+    from webbpulse.http import REQUEST_CONTEXT_HEADER
+
+    return {REQUEST_CONTEXT_HEADER: credential}
+
+
+def login_user(client: TestClient, username: str, password: str = "testpassword") -> str:
+    """The credential for `username`, as the value tests put in a header.
+
+    Kept under its old name and old signature so the several hundred call sites
+    that say `login_user(client, user.username)` did not all have to change in
+    the row that deleted the legacy login route. What it returns is no longer a
+    bearer token: it is the `x-amzn-request-context` value for that user, and
+    `auth_headers` below is what turns it into headers. `password` is accepted
+    and ignored, because an identity credential is not minted from one here.
+    """
+    user = UserRepository().get_by_username(username)
+    assert user is not None, f"No such user to authenticate: {username}"
+    return identity_context(str(user.id))
 
 
 def create_and_login_user(
@@ -218,22 +281,25 @@ def create_and_login_user(
     username: str,
     password_override: str = "testpassword",
 ) -> Dict[str, Any]:
-    """Create a user and log them in, returning the user info."""
-    from app.core.config import settings
+    """Create a user row and return it in the shape `UserRead` serialises to.
 
-    user_data = {
-        "username": username,
-        "email": f"{username}@example.com",
-        "password": password_override,
-    }
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    assert response.status_code == 200
-    user_data_response: Dict[str, Any] = response.json()
-    assert isinstance(user_data_response, dict)
+    A direct repository write since the users domain follow up deleted
+    `POST /api/users/`: registration is the identity package's route now, and it
+    mints a credential this harness has no use for. `password_override` is
+    accepted and ignored for the same reason `login_user` ignores its password.
+    """
+    del password_override
 
-    login_user(client, username, password_override)
+    user = UserRepository().create_user(
+        User(
+            username=username,
+            email=f"{username}@example.com",
+            email_verified=True,
+        )
+    )
+    login_user(client, username)
 
-    return user_data_response
+    return user.model_dump(mode="json")
 
 
 def create_car_for_user_cookie_auth(client: TestClient) -> UUID:

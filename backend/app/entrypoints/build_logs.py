@@ -1,7 +1,8 @@
 """The build-logs domain's entrypoint, run as `python -m app.entrypoints.build_logs`.
 
 Forum-style build log threads and their posts: 5 routes under
-`/api/build-logs`. Needs `SECRET_KEY`.
+`/api/build-logs`. Verifies identity access tokens, so it needs no
+application secret.
 """
 
 from typing import TYPE_CHECKING

@@ -65,7 +65,7 @@ variable "api_throttle_rate_limit" {
 }
 
 variable "secret_key" {
-  description = "JWT signing secret for the FastAPI backend"
+  description = "HS256 signing key for the price alert unsubscribe link, the one remaining application-signed token. All session tokens are RS256 and signed in KMS."
   type        = string
   sensitive   = true
 }

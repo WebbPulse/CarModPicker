@@ -21,6 +21,8 @@ from app.core.config import settings
 
 PASSWORD = "a-perfectly-ordinary-password"
 
+ALERT_ID = "0199f3a1-2b7c-7e40-9a11-6d5c4f8e2b13"
+
 
 def _legacy_get_password_hash(password: str) -> str:
     """The implementation this change deleted, kept to generate a pre-swap hash."""
@@ -62,28 +64,28 @@ def test_an_account_with_no_password_at_all_verifies_false() -> None:
 
 
 def test_a_token_minted_before_the_swap_still_decodes() -> None:
-    """The live-session case: issued by the old code, verified by the new."""
-    legacy_token = _legacy_create_access_token({"sub": "alice"}, timedelta(minutes=60))
+    """An unsubscribe link already in an inbox: minted by the old code, read by the new."""
+    legacy_token = _legacy_create_access_token({"sub": ALERT_ID}, timedelta(minutes=60))
 
     claims = decode_access_token(legacy_token)
 
-    assert claims["sub"] == "alice"
+    assert claims["sub"] == ALERT_ID
     assert "exp" in claims
     assert "iat" not in claims
 
 
 def test_a_token_minted_after_the_swap_decodes_under_the_old_code() -> None:
     """The reverse direction, which is what makes a rollback safe."""
-    token = create_access_token({"sub": "alice"}, expires_delta=timedelta(minutes=60))
+    token = create_access_token({"sub": ALERT_ID}, expires_delta=timedelta(minutes=60))
 
     payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
 
-    assert payload["sub"] == "alice"
+    assert payload["sub"] == ALERT_ID
 
 
 def test_the_new_token_adds_iat_and_nothing_else() -> None:
     """`iat` is the one claim that changed. Pinned so a third does not appear unnoticed."""
-    token = create_access_token({"sub": "alice", "purpose": "verify_email"})
+    token = create_access_token({"sub": ALERT_ID, "purpose": "price_alert_unsubscribe"})
 
     claims = decode_access_token(token)
 
@@ -91,8 +93,13 @@ def test_the_new_token_adds_iat_and_nothing_else() -> None:
 
 
 def test_the_default_expiry_still_comes_from_settings() -> None:
-    """Expiry semantics are the app's, not the package's default."""
-    token = create_access_token({"sub": "alice"})
+    """Expiry semantics are the app's, not the package's default.
+
+    Nothing mints a default-expiry token any more: the unsubscribe link passes
+    an explicit 30 days. Pinned anyway so the default cannot drift silently
+    under a future caller.
+    """
+    token = create_access_token({"sub": ALERT_ID})
 
     claims = decode_access_token(token)
     expected = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -106,7 +113,7 @@ def test_a_token_signed_with_another_secret_is_refused() -> None:
     from webbpulse.security import TokenError
 
     forged = jwt.encode(
-        {"sub": "alice", "exp": datetime.now(timezone.utc) + timedelta(minutes=60)},
+        {"sub": ALERT_ID, "exp": datetime.now(timezone.utc) + timedelta(minutes=60)},
         "not-the-real-secret",
         algorithm=ALGORITHM,
     )
@@ -123,7 +130,7 @@ def test_an_expired_token_is_refused() -> None:
     """An expired token raises ExpiredToken."""
     from webbpulse.security import ExpiredToken
 
-    expired = create_access_token({"sub": "alice"}, expires_delta=timedelta(minutes=-5))
+    expired = create_access_token({"sub": ALERT_ID}, expires_delta=timedelta(minutes=-5))
 
     try:
         decode_access_token(expired)

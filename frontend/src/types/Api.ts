@@ -47,13 +47,6 @@ export interface PublicUserRead {
   tiktok_url?: string | null;
 }
 
-/** Registration payload for a new account. */
-export interface UserCreate {
-  username: string;
-  email: string;
-  password: string;
-}
-
 /** A third party account linked to a user. */
 export interface OAuthAccountRead {
   id: string;
@@ -130,15 +123,12 @@ export type GoogleSignInResponse =
   | GoogleSignInSignupRequired
   | OAuthTwoFactorRequired;
 
-/** Self service profile and credential changes. */
+/** Self service profile changes. Passwords are the identity service's. */
 export interface UserUpdate {
   username?: string | null;
   email?: string | null;
   disabled?: boolean | null;
-  password?: string | null;
   image_urls?: string[] | null;
-  current_password?: string | null;
-  otp?: string | null;
   instagram_url?: string | null;
   facebook_url?: string | null;
   reddit_url?: string | null;
@@ -152,7 +142,6 @@ export interface AdminUserUpdate {
   username?: string | null;
   email?: string | null;
   disabled?: boolean | null;
-  password?: string | null;
   image_urls?: string[] | null;
   is_superuser?: boolean | null;
   is_admin?: boolean | null;

@@ -96,9 +96,11 @@ denies every request while logging no reason.
 
 `IDENTITY_REGISTRATION_ENABLED` is `"true"`, which is one of the two places
 CarModPicker diverges from Portfolio. Portfolio is a single administrator
-product whose one account is seeded; CarModPicker allows public sign up through
-`POST /api/users/` today, and turning registration off would remove a shipped
-feature at cutover.
+product whose one account is seeded; CarModPicker allows public sign up, and
+turning registration off would remove a shipped feature. Since row 13 that
+setting is the only thing standing between the sign up form and a new account:
+`POST /api/users/` is deleted and `POST /api/auth/register` is the sole
+registration route.
 
 ## The issuer
 
@@ -492,7 +494,7 @@ unchanged per environment, so no passkey is re-enrolled and no link is re-made.
 | 11 | Domains read authorizer claims; `sub` becomes the user id | 8, 9 | landed |
 | 12a | Terraform: 80 explicit domain route keys behind `domain_jwt_enforced`, default off | 11 | landed |
 | 12 | Cutover: flip `VITE_AUTH_MODE`, run migrations, verify, then `domain_jwt_enforced = true` | 7, 9, 10, 11, 12a | staging: landed. Frontend flipped and verified; enforcement on since 2026-09-11 and verified at the gateway. The 4KB environment blocker is fixed upstream in `staging-access-gate` 2.11.0 |
-| 13 | Retire legacy: 24 routes, `hashed_password`, `totp_secret`, `SECRET_KEY` | 12, soak | |
+| 13 | Retire legacy: 24 routes, `hashed_password`, `totp_secret`, `SECRET_KEY` | 12, soak | **this change**, draft until the row 12 soak. Includes the users domain password port: `POST /api/users/` deleted, password change and admin password set deleted, both legacy hash helpers deleted |
 
 Row 6 ships dark behind a flag, which makes row 12 a variable flip rather than a
 deploy. Until row 13 lands, the whole sequence rolls back by setting that flag
@@ -514,6 +516,76 @@ verified. A seed must never reach a log.
 **Recovery codes do not exist today**, so every enrolled TOTP user should be
 prompted to generate a set at first login after cutover. The codes are shown
 once, in the activation response, and never again.
+
+## Row 13: what this change actually removes
+
+This row is the deletion, and it is the first one in the sequence that is not
+reversible by a variable. Rows 6 through 12 all rolled back by flipping
+`VITE_AUTH_MODE` or `domain_jwt_enforced` and redeploying, because the legacy
+path was still sitting there. After row 13 there is nothing to flip back to, so
+the pull request is opened as a draft and stays that way until the row 12 soak
+has run its course.
+
+**The 24 routes.** Every route this application served under `/api/auth` is
+gone, along with the four routers that carried them, their request and response
+schemas, and the OpenAPI operations for them. The prefix itself is not gone: the
+package's own identity routes still mount there, and they are what the frontend
+has been talking to since row 12. The OpenAPI snapshot moves from 142 paths to
+119, and the operation count drops by exactly 24 with nothing added.
+
+**The legacy HS256 session.** Rows 11 and 12 ran every auth resolver in dual
+mode: decode a legacy HS256 token first, fall back to an identity RS256 access
+token. This row deletes the legacy half of each one. There is no
+`decode_access_token` call on any resolver path any more and no `sub`-as-username
+lookup anywhere. A request either carries an identity access token the gateway
+authorizer verified, or it is refused.
+
+**`hashed_password` and `totp_secret`.** Both columns are off the `User` model,
+its schemas, the whole repository including the two legacy hash helpers, the
+admin seeder and the tests. They are not yet off the rows in DynamoDB, which is what
+`backend/scripts/clear_legacy_credentials.py` does, and that script runs after
+the deploy rather than before it. See the runbook for the order and why.
+
+### What row 13 could not remove, and why
+
+**`SECRET_KEY` survives, for exactly one route.**
+`GET /api/part-price-alerts/unsubscribe` reads a 30 day HS256 token that
+`app/core/email.py` mints into every price-drop alert email, and
+`app/api/endpoints/part_price_alerts.py` verifies. The recipient of that email is
+by construction not signed in, which is the whole point of a one click
+unsubscribe link, so there is no identity access token equivalent to swap it for.
+Links already in inboxes stay valid for 30 days after the last send.
+
+So the `admin` domain is the only one that still names `SECRET_KEY` in its
+descriptor, the only Lambda that still gets `APP_SECRETS_ARN` on that account,
+and the HCP `secret_key` variable and the `SECRET_KEY` key of the
+`carmodpicker-<env>/app` secret both stay. Retiring them is a follow up row whose
+content is replacing that link with something the identity service can issue, or
+with an opaque unsubscribe id stored against the alert. Until then the estate
+still holds one HS256 signing key, used by one route, on one function.
+
+**The `hashed_password` call sites are gone too, in this same change.**
+An earlier draft of this row held them back on the theory that porting the
+writes needed the users function to hold a grant on the identity `credentials`
+table. That premise was wrong. The users domain does not need to write a
+credential at all: the identity function already owns both
+`POST /api/auth/register` and `POST /api/auth/password`, and registration
+already creates the CarModPicker profile row through
+`CarModPickerIdentityHooks.create_user`. Pointing the SPA at those two routes
+leaves the users domain with no password to store, so it needs no grant on a
+table another Lambda owns, which is the arrangement each domain owning its own
+data asks for anyway.
+
+So `POST /api/users/` is deleted rather than reworked, the password branch of
+`PUT /api/users/{user_id}` and the admin password set on
+`PUT /api/users/admin/users/{user_id}` are deleted, and with them
+`UserRepository.get_legacy_password_hash` and `set_legacy_password_hash`, the
+`UserCreate` schema, the password fields of `UserUpdate` and `AdminUserUpdate`,
+and the `PASSWORD_MIN_LENGTH` and `PASSWORD_MAX_LENGTH` bounds. `Register.tsx`
+calls the package's register, and `ChangePasswordDialog.tsx` and
+`SecuritySettingsDialog.tsx` call its password change. No route in the
+application takes a password any more, and
+`backend/scripts/clear_legacy_credentials.py` is unblocked.
 
 ## Open questions for the owner
 

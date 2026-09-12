@@ -6,15 +6,16 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
 from app.db.dynamo.catalog import Category, CategoryRepository, PartManufacturer
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
 from tests.conftest import (
     INVALID_UUID_STR,
+    auth_headers,
     create_car_in_db,
     get_default_category_id,
+    login_user,
     save_catalog,
     test_part_manufacturer,
 )
@@ -39,7 +40,6 @@ def create_and_login_admin_user(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=True,
             is_superuser=False,
             email_verified=True,
@@ -47,53 +47,36 @@ def create_and_login_admin_user(
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
-    token = token_response.json()["access_token"]
+    token = login_user(client, username)
 
     return admin_user.__dict__, token
 
 
 def create_and_login_user(client: TestClient, username_suffix: str) -> tuple[UUID, str]:
-    """Create a regular user and log them in; returns the user dict and token."""
+    """Create a user row and log them in. Returns (user_id, token).
+
+    A direct repository write since the users domain follow up deleted
+    `POST /api/users/`. Reuses an existing row so repeat suffixes stay idempotent.
+    """
     username = f"category_test_user_{username_suffix}"
     email = f"category_test_user_{username_suffix}@example.com"
-    password = "testpassword"
 
-    user_data = {
-        "username": username,
-        "email": email,
-        "password": password,
-    }
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    user_id: UUID | None = None
-    if response.status_code == 200:
-        user_id = UUID(response.json()["id"])
-    elif response.status_code == 400 and "already registered" in response.json().get("detail", ""):
-        pass
-    else:
-        response.raise_for_status()
-
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    if token_response.status_code != 200:
-        raise Exception(
-            f"Failed to log in user {username}. Status: {token_response.status_code}, Detail: {token_response.text}"
+    users = UserRepository()
+    user = users.get_by_username(username)
+    if user is None:
+        user = users.create_user(
+            DBUser(
+                username=username,
+                email=email,
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
-    token = token_response.json()["access_token"]
 
-    if user_id is None:
-        headers = {"Authorization": f"Bearer {token}"}
-        me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
-        if me_response.status_code == 200:
-            user_id = UUID(me_response.json()["id"])
-        else:
-            raise Exception(f"Could not retrieve user_id for existing user {username} via /users/me.")
-
-    if user_id is None:
-        raise Exception(f"User ID for {username} could not be determined.")
-    return user_id, token
+    token = login_user(client, username)
+    return user.id, token
 
 
 def create_car_for_categories_test(
@@ -112,8 +95,7 @@ def create_car_for_categories_test(
 def create_build_list_for_car_cookie_auth(
     client: TestClient, token: str, car_id: UUID, bl_name: str = "TestBLCategory"
 ) -> UUID:
-    """Create a build list for a car and return its id."""
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = auth_headers(token)
     build_list_data = {
         "name": bl_name,
         "description": "Test BL for categories",
@@ -185,7 +167,7 @@ class TestCategories:
         category_id = get_default_category_id(db_session)
 
         _, token = create_and_login_user(client, "parts_by_category")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
 
         car_id = create_car_for_categories_test(db_session)
 
@@ -223,7 +205,7 @@ class TestCategories:
     def test_create_category_removed(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend source; create endpoint is removed."""
         _, token = create_and_login_admin_user(client, db_session, "create_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         category_data = {
             "name": "test_category",
             "display_name": "Test Category",
@@ -238,7 +220,7 @@ class TestCategories:
         """Categories are seeded from backend source; update endpoint is removed."""
         category_id = get_default_category_id(db_session)
         _, token = create_and_login_admin_user(client, db_session, "update_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.put(
             f"{settings.API_STR}/categories/{category_id}",
             json={"display_name": "Updated"},
@@ -250,14 +232,14 @@ class TestCategories:
         """Categories are seeded from backend source; delete endpoint is removed."""
         category_id = get_default_category_id(db_session)
         _, token = create_and_login_admin_user(client, db_session, "delete_cat")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.delete(f"{settings.API_STR}/categories/{category_id}", headers=headers)
         assert response.status_code in (404, 405)
 
     def test_delete_category_with_parts(self, client: TestClient, db_session: Any) -> None:
         """Categories are read-only; delete with parts would have returned 409, now endpoint removed."""
         _, user_token = create_and_login_user(client, "delete_with_parts")
-        user_headers = {"Authorization": f"Bearer {user_token}"}
+        user_headers = auth_headers(user_token)
 
         car_id = create_car_for_categories_test(db_session)
 
@@ -280,7 +262,7 @@ class TestCategories:
         assert response.status_code == 200
 
         _, admin_token2 = create_and_login_admin_user(client, db_session, "delete_with_parts_admin")
-        admin_headers = {"Authorization": f"Bearer {admin_token2}"}
+        admin_headers = auth_headers(admin_token2)
 
         response = client.delete(f"{settings.API_STR}/categories/{category_id}", headers=admin_headers)
         assert response.status_code in (404, 405)
@@ -298,7 +280,7 @@ class TestCategories:
         assert initial_count >= 0
 
         _, user_token = create_and_login_user(client, "parts_count_user")
-        user_headers = {"Authorization": f"Bearer {user_token}"}
+        user_headers = auth_headers(user_token)
 
         car_id = create_car_for_categories_test(db_session)
 

@@ -4,14 +4,8 @@ import { GiRaceCar } from 'react-icons/gi';
 import { Link, useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
-import GoogleAuthFlow from '../../components/authentication/GoogleAuthFlow';
 import { Input } from '../../components/ui/input';
-import useApiRequest from '../../hooks/UseApiRequest';
-import { useAuth } from '../../hooks/useAuth';
-import { isGoogleConfigured } from '../../hooks/useGoogleSignIn';
-import { identityAvailability } from '../../api/authMode';
-import { apiClient } from '../../api/client';
-import type { UserCreate, UserRead } from '../../types/Api';
+import { register } from '../../api/identityAuth';
 
 /** Account registration form. */
 function Register() {
@@ -22,17 +16,8 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
-  const { login: authLogin } = useAuth();
-
-  const registerRequestFn = (payload: UserCreate) =>
-    apiClient.post<UserRead>('/users/', payload);
-
-  const {
-    error: apiError,
-    isLoading,
-    executeRequest: performRegistration,
-    setError: setApiError,
-  } = useApiRequest(registerRequestFn);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -53,19 +38,16 @@ function Register() {
       return;
     }
 
-    const payload: UserCreate = {
-      username: username,
-      email: email,
-      password: password,
-    };
-
+    setIsLoading(true);
     try {
-      const result = await performRegistration(payload);
-      if (result) {
+      const result = await register(username, email, password);
+      if (result.status === 'registered') {
         void navigate('/login');
+      } else {
+        setApiError(result.error);
       }
-    } catch {
-      // Registration failed
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -245,29 +227,6 @@ function Register() {
             >
               {isLoading ? 'Creating account...' : 'Create account'}
             </Button>
-
-            {/* Google sign in is M6 in the identity service and is not
-                shipped, so identity mode hides it rather than rendering a
-                button that 404s. Unchanged in bearer mode. */}
-            {isGoogleConfigured() && identityAvailability().googleOauth && (
-              <>
-                <div className="flex items-center gap-3 my-2">
-                  <div className="h-px flex-1 bg-muted"></div>
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                    or
-                  </span>
-                  <div className="h-px flex-1 bg-muted"></div>
-                </div>
-                <GoogleAuthFlow
-                  onLoggedIn={(user) => {
-                    authLogin(user);
-                    void navigate('/');
-                  }}
-                  onError={(message) => setApiError(message)}
-                  disabled={isLoading}
-                />
-              </>
-            )}
           </form>
 
           {/* Footer */}

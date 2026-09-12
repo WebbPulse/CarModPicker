@@ -1,7 +1,3 @@
-/**
- * Tests for the identity mode email verification and reset flows.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type Stub = Record<string, ReturnType<typeof vi.fn>>;
@@ -9,10 +5,9 @@ type Stub = Record<string, ReturnType<typeof vi.fn>>;
 const post = vi.fn();
 
 /**
- * Loads the module with the identity client either present or absent.
- *
- * `null` is bearer mode, where `getIdentityClient` returns null and the legacy
- * `apiClient` route is the one that must run.
+ * Loads the module with the identity client either present or absent, where
+ * null means construction failed. `apiClient` stays stubbed so an escaping
+ * request is caught rather than reaching the network.
  */
 const loadWith = async (stub: Stub | null) => {
   vi.resetModules();
@@ -93,13 +88,11 @@ describe('requestPasswordReset', () => {
     });
   });
 
-  it('uses the legacy route in bearer mode', async () => {
+  it('refuses rather than falling back when the client is missing', async () => {
     const { requestPasswordReset } = await loadWith(null);
     const outcome = await requestPasswordReset('user@example.com');
-    expect(outcome.ok).toBe(true);
-    expect(post).toHaveBeenCalledWith('/auth/reset-password', {
-      email: 'user@example.com',
-    });
+    expect(outcome.ok).toBe(false);
+    expect(post).not.toHaveBeenCalled();
   });
 });
 
@@ -140,12 +133,10 @@ describe('requestVerificationEmail', () => {
     );
   });
 
-  it('uses the legacy route in bearer mode', async () => {
+  it('refuses rather than falling back when the client is missing', async () => {
     const { requestVerificationEmail } = await loadWith(null);
     const outcome = await requestVerificationEmail('user@example.com');
-    expect(outcome.ok).toBe(true);
-    expect(post).toHaveBeenCalledWith('/auth/verify-email', {
-      email: 'user@example.com',
-    });
+    expect(outcome.ok).toBe(false);
+    expect(post).not.toHaveBeenCalled();
   });
 });

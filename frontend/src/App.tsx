@@ -42,9 +42,6 @@ const Profile = lazy(() => import('./pages/Profile.tsx'));
 const ForgotPassword = lazy(
   () => import('./pages/authentication/ForgotPassword.tsx')
 );
-const ForgotPasswordConfirm = lazy(
-  () => import('./pages/authentication/ForgotPasswordConfirm.tsx')
-);
 const Login = lazy(() => import('./pages/authentication/Login.tsx'));
 const Register = lazy(() => import('./pages/authentication/Register.tsx'));
 const ResetPassword = lazy(
@@ -231,10 +228,6 @@ function App() {
                   <Route
                     path="/verify-email/confirm"
                     element={<VerifyEmailConfirm />}
-                  />
-                  <Route
-                    path="/forgot-password/confirm"
-                    element={<ForgotPasswordConfirm />}
                   />
                   <Route path="/extension-auth" element={<ExtensionAuth />} />
                   <Route

@@ -1,7 +1,3 @@
-/**
- * Tests for AuthContext provider.
- */
-
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -12,24 +8,28 @@ import { buildApiError } from '../test/apiResponse';
 import { apiClient } from '../api/client';
 import { mockUser } from '../test/mocks/api';
 
-const { mockApiClient, mockLogout, mockRemoveStoredToken } = vi.hoisted(() => ({
-  mockApiClient: {
-    get: vi.fn().mockResolvedValue({ data: null }),
-    post: vi.fn().mockResolvedValue({ data: null }),
-    put: vi.fn().mockResolvedValue({ data: null }),
-    delete: vi.fn().mockResolvedValue({ data: null }),
-    patch: vi.fn().mockResolvedValue({ data: null }),
-  },
-  mockLogout: vi.fn(),
-  mockRemoveStoredToken: vi.fn(),
-}));
+const { mockApiClient, mockLogout, mockRemoveStoredToken, mockRestoreSession } =
+  vi.hoisted(() => ({
+    mockApiClient: {
+      get: vi.fn().mockResolvedValue({ data: null }),
+      post: vi.fn().mockResolvedValue({ data: null }),
+      put: vi.fn().mockResolvedValue({ data: null }),
+      delete: vi.fn().mockResolvedValue({ data: null }),
+      patch: vi.fn().mockResolvedValue({ data: null }),
+    },
+    mockLogout: vi.fn(),
+    mockRemoveStoredToken: vi.fn(),
+    mockRestoreSession: vi.fn(),
+  }));
 
-vi.mock('../api/auth', async () => {
-  const actual =
-    await vi.importActual<typeof import('../api/auth')>('../api/auth');
+vi.mock('../api/identityAuth', async () => {
+  const actual = await vi.importActual<typeof import('../api/identityAuth')>(
+    '../api/identityAuth'
+  );
   return {
     ...actual,
-    authApi: { logout: mockLogout },
+    signOut: mockLogout,
+    restoreSession: mockRestoreSession,
   };
 });
 
@@ -88,6 +88,8 @@ describe('AuthContext provider', () => {
     vi.mocked(apiClient.post).mockReset();
     mockLogout.mockReset();
     mockRemoveStoredToken.mockReset();
+    mockRestoreSession.mockReset();
+    mockRestoreSession.mockResolvedValue(true);
   });
 
   it('authenticates on mount when /users/me resolves with a user', async () => {
@@ -152,7 +154,7 @@ describe('AuthContext provider', () => {
     );
   });
 
-  it('flips state from authenticated to unauthenticated on logout and calls authApi.logout', async () => {
+  it('flips state from authenticated to unauthenticated on logout and calls signOut', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockUser });
     mockLogout.mockResolvedValueOnce({ data: { message: 'Logged out' } });
 
@@ -172,7 +174,7 @@ describe('AuthContext provider', () => {
     expect(screen.getByTestId('loading').textContent).toBe('idle');
   });
 
-  it('still clears auth state when authApi.logout rejects', async () => {
+  it('still clears auth state when signOut rejects', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockUser });
     mockLogout.mockRejectedValueOnce(new Error('network down'));
 

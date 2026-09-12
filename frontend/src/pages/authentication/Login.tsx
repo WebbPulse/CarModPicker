@@ -1,32 +1,16 @@
 import React, { useState } from 'react';
-import {
-  FaEye,
-  FaEyeSlash,
-  FaKey,
-  FaLock,
-  FaShieldAlt,
-  FaUser,
-} from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaLock, FaShieldAlt, FaUser } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  browserSupportsWebAuthn,
-  startAuthentication,
-} from '@simplewebauthn/browser';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
-import GoogleAuthFlow from '../../components/authentication/GoogleAuthFlow';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../hooks/useAuth';
-import { isGoogleConfigured } from '../../hooks/useGoogleSignIn';
-import { AUTH_MODE, identityAvailability } from '../../api/authMode';
-import { authApi } from '../../api/auth';
 import OAuthProviderButtons from '../../components/authentication/OAuthProviderButtons';
 import PasskeySignInButton from '../../components/authentication/PasskeySignInButton';
 import { useOAuthCallback } from '../../hooks/useOAuthCallback';
 import { describeOAuthCallbackError } from '../../api/identityOAuth';
 import type { PasskeySignInResult } from '../../api/identityPasskeys';
-import { getApiErrorMessage } from '../../utils/apiError';
 import type { UserRead } from '../../types/Api';
 import {
   acceptsRecoveryCodes,
@@ -36,8 +20,9 @@ import {
 } from '../../api/identityAuth';
 
 /**
- * Accept only returnTo values that look like a local path, so a crafted
- * `/login?returnTo=` link cannot be used as an open redirect.
+ * Only accept returnTo values that look like a local path. Blocks protocol-
+ * relative and absolute URLs so a crafted /login?returnTo=... link can't be
+ * used as an open-redirect gadget.
  */
 const safeReturnTo = (value: string | null): string => {
   if (!value) return '/';
@@ -45,28 +30,17 @@ const safeReturnTo = (value: string | null): string => {
   return value;
 };
 
-/**
- * Sign in page, covering password, passkey, and provider callback flows for
- * both the bearer and identity auth modes.
- */
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [challenge, setChallenge] = useState<LoginChallenge | null>(null);
-  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get('returnTo'));
   const { login: authLogin, checkAuthStatus } = useAuth();
-  const available = identityAvailability();
-  const identityMode = AUTH_MODE === 'identity';
-  const passkeySupported =
-    !identityMode && browserSupportsWebAuthn() && available.passkeys;
-  const googleAvailable =
-    !identityMode && isGoogleConfigured() && available.googleOauth;
   const requires2FA = challenge !== null;
   const allowRecoveryCode = acceptsRecoveryCodes();
 
@@ -74,9 +48,8 @@ function Login() {
   const isLoading = isSubmitting;
 
   /**
-   * Finishes a sign in that has already succeeded on the server. Bearer login
-   * carries the user in the body; identity login carries a token, so the user
-   * is fetched before the single shared navigate.
+   * Finishes a sign in that already succeeded on the server, fetching the user
+   * the token does not carry. Nullable so the passkey and OAuth paths share it.
    */
   const finishLogin = async (user: UserRead | null) => {
     if (user !== null) {
@@ -88,8 +61,8 @@ function Login() {
   };
 
   /**
-   * Acts on an OAuth callback this page was reached from, mapping each marker
-   * onto the state the password flow already models.
+   * Acts on an OAuth callback this page was reached from, mapping its markers
+   * onto the password flow's own states.
    */
   useOAuthCallback(async (result) => {
     if (result.kind === 'signed-in' || result.kind === 'linked') {
@@ -125,38 +98,6 @@ function Login() {
       return;
     }
     if (result.status === 'failed') setApiError(result.error);
-  };
-
-  const handlePasskeyLogin = async () => {
-    setApiError(null);
-    setIsPasskeyLoading(true);
-    try {
-      const optsResp = await authApi.webauthnLoginOptions(
-        username.trim() || undefined
-      );
-      const { options, challenge_token } = optsResp.data;
-      const credential = await startAuthentication({
-        optionsJSON: options as unknown as Parameters<
-          typeof startAuthentication
-        >[0]['optionsJSON'],
-      });
-      const result = await authApi.webauthnLoginVerify({
-        challenge_token,
-        credential,
-      });
-      if (result.data) {
-        authLogin(result.data);
-        void navigate(returnTo);
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'NotAllowedError') {
-        setApiError('Passkey sign-in was cancelled.');
-      } else {
-        setApiError(getApiErrorMessage(err, 'Passkey sign-in failed.'));
-      }
-    } finally {
-      setIsPasskeyLoading(false);
-    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -215,7 +156,6 @@ function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float"></div>
         <div
@@ -226,7 +166,6 @@ function Login() {
 
       <div className="relative z-10 w-full max-w-md">
         <div className="border border-white/10 bg-white/5 backdrop-blur-xl supports-[backdrop-filter]:bg-white/5 rounded-2xl p-8 animate-slideInUp">
-          {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
@@ -245,7 +184,6 @@ function Login() {
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
             {!requires2FA ? (
               <>
@@ -383,14 +321,14 @@ function Login() {
             <Button
               type="submit"
               loading={isLoading}
-              disabled={isLoading || isPasskeyLoading}
+              disabled={isLoading}
               className="w-full"
               size="lg"
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
 
-            {!requires2FA && identityMode && (
+            {!requires2FA && (
               <>
                 <div className="flex items-center gap-3 my-2">
                   <div className="h-px flex-1 bg-muted"></div>
@@ -410,48 +348,8 @@ function Login() {
                 />
               </>
             )}
-
-            {!requires2FA && (passkeySupported || googleAvailable) && (
-              <>
-                <div className="flex items-center gap-3 my-2">
-                  <div className="h-px flex-1 bg-muted"></div>
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                    or
-                  </span>
-                  <div className="h-px flex-1 bg-muted"></div>
-                </div>
-                {passkeySupported && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="lg"
-                    className="w-full"
-                    onClick={() => void handlePasskeyLogin()}
-                    disabled={isLoading || isPasskeyLoading}
-                  >
-                    <FaKey />
-                    <span>
-                      {isPasskeyLoading
-                        ? 'Waiting for your passkey…'
-                        : 'Sign in with a passkey'}
-                    </span>
-                  </Button>
-                )}
-                {googleAvailable && (
-                  <GoogleAuthFlow
-                    onLoggedIn={(user) => {
-                      authLogin(user);
-                      void navigate(returnTo);
-                    }}
-                    onError={(message) => setApiError(message)}
-                    disabled={isLoading || isPasskeyLoading}
-                  />
-                )}
-              </>
-            )}
           </form>
 
-          {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-muted-foreground text-sm">
               Don't have an account?{' '}
@@ -465,7 +363,6 @@ function Login() {
           </div>
         </div>
 
-        {/* Additional Info */}
         <div className="mt-8 text-center">
           <p className="text-muted-foreground text-xs">
             By signing in, you agree to our{' '}

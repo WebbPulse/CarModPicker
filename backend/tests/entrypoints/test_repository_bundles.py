@@ -28,7 +28,6 @@ BACKEND = Path(__file__).resolve().parents[2]
 
 UNREADABLE_SECRET_ARN = "arn:aws:secretsmanager:us-west-2:000000000000:secret:carmodpicker-nonexistent-AAAAAA"
 
-
 TABLE_OWNERS: Dict[str, str] = {
     "users": "users",
     "oauth_accounts": "identity",
@@ -161,6 +160,11 @@ def _bundle_accesses(tree: ast.AST) -> Set[str]:
     return found
 
 
+EXTRA_REACHABLE: Dict[str, Set[str]] = {
+    "identity": {"users", "oauth_accounts", "webauthn_credentials"},
+}
+
+
 def _reachable_repositories(domain: str) -> Set[str]:
     """Every repository any module the domain's routers reach can access."""
     roots: Set[str] = set()
@@ -186,7 +190,7 @@ def _reachable_repositories(domain: str) -> Set[str]:
         tree = ast.parse(text)
         accesses |= _bundle_accesses(tree)
         stack.extend(_app_imports(tree, module))
-    return accesses
+    return accesses | EXTRA_REACHABLE.get(domain, set())
 
 
 def _read_loader_source(domain: str) -> str:

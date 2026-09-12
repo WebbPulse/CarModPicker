@@ -48,7 +48,6 @@ class User(TimestampedDynamoModel):
     email: str
     image_urls: list[str] | None = None
     email_verified: bool = False
-    hashed_password: str | None = None
     disabled: bool = False
     is_superuser: bool = False
     is_admin: bool = False
@@ -56,7 +55,6 @@ class User(TimestampedDynamoModel):
     subscription_tier: str = "free"
     subscription_expires_at: datetime | None = None
     subscription_status: str = "active"
-    totp_secret: str | None = None
     totp_enabled: bool = False
     session_expire_minutes: int | None = None
     instagram_url: str | None = None
@@ -98,7 +96,6 @@ class WebAuthnCredential(DynamoModel):
 
 def run_unique_transaction(actions: list[dict[str, Any]], labels: list[str | None]) -> None:
     """Run a transaction, raising UniqueAttributeTaken for a labelled failed claim.
-
 
     `labels` runs parallel to `actions`: a label names the attribute an action
     claims, and None marks an action whose failure is not a uniqueness conflict.

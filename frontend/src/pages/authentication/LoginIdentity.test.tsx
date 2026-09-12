@@ -19,8 +19,8 @@ let mfaResult: unknown = { status: 'authenticated', user: null };
 
 /**
  * `passkeyResult` is what a pressed sign in produces. The conditional request
- * armed on mount is left hanging, as a real one is when no discoverable
- * credential exists; a test wanting that path sets `conditionalResult`.
+ * armed on mount is left hanging, as the real one does; a test that wants that
+ * path sets `conditionalResult`.
  */
 let conditionalResult: unknown = undefined;
 
@@ -49,11 +49,6 @@ vi.mock('../../hooks/useAuth', () => ({
     user: null,
   }),
 }));
-
-vi.mock('../../api/authMode', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../api/authMode')>();
-  return { ...actual, AUTH_MODE: 'identity' as const };
-});
 
 vi.mock('../../api/identityAuth', async (importOriginal) => {
   const actual =
@@ -106,18 +101,6 @@ vi.mock('../../api/identityOAuth', async (importOriginal) => {
       `https://api.test/api/auth/oauth/${provider}/start`,
   };
 });
-
-vi.mock('@simplewebauthn/browser', () => ({
-  startAuthentication: vi.fn(),
-  browserSupportsWebAuthn: () => false,
-}));
-vi.mock('../../components/authentication/GoogleAuthFlow', () => ({
-  default: () => null,
-}));
-vi.mock('../../hooks/useGoogleSignIn', () => ({
-  isGoogleConfigured: () => false,
-  useGoogleSignIn: () => ({ state: { kind: 'idle' }, reset: vi.fn() }),
-}));
 
 const renderLogin = async () => {
   const { default: Login } = await import('./Login');

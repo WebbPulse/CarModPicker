@@ -4,11 +4,10 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR, create_car_in_db
+from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user
 
 
 def create_and_login_admin_user(
@@ -23,7 +22,6 @@ def create_and_login_admin_user(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=True,
             is_superuser=False,
             email_verified=True,
@@ -31,67 +29,43 @@ def create_and_login_admin_user(
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login admin user: {token_response.text}"
-    token = token_response.json()["access_token"]
+    token = login_user(client, username)
 
     return admin_user.__dict__, token
 
 
-def create_and_login_user(client: TestClient, username_suffix: str, db_session: Any | None = None) -> tuple[int, str]:
-    """Create a regular user and log them in; returns the user dict and token."""
+def create_and_login_user(client: TestClient, username_suffix: str, db_session: Any | None = None) -> tuple[Any, str]:
+    """Create a user row and log them in. Returns (user_id, token).
+
+    A direct repository write since the users domain follow up deleted
+    `POST /api/users/`. Reuses an existing row so repeat suffixes stay idempotent.
+    """
+    del db_session
+
     username = f"car_test_user_{username_suffix}"
     email = f"car_test_user_{username_suffix}@example.com"
-    password = "testpassword"
 
-    user_data = {
-        "username": username,
-        "email": email,
-        "password": password,
-    }
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    user_id = -1
-    if response.status_code == 200:
-        user_info = response.json()
-        user_id = user_info["id"]
-
-        if db_session:
-            user = UserRepository().get_by_username(username)
-            if user:
-                UserRepository().update(user.id, email_verified=True)
-    elif response.status_code == 400 and "already registered" in response.json().get("detail", ""):
-        pass
-    else:
-        response.raise_for_status()
-
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    if token_response.status_code != 200:
-        raise Exception(
-            f"Failed to log in user {username}. Status: {token_response.status_code}, Detail: {token_response.text}"
+    users = UserRepository()
+    user = users.get_by_username(username)
+    if user is None:
+        user = users.create_user(
+            DBUser(
+                username=username,
+                email=email,
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
         )
 
-    token_data = token_response.json()
-    assert "access_token" in token_data
-    token = token_data["access_token"]
-
-    if user_id == -1:
-        headers = {"Authorization": f"Bearer {token}"}
-        me_response = client.get(f"{settings.API_STR}/users/me", headers=headers)
-        if me_response.status_code == 200:
-            user_id = me_response.json()["id"]
-        else:
-            raise Exception(f"Could not retrieve user_id for existing user {username} via /users/me.")
-
-    if user_id == -1:
-        raise Exception(f"User ID for {username} could not be determined.")
-    return (user_id, token)
+    token = login_user(client, username)
+    return user.id, token
 
 
 def get_auth_headers(token: str) -> dict[str, str]:
     """Get Authorization headers with Bearer token."""
-    return {"Authorization": f"Bearer {token}"}
+    return auth_headers(token)
 
 
 def test_admin_create_car_removed(client: TestClient, db_session: Any) -> None:
