@@ -200,8 +200,13 @@ the single largest genuine duplication with Portfolio.
 
 ### Correctness finding: the rate limiter does not work on Lambda
 
+Resolved. `SophisticatedRateLimiter` and both defects described below were removed
+with the in-memory layer; the shared DynamoDB limiter documented in
+`docs/RATE_LIMITING.md` is now the only limiter. The finding is kept for the
+record.
+
 Found while inventorying, unrelated to the restructure but worth fixing
-independently of it. `SophisticatedRateLimiter` holds its counters in eight
+independently of it. `SophisticatedRateLimiter` held its counters in eight
 `defaultdict` instances in process memory, a minute and an hour bucket for each
 of the general, GET, auth, and admin classes. On Lambda every execution
 environment gets its own instance, so counters are never shared between

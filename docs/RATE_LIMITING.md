@@ -1,139 +1,86 @@
-# Sophisticated Rate Limiting
+# Rate Limiting
 
-The CarModPicker API now uses a sophisticated rate limiting system that provides different rate limits based on HTTP methods and endpoint types.
+The CarModPicker API rate limits every request against one shared counter held in
+DynamoDB. There is a single layer; the per-process in-memory limiter that used to sit
+in front of it has been removed.
 
-## Overview
+## Why the in-memory limiter is gone
 
-The rate limiter decouples rate limits for different types of requests:
+Each domain runs as a Lambda function, so a per-process counter only ever saw the
+traffic that happened to land in one execution environment. Under concurrency the real
+limit was the configured limit multiplied by the number of warm sandboxes, and the
+`X-RateLimit-Remaining-*` headers it returned advertised an allowance no caller had.
+It also disagreed with the shared limiter about who was being limited and for how long,
+which made a 429 hard to explain. Removing it leaves one counter that is correct across
+every environment.
 
-- **GET requests**: Higher limits for read operations
-- **POST/PUT/DELETE requests**: Lower limits for write operations
-- **Authentication endpoints**: Very low limits to prevent brute force attacks
-- **Admin endpoints**: Moderate limits for administrative operations
+## How the shared limiter works
+
+`app/api/middleware/shared_rate_limiter.py` keeps one item per caller in the
+`rate-limits` table, keyed `RATE#<identity>`. The item carries a request count and a
+DynamoDB TTL, so the window is a fixed window anchored on the caller's first request
+rather than on the wall clock, and expired rows are reclaimed by DynamoDB itself.
+
+The caller's identity is the source IP as API Gateway observed it. Three sources are
+tried in order: the `x-amzn-request-context` header the Lambda Web Adapter forwards, the
+`aws.event` scope key an event-driven adapter populates, and finally the connection's
+own peer address.
+
+Every backend failure fails open. A `get_item` or `update_item` that raises is logged
+with `rate_limit_failed_open: true` and the request is allowed through, so a DynamoDB
+outage degrades the limit rather than the API.
 
 ## Configuration
 
-Rate limits can be configured via environment variables:
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `ENABLE_RATE_LIMITING` | `true` | Master switch for the middleware. |
+| `ENABLE_SHARED_RATE_LIMITING` | `true` | Whether the shared counter runs. |
+| `RATE_LIMIT_REQUESTS_PER_MINUTE` | `60` | Requests allowed per caller per 60 second window. |
+| `RATE_LIMITS_TABLE` | `""` | Table name override. Terraform sets it from `module.dynamodb.table_names["rate-limits"]`. |
 
-```bash
-# General rate limits (for POST/PUT/DELETE requests)
-RATE_LIMIT_REQUESTS_PER_MINUTE=60
-RATE_LIMIT_REQUESTS_PER_HOUR=1000
+The environment variable `ENABLE_RATE_LIMITING=false` also disables the middleware
+independently of the setting, which is how the test suite turns it off.
 
-# GET request rate limits (higher for read operations)
-RATE_LIMIT_GET_REQUESTS_PER_MINUTE=120
-RATE_LIMIT_GET_REQUESTS_PER_HOUR=2000
+## Exempted paths
 
-# Authentication endpoint rate limits (lower to prevent abuse)
-RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE=10
-RATE_LIMIT_AUTH_REQUESTS_PER_HOUR=100
+Matched exactly:
 
-# Admin endpoint rate limits
-RATE_LIMIT_ADMIN_REQUESTS_PER_MINUTE=30
-RATE_LIMIT_ADMIN_REQUESTS_PER_HOUR=300
-```
+- `/`
+- `/health`
+- `/ready`
+- `/openapi.json`
 
-## Rate Limit Types
+Matched as prefixes, so their sub-resources are exempt too:
 
-### 1. GET Requests
+- `/docs`
+- `/redoc`
 
-- **Path**: Any endpoint with GET method
-- **Default**: 120 requests/minute, 2000 requests/hour
-- **Use case**: Browsing cars, parts, build lists, etc.
+The split is deliberate: a prefix entry for `/` would exempt the whole API and silently
+disable the limiter.
 
-### 2. Authentication Endpoints
-
-- **Path**: `/api/auth/*`
-- **Default**: 10 requests/minute, 100 requests/hour
-- **Use case**: Login, registration, password reset
-
-### 3. Admin Endpoints
-
-- **Path**: `/api/admin/*` or any path containing "admin"
-- **Default**: 30 requests/minute, 300 requests/hour
-- **Use case**: Administrative operations
-
-### 4. Default (Write Operations)
-
-- **Path**: Any POST/PUT/DELETE request not covered above
-- **Default**: 60 requests/minute, 1000 requests/hour
-- **Use case**: Creating/updating/deleting cars, parts, build lists
-
-## Response Headers
-
-The API includes rate limit information in response headers:
-
-```
-X-RateLimit-Limit-Minute: 120
-X-RateLimit-Limit-Hour: 2000
-X-RateLimit-Remaining-Minute: 115
-X-RateLimit-Remaining-Hour: 1985
-X-RateLimit-Reset-Minute: 45
-X-RateLimit-Reset-Hour: 3540
-```
-
-## Rate Limit Exceeded Response
-
-When rate limits are exceeded, the API returns:
+## Rate limit exceeded response
 
 ```json
 {
   "detail": "Too many requests",
-  "message": "Rate limit exceeded: 121 requests per minute",
-  "retry_after": 60,
-  "limits": {
-    "minute_limit": 120,
-    "hour_limit": 2000,
-    "minute_count": 121,
-    "hour_count": 150
-  }
+  "message": "Rate limit exceeded",
+  "retry_after": 42
 }
 ```
 
 With headers:
 
 ```
-Retry-After: 60
-X-RateLimit-Limit-Minute: 120
-X-RateLimit-Limit-Hour: 2000
+Retry-After: 42
 X-RateLimit-Remaining-Minute: 0
-X-RateLimit-Remaining-Hour: 1850
 ```
 
-## Exempted Endpoints
-
-The following endpoints are exempt from rate limiting:
-
-- `/` (root)
-- `/health` (health check)
-- `/docs` (API documentation)
-- `/openapi.json` (OpenAPI schema)
-- `/redoc` (ReDoc documentation)
-
-## Implementation Details
-
-- Uses in-memory storage for rate limiting (suitable for small to medium applications)
-- Automatically cleans up old request timestamps
-- Handles proxy headers (X-Forwarded-For) for proper client IP detection
-- Separate tracking for each rate limit type to prevent interference
-
-## Production Considerations
-
-For production deployments with multiple instances, consider:
-
-1. **Redis-based rate limiting**: Replace in-memory storage with Redis
-2. **Distributed rate limiting**: Use a service like Cloudflare or AWS WAF
-3. **Monitoring**: Track rate limit violations and adjust limits accordingly
-4. **User-based limits**: Implement per-user rate limits for authenticated users
+`retry_after` is the number of seconds left on the caller's current window, read back
+from the row's TTL, and falls back to 60 when the row cannot be read.
 
 ## Testing
 
-Rate limiting is disabled in test environments by default. To enable it for testing:
-
-```bash
-ENABLE_RATE_LIMITING=true
-```
-
-## Migration from Previous Version
-
-The new rate limiter is backward compatible. Existing applications will automatically benefit from the improved rate limiting without any code changes.
+Rate limiting is disabled in the test suite by default. Enable it with
+`ENABLE_RATE_LIMITING=true`. `tests/test_shared_rate_limiter.py` drives the limiter
+against a fake table client, so it needs neither moto nor network access.
