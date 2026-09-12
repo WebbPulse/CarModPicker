@@ -23,11 +23,18 @@ It checks four things, in the order they build on each other:
    fetched and grepped, because the bundle is what users actually run and a
    source tree that no longer mentions a route proves nothing about what is
    deployed in front of them.
-4. **The legacy operations are harmless.** Each is called with and without the
-   token. What matters is that none answers 5xx and none answers 200: a 404 is
-   the post-row-13 answer, a 401 or 403 is the pre-row-13 answer from a route
-   that exists but refuses, and either is safe. A 200 means something still
-   serves a legacy operation and row 13 would break it.
+4. **The legacy operations are gone.** Each is called with and without the
+   token, and each must answer the absence status the gateway's own route table
+   implies, which is 404 everywhere the identity prefix still has a catch-all
+   `{proxy+}` key and 405 only where a method mismatch hits an explicit route.
+   Nothing softer counts: the earlier bar of "not 200 and not 5xx" passed on the
+   429 that the per-IP auth limiter returns, which is evidence about the limiter
+   and not about the route. So the sweep paces itself under that limit, and waits
+   out and retries any 429 it still meets rather than banking it as a pass.
+
+   A 401 or 403 is the pre-row-13 answer from a route that still exists and
+   merely refuses, so it is a failure now rather than a pass. A 200 means
+   something still serves a legacy operation outright.
 
 Staging's 58 synthetic users carry no credentials, so nothing there is
 loginable. Rather than seeding a password onto one of them, which would put a
@@ -78,7 +85,22 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from expected_route_key import (  # noqa: E402
+    declared_route_keys,
+    generated_route_keys,
+    resolve,
+)
+
+TERRAFORM_ROUTE_SOURCE = (
+    Path(__file__).resolve().parent.parent / "terraform" / "apigateway.tf"
+)
+
+IDENTITY_PATH_PREFIX = "/api/auth"
 
 LEGACY_OPERATIONS: list[tuple[str, str]] = [
     ("DELETE", "/api/auth/oauth/{account_id}"),
@@ -117,6 +139,128 @@ FORBIDDEN_BUNDLE_STRINGS = [
 ]
 
 REQUIRED_BUNDLE_STRINGS = ["/api/auth/passkeys", "/api/auth/logout-all"]
+
+
+AUTH_REQUESTS_PER_MINUTE = 10
+
+AUTH_MINUTE_WINDOW = 60
+
+LEGACY_RETRY_ATTEMPTS = 4
+
+LEGACY_RETRY_CAP_SECONDS = 75
+
+PACING_RESERVE = 1
+
+
+def _lower_headers(headers: Any) -> dict[str, str]:
+    """Every response header as a lowercase-keyed dict."""
+    if headers is None:
+        return {}
+    return {str(key).lower(): str(value) for key, value in headers.items()}
+
+
+def _header_int(headers: dict[str, str], name: str) -> int | None:
+    """One header parsed as a non-negative int, or None when absent or unparseable."""
+    raw = headers.get(name)
+    if raw is None:
+        return None
+    try:
+        value = int(float(raw.strip()))
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return value if value >= 0 else None
+
+
+def retry_delay(headers: dict[str, str], attempt: int) -> float:
+    """How long to wait before retrying a 429, from `Retry-After` when present.
+
+    The app limiter answers a minute-window rejection with `Retry-After: 60` and
+    an hour-window rejection with 3600, so the value is honoured but capped: a
+    sweep must not block for an hour, it must fail and say the hour bucket is
+    exhausted. Without the header this falls back to bounded exponential
+    backoff, which is the path a gateway-level 429 takes.
+    """
+    advertised = _header_int(headers, "retry-after")
+    if advertised is not None:
+        return float(min(advertised, LEGACY_RETRY_CAP_SECONDS))
+    return float(min(2**attempt, LEGACY_RETRY_CAP_SECONDS))
+
+
+class AuthPacer:
+    """Keeps `/api/auth` calls under the per-IP minute limit instead of tripping it.
+
+    Both limiter layers key on source IP alone, not on user agent or path, so
+    every auth call this script makes shares one bucket of
+    `AUTH_REQUESTS_PER_MINUTE`. The sweep is 40 auth calls, which is four
+    minutes' worth, so the choice is between pacing and a wall of 429s that
+    prove nothing about whether a route is gone.
+
+    Pacing is driven by the `X-RateLimit-Remaining-Minute` header the app sets
+    on every answer rather than by a fixed sleep. The limiter is in-memory per
+    execution environment, so the remaining count is the only honest read on how
+    much budget this instance has left; when the header is missing the pacer
+    falls back to its own count of calls in the current window.
+    """
+
+    def __init__(
+        self,
+        per_minute: int = AUTH_REQUESTS_PER_MINUTE,
+        sleeper: Any = time.sleep,
+        clock: Any = time.monotonic,
+    ) -> None:
+        """Configure the budget and the sleep and clock functions to pace with."""
+        self._per_minute = per_minute
+        self._sleep = sleeper
+        self._clock = clock
+        self._window_start: float | None = None
+        self._calls_in_window = 0
+        self._remaining: int | None = None
+        self.slept_seconds = 0.0
+
+    def _wait(self, seconds: float) -> None:
+        if seconds <= 0:
+            return
+        self._sleep(seconds)
+        self.slept_seconds += seconds
+
+    def before_call(self) -> None:
+        """Block until this instance has budget for one more auth call."""
+        now = self._clock()
+        if self._window_start is None:
+            self._window_start = now
+            return
+
+        elapsed = now - self._window_start
+        if elapsed >= AUTH_MINUTE_WINDOW:
+            self._window_start = now
+            self._calls_in_window = 0
+            self._remaining = None
+            return
+
+        budget_left = self._per_minute - PACING_RESERVE - self._calls_in_window
+        if self._remaining is not None:
+            budget_left = min(budget_left, self._remaining - PACING_RESERVE)
+        if budget_left > 0:
+            return
+
+        self._wait(AUTH_MINUTE_WINDOW - elapsed)
+        self._window_start = self._clock()
+        self._calls_in_window = 0
+        self._remaining = None
+
+    def after_call(self, headers: dict[str, str]) -> None:
+        """Record one spent call and the quota the response advertised."""
+        self._calls_in_window += 1
+        self._remaining = _header_int(headers, "x-ratelimit-remaining-minute")
+
+    def wait_out_429(self, headers: dict[str, str], attempt: int) -> float:
+        """Sleep off a 429 and reset the window, returning the seconds waited."""
+        delay = retry_delay(headers, attempt)
+        self._wait(delay)
+        self._window_start = self._clock()
+        self._calls_in_window = 0
+        self._remaining = None
+        return delay
 
 
 @dataclass
@@ -165,6 +309,30 @@ class Client:
         skip_gate_header: bool = False,
     ) -> tuple[int, str]:
         """Send one request and return its status code and body text."""
+        status, text, _ = self.call_with_headers(
+            method,
+            path,
+            token=token,
+            body=body,
+            skip_gate_header=skip_gate_header,
+        )
+        return status, text
+
+    def call_with_headers(
+        self,
+        method: str,
+        path: str,
+        *,
+        token: str | None = None,
+        body: dict[str, Any] | None = None,
+        skip_gate_header: bool = False,
+    ) -> tuple[int, str, dict[str, str]]:
+        """Send one request and also return its response headers, lowercased.
+
+        The legacy sweep needs `Retry-After` and the `X-RateLimit-*` counters to
+        pace itself, and those only exist on the response. Header names are
+        lowercased here so callers never have to guess the server's casing.
+        """
         url = f"{self._base}{path}"
         data = json.dumps(body).encode() if body is not None else None
         request = urllib.request.Request(url, data=data, method=method)
@@ -177,11 +345,19 @@ class Client:
         request.add_header("user-agent", "carmodpicker-identity-smoke")
         try:
             with urllib.request.urlopen(request, timeout=self._timeout) as response:
-                return response.status, response.read().decode("utf-8", "replace")
+                return (
+                    response.status,
+                    response.read().decode("utf-8", "replace"),
+                    _lower_headers(response.headers),
+                )
         except urllib.error.HTTPError as exc:
-            return exc.code, exc.read().decode("utf-8", "replace")
+            return (
+                exc.code,
+                exc.read().decode("utf-8", "replace"),
+                _lower_headers(exc.headers),
+            )
         except (urllib.error.URLError, TimeoutError) as exc:
-            return 0, f"transport error: {exc}"
+            return 0, f"transport error: {exc}", {}
 
 
 def decode_claims(token: str) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -522,14 +698,62 @@ def check_jwks_reachable(client: Client, results: list[Result]) -> bool:
     return reachable
 
 
-def check_legacy(client: Client, token: str | None, results: list[Result]) -> None:
-    """Call every legacy operation and record what answers.
+def expected_legacy_status(method: str, path: str, route_keys: list[str]) -> int:
+    """The status a deleted legacy operation must answer, 404 or 405.
 
-    Both a 404 and a 401/403 pass, and they mean different things: 404 is the
-    route being gone, 401/403 is the route existing and refusing. Both are safe
-    for row 13. A 200 is the finding that would stop it, because something is
-    still serving a legacy operation, and a 5xx is a finding of its own because
-    a deleted route should not error, it should be absent.
+    Derived from the gateway's own route table rather than assumed. A legacy path
+    that resolves to a catch-all `ANY .../{proxy+}` key reaches the application,
+    which has no such route left and answers 404. A path that resolves to no key
+    at all for this method while some other method has an explicit key for it is
+    a method mismatch on a route that still exists, and the gateway answers 405
+    for that before the application sees it.
+    """
+    if resolve(path, method, route_keys):
+        return 404
+    for other in ("GET", "POST", "PUT", "PATCH", "DELETE"):
+        if other == method:
+            continue
+        key = resolve(path, other, route_keys)
+        if key and not key.startswith("ANY "):
+            return 405
+    return 404
+
+
+def load_route_keys() -> list[str]:
+    """The gateway's declared route keys, plus the identity prefix's generated pair.
+
+    Read from the Terraform source so a route promoted to its own explicit key
+    changes the expectation without an edit here. An unreadable source yields the
+    generated pair alone, which keeps the sweep expecting 404 everywhere rather
+    than failing on a missing file.
+    """
+    try:
+        source = TERRAFORM_ROUTE_SOURCE.read_text(encoding="utf-8")
+    except OSError:
+        source = ""
+    return declared_route_keys(source) + generated_route_keys([IDENTITY_PATH_PREFIX])
+
+
+def check_legacy(
+    client: Client,
+    token: str | None,
+    results: list[Result],
+    route_keys: list[str],
+    pacer: AuthPacer,
+) -> None:
+    """Call every legacy operation and prove each one is really gone.
+
+    The bar here is the expected absence status and nothing softer. An earlier
+    version passed anything that was not 200 and not 5xx, which in practice
+    meant most rows passed on a 429 from the rate limiter: evidence that the
+    limiter works, and no evidence at all about whether the route is gone. A
+    route that answers 401 is still a route, so that fails now too.
+
+    Both limiter layers key on source IP, so the sweep paces itself under the
+    per-minute auth budget instead of tripping it, and a 429 that still arrives
+    is waited out per `Retry-After` and retried rather than recorded as a pass.
+    Exhausting `LEGACY_RETRY_ATTEMPTS` is a failure, because a probe that never
+    got an answer has not proved anything.
 
     Only paths the shared identity package does not own belong here. A path the
     package serves answers from the package, not from a legacy leftover, so
@@ -542,19 +766,41 @@ def check_legacy(client: Client, token: str | None, results: list[Result]) -> No
             "{credential_id}", UNMATCHABLE
         )
         body = {} if method in ("POST", "PATCH", "PUT") else None
-        status, text = client.call(method, path, token=token, body=body)
-        if status in (404, 405):
-            verdict, note = "PASS", "route absent"
-        elif status in (401, 403):
-            verdict, note = "PASS", "route present and refusing"
-        elif status == 422:
-            verdict, note = "PASS", "route present, rejected the empty body"
-        elif status >= 500:
-            verdict, note = "FAIL", f"5xx: {text[:100]}"
+        expected = expected_legacy_status(method, path, route_keys)
+
+        status: int | str = 0
+        text = ""
+        throttled = 0
+        for attempt in range(LEGACY_RETRY_ATTEMPTS):
+            pacer.before_call()
+            status, text, headers = client.call_with_headers(
+                method, path, token=token, body=body
+            )
+            pacer.after_call(headers)
+            if status != 429:
+                break
+            throttled += 1
+            if attempt == LEGACY_RETRY_ATTEMPTS - 1:
+                break
+            pacer.wait_out_429(headers, attempt)
+
+        retried = f" after {throttled} 429" if throttled else ""
+        if status == expected:
+            verdict, note = "PASS", f"route absent ({expected}){retried}"
+        elif status == 429:
+            verdict, note = (
+                "FAIL",
+                f"still 429 after {LEGACY_RETRY_ATTEMPTS} attempts, no proof of deletion",
+            )
         elif status == 200:
             verdict, note = "FAIL", "still serving a legacy operation"
+        elif isinstance(status, int) and status >= 500:
+            verdict, note = "FAIL", f"5xx: {text[:100]}"
         else:
-            verdict, note = "PASS", f"non-5xx ({status})"
+            verdict, note = (
+                "FAIL",
+                f"expected {expected}, got {status}: {text[:80]}",
+            )
         results.append(Result(label, method, template, status, verdict, note))
 
 
@@ -569,6 +815,17 @@ def main() -> int:
         help="flip email_verified on the created row, needs DynamoDB credentials",
     )
     parser.add_argument("--keep-account", action="store_true", help="skip cleanup")
+    parser.add_argument(
+        "--auth-per-minute",
+        type=int,
+        default=int(
+            os.environ.get("CARMODPICKER_AUTH_PER_MINUTE", AUTH_REQUESTS_PER_MINUTE)
+        ),
+        help=(
+            "per-IP /api/auth budget the legacy sweep paces under; only raise it "
+            "when the deployed RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE is higher"
+        ),
+    )
     args = parser.parse_args()
 
     suffix = "staging." if args.env == "staging" else ""
@@ -684,8 +941,15 @@ def main() -> int:
     check_jwks_reachable(client, results)
     run_domain_probes(client, token, user_id, results)
     check_bundle(f"carmodpicker-{args.env}-frontend", results)
-    check_legacy(client, None, results)
-    check_legacy(client, token, results)
+    route_keys = load_route_keys()
+    pacer = AuthPacer(per_minute=args.auth_per_minute)
+    sweep_start = time.monotonic()
+    check_legacy(client, None, results, route_keys, pacer)
+    check_legacy(client, token, results, route_keys, pacer)
+    print(
+        f"\nLegacy sweep: {time.monotonic() - sweep_start:.0f}s wall, "
+        f"{pacer.slept_seconds:.0f}s paced at {args.auth_per_minute}/min\n"
+    )
 
     if not args.keep_account:
         client.call("DELETE", f"/api/users/{user_id}", token=token)
