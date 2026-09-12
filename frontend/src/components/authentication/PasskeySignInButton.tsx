@@ -6,11 +6,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { FaKey } from 'react-icons/fa';
 import { Button } from '../ui/button';
-import { identityUrl } from '../../api/identityClient';
 import {
   PASSKEY_AVAILABILITY_PATH,
+  identityUrl,
   passkeyLoginAvailability,
-} from '../../api/passkeyAvailability';
+} from '../../api/identityClient';
 import {
   passkeysSupported,
   signInWithPasskey,

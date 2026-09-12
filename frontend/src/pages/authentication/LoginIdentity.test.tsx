@@ -72,25 +72,19 @@ vi.mock('../../api/identityPasskeys', async (importOriginal) => {
   };
 });
 
-vi.mock('../../api/passkeyAvailability', async (importOriginal) => {
+vi.mock('../../api/identityClient', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('../../api/passkeyAvailability')>();
+    await importOriginal<typeof import('../../api/identityClient')>();
   return {
     ...actual,
+    getIdentityClient: () => ({
+      oauthStartUrl: () => 'https://api.test/start',
+    }),
+    identityUrl: (path: string) => `https://api.test${path}`,
     passkeyLoginAvailability: () => Promise.resolve(passkeyAnswer),
+    oauthProviders: () => Promise.resolve(providerList),
   };
 });
-
-vi.mock('../../api/oauthProviders', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../../api/oauthProviders')>();
-  return { ...actual, oauthProviders: () => Promise.resolve(providerList) };
-});
-
-vi.mock('../../api/identityClient', () => ({
-  getIdentityClient: () => ({ oauthStartUrl: () => 'https://api.test/start' }),
-  identityUrl: (path: string) => `https://api.test${path}`,
-}));
 
 vi.mock('../../api/identityOAuth', async (importOriginal) => {
   const actual =

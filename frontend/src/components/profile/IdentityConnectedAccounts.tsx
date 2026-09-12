@@ -9,18 +9,18 @@ import { GITHUB_PROVIDER, GOOGLE_PROVIDER } from '@webbpulse/auth';
 import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
 import Spinner from '../ui/spinner';
-import { identityUrl } from '../../api/identityClient';
+import {
+  OAUTH_PROVIDERS_PATH,
+  getIdentityClient,
+  identityUrl,
+  oauthProviders,
+  type OAuthProviderInfo,
+} from '../../api/identityClient';
 import {
   listLinks,
   unlinkProvider,
   type OAuthLink,
 } from '../../api/identityOAuth';
-import {
-  OAUTH_PROVIDERS_PATH,
-  oauthProviders,
-  type OAuthProvider,
-} from '../../api/oauthProviders';
-import { getIdentityClient } from '../../api/identityClient';
 
 /** A date for display, falling back to the raw value rather than throwing. */
 const formatDate = (value: string | undefined): string => {
@@ -40,7 +40,7 @@ const ProviderIcon: React.FC<{ provider: string }> = ({ provider }) => {
 };
 
 function IdentityConnectedAccounts() {
-  const [providers, setProviders] = useState<OAuthProvider[]>([]);
+  const [providers, setProviders] = useState<OAuthProviderInfo[]>([]);
   const [links, setLinks] = useState<OAuthLink[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState(false);

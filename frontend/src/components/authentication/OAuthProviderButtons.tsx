@@ -6,13 +6,13 @@
 import { useEffect, useState } from 'react';
 import { FaGithub, FaGoogle, FaSignInAlt } from 'react-icons/fa';
 import { GITHUB_PROVIDER, GOOGLE_PROVIDER } from '@webbpulse/auth';
-import { identityUrl } from '../../api/identityClient';
-import { oauthStartUrl } from '../../api/identityOAuth';
 import {
   OAUTH_PROVIDERS_PATH,
+  identityUrl,
   oauthProviders,
-  type OAuthProvider,
-} from '../../api/oauthProviders';
+  type OAuthProviderInfo,
+} from '../../api/identityClient';
+import { oauthStartUrl } from '../../api/identityOAuth';
 
 /** Props for OAuthProviderButtons: where to land after the callback. */
 export interface OAuthProviderButtonsProps {
@@ -32,7 +32,7 @@ function OAuthProviderButtons({
   returnTo,
   disabled,
 }: OAuthProviderButtonsProps) {
-  const [providers, setProviders] = useState<OAuthProvider[]>([]);
+  const [providers, setProviders] = useState<OAuthProviderInfo[]>([]);
 
   useEffect(() => {
     let live = true;

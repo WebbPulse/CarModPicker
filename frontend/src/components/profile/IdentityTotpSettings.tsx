@@ -9,7 +9,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
 import { getIdentityClient } from '../../api/identityClient';
-import { qrCodeSvgPath } from '../../utils/qrCode';
+import { qrCodeSvgPath } from '@webbpulse/qrcode';
 
 /** Where the panel is in the enrolment flow. */
 type Step =
@@ -41,20 +41,20 @@ const refusalMessage = (outcome: { reason: string; message: string }): string =>
 
 /** The provisioning URI as a scannable QR code. */
 const ProvisioningQr: React.FC<{ uri: string }> = ({ uri }) => {
-  let path: { path: string; size: number };
+  let code: { path: string; viewBox: string };
   try {
-    path = qrCodeSvgPath(uri);
+    code = qrCodeSvgPath(uri);
   } catch {
     return null;
   }
   return (
     <svg
-      viewBox={`0 0 ${String(path.size)} ${String(path.size)}`}
+      viewBox={code.viewBox}
       className="w-48 h-48 bg-white p-2 rounded-lg"
       role="img"
       aria-label="Two factor authentication QR code"
     >
-      <path d={path.path} fill="#000000" />
+      <path d={code.path} fill="#000000" />
     </svg>
   );
 };
