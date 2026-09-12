@@ -19,6 +19,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
       chrome-extension: ${{ steps.filter.outputs.chrome-extension }}
+      scripts: ${{ steps.filter.outputs.scripts }}
     steps:
       - uses: actions/checkout@v7
 
@@ -35,6 +36,30 @@ jobs:
             chrome-extension:
               - 'chrome-extension/**'
               - '.github/workflows/ci.yml'
+            scripts:
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+
+  scripts:
+    name: Scripts
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install pytest
+        run: python -m pip install --upgrade pip pytest
+
+      - name: Check shell syntax
+        run: bash -n scripts/verify_route_cut.sh
+
+      - name: Test the route key resolver
+        run: python -m pytest scripts/test_expected_route_key.py -q
 
   backend:
     name: Backend

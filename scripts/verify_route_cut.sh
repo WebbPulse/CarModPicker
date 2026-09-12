@@ -216,39 +216,20 @@ done
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 APIGATEWAY_TF=${CARMODPICKER_APIGATEWAY_TF:-${REPO_ROOT}/terraform/apigateway.tf}
-
-declare -a EXPLICIT_GET_ID_KEYS=()
-if [ -r "$APIGATEWAY_TF" ]; then
-  while IFS= read -r line; do
-    [ -n "$line" ] && EXPLICIT_GET_ID_KEYS+=("$line")
-  done < <(grep -oE '"GET /api/[a-zA-Z0-9_-]+/\{[a-zA-Z0-9_]+\}"' "$APIGATEWAY_TF" |
-    tr -d '"' | sort -u)
-fi
+RESOLVER=${REPO_ROOT}/scripts/expected_route_key.py
 
 expected_key() {
-  local path=$1 prefix key
-  for prefix in "${PREFIXES[@]}"; do
-    if [ "$path" = "$prefix" ]; then
-      echo "ANY ${prefix}"
-      return
-    fi
-    case "$path" in
-    "$prefix"/*)
-      for key in ${EXPLICIT_GET_ID_KEYS+"${EXPLICIT_GET_ID_KEYS[@]}"}; do
-        case "$key" in
-        "GET ${prefix}/{"*"}")
-          echo "$key"
-          return
-          ;;
-        esac
-      done
-      echo "ANY ${prefix}/{proxy+}"
-      return
-      ;;
-    esac
-  done
-  echo ""
+  local path=$1 resolved
+  resolved=$(python3 "$RESOLVER" "$APIGATEWAY_TF" GET "$path" "${PREFIXES[@]}" 2>/dev/null) || resolved=""
+  printf '%s' "$resolved"
 }
+
+if [ ! -r "$APIGATEWAY_TF" ]; then
+  echo "Cannot read ${APIGATEWAY_TF}." >&2
+  echo "The expected route key is derived from the declared route map, so a" >&2
+  echo "missing file would silently weaken every assertion below." >&2
+  exit 1
+fi
 
 START_EPOCH_MS=$(($(date +%s) * 1000 - 60000))
 
@@ -352,6 +333,15 @@ for path in "${PROBE_PATHS[@]}"; do
   want=$(expected_key "$path")
   got=$(printf '%s\n' "$ROUTE_KEYS" | awk -F'\t' -v p="$path" '$1 == p { print $2 }' | tail -n1)
 
+  if [ -z "$want" ]; then
+    echo "  ${path} -> no declared route key matches  FAIL"
+    echo "        Nothing in ${APIGATEWAY_TF} claims this path, so the probe"
+    echo "        would 404 at the gateway. The prefix list in this script and"
+    echo "        the route map have drifted apart."
+    FAILURES=$((FAILURES + 1))
+    continue
+  fi
+
   if [ -z "$got" ]; then
     echo "  ${path} -> no access log entry after ${LOG_WAIT}s  FAIL"
     echo "        The request was not logged within the budget, so nothing can"
@@ -377,7 +367,10 @@ for path in "${PROBE_PATHS[@]}"; do
     ;;
   *)
     echo "  ${path} -> routeKey '${got}'  FAIL"
-    echo "        Expected '${want}'. Another route key claims this path."
+    echo "        Expected '${want}', derived from the route keys declared in"
+    echo "        ${APIGATEWAY_TF}. The gateway and that file disagree, so"
+    echo "        either an apply has not landed or a key was changed outside"
+    echo "        Terraform."
     FAILURES=$((FAILURES + 1))
     ;;
   esac
