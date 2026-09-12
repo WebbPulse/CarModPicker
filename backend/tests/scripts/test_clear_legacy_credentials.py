@@ -36,11 +36,13 @@ def identity_tables(credentials_table: Any, totp_factors_table: Any) -> Any:
 
 @pytest.fixture
 def credentials(identity_tables: Any) -> Any:
+    """The package's real credential store over the moto tables."""
     return script.build_credential_store(PREFIX)
 
 
 @pytest.fixture
 def totp_factors(identity_tables: Any) -> Any:
+    """The package's real TOTP factor store over the moto tables."""
     return script.build_totp_store(PREFIX)
 
 
@@ -57,6 +59,7 @@ def users(identity_tables: Any) -> Any:
 
 @pytest.fixture
 def factors_table(identity_tables: Any) -> Any:
+    """The raw moto `totp-factors` table."""
     return dynamo_client.get_resource().Table(f"{PREFIX}-totp-factors")
 
 
@@ -76,6 +79,7 @@ def make_user(users: Any, **overrides: Any) -> str:
 
 
 def give_credential(credentials: Any, user_id: str, secret: str) -> None:
+    """Write a password credential for the user into the credential store."""
     credentials.put(
         CredentialRecord(
             user_id=user_id,
@@ -102,10 +106,12 @@ def give_sealed_factor(factors_table: Any, user_id: str) -> None:
 
 
 def item(users: Any, user_id: str) -> dict[str, Any]:
+    """Read one users row back as a plain dict."""
     return dict(users.get_item(Key={"id": user_id})["Item"])
 
 
 def run(users: Any, credentials: Any, totp_factors: Any, apply: bool = False) -> Any:
+    """Run the script's clear pass over the moto users table."""
     return script.clear(
         script.iter_user_rows(PREFIX),
         credentials,
@@ -116,6 +122,7 @@ def run(users: Any, credentials: Any, totp_factors: Any, apply: bool = False) ->
 
 
 def test_a_dry_run_writes_nothing(users: Any, credentials: Any, totp_factors: Any) -> None:
+    """A dry run reports the row as cleared but leaves the column in place."""
     hashed = hash_password("legacy-password")
     user_id = make_user(users, hashed_password=hashed)
     give_credential(credentials, user_id, hashed)
@@ -128,6 +135,7 @@ def test_a_dry_run_writes_nothing(users: Any, credentials: Any, totp_factors: An
 
 
 def test_applying_removes_the_password_column(users: Any, credentials: Any, totp_factors: Any) -> None:
+    """Applying drops `hashed_password` once the credential matches."""
     hashed = hash_password("legacy-password")
     user_id = make_user(users, hashed_password=hashed)
     give_credential(credentials, user_id, hashed)
@@ -139,6 +147,7 @@ def test_applying_removes_the_password_column(users: Any, credentials: Any, totp
 
 
 def test_applying_removes_the_totp_seed(users: Any, credentials: Any, totp_factors: Any, factors_table: Any) -> None:
+    """Applying drops `totp_secret` while leaving `totp_enabled` set."""
     user_id = make_user(users, totp_secret="JBSWY3DPEHPK3PXP", totp_enabled=True)
     give_sealed_factor(factors_table, user_id)
 
@@ -151,6 +160,7 @@ def test_applying_removes_the_totp_seed(users: Any, credentials: Any, totp_facto
 
 
 def test_both_columns_go_in_one_pass(users: Any, credentials: Any, totp_factors: Any, factors_table: Any) -> None:
+    """A row carrying both legacy columns has both removed in a single pass."""
     hashed = hash_password("legacy-password")
     user_id = make_user(users, hashed_password=hashed, totp_secret="JBSWY3DPEHPK3PXP")
     give_credential(credentials, user_id, hashed)
@@ -181,6 +191,7 @@ def test_a_row_with_neither_column_is_already_clear(users: Any, credentials: Any
 
 
 def test_running_twice_is_a_no_op(users: Any, credentials: Any, totp_factors: Any) -> None:
+    """A second apply finds the row already clear and writes nothing further."""
     hashed = hash_password("legacy-password")
     user_id = make_user(users, hashed_password=hashed)
     give_credential(credentials, user_id, hashed)
@@ -222,6 +233,7 @@ def test_a_changed_password_refuses(users: Any, credentials: Any, totp_factors: 
 
 
 def test_a_plaintext_seed_with_no_sealed_factor_refuses(users: Any, credentials: Any, totp_factors: Any) -> None:
+    """A plaintext seed with no sealed factor row is refused and left alone."""
     user_id = make_user(users, totp_secret="JBSWY3DPEHPK3PXP")
 
     summary, _ = run(users, credentials, totp_factors, apply=True)
@@ -251,12 +263,14 @@ def test_one_refusal_stops_the_whole_run(users: Any, credentials: Any, totp_fact
 
 
 def test_a_refusal_exits_non_zero(users: Any, credentials: Any, totp_factors: Any) -> None:
+    """`main` exits 1 when any row is refused."""
     make_user(users, hashed_password=hash_password("orphaned"))
 
     assert script.main(["--prefix", PREFIX, "--apply"]) == 1
 
 
 def test_a_clean_run_exits_zero(users: Any, credentials: Any, totp_factors: Any) -> None:
+    """`main` exits 0 and clears the column when every row is accountable."""
     hashed = hash_password("legacy-password")
     user_id = make_user(users, hashed_password=hashed)
     give_credential(credentials, user_id, hashed)

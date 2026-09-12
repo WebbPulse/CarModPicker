@@ -70,7 +70,6 @@ function ViewCar(): React.JSX.Element {
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     setBuildListSearchTerm(e.target.value);
-    // Reset to page 1 when search changes (handled by BuildListList component)
   };
 
   const openCreateBuildListDialog = () => {

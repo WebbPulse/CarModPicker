@@ -85,7 +85,16 @@ Writes go through `webbpulse.identity.DynamoCredentialStore` over a
 builds. That is deliberate: the item shape, the `created_at`/`updated_at`
 defaulting and the key names are the package's problem, and a script writing its
 own item dict would be a second implementation of a shape the package is free to
-change.
+change. `PASSWORD_CREDENTIAL_TYPE` is imported from the package rather than
+spelled `"password"` here, so this script and the flow that reads the row cannot
+disagree about the range key.
+
+## SECRET_KEY and EMAIL_FROM are set to placeholders at import
+
+`app.core.config` builds a `Settings` at import and refuses to construct without
+them. This migration reads users, writes credentials and authenticates nobody,
+so the placeholders never reach a hash or a token. They are set with `setdefault`
+so a real environment carrying them is left alone.
 """
 
 from __future__ import annotations
@@ -98,19 +107,12 @@ from typing import TYPE_CHECKING, Any, Iterable, NamedTuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# `app.core.config` builds a `Settings` at import and refuses to construct
-# without these. This migration reads users and writes credentials and
-# authenticates nobody, so the values are placeholders that never reach a hash
-# or a token. `setdefault` so a real environment carrying them is left alone.
 for _name, _placeholder in (
     ("SECRET_KEY", "migration"),
     ("EMAIL_FROM", "migration@example.com"),
 ):
     os.environ.setdefault(_name, _placeholder)
 
-# `PASSWORD_CREDENTIAL_TYPE` is the `credential_type` range key for a bcrypt
-# password. Imported from the package rather than spelled `"password"` here, so
-# this and the flow that reads the row cannot disagree about the key.
 from webbpulse.identity import (  # noqa: E402
     CREDENTIALS_TABLE,
     PASSWORD_CREDENTIAL_TYPE,
@@ -122,21 +124,12 @@ from app.db.dynamo.tables import USERS  # noqa: E402
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from webbpulse.identity import CredentialStore
 
-#: The legacy attribute holding the bcrypt hash on a CarModPicker user row.
 LEGACY_HASH_FIELD = "hashed_password"
 
-#: The bcrypt modular crypt prefixes. `$2b$` is what `bcrypt.hashpw` produces
-#: today and what every CarModPicker row carries; `$2a$` and `$2y$` are older
-#: variants that the same `bcrypt.checkpw` still verifies, so a row carrying one
-#: migrates rather than being refused. Anything else is not a bcrypt hash and is
-#: not copied: writing it would produce a credential that can never verify.
 BCRYPT_PREFIXES = ("$2a$", "$2b$", "$2y$")
 
-#: A bcrypt modular crypt string is exactly this long, always.
 BCRYPT_LENGTH = 60
 
-#: The actions `plan` may return, and the keys of the summary. Ordered so the
-#: printed totals read from "did something" to "did nothing".
 ACTIONS = ("write", "unchanged", "conflict", "skip_oauth_only", "skip")
 
 
@@ -151,6 +144,7 @@ class CredentialConflict(Exception):
     """
 
     def __init__(self, conflicts: list[str]) -> None:
+        """Record the conflicting user ids and build the message naming --replace."""
         self.conflicts = conflicts
         detail = ", ".join(str(user_id) for user_id in conflicts)
         super().__init__(
@@ -259,6 +253,11 @@ def plan(user_rows: Iterable[dict[str, Any]], store: "CredentialStore") -> list[
     `conflict`, `skip_oauth_only` or `skip`. Separating the decision from the
     write is what lets `--apply` and the dry run share one code path and report
     the same thing.
+
+    A row with no legacy hash is `skip_oauth_only`: it signs in with Google only,
+    or was created through the identity registration flow and already holds a
+    credential. That is the ordinary case rather than a fault, so it is counted
+    apart from the other skips.
     """
     decisions: list[Decision] = []
     for user in user_rows:
@@ -266,11 +265,6 @@ def plan(user_rows: Iterable[dict[str, Any]], store: "CredentialStore") -> list[
         legacy = user.get(LEGACY_HASH_FIELD)
 
         if not legacy:
-            # An account that signs in with Google only, or one created through
-            # the identity registration flow, whose credential already exists.
-            # Either way there is nothing here to copy, and this is the ordinary
-            # case rather than a fault. Counted apart from the other skips: see
-            # the module docstring on why the summary needs the distinction.
             decisions.append(
                 Decision(
                     user_id,
@@ -342,10 +336,6 @@ def migrate(
                 user_id=decision.user_id,
                 credential_type=PASSWORD_CREDENTIAL_TYPE,
                 secret=decision.secret,
-                # Preserve the original creation moment when replacing, so a
-                # rewrite records when the credential came into existence rather
-                # than when the migration last touched it. The store fills both
-                # timestamps in when they are empty.
                 created_at=decision.created_at,
             )
         )
@@ -367,6 +357,7 @@ def report(summary: dict[str, int], decisions: list[Decision], apply: bool) -> N
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the command line; the run is a dry run unless --apply is passed."""
     parser = argparse.ArgumentParser(
         description=(
             "Copy each user's bcrypt password hash into the identity "
@@ -405,6 +396,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the credential migration and return 1 on a credential conflict, else 0."""
     args = parse_args(argv)
 
     store = build_store(args.prefix, args.endpoint_url, args.region)

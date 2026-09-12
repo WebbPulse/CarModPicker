@@ -23,6 +23,10 @@ Inputs:
 
 Writes one JSON evidence file per invocation under the evidence dir, named
 ``price-history-PASSED-<iso>.json`` or ``price-history-FAILED-<iso>.json``.
+
+The remediation pointer is part of the gate's contract: on failure the
+FAILED.json must literally name R036 so the next agent does not have to
+re-derive D004.
 """
 
 from __future__ import annotations
@@ -35,9 +39,6 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# The remediation pointer is part of the gate's contract — when the gate
-# fails, the FAILED.json must literally name R036 so the next agent doesn't
-# have to re-derive D004.
 REMEDIATION_NOTE = (
     "Perf gate missed. Open R036 (materialized part_price_summary) per D004 " "— see .gsd/REQUIREMENTS.md."
 )
@@ -49,10 +50,12 @@ DEFAULT_POST_BUDGET_MS = 500
 
 
 def _utc_iso() -> str:
+    """Current UTC time as the compact timestamp used in evidence filenames."""
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 def _read_stats_rows(csv_path: Path) -> List[Dict[str, str]]:
+    """Read every data row of a locust stats CSV as a dict keyed by column name."""
     rows: List[Dict[str, str]] = []
     with csv_path.open("r", encoding="utf-8", newline="") as fh:
         reader = csv.DictReader(fh)
@@ -71,6 +74,7 @@ def _find_row(rows: List[Dict[str, str]], type_: str, name: str) -> Optional[Dic
 
 
 def _coerce_float(row: Dict[str, str], column: str) -> float:
+    """Read one CSV column as a float, raising ValueError when empty or non-numeric."""
     raw = row.get(column, "").strip()
     if raw in ("", "N/A"):
         raise ValueError(f"column {column!r} is empty in row {row!r}")
@@ -81,6 +85,7 @@ def _coerce_float(row: Dict[str, str], column: str) -> float:
 
 
 def _coerce_int(row: Dict[str, str], column: str) -> int:
+    """Read one CSV column as an int, raising ValueError when empty or non-numeric."""
     raw = row.get(column, "").strip()
     if raw in ("", "N/A"):
         raise ValueError(f"column {column!r} is empty in row {row!r}")
@@ -113,6 +118,7 @@ def _extract_endpoint_stats(rows: List[Dict[str, str]], type_: str, name: str) -
 
 
 def _print_breakdown(label: str, stats: Dict[str, Any], budget_ms: int) -> None:
+    """Print one endpoint's request counts and latency percentiles against its budget."""
     print(
         f"  {label}: requests={stats['requests']} failures={stats['failures']} "
         f"p50={stats['p50_ms']:.0f}ms p95={stats['p95_ms']:.0f}ms "
@@ -148,16 +154,13 @@ def evaluate(
         get_stats = _extract_endpoint_stats(rows, "GET", get_name)
         post_stats = _extract_endpoint_stats(rows, "POST", post_name)
     except LookupError as exc:
-        # Missing the per-endpoint Aggregated row contract.
         print(f"[perf-gate] CSV missing expected stats row: {exc}", file=sys.stderr)
         return 6
     except ValueError as exc:
-        # Could not parse a numeric column (malformed CSV).
         print(f"[perf-gate] CSV malformed: {exc}", file=sys.stderr)
         return 3
 
     if get_stats["requests"] == 0 and post_stats["requests"] == 0:
-        # Locust ran but no traffic landed — treat as malformed run.
         print(
             f"[perf-gate] CSV {csv_path} reports zero requests on both endpoints",
             file=sys.stderr,
@@ -215,6 +218,7 @@ def evaluate(
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """Parse CLI arguments and return the exit code from `evaluate`."""
     parser = argparse.ArgumentParser(description="Parse locust stats CSV and enforce p95 budget.")
     parser.add_argument("--csv", required=True, type=Path, help="Path to locust *_stats.csv")
     parser.add_argument(

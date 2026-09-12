@@ -9,6 +9,11 @@ adapters declare their concrete sub-slug plus ``"universal"``; everyone else
 declares ``["universal"]`` (the safe floor — the S02 category-name → sub-slug
 bridge already routes any non-coilover/brake/turbo categorized payload there).
 
+Every value in the mapping is a registered slug in
+``app.crawlers.specs.default_registry`` (validated at adapter import time by
+``RetailerCrawlerAdapter.__init_subclass__``). Adapter slugs not listed there
+default to ``["universal"]``.
+
 Re-running the script is a no-op: files that already declare
 ``category_targets =`` are skipped.
 
@@ -23,23 +28,16 @@ import re
 import sys
 from pathlib import Path
 
-#: Canonical specialist mapping. Every value is a registered slug in
-#: ``app.crawlers.specs.default_registry`` (validated at adapter import time
-#: by ``RetailerCrawlerAdapter.__init_subclass__``). Adapter slugs not listed
-#: here default to ``["universal"]``.
 SPECIALIST_MAPPING: dict[str, list[str]] = {
-    # Brake specialists.
     "girodisc": ["brake", "universal"],
     "essexparts": ["brake", "universal"],
     "wilwood": ["brake", "universal"],
     "stoptech": ["brake", "universal"],
-    # Coilover specialists.
     "bcracing": ["coilover", "universal"],
     "tein": ["coilover", "universal"],
     "stanceusa": ["coilover", "universal"],
     "kwsuspensions": ["coilover", "universal"],
     "fortuneauto": ["coilover", "universal"],
-    # Turbo specialists.
     "atpturbo": ["turbo", "universal"],
     "fullrace": ["turbo", "universal"],
 }
@@ -50,13 +48,12 @@ ADAPTERS_ROOT = Path(__file__).resolve().parent.parent / "app" / "crawlers" / "a
 TIER_DIRS = ("tier0_http", "tier1_tls", "tier2_browser")
 SKIP_FILES = {"__init__.py", "base.py", "generic.py"}
 
-#: Capture the ADAPTER_NAME slug literal and the leading whitespace so the new
-#: line lands at the same indentation. Tolerates double or single quotes.
 ADAPTER_NAME_RE = re.compile(r'^(?P<indent>[ \t]*)ADAPTER_NAME\s*:\s*ClassVar\[str\]\s*=\s*["\'](?P<slug>[^"\']+)["\']')
 EXISTING_TARGETS_RE = re.compile(r"^[ \t]*category_targets\s*[:=]")
 
 
 def _format_targets(targets: list[str]) -> str:
+    """Render a targets list as the Python list literal written into the adapter."""
     inner = ", ".join(f'"{t}"' for t in targets)
     return f"[{inner}]"
 
@@ -67,6 +64,10 @@ def _process_file(path: Path) -> tuple[str, list[str] | None]:
     - ``"updated"`` — wrote the file.
     - ``"already-present"`` — file already declares ``category_targets``; skipped.
     - ``"no-adapter-name"`` — couldn't locate an ``ADAPTER_NAME`` line; skipped.
+
+    The new line is matched to the ADAPTER_NAME line's indentation, and a
+    missing trailing newline on that line is added first so the file stays
+    parseable when ADAPTER_NAME is the last line.
     """
     text = path.read_text()
     lines = text.splitlines(keepends=True)
@@ -82,9 +83,6 @@ def _process_file(path: Path) -> tuple[str, list[str] | None]:
         slug = match.group("slug")
         targets = SPECIALIST_MAPPING.get(slug, DEFAULT_TARGETS)
         new_line = f"{indent}category_targets: ClassVar[list[str]] = {_format_targets(targets)}\n"
-        # Preserve the original line ending shape: if the ADAPTER_NAME line
-        # didn't end in a newline (last line of file), the new line still gets
-        # a newline so the file remains parseable.
         if not lines[idx].endswith("\n"):
             lines[idx] = lines[idx] + "\n"
         lines.insert(idx + 1, new_line)
@@ -95,6 +93,7 @@ def _process_file(path: Path) -> tuple[str, list[str] | None]:
 
 
 def main() -> int:
+    """Retrofit category_targets across every adapter; returns 1 if any file was skipped."""
     if not ADAPTERS_ROOT.is_dir():
         print(f"ERROR: adapters root not found: {ADAPTERS_ROOT}", file=sys.stderr)
         return 2

@@ -209,7 +209,7 @@ describe('SystemAdmin page', () => {
   it('denies access to authenticated non-admin user', () => {
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
-      user: mockUser, // is_admin: false
+      user: mockUser,
       isLoading: false,
       login: vi.fn(),
       logout: vi.fn(),
