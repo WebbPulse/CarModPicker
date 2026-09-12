@@ -29,10 +29,10 @@ locals {
   identity_jwt_native_enforced = var.identity_jwt_mode == "native"
 
   dev_origins     = ["http://localhost", "http://localhost:3000", "http://localhost:4000"]
-  allowed_origins = var.environment == "production" ? "" : join(",", concat(local.dev_origins, local.custom_domain ? ["https://${local.domain_name}", "https://www.${local.domain_name}"] : [local.frontend_url]))
+  site_origins    = local.custom_domain ? ["https://${local.domain_name}", "https://www.${local.domain_name}"] : [local.frontend_url]
+  browser_origins = var.environment == "production" ? local.site_origins : concat(local.dev_origins, local.site_origins)
 
-  cors_allow_origins = concat(
-    ["https://${local.domain_name}", "https://www.${local.domain_name}"],
-    local.dev_origins,
-  )
+  allowed_origins = join(",", local.browser_origins)
+
+  cors_allow_origins = local.browser_origins
 }
