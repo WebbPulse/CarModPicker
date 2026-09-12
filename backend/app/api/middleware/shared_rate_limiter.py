@@ -1,7 +1,8 @@
-"""Layer 2 of the rate limiting standard: a shared, DynamoDB backed limiter.
+"""The shared, DynamoDB backed rate limiter: the only limiter this API runs.
 
-Layer 1 is `rate_limiter.SophisticatedRateLimiter`, which stays. It is in-memory,
-so it costs nothing and absorbs a burst inside one execution environment before
+Counting in the table rather than in a process is what makes the limit real on
+Lambda, where every execution environment would otherwise hold its own count.
+Every backend failure fails open, so an outage costs availability nothing.
 """
 
 import hashlib
