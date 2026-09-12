@@ -540,13 +540,20 @@ Owner present, in a browser.
       -d 'username=nobody&password=wrong'
     curl -s -o /dev/null -w "discovery %{http_code}\n" $API/api/auth/.well-known/openid-configuration
     curl -s -o /dev/null -w "jwks      %{http_code}\n" $API/api/auth/.well-known/jwks.json
-    curl -s -o /dev/null -w "health    %{http_code}\n" $API/health
-    curl -s -o /dev/null -w "makes     %{http_code}\n" $API/api/car-makes
-    curl -s -o /dev/null -w "search    %{http_code}\n" $API/api/search
+    curl -s -o /dev/null -w "retailers %{http_code}\n" $API/api/retailers/count
+    curl -s -o /dev/null -w "makes     %{http_code}\n" $API/api/car-generations/stats/car-makes
+    curl -s -o /dev/null -w "search    %{http_code}\n" "$API/api/search/?q=civic"
 
 Expect `404, 200, 200, 200, 200, 200`. The legacy `404` is row 13 landing and is
 correct here, where it would have been a stop at step 3. The last three are the
 regression check: they are `200` today and must stay `200`.
+
+There is no `/health` and no `/api/car-makes` on the production gateway. The
+HTTP API carries only the 142 explicit domain route keys, with no `$default` and
+no root health route, so both return `404` and neither is a useful probe. Pick
+public reads that live on a real route key, as the three above do. Mind the
+trailing slashes too: `/api/search` and `/api/car-generations/` both answer
+`307`, and `/api/search/` without a query is `422`.
 
 Then **sign in at `https://www.carmodpicker.com` in a browser as a real user**
 and confirm the session survives a reload. Not a curl, and not a synthetic
@@ -556,14 +563,17 @@ Confirm the legacy routes have actually gone quiet rather than assuming, by
 reading the access log for the four legacy paths over the hour after the apply:
 
     aws logs start-query \
-      --log-group-name /aws/apigateway/carmodpicker-production \
+      --log-group-name /aws/apigateway/carmodpicker-production-api \
       --start-time $(date -d '1 hour ago' +%s) --end-time $(date +%s) \
       --query-string 'fields @timestamp, path, status
         | filter path like /\/api\/auth\/(token|oauth\/google)/
         | stats count() by path, status'
 
 Any `200` on a legacy path after this apply means something is still serving it
-and wants reading before step 10.
+and wants reading before step 10. The access log group is
+`/aws/apigateway/carmodpicker-production-api`, which outlives the monolith
+function of the same name. A request the gateway itself rejected, rather than
+passing to a function, logs `integrationLatency` as `-`.
 
 **Gate:** browser sign-in works, public reads unchanged, legacy paths 404.
 Otherwise roll back before touching the gateway.
