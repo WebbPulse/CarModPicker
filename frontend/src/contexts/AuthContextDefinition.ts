@@ -18,25 +18,18 @@ export interface AuthExtrasContextType {
    * signed-out user has nothing to act on.
    */
   logout: () => Promise<void>;
-  /** Re-reads the signed in profile without rotating the refresh cookie. */
-  checkAuthStatus: () => Promise<void>;
   /**
-   * The profile the last `login` or `checkAuthStatus` read, or null when neither
-   * has run since the session changed. Layered over the package store's user,
-   * which has no public setter, so a profile edit shows without a token refresh.
+   * Re-reads the signed in profile without rotating the refresh cookie. A 401
+   * ends the session, exactly as a failed refresh does.
    */
-  freshUser: UserRead | null;
+  checkAuthStatus: () => Promise<void>;
 }
 
 /**
  * The full value `useAuth` returns: the package store's status and user plus the
- * calls above. `freshUser` is provider plumbing and deliberately absent, so a
- * consumer and a test mock state only what a component reads.
+ * calls above.
  */
-export interface AuthContextType extends Omit<
-  AuthExtrasContextType,
-  'freshUser'
-> {
+export interface AuthContextType extends AuthExtrasContextType {
   isAuthenticated: boolean;
   user: UserRead | null;
   isLoading: boolean;

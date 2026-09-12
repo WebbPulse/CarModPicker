@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AuthProvider as PackageAuthProvider,
+  useAuth as usePackageAuth,
   type AnyAuthClient,
 } from '@webbpulse/auth/react';
-import { apiClient, isApiErrorWithStatus } from '../api/client';
-import { CURRENT_USER_PATH, getIdentityClient } from '../api/identityClient';
+import { getIdentityClient } from '../api/identityClient';
 import type { UserRead } from '../types/Api';
 import {
   AuthExtrasContext,
@@ -15,31 +15,29 @@ import {
 
 /**
  * Supplies the session calls `@webbpulse/auth` does not own. Mounted inside the
- * package provider so `useAuthClient` resolves, and holding no status of its
- * own: the package store stays the single source of truth for that.
+ * package provider so `useAuth` resolves, and holding no user of its own: the
+ * package store is the single source of truth.
  */
 const AuthExtrasProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const navigate = useNavigate();
-  const [freshUser, setFreshUser] = useState<UserRead | null>(null);
+  const { setUser, reloadUser } = usePackageAuth<UserRead>();
 
-  const login = useCallback((userData: UserRead) => {
-    setFreshUser(userData);
-  }, []);
+  const login = useCallback(
+    (userData: UserRead) => {
+      setUser(userData);
+    },
+    [setUser]
+  );
 
   const checkAuthStatus = useCallback(async () => {
     try {
-      const response = await apiClient.get<UserRead>(CURRENT_USER_PATH);
-      setFreshUser(response.data ?? null);
+      await reloadUser();
     } catch (error) {
-      const status = isApiErrorWithStatus(error) ? error.status : undefined;
-      setFreshUser(null);
-      if (status !== undefined && status !== 401) {
-        console.error('Auth check failed:', error);
-      }
+      console.error('Auth check failed:', error);
     }
-  }, []);
+  }, [reloadUser]);
 
   const logout = useCallback(async () => {
     const client = getIdentityClient();
@@ -48,14 +46,13 @@ const AuthExtrasProvider: React.FC<{ children: ReactNode }> = ({
     } catch {
       void 0;
     } finally {
-      setFreshUser(null);
       void navigate('/');
     }
   }, [navigate]);
 
   const value = useMemo<AuthExtrasContextType>(
-    () => ({ login, logout, checkAuthStatus, freshUser }),
-    [login, logout, checkAuthStatus, freshUser]
+    () => ({ login, logout, checkAuthStatus }),
+    [login, logout, checkAuthStatus]
   );
 
   return (
