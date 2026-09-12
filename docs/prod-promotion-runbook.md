@@ -30,8 +30,11 @@ apply and every write below is an owner decision.
 > the two disagree. The three places this document is now wrong are marked
 > inline below: **step 7**, which schedules the credential migration after the
 > merge when it must run before it; **step 11**, which sets an `AUTH_MODE`
-> GitHub variable that row 13 made dead; and **step 12**, which says this
-> repository has no `clear_legacy_credentials.py` when it now does.
+> GitHub variable that row 13 made dead; and **step 12**, which said this
+> repository has no `clear_legacy_credentials.py` and that the column had to stay
+> populated. Both are wrong. Step 12 now carries the correction and owns steps 15
+> and 16, which are the dry run and the apply; the plan's matching note is the
+> stale one there.
 >
 > Everything else here still holds: the blockers, the plan shapes, the variable
 > table, the hard stops and the rollback reasoning are all still the reference,
@@ -1329,18 +1332,107 @@ clearing a row it cannot open.
 **This is the one-way door.** After it, the sealed seed is the only copy and
 `docs/security/totp-seed-encryption.md`'s finding is closed.
 
-**Correction: `backend/scripts/clear_legacy_credentials.py` now exists.** Row 13
-added it, so the sentence this paragraph used to carry is out of date. The
-conclusion is unchanged and is now load bearing for a different reason: **do not
-run it.** Its docstring opens with why it has to wait. Row 13 could not remove
-`hashed_password` from two call sites, `POST /api/users/` and the password
-change on `PUT /api/users/{user_id}`, which are the users domain's own routes
-and are still called by the SPA. Porting their writes needs the users function
-to hold a grant on the identity `credentials` table, and `module.identity` takes
-exactly one role with no input for a second, so that is its own row.
+**Correction, 2026-09-11: `backend/scripts/clear_legacy_credentials.py` exists
+and clearing the legacy columns is safe once the migrations have run.** Both
+earlier claims in this paragraph were wrong and are withdrawn. Read this section
+in place of them, and in place of the plan's matching note.
 
-Leave `hashed_password` populated. It costs nothing and those two routes still
-write it.
+The caveat said row 13 could not remove `hashed_password` from two call sites,
+`POST /api/users/` and the password change on `PUT /api/users/{user_id}`, so the
+column was still being written. Neither route exists on `staging`:
+
+- There is no `POST /api/users/` route at all. `backend/app/api/endpoints/users.py`
+  declares one `POST`, the profile picture upload at line 107.
+- `PUT /api/users/{user_id}`, `backend/app/api/endpoints/users.py:245` through
+  `311`, has no password branch. It copies `UserUpdate` fields through and
+  clamps `session_expire_minutes`; nothing else.
+- Neither `UserUpdate` (`backend/app/api/schemas/user.py:42`) nor
+  `AdminUserUpdate` (`backend/app/api/schemas/user.py:87`) carries a password
+  field, so the route could not receive one.
+- The `User` model, `backend/app/db/dynamo/users.py:43`, declares neither
+  `hashed_password` nor `totp_secret`.
+
+Across `backend/app/**` there are exactly two non-test mentions of the column: a
+parameter name at `backend/app/api/dependencies/auth.py:66`, and a discarding
+`record.pop("hashed_password", None)` at
+`backend/app/composition/identity_hooks.py:138`. `get_password_hash` and
+`verify_password` in that auth module have zero callers in the application. The
+script's own docstring, `backend/scripts/clear_legacy_credentials.py:23`, now
+opens by saying so.
+
+So leaving the column populated buys nothing. It is a standing exposure: 174
+bcrypt verifiers that no code path can check, plus the plaintext TOTP seeds that
+`docs/security/totp-seed-encryption.md` already records as a finding. It is not
+a rollback asset either, which the closing paragraph of this step has always
+conceded: row 13 deleted the legacy routes as code, so there is nothing left in
+the shipped image to read the column.
+
+`backend/scripts/clear_legacy_credentials.py` is built for exactly this. It is a
+dry run unless `--apply` is passed, it classifies every row before it writes
+anything, it refuses the entire run on any `mismatch` or `missing_credential`
+rather than clearing half a table, it issues one DynamoDB `REMOVE` for both
+`hashed_password` and `totp_secret`, and it is idempotent, so a second run
+reports `already_clear` and writes nothing.
+
+**Neither repository has run this script against production.** CarModPicker is
+the first. Treat the two sub-steps below as a first application, with the owner
+reading the dry run output rather than skimming it.
+
+#### Step 15. Dry run `clear_legacy_credentials.py`
+
+Dry run only. Nothing is written at this step.
+
+```bash
+cd backend
+export AWS_PROFILE=CarModPicker-Production/AdministratorAccess AWS_REGION=us-west-2
+P=--prefix=carmodpicker-production
+python scripts/clear_legacy_credentials.py $P
+```
+
+Two gates, and both must hold before step 16 is even considered:
+
+- [ ] **Zero refusals.** No row classified `mismatch`, `missing_credential` or
+      `errors`. Any of the three refuses the run, and a refusal is a signal to
+      stop and read, not to rerun. Expect the remainder to split between
+      `cleared` and `already_clear`.
+- [ ] **The owner has signed in with a real password through the identity path
+      in a browser**, after the cutover, not a synthetic account and not a curl
+      probe. A migrated credential that nobody has exercised has not been
+      proven to work.
+
+A `mismatch` here is usually benign and has a known remedy. The identity login
+path, `flows.py:366` in `webbpulse-python`, opportunistically rehashes a
+credential when `needs_rehash` is true, so a user who signed in during the soak
+can hold a credential whose bytes no longer match the legacy column. The fix is
+`migrate_credentials_to_identity.py --replace`, which overwrites from the users
+table. **Never `--force`.**
+
+#### Step 16. Apply `clear_legacy_credentials.py`
+
+Owner present. **This is a one-way door**, on the same footing as the TOTP seed
+clear above.
+
+Run it only after the soak this step already defines, and only if step 8's
+`--verify` exited zero.
+
+```bash
+cd backend
+export AWS_PROFILE=CarModPicker-Production/AdministratorAccess AWS_REGION=us-west-2
+P=--prefix=carmodpicker-production
+python scripts/clear_legacy_credentials.py $P
+python scripts/clear_legacy_credentials.py $P --apply
+```
+
+The dry run is repeated immediately before the apply on purpose. Rows can change
+classification during a soak, for the rehash reason above, so the run that gates
+the write should be the one taken minutes before it.
+
+If the apply refuses, nothing was written. Resolve the named rows, with
+`--replace` for a `mismatch`, and run the pair again.
+
+**Backout:** restore the two columns for the affected rows from the step 1
+snapshot. There is no other copy, and nothing in the application would read them
+if there were.
 
 Note also that the bearer rollback this paragraph used to promise **no longer
 exists**. Row 13 deleted the legacy routes as code, so a populated
@@ -1383,8 +1475,11 @@ Reverting `main` to the sha recorded in step 1 and pushing rebuilds and
 redeploys the previous backend image and the previous frontend bundle. The
 previous image is the one that still carries
 `backend/app/api/endpoints/auth/`, so the legacy login serves again from the
-monolith once it is deployed. That covers the application layer, and it works
-**only because step 12 does not clear `hashed_password`**.
+monolith once it is deployed. That covers the application layer, and it needs
+`hashed_password` to still be populated, which is true up to the point step 16
+clears it. **After step 16 this revert restores the legacy login with nothing for
+it to verify against**, and the rollback is the step 1 snapshot rather than a
+code revert.
 
 ```bash
 git revert --no-commit <promotion-merge-sha>
@@ -1425,7 +1520,8 @@ git revert --no-commit <promotion-merge-sha>
 | Through step 6 | Revert `main` and accept that the monolith retirement is not cleanly reversible. The identity stack sits unused and harmless; leave the tables. |
 | Through step 8 | As above. The migrated credentials and sealed seeds are additive and read by nothing until mode is native. Nothing has been taken away. |
 | Through step 10 | Set `identity_jwt_mode` to `off`, apply, then revert `main`. The frontend was never flipped, so users are unaffected throughout. |
-| Through step 11 | Set `domain_jwt_enforced` to `false` **and** `identity_jwt_mode` to `off`, apply both, delete the `AUTH_MODE` variable, redeploy the frontend. `hashed_password` is still populated so bearer login works immediately. |
+| Through step 11 | Set `domain_jwt_enforced` to `false` **and** `identity_jwt_mode` to `off`, apply both, delete the `AUTH_MODE` variable, redeploy the frontend. `hashed_password` is still populated at this point, so a reverted image's bearer login works as soon as it deploys. |
+| After step 16 | The legacy columns are gone. Restore them from the step 1 snapshot before reverting, or fix forward on the identity path. Fixing forward is usually right, and by this point every signed-in user has already proven the identity path works. |
 | After step 12 | Restore the plaintext seeds from the step 1 snapshot before reverting, or accept that the sealed seed is the only copy and fix forward. Fixing forward is usually right here, and the extension is already published. |
 
 ## Recommended sequence, short form
@@ -1462,4 +1558,6 @@ git revert --no-commit <promotion-merge-sha>
 8. Set `domain_jwt_enforced = true`, apply the third run, expect eighty route
    replacements, and re-probe an authenticated write both ways.
 9. Publish the extension with the identity default, soak for a working day, then
-   `--clear-plaintext --apply`. Leave `hashed_password` for row 13.
+   `--clear-plaintext --apply`. Then dry run `clear_legacy_credentials.py`, and
+   apply it once the dry run refuses nothing and the owner has signed in with a
+   real password in a browser. Steps 15 and 16.
