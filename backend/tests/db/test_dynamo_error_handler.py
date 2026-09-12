@@ -12,6 +12,7 @@ from webbpulse.http import ErrorSpec
 from app.api.middleware.error_handler import register_error_handlers
 from app.api.middleware.request_context import request_context_middleware
 from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
+from app.db.dynamo.users import UniqueAttributeTaken
 
 NOT_FOUND_BODY = {
     "success": False,
@@ -23,6 +24,12 @@ CONFLICT_BODY = {
     "success": False,
     "status": 409,
     "message": "Resource already exists or was modified concurrently",
+    "error_code": "CONFLICT",
+}
+TAKEN_BODY = {
+    "success": False,
+    "status": 409,
+    "message": "That username or email is already taken",
     "error_code": "CONFLICT",
 }
 INTERNAL_BODY = {
@@ -57,6 +64,11 @@ def build_app() -> FastAPI:
         """Raise ConditionFailed."""
         raise ConditionFailed("test-users", "attribute_not_exists(id)", {"id": "abc"})
 
+    @app.get("/taken")
+    def taken() -> None:
+        """Raise UniqueAttributeTaken."""
+        raise UniqueAttributeTaken("username")
+
     @app.get("/canceled-conditional")
     def canceled_conditional() -> None:
         """Raise TransactionCanceled with a failed condition reason."""
@@ -88,6 +100,18 @@ def test_condition_failed_maps_to_409() -> None:
     assert "attribute_not_exists" not in response.text
 
 
+def test_unique_attribute_taken_maps_to_409() -> None:
+    """A taken username or email is a conflict, not a fault.
+
+    The identity register flow reaches this through the `create_user` hook, so
+    without the mapping a duplicate signup renders as a 500.
+    """
+    client = TestClient(build_app(), raise_server_exceptions=False)
+    response = client.get("/taken")
+    assert response.status_code == 409
+    assert_body(response.json(), TAKEN_BODY)
+
+
 def test_conditional_transaction_cancel_maps_to_409() -> None:
     """A cancellation caused by a failed condition reads as an ordinary lost race."""
     client = TestClient(build_app(), raise_server_exceptions=False)
@@ -105,14 +129,18 @@ def test_other_transaction_cancel_maps_to_500() -> None:
     assert "TransactionConflict" not in response.text
 
 
-def test_exception_map_declares_the_two_constant_renderings() -> None:
-    """The map holds the two constant renderings and keeps TransactionCanceled out.
+def test_exception_map_declares_the_constant_renderings() -> None:
+    """The map holds the three constant renderings and keeps TransactionCanceled out.
 
     Mapping it would flatten a real fault into a 409.
     """
     from app.api.middleware.error_handler import DYNAMO_EXCEPTION_MAP
 
-    assert set(DYNAMO_EXCEPTION_MAP) == {ItemNotFound, ConditionFailed}
+    assert set(DYNAMO_EXCEPTION_MAP) == {
+        ItemNotFound,
+        ConditionFailed,
+        UniqueAttributeTaken,
+    }
     assert TransactionCanceled not in DYNAMO_EXCEPTION_MAP
 
     not_found = DYNAMO_EXCEPTION_MAP[ItemNotFound]
@@ -129,4 +157,12 @@ def test_exception_map_declares_the_two_constant_renderings() -> None:
         409,
         CONFLICT_BODY["message"],
         CONFLICT_BODY["error_code"],
+    )
+
+    taken = DYNAMO_EXCEPTION_MAP[UniqueAttributeTaken]
+    assert isinstance(taken, ErrorSpec)
+    assert (taken.status, taken.message, taken.error_code) == (
+        409,
+        TAKEN_BODY["message"],
+        TAKEN_BODY["error_code"],
     )
