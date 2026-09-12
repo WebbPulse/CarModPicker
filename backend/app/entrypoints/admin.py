@@ -7,8 +7,6 @@ emailed HS256 unsubscribe token.
 
 from typing import TYPE_CHECKING
 
-from mangum import Mangum
-
 from app.composition.domains import DOMAINS
 from app.composition.wiring import (
     build_domain_app,
@@ -40,11 +38,6 @@ def main() -> None:
     configure_tracing(DOMAIN)
     check_signing_key([DOMAIN])
     run_uvicorn(build_app())
-
-
-app = build_app()
-
-handler = Mangum(app, lifespan="off")
 
 
 if __name__ == "__main__":

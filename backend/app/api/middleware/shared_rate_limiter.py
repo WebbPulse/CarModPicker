@@ -94,7 +94,8 @@ def client_identity(request: Request) -> str:
     """The caller's IP as API Gateway observed it.
 
     Three sources are tried in order: the `x-amzn-request-context` header the Web
-    Adapter forwards, the `aws.event` scope key Mangum populates, and finally the real
+    Adapter forwards, the `aws.event` scope key an event-driven adapter populates,
+    and finally the connection's own peer address.
     """
     raw = request.headers.get(REQUEST_CONTEXT_HEADER)
     if raw:

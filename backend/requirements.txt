@@ -15,7 +15,6 @@ starlette==1.6.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 uvicorn==0.52.4
-mangum==0.22.0
 
 uuid6==2025.0.1
 
