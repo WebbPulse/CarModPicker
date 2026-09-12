@@ -3,6 +3,9 @@
 Counting in the table rather than in a process is what makes the limit real on
 Lambda, where every execution environment would otherwise hold its own count.
 Every backend failure fails open, so an outage costs availability nothing.
+
+Requests are split into classes so a page's read fanout cannot spend the
+allowance that guards credential endpoints. Each class counts in its own row.
 """
 
 import hashlib
@@ -27,6 +30,25 @@ TTL_ATTRIBUTE = "expires_at"
 COUNT_ATTRIBUTE = "requests"
 
 CLIENT_KEY_DIGEST_CHARS = 16
+
+GET_CLASS = "get"
+
+AUTH_CLASS = "auth"
+
+ADMIN_CLASS = "admin"
+
+DEFAULT_CLASS = "default"
+
+AUTH_PATH_PREFIX = "/api/auth"
+
+ADMIN_PATH_PREFIX = "/api/admin"
+
+AUTH_CLASS_EXEMPT_PATHS: frozenset[str] = frozenset(
+    {
+        f"{AUTH_PATH_PREFIX}/refresh",
+        f"{AUTH_PATH_PREFIX}/logout",
+    }
+)
 
 current_route_var: ContextVar[Optional[str]] = ContextVar("rate_limit_route", default=None)
 
@@ -64,6 +86,34 @@ class TableClient(Protocol):
 def _error_code(error: ClientError) -> str:
     """The AWS error code, read defensively so a malformed response yields ""."""
     return str(error.response.get("Error", {}).get("Code", ""))
+
+
+def _under_prefix(path: str, prefix: str) -> bool:
+    """True when `path` is `prefix` itself or sits beneath it."""
+    return path == prefix or path.startswith(f"{prefix}/")
+
+
+def request_class(method: str, path: str) -> str:
+    """The rate limit class one request belongs to.
+
+    GETs are their own class because a single page view fans out into many of
+    them. Non-GET writes under `/api/auth` are credential guesses and get the
+    tightest cap, except `refresh` and `logout`, which run on ordinary page
+    loads. Non-GET writes under `/api/admin` get their own cap, and everything
+    else falls back to the default.
+    """
+    if method.upper() == "GET":
+        return GET_CLASS
+
+    normalised = path.rstrip("/") or path
+
+    if _under_prefix(normalised, AUTH_PATH_PREFIX) and normalised not in AUTH_CLASS_EXEMPT_PATHS:
+        return AUTH_CLASS
+
+    if _under_prefix(normalised, ADMIN_PATH_PREFIX):
+        return ADMIN_CLASS
+
+    return DEFAULT_CLASS
 
 
 def now() -> int:
@@ -125,6 +175,8 @@ class SharedRateLimiter:
     """Fixed window request counter over the rate limits table.
 
     The window is anchored on the caller's first request rather than on the clock.
+    Each limiter owns one class, and its rows are namespaced by that class so two
+    classes never share a counter.
     """
 
     def __init__(
@@ -132,11 +184,13 @@ class SharedRateLimiter:
         max_requests: int,
         window_seconds: int,
         *,
+        request_class: str = DEFAULT_CLASS,
         table_client: Optional[TableClient] = None,
     ) -> None:
-        """Configure the window size, request cap and optional table client."""
+        """Configure the window size, request cap, class and optional table client."""
         self.max_requests = max_requests
         self.window_seconds = window_seconds
+        self.request_class = request_class
         self._table_client = table_client
 
     @property
@@ -152,10 +206,9 @@ class SharedRateLimiter:
             return dynamo_client.get_resource().Table(settings.RATE_LIMITS_TABLE)
         return dynamo_client.get_table(RATE_LIMITS)
 
-    @staticmethod
-    def key(identity: str) -> dict[str, str]:
-        """Build the primary key for a caller's counter row."""
-        return {"pk": f"RATE#{identity}"}
+    def key(self, identity: str) -> dict[str, str]:
+        """Build the primary key for this class's counter row for a caller."""
+        return {"pk": f"RATE#{self.request_class}#{identity}"}
 
     @staticmethod
     def client_key(identity: str) -> str:
@@ -180,6 +233,7 @@ class SharedRateLimiter:
                 "exception_type": type(error).__name__,
                 "exception_message": str(error),
                 "client_key": self.client_key(identity) if identity is not None else None,
+                "rate_limit_class": self.request_class,
                 "route": current_route_var.get(),
             },
         )
@@ -267,7 +321,26 @@ class SharedRateLimiter:
         return True, self.retry_after(identity)
 
 
-shared_rate_limiter = SharedRateLimiter(
-    settings.RATE_LIMIT_REQUESTS_PER_MINUTE,
-    60,
-)
+WINDOW_SECONDS = 60
+
+
+def build_limiters(*, table_client: Optional[TableClient] = None) -> dict[str, SharedRateLimiter]:
+    """One limiter per class, each carrying that class's configured cap."""
+    caps = {
+        GET_CLASS: settings.RATE_LIMIT_GET_REQUESTS_PER_MINUTE,
+        AUTH_CLASS: settings.RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE,
+        ADMIN_CLASS: settings.RATE_LIMIT_ADMIN_REQUESTS_PER_MINUTE,
+        DEFAULT_CLASS: settings.RATE_LIMIT_REQUESTS_PER_MINUTE,
+    }
+    return {
+        name: SharedRateLimiter(cap, WINDOW_SECONDS, request_class=name, table_client=table_client)
+        for name, cap in caps.items()
+    }
+
+
+shared_rate_limiters: dict[str, SharedRateLimiter] = build_limiters()
+
+
+def limiter_for(method: str, path: str) -> SharedRateLimiter:
+    """The limiter guarding the class this request belongs to."""
+    return shared_rate_limiters[request_class(method, path)]
