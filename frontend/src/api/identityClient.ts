@@ -8,6 +8,7 @@ import {
   type AuthClient,
   type WebAuthnAdapter,
 } from '@webbpulse/auth';
+import type { UserRead } from '../types/Api';
 import {
   identityOriginFrom,
   identityUrl as joinIdentityUrl,
@@ -35,11 +36,14 @@ export {
 export const identityUrl = (path: string): string =>
   joinIdentityUrl(identityOriginFrom(appConfig.apiBaseUrl), path);
 
+/** Where the signed in profile is read from, in the users domain. */
+export const CURRENT_USER_PATH = '/users/me';
+
 /**
  * The one instance, or null when it could not be built. Built on first request
  * so that importing this module stays free.
  */
-let client: AuthClient<unknown> | null = null;
+let client: AuthClient<UserRead> | null = null;
 let built = false;
 
 /**
@@ -62,12 +66,16 @@ export const setWebAuthnAdapterForTests = (
  * The identity client, or null when it could not be built. Null rather than a
  * throw so a panel can render its own unavailable state from the same code path.
  */
-export const getIdentityClient = (): AuthClient<unknown> | null => {
+export const getIdentityClient = (): AuthClient<UserRead> | null => {
   if (built) return client;
   built = true;
   const origin = identityOriginFrom(appConfig.apiBaseUrl);
-  client = createAuthClient({
+  client = createAuthClient<UserRead>({
     baseUrl: origin === '' ? globalThis.location.origin : origin,
+    loadUser: (apiClient) =>
+      apiClient
+        .get<UserRead>(CURRENT_USER_PATH)
+        .then((response) => response.data ?? null),
     clientOptions: {
       credentials: 'include',
       timeoutMs: 30000,

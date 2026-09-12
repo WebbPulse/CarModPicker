@@ -4,12 +4,22 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@webbpulse/api-client';
 import { buildApiError } from '../test/apiResponse';
-
-import { apiClient } from '../api/client';
 import { mockUser } from '../test/mocks/api';
 
-const { mockApiClient, mockLogout, mockRemoveStoredToken, mockRestoreSession } =
-  vi.hoisted(() => ({
+const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
+  const listeners = new Set<(state: unknown) => void>();
+  let state = {
+    status: 'unknown' as string,
+    user: null as unknown,
+    hasAccessToken: false,
+    error: null,
+    pendingMfa: null,
+  };
+  const setState = (patch: Record<string, unknown>) => {
+    state = { ...state, ...patch };
+    for (const listener of [...listeners]) listener(state);
+  };
+  return {
     mockApiClient: {
       get: vi.fn().mockResolvedValue({ data: null }),
       post: vi.fn().mockResolvedValue({ data: null }),
@@ -17,19 +27,48 @@ const { mockApiClient, mockLogout, mockRemoveStoredToken, mockRestoreSession } =
       delete: vi.fn().mockResolvedValue({ data: null }),
       patch: vi.fn().mockResolvedValue({ data: null }),
     },
-    mockLogout: vi.fn(),
-    mockRemoveStoredToken: vi.fn(),
-    mockRestoreSession: vi.fn(),
-  }));
+    mockNavigate: vi.fn(),
+    mockIdentityClient: {
+      listeners,
+      getState: () => state,
+      setState,
+      reset: () => {
+        listeners.clear();
+        state = {
+          status: 'unknown',
+          user: null,
+          hasAccessToken: false,
+          error: null,
+          pendingMfa: null,
+        };
+      },
+      getAccessToken: () => (state.hasAccessToken ? 'tok' : null),
+      subscribe: (listener: (next: unknown) => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      initialize: vi.fn(),
+      logout: vi.fn(),
+      dispose: vi.fn(),
+      login: vi.fn(),
+      completeTotp: vi.fn(),
+      signInWithPasskey: vi.fn(),
+      registerPasskey: vi.fn(),
+      listPasskeys: vi.fn(),
+      renamePasskey: vi.fn(),
+      deletePasskey: vi.fn(),
+      startOAuth: vi.fn(),
+    },
+  };
+});
 
-vi.mock('../api/identityAuth', async () => {
-  const actual = await vi.importActual<typeof import('../api/identityAuth')>(
-    '../api/identityAuth'
+vi.mock('../api/identityClient', async () => {
+  const actual = await vi.importActual<typeof import('../api/identityClient')>(
+    '../api/identityClient'
   );
   return {
     ...actual,
-    signOut: mockLogout,
-    restoreSession: mockRestoreSession,
+    getIdentityClient: () => mockIdentityClient,
   };
 });
 
@@ -38,20 +77,27 @@ vi.mock('../api/client', () => ({
   apiClient: mockApiClient,
   setStoredToken: vi.fn(),
   getStoredToken: vi.fn(() => null),
-  removeStoredToken: mockRemoveStoredToken,
+  removeStoredToken: vi.fn(),
   isApiErrorWithStatus: (error: unknown): error is ApiError =>
     error instanceof ApiError,
 }));
 
-vi.mock('@sentry/react', () => ({
-  setUser: vi.fn(),
-}));
+vi.mock('@sentry/react', () => ({ setUser: vi.fn() }));
+
+vi.mock('react-router-dom', async () => {
+  const actual =
+    await vi.importActual<typeof import('react-router-dom')>(
+      'react-router-dom'
+    );
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
 import { AuthProvider } from './AuthContext';
 import { useAuth } from '../hooks/useAuth';
 
 function Consumer() {
-  const { isAuthenticated, user, isLoading, login, logout } = useAuth();
+  const { isAuthenticated, user, isLoading, login, logout, checkAuthStatus } =
+    useAuth();
   return (
     <div>
       <span data-testid="state">
@@ -61,10 +107,13 @@ function Consumer() {
       <button type="button" onClick={() => login(mockUser)}>
         login-direct
       </button>
+      <button type="button" onClick={() => void checkAuthStatus()}>
+        check
+      </button>
       <button
         type="button"
         onClick={() => {
-          logout();
+          void logout();
         }}
       >
         logout
@@ -84,29 +133,123 @@ function renderWithProvider(children: ReactNode = <Consumer />) {
 describe('AuthContext provider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(apiClient.get).mockReset();
-    vi.mocked(apiClient.post).mockReset();
-    mockLogout.mockReset();
-    mockRemoveStoredToken.mockReset();
-    mockRestoreSession.mockReset();
-    mockRestoreSession.mockResolvedValue(true);
+    mockIdentityClient.reset();
+    mockIdentityClient.initialize.mockImplementation(() => {
+      mockIdentityClient.setState({
+        status: 'authenticated',
+        user: mockUser,
+        hasAccessToken: true,
+      });
+      return Promise.resolve(mockUser);
+    });
+    mockIdentityClient.logout.mockImplementation(() => {
+      mockIdentityClient.setState({
+        status: 'anonymous',
+        user: null,
+        hasAccessToken: false,
+      });
+      return Promise.resolve();
+    });
   });
 
-  it('authenticates on mount when /users/me resolves with a user', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockUser });
-
+  it('spends the refresh cookie on mount and renders the signed in user', async () => {
     renderWithProvider();
 
     await waitFor(() =>
       expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
     );
 
-    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith('/users/me');
+    expect(mockIdentityClient.initialize).toHaveBeenCalled();
     expect(screen.getByTestId('loading').textContent).toBe('idle');
   });
 
-  it('stays unauthenticated when /users/me returns 401 and clears the stored token', async () => {
-    vi.mocked(apiClient.get).mockRejectedValueOnce(
+  it('stays unauthenticated when the startup refresh finds no session', async () => {
+    mockIdentityClient.initialize.mockImplementation(() => {
+      mockIdentityClient.setState({
+        status: 'anonymous',
+        user: null,
+        hasAccessToken: false,
+      });
+      return Promise.resolve(null);
+    });
+
+    renderWithProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('loading').textContent).toBe('idle')
+    );
+
+    expect(screen.getByTestId('state').textContent).toBe('anon');
+  });
+
+  it('flips isAuthenticated to false when the session ends', async () => {
+    renderWithProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
+    );
+
+    mockIdentityClient.setState({
+      status: 'anonymous',
+      user: null,
+      hasAccessToken: false,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe('anon')
+    );
+  });
+
+  it('shows the profile a direct login() seeded, with no extra request', async () => {
+    renderWithProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
+    );
+
+    vi.mocked(mockApiClient.get).mockClear();
+    fireEvent.click(screen.getByText('login-direct'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
+    );
+    expect(vi.mocked(mockApiClient.get)).not.toHaveBeenCalled();
+  });
+
+  it('re-reads the profile on checkAuthStatus()', async () => {
+    renderWithProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
+    );
+
+    const renamed = { ...mockUser, username: 'renamed' };
+    vi.mocked(mockApiClient.get).mockResolvedValueOnce({ data: renamed });
+
+    fireEvent.click(screen.getByText('check'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe('renamed')
+    );
+    expect(vi.mocked(mockApiClient.get)).toHaveBeenCalledWith('/users/me');
+  });
+
+  it('falls back to the store profile and logs nothing when checkAuthStatus() is refused with a 401', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    renderWithProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
+    );
+
+    const renamed = { ...mockUser, username: 'renamed' };
+    vi.mocked(mockApiClient.get).mockResolvedValueOnce({ data: renamed });
+    fireEvent.click(screen.getByText('check'));
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe('renamed')
+    );
+
+    vi.mocked(mockApiClient.get).mockRejectedValueOnce(
       buildApiError(401, {
         success: false,
         status: 401,
@@ -115,49 +258,39 @@ describe('AuthContext provider', () => {
       })
     );
 
-    renderWithProvider();
-
-    await waitFor(() =>
-      expect(screen.getByTestId('loading').textContent).toBe('idle')
-    );
-
-    expect(screen.getByTestId('state').textContent).toBe('anon');
-    expect(mockRemoveStoredToken).toHaveBeenCalledTimes(1);
-  });
-
-  it('stays unauthenticated when /users/me resolves with null data (no token)', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: null });
-
-    renderWithProvider();
-
-    await waitFor(() =>
-      expect(screen.getByTestId('loading').textContent).toBe('idle')
-    );
-
-    expect(screen.getByTestId('state').textContent).toBe('anon');
-    expect(mockRemoveStoredToken).not.toHaveBeenCalled();
-  });
-
-  it('flips state to authenticated when login() is called directly', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: null });
-
-    renderWithProvider();
-
-    await waitFor(() =>
-      expect(screen.getByTestId('state').textContent).toBe('anon')
-    );
-
-    fireEvent.click(screen.getByText('login-direct'));
+    fireEvent.click(screen.getByText('check'));
 
     await waitFor(() =>
       expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
     );
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
-  it('flips state from authenticated to unauthenticated on logout and calls signOut', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockUser });
-    mockLogout.mockResolvedValueOnce({ data: { message: 'Logged out' } });
+  it('logs a non-401 checkAuthStatus() failure', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    renderWithProvider();
 
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
+    );
+
+    vi.mocked(mockApiClient.get).mockRejectedValueOnce(
+      buildApiError(500, {
+        success: false,
+        status: 500,
+        message: 'Boom',
+        request_id: 'req-500',
+      })
+    );
+
+    fireEvent.click(screen.getByText('check'));
+
+    await waitFor(() => expect(errorSpy).toHaveBeenCalled());
+    errorSpy.mockRestore();
+  });
+
+  it('signs out and navigates home on logout', async () => {
     renderWithProvider();
 
     await waitFor(() =>
@@ -170,13 +303,12 @@ describe('AuthContext provider', () => {
       expect(screen.getByTestId('state').textContent).toBe('anon')
     );
 
-    expect(mockLogout).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('loading').textContent).toBe('idle');
+    expect(mockIdentityClient.logout).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
-  it('still clears auth state when signOut rejects', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockUser });
-    mockLogout.mockRejectedValueOnce(new Error('network down'));
+  it('still clears the session and navigates home when logout rejects', async () => {
+    mockIdentityClient.logout.mockRejectedValueOnce(new Error('network down'));
 
     renderWithProvider();
 
@@ -186,10 +318,6 @@ describe('AuthContext provider', () => {
 
     fireEvent.click(screen.getByText('logout'));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('state').textContent).toBe('anon')
-    );
-
-    expect(mockRemoveStoredToken).toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
   });
 });

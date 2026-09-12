@@ -7,32 +7,14 @@ import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useIsPremium, useIsPremiumSystemDisabled } from './useIsPremium';
 import {
-  AuthContext,
-  type AuthContextType,
-} from '../contexts/AuthContextDefinition';
-import {
   AppSettingsContext,
   type AppSettingsContextType,
 } from '../contexts/AppSettingsContextDefinition';
 import type { AppSettings } from '../api/app_settings';
 import type { UserRead } from '../types/Api';
 import { mockUser } from '../test/mocks/api';
+import { authHarness } from '../test/utils/authHarness';
 import { testScenarios } from '../test/utils/test-utils';
-
-function authValue(
-  scenario: (typeof testScenarios)[keyof typeof testScenarios],
-  userOverride?: UserRead | null
-): AuthContextType {
-  const base = scenario.initialAuthState;
-  return {
-    isAuthenticated: base.isAuthenticated,
-    user: userOverride !== undefined ? userOverride : null,
-    isLoading: base.isLoading ?? false,
-    login: vi.fn(),
-    logout: vi.fn(),
-    checkAuthStatus: vi.fn().mockResolvedValue(undefined),
-  };
-}
 
 function settingsValue(settings: AppSettings | null): AppSettingsContextType {
   return {
@@ -43,11 +25,24 @@ function settingsValue(settings: AppSettings | null): AppSettingsContextType {
   };
 }
 
-const wrap = (auth: AuthContextType, settings: AppSettingsContextType) => {
+/**
+ * Mounts the hook over the real session providers plus a settings context, so
+ * the session comes from the `@webbpulse/auth` store the application reads.
+ */
+const wrap = (
+  scenario: (typeof testScenarios)[keyof typeof testScenarios],
+  settings: AppSettingsContextType,
+  userOverride?: UserRead | null
+) => {
+  const { initialAuthState } = scenario;
+  const { Wrapper: AuthWrapper } = authHarness({
+    status: initialAuthState.isAuthenticated ? 'authenticated' : 'anonymous',
+    user: userOverride ?? null,
+  });
   const Wrapper = ({ children }: { children: ReactNode }) =>
     createElement(
-      AuthContext.Provider,
-      { value: auth },
+      AuthWrapper,
+      null,
       createElement(AppSettingsContext.Provider, { value: settings }, children)
     );
   return Wrapper;
@@ -64,10 +59,7 @@ const makePremiumUser = (overrides: Partial<UserRead> = {}): UserRead => ({
 describe('useIsPremium', () => {
   it('returns false for an unauthenticated user', () => {
     const { result } = renderHook(() => useIsPremium(), {
-      wrapper: wrap(
-        authValue(testScenarios.unauthenticated),
-        settingsValue(null)
-      ),
+      wrapper: wrap(testScenarios.unauthenticated, settingsValue(null)),
     });
 
     expect(result.current).toBe(false);
@@ -80,10 +72,7 @@ describe('useIsPremium', () => {
       subscription_status: 'active',
     };
     const { result } = renderHook(() => useIsPremium(), {
-      wrapper: wrap(
-        authValue(testScenarios.authenticated, freeUser),
-        settingsValue(null)
-      ),
+      wrapper: wrap(testScenarios.authenticated, settingsValue(null), freeUser),
     });
 
     expect(result.current).toBe(false);
@@ -93,8 +82,9 @@ describe('useIsPremium', () => {
     const premiumUser = makePremiumUser();
     const { result } = renderHook(() => useIsPremium(), {
       wrapper: wrap(
-        authValue(testScenarios.authenticated, premiumUser),
-        settingsValue(null)
+        testScenarios.authenticated,
+        settingsValue(null),
+        premiumUser
       ),
     });
 
@@ -107,8 +97,9 @@ describe('useIsPremium', () => {
     });
     const { result } = renderHook(() => useIsPremium(), {
       wrapper: wrap(
-        authValue(testScenarios.authenticated, expiredUser),
-        settingsValue(null)
+        testScenarios.authenticated,
+        settingsValue(null),
+        expiredUser
       ),
     });
 
@@ -127,8 +118,9 @@ describe('useIsPremium', () => {
     };
     const { result } = renderHook(() => useIsPremium(), {
       wrapper: wrap(
-        authValue(testScenarios.authenticated, freeUser),
-        settingsValue(killSwitch)
+        testScenarios.authenticated,
+        settingsValue(killSwitch),
+        freeUser
       ),
     });
 
@@ -143,10 +135,7 @@ describe('useIsPremiumSystemDisabled', () => {
       updated_at: '2026-04-24T00:00:00Z',
     };
     const { result } = renderHook(() => useIsPremiumSystemDisabled(), {
-      wrapper: wrap(
-        authValue(testScenarios.unauthenticated),
-        settingsValue(killSwitch)
-      ),
+      wrapper: wrap(testScenarios.unauthenticated, settingsValue(killSwitch)),
     });
 
     expect(result.current).toBe(true);
@@ -156,10 +145,7 @@ describe('useIsPremiumSystemDisabled', () => {
     const { result: nullResult } = renderHook(
       () => useIsPremiumSystemDisabled(),
       {
-        wrapper: wrap(
-          authValue(testScenarios.unauthenticated),
-          settingsValue(null)
-        ),
+        wrapper: wrap(testScenarios.unauthenticated, settingsValue(null)),
       }
     );
     expect(nullResult.current).toBe(false);
@@ -171,10 +157,7 @@ describe('useIsPremiumSystemDisabled', () => {
     const { result: enabledResult } = renderHook(
       () => useIsPremiumSystemDisabled(),
       {
-        wrapper: wrap(
-          authValue(testScenarios.unauthenticated),
-          settingsValue(enabled)
-        ),
+        wrapper: wrap(testScenarios.unauthenticated, settingsValue(enabled)),
       }
     );
     expect(enabledResult.current).toBe(false);
