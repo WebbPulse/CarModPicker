@@ -1,11 +1,8 @@
 locals {
   project = "carmodpicker"
 
-  # Use as a prefix for all resource names: "${local.prefix}-vpc", etc.
   prefix = "${local.project}-${var.environment}"
 
-  # Applied to every resource via provider default_tags.
-  # Add resource-specific tags inline where needed.
   common_tags = {
     Project     = local.project
     Environment = var.environment
@@ -20,20 +17,22 @@ locals {
 
   email_from = coalesce(var.email_from, "no-reply@${local.active_domain}")
 
-  # Staging access gate: only a staging workspace with the full profile (custom domain) and the
-  # WebbPulse-Platform flag gets it. Production evaluates both to false and plans a no-op.
   staging_gate_enabled = var.environment == "staging" && var.staging_access_gate && local.custom_domain
   staging_gate_count   = local.staging_gate_enabled ? 1 : 0
 
   frontend_url = module.frontend.frontend_url
   api_url      = module.api.api_url
 
-  # What the frontend build should use as VITE_API_URL: always the API's own host, staging
-  # included. Behind the gate the browser sends the request with credentials, the signed cookies
-  # are scoped to Domain=staging.<domain> so a call from www.staging to api.staging carries them,
-  # and the API's own authorizer checks them. The frontend appends /api itself.
   frontend_api_base_url = local.api_url
+
+  identity_jwt_gate_enforced   = var.identity_jwt_mode == "gate" && local.staging_gate_enabled
+  identity_jwt_native_enforced = var.identity_jwt_mode == "native"
 
   dev_origins     = ["http://localhost", "http://localhost:3000", "http://localhost:4000"]
   allowed_origins = var.environment == "production" ? "" : join(",", concat(local.dev_origins, local.custom_domain ? ["https://${local.domain_name}", "https://www.${local.domain_name}"] : [local.frontend_url]))
+
+  cors_allow_origins = concat(
+    ["https://${local.domain_name}", "https://www.${local.domain_name}"],
+    local.dev_origins,
+  )
 }
