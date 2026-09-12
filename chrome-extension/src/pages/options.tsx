@@ -8,20 +8,30 @@ const API_URLS = {
 
 type ApiEnvironment = keyof typeof API_URLS;
 
+/**
+ * Which sign in the extension uses. A runtime setting rather than a build flag,
+ * because the extension ships one artifact to the store. Defaults to identity
+ * since row 13, and the checkbox stays as the lever for older installs.
+ */
+type AuthMode = "legacy" | "identity";
+
+const DEFAULT_AUTH_MODE: AuthMode = "identity";
+
+/** Settings page for the API environment, sign in mode and ingestion key. */
 function Options() {
   const [environment, setEnvironment] = useState<ApiEnvironment>("production");
   const [openPartAfterCreation, setOpenPartAfterCreation] = useState(true);
   const [openInNewTab, setOpenInNewTab] = useState(true);
   const [apiKey, setApiKey] = useState("");
+  const [authMode, setAuthMode] = useState<AuthMode>(DEFAULT_AUTH_MODE);
   const [status, setStatus] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
 
   useEffect(() => {
-    // Load saved settings
     chrome.storage.sync.get(
-      ["apiUrl", "openPartAfterCreation", "openInNewTab"],
+      ["apiUrl", "openPartAfterCreation", "openInNewTab", "authMode"],
       (result) => {
         const apiUrl = result["apiUrl"];
         if (apiUrl && typeof apiUrl === "string") {
@@ -34,11 +44,10 @@ function Options() {
         if (result["openInNewTab"] !== undefined) {
           setOpenInNewTab(result["openInNewTab"] as boolean);
         }
+        setAuthMode(result["authMode"] === "legacy" ? "legacy" : "identity");
       },
     );
 
-    // The API key lives in `local`, not `sync`: it is a shared secret and
-    // `sync` would replicate it to every Chrome profile the user signs into.
     chrome.storage.local.get(["apiKey"], (result) => {
       const stored = result["apiKey"];
       if (typeof stored === "string") {
@@ -47,6 +56,7 @@ function Options() {
     });
   }, []);
 
+  /** Map a stored API URL back to the environment it belongs to. */
   const getEnvironmentFromUrl = (apiUrl: string): ApiEnvironment => {
     if (apiUrl.includes("localhost") || apiUrl.includes("127.0.0.1")) {
       return "localhost";
@@ -57,6 +67,7 @@ function Options() {
     return "production";
   };
 
+  /** Persist the settings, keeping the API key on this device only. */
   const handleSave = async () => {
     if (!environment || !API_URLS[environment]) {
       setStatus({ message: "Invalid environment selected", type: "error" });
@@ -68,6 +79,7 @@ function Options() {
       apiUrl,
       openPartAfterCreation,
       openInNewTab,
+      authMode,
     });
 
     const trimmedApiKey = apiKey.trim();
@@ -137,6 +149,30 @@ function Options() {
                   </label>
                 </div>
               )}
+
+              <div className="pt-2 border-t border-white/10">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={authMode === "identity"}
+                    onChange={(e) =>
+                      setAuthMode(e.target.checked ? "identity" : "legacy")
+                    }
+                    className="w-5 h-5 rounded border-white/20 bg-white/10 text-primary-500 focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2 focus:ring-offset-neutral-900 cursor-pointer"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-neutral-300">
+                      Use the current sign in
+                    </div>
+                    <div className="text-xs text-neutral-400">
+                      Signs in through the CarModPicker website and hands the
+                      result straight back to the extension. Leave this on:
+                      turning it off selects an older sign in that CarModPicker
+                      no longer runs, and it will not be able to sign you in.
+                    </div>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
 

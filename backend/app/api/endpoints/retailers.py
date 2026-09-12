@@ -25,6 +25,7 @@ router = APIRouter()
 
 
 def _get_retailer_or_404(repos: Repositories, retailer_id: UUID) -> Retailer:
+    """Return the retailer or raise 404."""
     retailer = repos.retailers.get(str(retailer_id))
     if retailer is None:
         ResponsePatterns.raise_not_found("Retailer")
@@ -33,6 +34,7 @@ def _get_retailer_or_404(repos: Repositories, retailer_id: UUID) -> Retailer:
 
 
 def _raise_domain_conflict(domain: str, existing: Retailer) -> None:
+    """Raise a 409 naming the retailer that already holds the domain."""
     ResponsePatterns.raise_conflict(
         f"A retailer with domain '{domain}' already exists",
         "DUPLICATE_RETAILER_DOMAIN",
@@ -41,6 +43,7 @@ def _raise_domain_conflict(domain: str, existing: Retailer) -> None:
 
 
 def _check_domain_available(repos: Repositories, domain: str, *, exclude_id: UUID | None = None) -> None:
+    """Raise a conflict when another retailer already owns the domain."""
     existing = repos.retailers.get_by_domain(domain.strip().lower())
     if existing is not None and existing.id != exclude_id:
         _raise_domain_conflict(domain, existing)
@@ -52,10 +55,11 @@ def _check_domain_available(repos: Repositories, domain: str, *, exclude_id: UUI
     responses={200: {"description": "Retailer count retrieved successfully"}},
 )
 async def count_retailers(repos: Repositories = Depends(get_repositories)) -> Dict[str, int]:
+    """Return the total number of retailers."""
     return {"count": repos.retailers.count()}
 
 
-@router.get("/", response_model=List[RetailerRead])
+@router.get("", response_model=List[RetailerRead])
 async def get_retailers(
     active_only: bool = Query(True, description="Only return active retailers"),
     repos: Repositories = Depends(get_repositories),
@@ -109,7 +113,7 @@ async def get_retailer(retailer_id: UUID, repos: Repositories = Depends(get_repo
 
 
 @router.post(
-    "/",
+    "",
     response_model=RetailerRead,
     responses=crud_responses("retailer", "create"),
 )

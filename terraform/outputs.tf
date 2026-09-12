@@ -78,33 +78,10 @@ output "staging_access_gate_user_pool_id" {
   value       = one(module.staging_access_gate[*].user_pool_id)
 }
 
-output "lambda_function_name" {
-  description = "Lambda API function name"
-  value       = module.lambda_api.function_name
-}
-
-output "lambda_function_arn" {
-  description = "Lambda API function ARN"
-  value       = module.lambda_api.function_arn
-}
-
-output "lambda_artifacts_bucket" {
-  description = "S3 bucket the deploy workflow uploads Lambda zips to"
-  value       = module.lambda_artifacts.bucket_id
-}
-
 output "dynamodb_table_names" {
   description = "DynamoDB table names keyed by table suffix"
   value       = module.dynamodb.table_names
 }
-
-# ---------------------------------------------------------------------------
-# The per-domain functions from lambda_domains.tf. Both maps carry only the
-# domains whose function exists, which is `media` today and grows by one with
-# each of rows 18 through 31, so a consumer reading either one is reading the
-# truth about this environment rather than the nine names the plan will
-# eventually reach.
-# ---------------------------------------------------------------------------
 
 output "domain_lambda_function_names" {
   description = "Per-domain Lambda function name keyed by domain. This is the key deploy-backend.yml builds its function-image map on, and the name its existing-functions job probes with get-function-configuration before handing the map to UpdateFunctionCode."
@@ -120,11 +97,6 @@ output "domain_lambda_log_group_names" {
   description = "Per-domain CloudWatch log group name keyed by domain. Row 15 merges these into the alarm module's error_log_groups, and a responder tailing one domain does not have to guess the group from the function name."
   value       = { for name, fn in module.lambda_domain : name => fn.log_group_name }
 }
-
-# ---------------------------------------------------------------------------
-# The event plumbing from row 22. Nothing consumes these yet; they exist so the
-# seams in rows 24, 25, 28 and 30 have something to name.
-# ---------------------------------------------------------------------------
 
 output "dynamodb_stream_arns" {
   description = "Latest stream ARN keyed by table, for the four streamed tables only. This is what an event source mapping's event_source_arn takes in rows 24 and 25. A table without a stream is absent rather than null, so a consumer indexing this map fails at plan time on a table that was never streamed rather than passing null to the mapping."
@@ -150,13 +122,6 @@ output "work_queue_dlq_arns" {
   description = "Work queue dead letter queue ARN keyed by job. Named by the redrive policy on the queue itself, so a consumer needs this only to drain one by hand."
   value       = { for key, q in aws_sqs_queue.work_dlq : key => q.arn }
 }
-
-# ---------------------------------------------------------------------------
-# The stream consumers from lambda_stream_consumers.tf, row 24 onward. Same
-# shape as the domain function outputs above and for the same reasons: the maps
-# carry only what exists in this environment, and the deploy workflow reads the
-# names off here rather than rebuilding them.
-# ---------------------------------------------------------------------------
 
 output "stream_consumer_function_names" {
   description = "Stream consumer Lambda function name keyed by consumer. deploy-backend.yml adds these to the function-image map it hands to UpdateFunctionCode, pointing each at the image of the domain it runs, and its existing-functions job probes them the same way it probes a domain function."

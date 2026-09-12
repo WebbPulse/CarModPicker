@@ -1,27 +1,23 @@
 import React, { useState } from 'react';
-import {
-  FaEye,
-  FaEyeSlash,
-  FaKey,
-  FaLock,
-  FaShieldAlt,
-  FaUser,
-} from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaLock, FaShieldAlt, FaUser } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  browserSupportsWebAuthn,
-  startAuthentication,
-} from '@simplewebauthn/browser';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
-import GoogleAuthFlow from '../../components/authentication/GoogleAuthFlow';
 import { Input } from '../../components/ui/input';
-import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import { isGoogleConfigured } from '../../hooks/useGoogleSignIn';
-import { authApi } from '../../api/auth';
-import { getApiErrorMessage } from '../../utils/apiError';
+import OAuthProviderButtons from '../../components/authentication/OAuthProviderButtons';
+import PasskeySignInButton from '../../components/authentication/PasskeySignInButton';
+import { useOAuthCallback } from '@webbpulse/auth/react';
+import { describeOAuthCallbackError } from '../../api/identityOAuth';
+import type { PasskeySignInResult } from '../../api/identityPasskeys';
+import type { UserRead } from '../../types/Api';
+import {
+  acceptsRecoveryCodes,
+  completeMfa,
+  signIn,
+  type LoginChallenge,
+} from '../../api/identityAuth';
 
 /**
  * Only accept returnTo values that look like a local path. Blocks protocol-
@@ -39,54 +35,69 @@ function Login() {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [requires2FA, setRequires2FA] = useState(false);
-  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
+  const [challenge, setChallenge] = useState<LoginChallenge | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = safeReturnTo(searchParams.get('returnTo'));
-  const { login: authLogin } = useAuth();
-  const passkeySupported = browserSupportsWebAuthn();
+  const { login: authLogin, checkAuthStatus } = useAuth();
+  const requires2FA = challenge !== null;
+  const allowRecoveryCode = acceptsRecoveryCodes();
 
-  const loginRequestFn = (payload: URLSearchParams) =>
-    authApi.login(payload as unknown as { username: string; password: string });
+  const [apiError, setApiError] = useState<string | null>(null);
+  const isLoading = isSubmitting;
 
-  const {
-    error: apiError,
-    isLoading,
-    executeRequest: performLogin,
-    setError: setApiError,
-  } = useApiRequest(loginRequestFn);
-
-  const handlePasskeyLogin = async () => {
-    setApiError(null);
-    setIsPasskeyLoading(true);
-    try {
-      const optsResp = await authApi.webauthnLoginOptions(
-        username.trim() || undefined
-      );
-      const { options, challenge_token } = optsResp.data;
-      const credential = await startAuthentication({
-        optionsJSON: options as unknown as Parameters<
-          typeof startAuthentication
-        >[0]['optionsJSON'],
-      });
-      const result = await authApi.webauthnLoginVerify({
-        challenge_token,
-        credential,
-      });
-      if (result.data) {
-        authLogin(result.data);
-        void navigate(returnTo);
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'NotAllowedError') {
-        setApiError('Passkey sign-in was cancelled.');
-      } else {
-        setApiError(getApiErrorMessage(err, 'Passkey sign-in failed.'));
-      }
-    } finally {
-      setIsPasskeyLoading(false);
+  /**
+   * Finishes a sign in that already succeeded on the server, fetching the user
+   * the token does not carry. Nullable so the passkey and OAuth paths share it.
+   */
+  const finishLogin = async (user: UserRead | null) => {
+    if (user !== null) {
+      authLogin(user);
+    } else {
+      await checkAuthStatus();
     }
+    void navigate(returnTo);
+  };
+
+  /**
+   * Acts on an OAuth callback this page was reached from, mapping its markers
+   * onto the password flow's own states.
+   */
+  useOAuthCallback(async (result) => {
+    if (result.kind === 'signed-in' || result.kind === 'linked') {
+      await finishLogin(null);
+      return;
+    }
+    if (result.kind === 'mfa-required') {
+      setChallenge({
+        kind: 'identity-ticket',
+        ticket: result.ticket,
+        factors: [],
+      });
+      return;
+    }
+    setApiError(
+      describeOAuthCallbackError(result, 'That sign in could not be completed.')
+    );
+  });
+
+  /** Finishes a passwordless sign in, or shows why it did not finish. */
+  const handlePasskeyResult = async (result: PasskeySignInResult) => {
+    if (result.status === 'authenticated') {
+      await finishLogin(null);
+      return;
+    }
+    if (result.status === 'mfa-required') {
+      setChallenge({
+        kind: 'identity-ticket',
+        ticket: result.ticket,
+        factors: result.factors,
+      });
+      setApiError(null);
+      return;
+    }
+    if (result.status === 'failed') setApiError(result.error);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -98,55 +109,53 @@ function Login() {
       return;
     }
 
-    // If 2FA is required, handle OTP verification
-    if (requires2FA) {
-      if (!otp.trim() || otp.length !== 6) {
+    if (challenge !== null) {
+      const code = otp.trim();
+      if (code === '') {
+        setApiError(
+          allowRecoveryCode
+            ? 'Enter your 6-digit code or a recovery code.'
+            : 'Please enter a valid 6-digit OTP code.'
+        );
+        return;
+      }
+      if (!allowRecoveryCode && code.length !== 6) {
         setApiError('Please enter a valid 6-digit OTP code.');
         return;
       }
 
+      setIsSubmitting(true);
       try {
-        const result = await authApi.loginWith2FA({
-          username,
-          password,
-          otp,
-        });
-        if (result.data) {
-          authLogin(result.data);
-          void navigate(returnTo);
+        const result = await completeMfa(challenge, code);
+        if (result.status === 'authenticated') {
+          await finishLogin(result.user);
+        } else if (result.status === 'failed') {
+          setApiError(result.error);
         }
-      } catch (error: unknown) {
-        setApiError(
-          getApiErrorMessage(error, 'Invalid OTP code. Please try again.')
-        );
+      } finally {
+        setIsSubmitting(false);
       }
       return;
     }
 
-    // Regular login
-    const formData = new URLSearchParams();
-    formData.append('username', username);
-    formData.append('password', password);
-
+    setIsSubmitting(true);
     try {
-      const result = await performLogin(formData);
-      // Check if result is a LoginResponse with requires_2fa
-      if (result && 'requires_2fa' in result && result.requires_2fa) {
-        setRequires2FA(true);
+      const result = await signIn(username, password);
+      if (result.status === 'authenticated') {
+        await finishLogin(result.user);
+      } else if (result.status === 'mfa-required') {
+        setChallenge(result.challenge);
         setApiError(null);
-      } else if (result && 'id' in result) {
-        // Regular login success
-        authLogin(result);
-        void navigate(returnTo);
+      } else {
+        setApiError(result.error);
       }
-    } catch {
-      // Login failed - error is handled by useApiRequest
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float"></div>
         <div
@@ -157,7 +166,6 @@ function Login() {
 
       <div className="relative z-10 w-full max-w-md">
         <div className="border border-white/10 bg-white/5 backdrop-blur-xl supports-[backdrop-filter]:bg-white/5 rounded-2xl p-8 animate-slideInUp">
-          {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
@@ -169,12 +177,13 @@ function Login() {
             </h2>
             <p className="text-muted-foreground">
               {requires2FA
-                ? 'Enter the 6-digit code from your authenticator app'
+                ? allowRecoveryCode
+                  ? 'Enter the 6-digit code from your authenticator app, or one of your recovery codes'
+                  : 'Enter the 6-digit code from your authenticator app'
                 : 'Sign in to your CarModPicker account'}
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
             {!requires2FA ? (
               <>
@@ -263,14 +272,17 @@ function Login() {
                       required
                       value={otp}
                       onChange={(e) => {
-                        const value = e.target.value
-                          .replace(/\D/g, '')
-                          .slice(0, 6);
-                        setOtp(value);
+                        const raw = e.target.value;
+                        setOtp(
+                          allowRecoveryCode
+                            ? raw.slice(0, 32)
+                            : raw.replace(/\D/g, '').slice(0, 6)
+                        );
                       }}
-                      placeholder="000000"
+                      placeholder={allowRecoveryCode ? 'Code' : '000000'}
                       disabled={isLoading}
-                      maxLength={6}
+                      maxLength={allowRecoveryCode ? 32 : 6}
+                      inputMode={allowRecoveryCode ? 'text' : 'numeric'}
                       className="pl-10"
                     />
                   </div>
@@ -278,7 +290,7 @@ function Login() {
                 <button
                   type="button"
                   onClick={() => {
-                    setRequires2FA(false);
+                    setChallenge(null);
                     setOtp('');
                     setApiError(null);
                   }}
@@ -309,14 +321,14 @@ function Login() {
             <Button
               type="submit"
               loading={isLoading}
-              disabled={isLoading || isPasskeyLoading}
+              disabled={isLoading}
               className="w-full"
               size="lg"
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
 
-            {!requires2FA && (passkeySupported || isGoogleConfigured()) && (
+            {!requires2FA && (
               <>
                 <div className="flex items-center gap-3 my-2">
                   <div className="h-px flex-1 bg-muted"></div>
@@ -325,36 +337,19 @@ function Login() {
                   </span>
                   <div className="h-px flex-1 bg-muted"></div>
                 </div>
-                {passkeySupported && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="lg"
-                    className="w-full"
-                    onClick={() => void handlePasskeyLogin()}
-                    disabled={isLoading || isPasskeyLoading}
-                  >
-                    <FaKey />
-                    <span>
-                      {isPasskeyLoading
-                        ? 'Waiting for your passkey…'
-                        : 'Sign in with a passkey'}
-                    </span>
-                  </Button>
-                )}
-                <GoogleAuthFlow
-                  onLoggedIn={(user) => {
-                    authLogin(user);
-                    void navigate(returnTo);
-                  }}
-                  onError={(message) => setApiError(message)}
-                  disabled={isLoading || isPasskeyLoading}
+                <PasskeySignInButton
+                  username={username}
+                  onResult={(result) => void handlePasskeyResult(result)}
+                  disabled={isLoading}
+                />
+                <OAuthProviderButtons
+                  returnTo={returnTo}
+                  disabled={isLoading}
                 />
               </>
             )}
           </form>
 
-          {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-muted-foreground text-sm">
               Don't have an account?{' '}
@@ -368,7 +363,6 @@ function Login() {
           </div>
         </div>
 
-        {/* Additional Info */}
         <div className="mt-8 text-center">
           <p className="text-muted-foreground text-xs">
             By signing in, you agree to our{' '}

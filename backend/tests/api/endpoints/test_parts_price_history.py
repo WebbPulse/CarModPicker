@@ -1,9 +1,6 @@
-"""Endpoint coverage for `GET /api/parts/{id}/price-history` (S05/T02).
+"""Endpoint tests for the part price history reads, single and batch.
 
-Exercises the aggregated object response. The pre-S05 `legacy=true` shim was
-removed in S13/T03 — only the object shape remains. Seeding mirrors
-`tests/services/test_part_price_aggregation_service.py` so the per-row schema
-matches what the aggregation service produces.
+Seeding mirrors the aggregation service tests so the per-row schema matches.
 """
 
 from __future__ import annotations
@@ -20,7 +17,7 @@ from app.db.dynamo.catalog import PartListing as DBPartListing
 from app.db.dynamo.catalog import PartPriceHistory as DBPartPriceHistory
 from app.db.dynamo.catalog import Retailer as DBRetailer
 from app.db.dynamo.users import User
-from tests.conftest import INVALID_UUID_STR, get_default_category_id, login_user, save_catalog
+from tests.conftest import INVALID_UUID_STR, auth_headers, get_default_category_id, login_user, save_catalog
 
 PRICE_HISTORY_PATH = "/api/parts/{part_id}/price-history"
 BATCH_PRICE_HISTORY_PATH = "/api/parts/price-history"
@@ -31,33 +28,22 @@ TEST_API_KEY = "test-extension-api-key-0123456789"
 
 def _auth_headers(client: TestClient, user: User) -> dict[str, str]:
     """Bearer headers for ``user``."""
-    return {"Authorization": f"Bearer {login_user(client, user.username)}"}
+    return auth_headers(login_user(client, user.username))
 
 
 def _api_key_headers(key: str = TEST_API_KEY) -> dict[str, str]:
-    """`X-API-Key` headers for the machine path onto the batch POST.
-
-    The batch route takes `require_api_key_or_admin`, so an end-user token is
-    not enough; the seeding tests below use the key rather than logging an
-    admin in on every case.
-    """
+    """API key headers for the machine path onto the batch route."""
     return {"X-API-Key": key}
 
 
 @pytest.fixture(autouse=True)
 def _configured_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Point `settings.EXTENSION_API_KEY` at a known value for this module.
-
-    `_resolve_secret` consults the live `os.environ` before anything else, so
-    setting the variable is enough and no Secrets Manager call is ever made.
-    """
+    """Point the extension API key setting at a known value for this module."""
     monkeypatch.setenv("EXTENSION_API_KEY", TEST_API_KEY)
 
 
-# --- helpers (mirror tests/services/test_part_price_aggregation_service.py) --
-
-
 def _make_retailer(db: Any, slug: str) -> DBRetailer:
+    """Create an active retailer with a unique name and domain."""
     retailer = DBRetailer(
         name=f"retailer_{slug}_{uuid.uuid4().hex[:8]}",
         domain=f"{slug}-{uuid.uuid4().hex[:8]}.example.com",
@@ -75,6 +61,7 @@ def _make_part(
     canonical_part_id: uuid.UUID | None = None,
     name: str = "Test Part",
 ) -> DBPart:
+    """Create a universal part owned by the given user."""
     part = DBPart(
         name=name,
         category_id=get_default_category_id(db),
@@ -87,6 +74,7 @@ def _make_part(
 
 
 def _make_listing(db: Any, part: DBPart, retailer: DBRetailer) -> DBPartListing:
+    """Create a listing for a part at a retailer."""
     listing = DBPartListing(
         part_id=part.id,
         retailer_id=retailer.id,
@@ -103,6 +91,7 @@ def _add_history(
     price_cents: int,
     observed_at: datetime,
 ) -> DBPartPriceHistory:
+    """Add one price observation to a listing."""
     row = DBPartPriceHistory(
         part_listing_id=listing.id,
         price_cents=price_cents,
@@ -112,12 +101,10 @@ def _add_history(
     return row
 
 
-# --- tests -------------------------------------------------------------------
-
-
 def test_get_price_history_default_window_returns_summary_object(
     client: TestClient, db_session: Any, test_user: User
 ) -> None:
+    """The default window returns the aggregated summary object."""
     retailer = _make_retailer(db_session, "default-window")
     part = _make_part(db_session, test_user, name="Default Window Part")
     listing = _make_listing(db_session, part, retailer)
@@ -138,12 +125,12 @@ def test_get_price_history_default_window_returns_summary_object(
 
 
 def test_get_price_history_window_30d_filters_old(client: TestClient, db_session: Any, test_user: User) -> None:
+    """A thirty day window excludes older observations."""
     retailer = _make_retailer(db_session, "win30")
     part = _make_part(db_session, test_user, name="Window 30 Part")
     listing = _make_listing(db_session, part, retailer)
 
     now = datetime.now(UTC)
-    # 3 rows inside 30 days, 2 rows older.
     for i, days in enumerate([1, 10, 20]):
         _add_history(db_session, listing, price_cents=1000 + i, observed_at=now - timedelta(days=days))
     for i, days in enumerate([45, 90]):
@@ -158,12 +145,12 @@ def test_get_price_history_window_30d_filters_old(client: TestClient, db_session
 
 
 def test_get_price_history_window_all_includes_everything(client: TestClient, db_session: Any, test_user: User) -> None:
+    """The all window includes every observation."""
     retailer = _make_retailer(db_session, "win-all")
     part = _make_part(db_session, test_user, name="Window All Part")
     listing = _make_listing(db_session, part, retailer)
 
     now = datetime.now(UTC)
-    # 4 rows spanning ~2 years.
     for days in [10, 200, 500, 700]:
         _add_history(db_session, listing, price_cents=1000 + days, observed_at=now - timedelta(days=days))
 
@@ -176,22 +163,22 @@ def test_get_price_history_window_all_includes_everything(client: TestClient, db
 
 
 def test_get_price_history_invalid_window_returns_422(client: TestClient, db_session: Any, test_user: User) -> None:
+    """An unrecognised window is a validation error."""
     part = _make_part(db_session, test_user, name="Bad Window Part")
 
     response = client.get(PRICE_HISTORY_PATH.format(part_id=part.id), params={"window": "99x"})
     assert response.status_code == 422
     body = response.json()
-    # Standardized error envelope from app.api.middleware.error_handler.
     assert body["error_code"] == "INVALID_WINDOW"
     allowed = body["details"]["allowed"]
     assert isinstance(allowed, list)
-    # Must mention the canonical literals so callers can correct themselves.
     assert {"30d", "90d", "180d", "1y", "all"}.issubset(set(allowed))
 
 
 def test_get_price_history_retailer_filter_narrows_summary(
     client: TestClient, db_session: Any, test_user: User
 ) -> None:
+    """A retailer filter narrows the summary to that retailer's listings."""
     retailer_a = _make_retailer(db_session, "filt-a")
     retailer_b = _make_retailer(db_session, "filt-b")
     part = _make_part(db_session, test_user, name="Retailer Filter Part")
@@ -199,7 +186,6 @@ def test_get_price_history_retailer_filter_narrows_summary(
     listing_b = _make_listing(db_session, part, retailer_b)
 
     now = datetime.now(UTC)
-    # Retailer A: cheap rows (500-700). Retailer B: pricier (1500-2000).
     for i, price in enumerate([500, 600, 700]):
         _add_history(db_session, listing_a, price_cents=price, observed_at=now - timedelta(days=20 - i))
     for i, price in enumerate([1500, 1800, 2000]):
@@ -211,10 +197,8 @@ def test_get_price_history_retailer_filter_narrows_summary(
     )
     assert response.status_code == 200
     body = response.json()
-    # Only retailer A in `retailers`.
     assert len(body["retailers"]) == 1
     assert body["retailers"][0]["retailer_id"] == str(retailer_a.id)
-    # Summary reflects retailer A's slice only — NOT the cross-retailer aggregate.
     assert body["summary"]["min_cents"] == 500
     assert body["summary"]["max_cents"] == 700
     assert body["summary"]["observation_count"] == 3
@@ -222,14 +206,13 @@ def test_get_price_history_retailer_filter_narrows_summary(
 
 
 def test_get_price_history_part_not_found_returns_404(client: TestClient) -> None:
+    """An unknown part id answers not found."""
     response = client.get(PRICE_HISTORY_PATH.format(part_id=INVALID_UUID_STR))
     assert response.status_code == 404
 
 
-# --- POST /api/parts/price-history (T03) -------------------------------------
-
-
 def test_post_batch_price_history_basic(client: TestClient, db_session: Any, test_user: User) -> None:
+    """The batch route returns one entry per requested part."""
     retailer = _make_retailer(db_session, "batch-basic")
     parts = []
     now = datetime.now(UTC)
@@ -259,6 +242,7 @@ def test_post_batch_price_history_basic(client: TestClient, db_session: Any, tes
 
 
 def test_post_batch_price_history_includes_empty_entries(client: TestClient, db_session: Any, test_user: User) -> None:
+    """Parts with no history still get an entry rather than being omitted."""
     retailer = _make_retailer(db_session, "batch-empty")
     now = datetime.now(UTC)
     part_with = _make_part(db_session, test_user, name="HasHistory")
@@ -289,6 +273,7 @@ def test_post_batch_price_history_includes_empty_entries(client: TestClient, db_
 
 
 def test_post_batch_price_history_window_default_90d(client: TestClient, db_session: Any, test_user: User) -> None:
+    """The batch route defaults to a ninety day window."""
     retailer = _make_retailer(db_session, "batch-default-window")
     part = _make_part(db_session, test_user, name="Default Window Batch")
     listing = _make_listing(db_session, part, retailer)
@@ -305,11 +290,11 @@ def test_post_batch_price_history_window_default_90d(client: TestClient, db_sess
 
 
 def test_post_batch_price_history_window_custom(client: TestClient, db_session: Any, test_user: User) -> None:
+    """The batch route honours an explicit window."""
     retailer = _make_retailer(db_session, "batch-custom-window")
     part = _make_part(db_session, test_user, name="Custom Window Batch")
     listing = _make_listing(db_session, part, retailer)
     now = datetime.now(UTC)
-    # 2 inside 30d, 2 older.
     for days in [5, 20]:
         _add_history(db_session, listing, price_cents=1000 + days, observed_at=now - timedelta(days=days))
     for days in [40, 60]:
@@ -329,6 +314,7 @@ def test_post_batch_price_history_window_custom(client: TestClient, db_session: 
 def test_post_batch_price_history_invalid_window_returns_422(
     client: TestClient, db_session: Any, test_user: User
 ) -> None:
+    """An unrecognised batch window is a validation error."""
     part = _make_part(db_session, test_user, name="Bad Window Batch")
 
     response = client.post(
@@ -336,15 +322,13 @@ def test_post_batch_price_history_invalid_window_returns_422(
         json={"part_ids": [str(part.id)], "window": "xyz"},
         headers=_api_key_headers(),
     )
-    # Pydantic Literal validation rejects "xyz" before the handler runs, producing
-    # the standard VALIDATION_ERROR envelope. The endpoint's INVALID_WINDOW path
-    # is reachable only when the schema is bypassed (e.g. service-layer callers).
     assert response.status_code == 422
     body = response.json()
     assert body["error_code"] in {"INVALID_WINDOW", "VALIDATION_ERROR"}
 
 
 def test_post_batch_price_history_empty_part_ids_returns_422(client: TestClient, test_user: User) -> None:
+    """An empty part id list is a validation error."""
     response = client.post(
         BATCH_PRICE_HISTORY_PATH,
         json={"part_ids": []},
@@ -356,6 +340,7 @@ def test_post_batch_price_history_empty_part_ids_returns_422(client: TestClient,
 
 
 def test_post_batch_price_history_too_many_ids_returns_422(client: TestClient, test_user: User) -> None:
+    """More part ids than the limit is a validation error."""
     too_many = [str(uuid.uuid4()) for _ in range(101)]
     response = client.post(
         BATCH_PRICE_HISTORY_PATH,
@@ -365,12 +350,12 @@ def test_post_batch_price_history_too_many_ids_returns_422(client: TestClient, t
     assert response.status_code == 422
     body = response.json()
     assert body["error_code"] == "VALIDATION_ERROR"
-    # Pydantic surfaces the at_most_100 constraint in the per-field error details.
     rendered = repr(body)
     assert "100" in rendered or "at_most" in rendered or "max_length" in rendered
 
 
 def test_post_batch_price_history_unknown_ids_return_empty_entries(client: TestClient, test_user: User) -> None:
+    """Unknown part ids come back as empty entries."""
     unknown_a = str(uuid.uuid4())
     unknown_b = str(uuid.uuid4())
     response = client.post(
@@ -390,6 +375,7 @@ def test_post_batch_price_history_unknown_ids_return_empty_entries(client: TestC
 
 
 def test_post_batch_price_history_aggregates_link_group(client: TestClient, db_session: Any, test_user: User) -> None:
+    """Linked parts aggregate into one entry for the canonical part."""
     retailer_a = _make_retailer(db_session, "batch-lg-a")
     retailer_b = _make_retailer(db_session, "batch-lg-b")
     canonical = _make_part(db_session, test_user, name="Batch Canon")
@@ -416,14 +402,8 @@ def test_post_batch_price_history_aggregates_link_group(client: TestClient, db_s
     assert item["max_cents"] == 5000
 
 
-# --- auth on the batch POST -------------------------------------------------
-# `POST /api/parts/price-history` was public, then briefly behind
-# `get_current_user`, and is now behind `require_api_key_or_admin`. Its only
-# legitimate writers are the Chrome extension and ingestion/admin jobs, so it
-# takes an `X-API-Key` matching `EXTENSION_API_KEY` or an admin bearer token.
-
-
 def _batch_body() -> dict[str, Any]:
+    """A minimal batch request body naming one random part id."""
     return {"part_ids": [str(uuid.uuid4())]}
 
 

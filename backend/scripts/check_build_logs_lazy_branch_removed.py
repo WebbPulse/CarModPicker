@@ -13,18 +13,19 @@ import sys
 
 
 def main() -> int:
+    """Check the build_logs endpoint source and return 0 when every check passes.
+
+    Runs from the repo root or from `backend/`; both paths are tried.
+    """
     path = pathlib.Path("backend/app/api/endpoints/build_logs.py")
     if not path.exists():
-        # Permit running from `backend/` directory too.
         path = pathlib.Path("app/api/endpoints/build_logs.py")
     src = path.read_text(encoding="utf-8")
 
     checks: list[tuple[str, bool]] = []
 
-    # Lazy construction of DBBuildLog must be gone.
     checks.append(("DBBuildLog( construction absent", "DBBuildLog(" not in src))
 
-    # Old auto-create log line must be gone.
     checks.append(
         (
             "auto-create log message absent",
@@ -32,7 +33,6 @@ def main() -> int:
         )
     )
 
-    # Orphan error log must be present in both branches.
     checks.append(
         (
             "orphan error log present",
@@ -40,8 +40,6 @@ def main() -> int:
         )
     )
 
-    # Two raise_not_found calls for build_log (one per branch). Use Python
-    # triple-quoted literals to avoid quote-escape fragility.
     raise_count = src.count('''raise_not_found("build log"''') + src.count("""raise_not_found('build log'""")
     checks.append(
         (

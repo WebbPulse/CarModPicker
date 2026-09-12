@@ -1,12 +1,4 @@
-"""QUAL-04: bandit HIGH-severity regression test.
-
-Pins the current CI invocation (`bandit -r app -ll`) from silently regressing
-to a config that would pass HIGH findings through. Uses a synthetic B602 fixture.
-
-D-18 path A applies: current `-ll` flag empirically exits 1 on HIGH (verified
-2026-04-23 on bandit 1.9.4). This test guards that behavior; no CI flag change
-was made.
-"""
+"""Pins the CI bandit invocation so a HIGH severity finding still fails the run."""
 
 from __future__ import annotations
 
@@ -38,6 +30,6 @@ def test_bandit_fails_on_high_severity(high_severity_fixture: Path) -> None:
         text=True,
     )
     assert result.returncode != 0, (
-        f"bandit -ll unexpectedly exited 0 on HIGH fixture. " f"stdout={result.stdout!r} stderr={result.stderr!r}"
+        f"bandit -ll unexpectedly exited 0 on HIGH fixture. stdout={result.stdout!r} stderr={result.stderr!r}"
     )
     assert "Severity: High" in result.stdout, f"Expected 'Severity: High' in bandit output, got: {result.stdout!r}"

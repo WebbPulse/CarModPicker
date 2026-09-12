@@ -4,13 +4,12 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import get_password_hash
 from app.core.config import settings
 from app.db.dynamo.catalog import Part as DBPart
 from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR, catalog_repository, save_catalog
+from tests.conftest import auth_headers, catalog_repository, login_user, save_catalog
 
 
 def create_and_login_admin_user(client: TestClient, db_session: Any, username_suffix: str = "admin") -> str:
@@ -19,11 +18,10 @@ def create_and_login_admin_user(client: TestClient, db_session: Any, username_su
     email = f"admin_ep_test_{username_suffix}@example.com"
     password = "testpassword"
 
-    admin_user = UserRepository().create_user(
+    UserRepository().create_user(
         DBUser(
             username=username,
             email=email,
-            hashed_password=get_password_hash(password),
             is_admin=True,
             is_superuser=False,
             email_verified=True,
@@ -31,10 +29,7 @@ def create_and_login_admin_user(client: TestClient, db_session: Any, username_su
         )
     )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login admin: {token_response.text}"
-    return token_response.json()["access_token"]
+    return login_user(client, username, password)
 
 
 def create_and_login_user(client: TestClient, db_session: Any, username_suffix: str) -> str:
@@ -43,21 +38,20 @@ def create_and_login_user(client: TestClient, db_session: Any, username_suffix: 
     email = f"admin_ep_user_{username_suffix}@example.com"
     password = "testpassword"
 
-    user_data = {"username": username, "email": email, "password": password}
-    response = client.post(f"{settings.API_STR}/users/", json=user_data)
-    if response.status_code != 200:
-        # User might already exist
-        response.raise_for_status()
+    del password, db_session
 
-    if db_session:
-        user = UserRepository().get_by_username(username)
-        if user:
-            UserRepository().update(user.id, email_verified=True)
+    UserRepository().create_user(
+        DBUser(
+            username=username,
+            email=email,
+            is_admin=False,
+            is_superuser=False,
+            email_verified=True,
+            disabled=False,
+        )
+    )
 
-    login_data = {"username": username, "password": password}
-    token_response = client.post(f"{settings.API_STR}/auth/token", data=login_data)
-    assert token_response.status_code == 200, f"Failed to login: {token_response.text}"
-    return token_response.json()["access_token"]
+    return login_user(client, username)
 
 
 class TestAdminDeleteAllPartManufacturers:
@@ -71,7 +65,7 @@ class TestAdminDeleteAllPartManufacturers:
     def test_delete_all_part_manufacturers_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
         """Test delete all part_manufacturers as non-admin returns 403."""
         token = create_and_login_user(client, db_session, "delete_part_manufacturers_forbidden")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.post(
             f"{settings.API_STR}/admin/db-ops/part-manufacturers/delete-all",
             headers=headers,
@@ -92,7 +86,7 @@ class TestAdminDeleteAllPartManufacturers:
         part_manufacturer2 = save_catalog(part_manufacturer2)
 
         token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_success")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.post(
             f"{settings.API_STR}/admin/db-ops/part-manufacturers/delete-all",
             headers=headers,
@@ -102,7 +96,6 @@ class TestAdminDeleteAllPartManufacturers:
         assert "deleted_count" in data
         assert data["deleted_count"] == 2
 
-        # Verify part_manufacturers are gone
         remaining = catalog_repository(DBPartManufacturer).count()
         assert remaining == 0
 
@@ -126,7 +119,7 @@ class TestAdminDeleteAllPartManufacturers:
         part_id = part.id
 
         token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_nullify")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.post(
             f"{settings.API_STR}/admin/db-ops/part-manufacturers/delete-all",
             headers=headers,
@@ -134,7 +127,6 @@ class TestAdminDeleteAllPartManufacturers:
         assert response.status_code == 200
         assert response.json()["deleted_count"] == 1
 
-        # Verify part still exists but part_manufacturer_id is null
         part_after = catalog_repository(DBPart).get(str(part_id))
         assert part_after is not None
         assert part_after.part_manufacturer_id is None
@@ -142,7 +134,7 @@ class TestAdminDeleteAllPartManufacturers:
     def test_delete_all_part_manufacturers_empty_success(self, client: TestClient, db_session: Any) -> None:
         """Test delete all part_manufacturers when no part_manufacturers exist returns 200 with deleted_count=0."""
         token = create_and_login_admin_user(client, db_session, "delete_part_manufacturers_empty")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.post(
             f"{settings.API_STR}/admin/db-ops/part-manufacturers/delete-all",
             headers=headers,
@@ -153,17 +145,19 @@ class TestAdminDeleteAllPartManufacturers:
 
 
 class TestAdminTableCounts:
-    """GET /admin/stats/table-counts — supplemental DB counts (admin only)."""
+    """GET /admin/stats/table-counts returns supplemental table counts to admins only."""
 
     def test_table_counts_forbidden_non_admin(self, client: TestClient, db_session: Any) -> None:
+        """A non-admin is refused the supplemental table counts."""
         token = create_and_login_user(client, db_session, "table_counts_forbidden")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.get(f"{settings.API_STR}/admin/stats/table-counts", headers=headers)
         assert response.status_code == 403
 
     def test_table_counts_admin_ok(self, client: TestClient, db_session: Any) -> None:
+        """An admin gets a count for every supplemental table, scalars and per type maps alike."""
         token = create_and_login_admin_user(client, db_session, "table_counts_ok")
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = auth_headers(token)
         response = client.get(f"{settings.API_STR}/admin/stats/table-counts", headers=headers)
         assert response.status_code == 200
         data = response.json()

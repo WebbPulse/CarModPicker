@@ -1,0 +1,751 @@
+"""Covers the CarModPicker identity hooks and the conditional mount of the identity
+package router: this product's own auth policy, the issuer guard, the public
+paths, and the legacy handlers winning the two colliding routes.
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Iterator
+from uuid import uuid4
+
+import pytest
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa, utils
+
+from app.composition.identity_hooks import CarModPickerIdentityHooks
+from app.db.dynamo.users import User
+
+from .entrypoints.test_route_split import _effective_routes, _pairs
+
+ISSUER = "https://api.staging.carmodpicker.com/api/auth"
+AUDIENCE = "carmodpicker-staging-api"
+KEY_ARN = "arn:aws:kms:us-west-2:748861776298:key/11111111-2222-3333-4444-555555555555"
+DATA_KEY_ARN = "arn:aws:kms:us-west-2:748861776298:key/99999999-8888-7777-6666-555555555555"
+
+PACKAGE_PATHS = (
+    ("GET", "/api/auth/.well-known/openid-configuration"),
+    ("GET", "/api/auth/.well-known/jwks.json"),
+    ("GET", "/api/auth/health"),
+    ("POST", "/api/auth/register"),
+    ("POST", "/api/auth/login"),
+    ("POST", "/api/auth/password"),
+    ("POST", "/api/auth/refresh"),
+    ("POST", "/api/auth/logout"),
+    ("POST", "/api/auth/logout-all"),
+    ("POST", "/api/auth/verify-email"),
+    ("POST", "/api/auth/verify-email/confirm"),
+    ("POST", "/api/auth/reset"),
+    ("POST", "/api/auth/reset/confirm"),
+    ("POST", "/api/auth/login/totp"),
+    ("POST", "/api/auth/totp/enrol"),
+    ("POST", "/api/auth/totp/activate"),
+    ("POST", "/api/auth/totp/disable"),
+    ("POST", "/api/auth/recovery-codes"),
+    ("POST", "/api/auth/step-up"),
+    ("GET", "/api/auth/oauth/providers"),
+    ("GET", "/api/auth/passkeys/availability"),
+)
+
+COLLISIONS = (
+    ("POST", "/api/auth/logout"),
+    ("POST", "/api/auth/verify-email"),
+)
+
+
+class FakeKms:
+    """A KMS client for one key that signs the digest it is handed with a local private
+    key and returns the DER public key the kid is derived from.
+    """
+
+    def __init__(self, key: rsa.RSAPrivateKey) -> None:
+        """Hold the local private key this fake signs with."""
+        self._key = key
+
+    def get_public_key(self, *, KeyId: str) -> dict[str, Any]:
+        """Return the DER SubjectPublicKeyInfo for the key."""
+        from webbpulse.identity import KMS_SIGNING_ALGORITHM
+
+        return {
+            "KeyId": KeyId,
+            "PublicKey": self._key.public_key().public_bytes(
+                encoding=serialization.Encoding.DER,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            ),
+            "KeySpec": "RSA_2048",
+            "KeyUsage": "SIGN_VERIFY",
+            "SigningAlgorithms": [KMS_SIGNING_ALGORITHM],
+        }
+
+    def sign(self, *, KeyId: str, Message: bytes, MessageType: str, SigningAlgorithm: str) -> dict[str, Any]:
+        """Sign the digest without re-hashing it, which is what MessageType DIGEST means."""
+        return {
+            "KeyId": KeyId,
+            "Signature": self._key.sign(Message, padding.PKCS1v15(), utils.Prehashed(hashes.SHA256())),
+            "SigningAlgorithm": SigningAlgorithm,
+        }
+
+
+@pytest.fixture(scope="module")
+def private_key() -> rsa.RSAPrivateKey:
+    """One 2048-bit key for the module. Generation is slow enough to share."""
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+@pytest.fixture
+def identity_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The IDENTITY_ environment the deployed identity function receives, with the
+    signing key arns as JSON because that is what Terraform renders.
+    """
+    from app.core.config import settings as app_settings
+
+    monkeypatch.setenv("IDENTITY_ENVIRONMENT", "staging")
+    monkeypatch.setenv("IDENTITY_ISSUER", ISSUER)
+    monkeypatch.setenv("IDENTITY_AUDIENCE", AUDIENCE)
+    monkeypatch.setenv("IDENTITY_SIGNING_KEY_ARNS", json.dumps([KEY_ARN]))
+    monkeypatch.setenv("IDENTITY_DATA_KEY_ARN", DATA_KEY_ARN)
+    monkeypatch.setenv("IDENTITY_COOKIE_DOMAIN", "staging.carmodpicker.com")
+    monkeypatch.setenv("IDENTITY_RP_ID", "staging.carmodpicker.com")
+    monkeypatch.setenv("IDENTITY_RP_NAME", "CarModPicker")
+    monkeypatch.setenv("IDENTITY_PRODUCT_NAME", "CarModPicker")
+    monkeypatch.setenv("IDENTITY_SUPPORT_EMAIL", "support@carmodpicker.com")
+    monkeypatch.setenv("IDENTITY_FRONTEND_BASE_URL", "https://staging.carmodpicker.com")
+    monkeypatch.setenv("IDENTITY_EMAIL_FROM", "no-reply@staging.carmodpicker.com")
+
+    monkeypatch.setenv("IDENTITY_PASSKEYS_ENABLED", "false")
+    monkeypatch.setenv("IDENTITY_PASSKEYS_PASSWORDLESS", "false")
+
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", ISSUER)
+
+
+@pytest.fixture
+def identity_app(identity_env: None, private_key: rsa.RSAPrivateKey, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
+    """The identity domain application built in process with the mount on, hermetic:
+    boto3.client is replaced so no real client is built and no network is reached.
+    """
+    import boto3
+
+    def fake_client(service: str, *args: Any, **kwargs: Any) -> Any:
+        """Return the local KMS signer, refusing every service the build should not reach."""
+        if service == "kms":
+            return FakeKms(private_key)
+        if service == "sesv2":
+            return object()
+        raise AssertionError(f"the identity router asked for an unexpected client: {service}")
+
+    monkeypatch.setattr(boto3, "client", fake_client)
+
+    from app.entrypoints.identity import build_app
+
+    yield build_app()
+
+
+@pytest.fixture
+def hooks(dynamo_tables: Any) -> CarModPickerIdentityHooks:
+    """Hooks over the real repositories against moto, since the hooks are almost
+    entirely calls into them.
+    """
+    return CarModPickerIdentityHooks()
+
+
+def _user(**overrides: Any) -> User:
+    """A user with the flags this product's policy reads, all permissive."""
+    base: dict[str, Any] = {
+        "username": f"user{uuid4().hex[:8]}",
+        "email": f"{uuid4().hex[:8]}@example.com",
+        "email_verified": True,
+        "disabled": False,
+        "is_superuser": False,
+        "is_admin": False,
+        "is_service_account": False,
+    }
+    base.update(overrides)
+    return User(**base)
+
+
+def _put_raw_attribute(user_id: str, name: str, value: Any) -> None:
+    """Write an attribute the model no longer declares, straight onto the row.
+
+    Row 13 removed `hashed_password` and `totp_secret` from
+    `app/db/dynamo/users.User`, so there is no longer a way to set either
+    through the model. Rows written before row 7's migration can still carry
+    them until `backend/scripts/clear_legacy_credentials.py` runs, and
+    `extra="ignore"` on `DynamoModel` is what lets such a row load at all. This
+    reproduces that state so the tests that care can assert on it.
+    """
+    from app.db.dynamo.users import UserRepository
+
+    repo = UserRepository()
+    repo.table.update_item(
+        Key={"id": user_id},
+        UpdateExpression="SET #n = :v",
+        ExpressionAttributeNames={"#n": name},
+        ExpressionAttributeValues={":v": value},
+    )
+
+
+def test_the_hooks_satisfy_the_protocol_structurally() -> None:
+    """The hooks satisfy the runtime checkable protocol by shape, so a package release
+    that grows a hook fails here rather than at the first call in staging.
+    """
+    from webbpulse.identity import IdentityHooks
+
+    assert isinstance(CarModPickerIdentityHooks(), IdentityHooks)
+
+
+def test_the_hooks_inherit_nothing_from_the_package() -> None:
+    """The hooks extend no package base class, because inheriting one would silently
+    change a missing hook from a protocol failure into a call time error.
+    """
+    from webbpulse.identity import BaseIdentityHooks
+
+    assert not issubclass(CarModPickerIdentityHooks, BaseIdentityHooks)
+
+
+def test_may_authenticate_admits_an_ordinary_verified_user(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """Not raising is the only way to permit, so this asserts a silent return."""
+    assert hooks.may_authenticate({"email_verified": True}) is None
+
+
+@pytest.mark.parametrize(
+    ("user", "error_code"),
+    [
+        ({"email_verified": True, "disabled": True}, "ACCOUNT_DISABLED"),
+        ({"email_verified": True, "is_service_account": True}, "SERVICE_ACCOUNT"),
+        ({"email_verified": False}, "EMAIL_NOT_VERIFIED"),
+    ],
+    ids=["disabled", "service-account", "unverified"],
+)
+def test_may_authenticate_refuses_each_of_this_products_three_flags(
+    hooks: CarModPickerIdentityHooks, user: dict[str, Any], error_code: str
+) -> None:
+    """Disabled, service account and unverified each refuse with their own error code,
+    while the message stays uniform so it leaks nothing about the account.
+    """
+    from webbpulse.identity import AuthenticationRefused
+
+    with pytest.raises(AuthenticationRefused) as caught:
+        hooks.may_authenticate(user)
+
+    assert caught.value.error_code == error_code
+
+
+def test_every_refusal_carries_the_same_message(hooks: CarModPickerIdentityHooks) -> None:
+    """One message for all three, so a probe cannot tell them apart."""
+    from webbpulse.identity import AuthenticationRefused
+
+    messages = set()
+    for user in (
+        {"email_verified": True, "disabled": True},
+        {"email_verified": True, "is_service_account": True},
+        {"email_verified": False},
+    ):
+        with pytest.raises(AuthenticationRefused) as caught:
+            hooks.may_authenticate(user)
+        messages.add(caught.value.message)
+
+    assert len(messages) == 1
+
+
+def test_a_missing_flag_reads_as_unverified(hooks: CarModPickerIdentityHooks) -> None:
+    """A record carrying no flags at all is refused, which is the failing safe direction."""
+    from webbpulse.identity import AuthenticationRefused
+
+    with pytest.raises(AuthenticationRefused):
+        hooks.may_authenticate({})
+
+
+@pytest.mark.parametrize(
+    ("flags", "roles"),
+    [
+        ({}, []),
+        ({"is_admin": True}, ["admin"]),
+        ({"is_superuser": True}, ["superuser"]),
+        ({"is_superuser": True, "is_admin": True}, ["superuser", "admin"]),
+    ],
+    ids=["none", "admin", "superuser", "both"],
+)
+def test_claims_for_maps_the_two_boolean_columns_onto_roles(
+    hooks: CarModPickerIdentityHooks, flags: dict[str, Any], roles: list[str]
+) -> None:
+    """The two boolean columns map onto one ordered roles array, which is the contract
+    every other domain authorises off.
+    """
+    claims = hooks.claims_for({"username": "someone", **flags})
+
+    assert claims["roles"] == roles
+
+
+def test_claims_for_carries_the_username(hooks: CarModPickerIdentityHooks) -> None:
+    """The username is a required claim, since the frontend and the authorizer both
+    pass it through.
+    """
+    assert hooks.claims_for({"username": "tyler"})["username"] == "tyler"
+
+
+def test_load_user_by_id_round_trips_a_created_user(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A created user round trips, with the id as a string because the package puts it
+    straight into a JSON claim.
+    """
+    created = hooks.create_user(email="round@example.com", attributes={"username": "round"})
+
+    loaded = hooks.load_user_by_id(created["id"])
+
+    assert loaded is not None
+    assert loaded["id"] == created["id"]
+    assert isinstance(loaded["id"], str)
+
+
+def test_load_user_by_email_finds_the_same_record(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """The email index is how every login begins."""
+    created = hooks.create_user(email="byemail@example.com", attributes={"username": "byemail"})
+
+    loaded = hooks.load_user_by_email("byemail@example.com")
+
+    assert loaded is not None
+    assert loaded["id"] == created["id"]
+
+
+def test_load_user_by_id_answers_none_for_an_unknown_id(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """An unknown id answers None."""
+    assert hooks.load_user_by_id(str(uuid4())) is None
+
+
+def test_load_user_by_id_answers_none_for_a_value_that_is_not_an_id(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """An unparseable subject answers None rather than raising, so a malformed token is
+    a 401 rather than a 500.
+    """
+    assert hooks.load_user_by_id("not-a-uuid") is None
+
+
+def test_load_user_by_email_answers_none_for_an_unknown_address(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """An unknown address answers None."""
+    assert hooks.load_user_by_email("nobody@example.com") is None
+
+
+def test_create_user_derives_a_username_from_the_address(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A username is derived from the local part, because the package's register flow
+    supplies only an email and this product requires one.
+    """
+    created = hooks.create_user(email="derived@example.com", attributes={})
+
+    assert created["username"] == "derived"
+
+
+def test_create_user_prefers_a_supplied_username(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A caller that knows the username is not overridden by the derivation."""
+    created = hooks.create_user(email="supplied@example.com", attributes={"username": "chosen"})
+
+    assert created["username"] == "chosen"
+
+
+def test_create_user_writes_the_address_it_was_given(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """The email argument wins over the attributes mapping, so a registration cannot
+    claim an address it never proved.
+    """
+    created = hooks.create_user(
+        email="actual@example.com",
+        attributes={"email": "spoofed@example.com"},
+    )
+
+    assert created["email"] == "actual@example.com"
+
+
+def test_create_user_refuses_to_carry_a_password_across_the_seam(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A hashed password in the attributes is dropped, because the package owns
+    credentials and a second copy would never be rotated.
+    """
+    created = hooks.create_user(
+        email="nopass@example.com",
+        attributes={"username": "nopass", "hashed_password": "$2b$12$notreal"},
+    )
+
+    assert "hashed_password" not in created
+    assert "totp_secret" not in created
+
+
+def test_create_user_ignores_a_supplied_id(hooks: CarModPickerIdentityHooks) -> None:
+    """The repository mints its own time ordered id, so a supplied one is ignored."""
+    chosen = str(uuid4())
+
+    created = hooks.create_user(email="ownid@example.com", attributes={"username": "ownid", "id": chosen})
+
+    assert created["id"] != chosen
+
+
+def test_create_user_is_transactional_on_the_unique_attributes(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A duplicate username rolls the whole registration back, so a collision cannot
+    leave a half created account.
+    """
+    from app.db.dynamo.users import UniqueAttributeTaken
+
+    hooks.create_user(email="first@example.com", attributes={"username": "taken"})
+
+    with pytest.raises(UniqueAttributeTaken):
+        hooks.create_user(email="second@example.com", attributes={"username": "taken"})
+
+    assert hooks.load_user_by_email("second@example.com") is None
+
+
+def test_mark_email_verified_flips_the_flag_may_authenticate_reads(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """Verification flips the same flag may_authenticate reads, so a confirmed link
+    actually lets the user in.
+    """
+    from webbpulse.identity import AuthenticationRefused
+
+    created = hooks.create_user(email="verify@example.com", attributes={"username": "verify"})
+    with pytest.raises(AuthenticationRefused):
+        hooks.may_authenticate(created)
+
+    hooks.mark_email_verified(created["id"])
+
+    reloaded = hooks.load_user_by_id(created["id"])
+    assert reloaded is not None
+    assert hooks.may_authenticate(reloaded) is None
+
+
+def test_mark_email_verified_raises_for_an_unknown_user(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A consumed link naming no user raises rather than reporting success."""
+    with pytest.raises(ValueError):
+        hooks.mark_email_verified(str(uuid4()))
+
+
+def test_mark_email_verified_raises_for_a_value_that_is_not_an_id(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A write whose target cannot be parsed raises, unlike the loaders, because that
+    is a bug in the caller.
+    """
+    with pytest.raises(ValueError):
+        hooks.mark_email_verified("not-a-uuid")
+
+
+def test_has_other_sign_in_method_is_false_for_a_user_with_nothing(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A freshly created user has no password, no passkey and no link."""
+    created = hooks.create_user(email="bare@example.com", attributes={"username": "bare"})
+
+    assert hooks.has_other_sign_in_method(created["id"]) is False
+
+
+def test_a_legacy_password_no_longer_counts(hooks: CarModPickerIdentityHooks) -> None:
+    """A stale `hashed_password` attribute on a row is not a sign-in method.
+
+    Row 5 asserted the opposite, and correctly: `users.hashed_password` was how
+    every account created before that row signed in, and it stayed a live method
+    until row 7's migration copied it into the package's `credentials` table.
+
+    Row 13 finished that. The password check is out of
+    `has_other_sign_in_method` because every password that could be migrated was
+    migrated in row 7, and the package's own `credentials` row is already
+    counted by `OAuthService.unlink` itself. Rows written before row 7 may still
+    carry the attribute until `backend/scripts/clear_legacy_credentials.py`
+    runs, and `extra="ignore"` on `DynamoModel` means such a row still loads;
+    this test is what says a leftover attribute cannot resurrect a sign-in
+    method that no code path can use.
+
+    Written as a raw item rather than through the model, because the model no
+    longer has the field to set.
+    """
+    user = hooks.user_repository().create_user(_user())
+    _put_raw_attribute(str(user.id), "hashed_password", "$2b$12$notreal")
+
+    assert hooks.has_other_sign_in_method(str(user.id)) is False
+
+
+def test_a_passkey_counts(hooks: CarModPickerIdentityHooks, dynamo_tables: Any) -> None:
+    """Any row in `webauthn_credentials` is a way in that does not need a password."""
+    from app.db.dynamo.users import WebAuthnCredential, WebAuthnCredentialRepository
+
+    user = hooks.user_repository().create_user(_user())
+    WebAuthnCredentialRepository().create(
+        WebAuthnCredential(
+            user_id=user.id,
+            credential_id=b"credential-id",
+            public_key=b"public-key",
+            nickname="a passkey",
+        )
+    )
+
+    assert hooks.has_other_sign_in_method(str(user.id)) is True
+
+
+def test_a_legacy_google_link_counts(hooks: CarModPickerIdentityHooks, dynamo_tables: Any) -> None:
+    """CarModPicker's own Google flow is still mounted and still signs people in."""
+    from app.db.dynamo.users import OAuthAccount, OAuthAccountRepository
+
+    user = hooks.user_repository().create_user(_user())
+    OAuthAccountRepository().create(OAuthAccount(user_id=user.id, provider="google", provider_account_id="12345"))
+
+    assert hooks.has_other_sign_in_method(str(user.id)) is True
+
+
+def test_a_totp_factor_does_not_count(hooks: CarModPickerIdentityHooks) -> None:
+    """A second factor is not a sign in method, since counting it would let the package
+    remove the last real one.
+    """
+    user = hooks.user_repository().create_user(_user(totp_enabled=True, totp_secret="JBSWY3DPEHPK3PXP"))
+
+    assert hooks.has_other_sign_in_method(str(user.id)) is False
+
+
+def test_has_other_sign_in_method_is_false_for_an_unknown_user(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """An unknown user reports no alternative sign in method."""
+    assert hooks.has_other_sign_in_method(str(uuid4())) is False
+
+
+def test_has_other_sign_in_method_is_false_for_a_value_that_is_not_an_id(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """An unparseable id reports no alternative method, which makes the package refuse
+    the removal.
+    """
+    assert hooks.has_other_sign_in_method("not-a-uuid") is False
+
+
+def test_on_user_created_does_nothing_and_says_so(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """Registration runs no side effect here, asserted so one cannot be added unnoticed."""
+    assert hooks.on_user_created({"id": "whatever"}, "register") is None
+
+
+def test_user_repository_hands_back_this_products_users_table(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """The hook hands back this product's own users repository, which is where the
+    ownership convention is stated.
+    """
+    from app.db.dynamo.users import UserRepository
+
+    assert isinstance(hooks.user_repository(), UserRepository)
+
+
+def test_without_an_issuer_the_identity_app_is_exactly_what_row_four_left(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no issuer set the identity application is unchanged, which keeps the route
+    contract, the per domain counts and the OpenAPI snapshot valid.
+    """
+    from app.core.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", "")
+
+    from app.entrypoints.identity import build_app
+
+    paths = {path for _, path in _pairs(build_app())}
+
+    assert "/api/auth/.well-known/openid-configuration" not in paths
+    assert "/api/auth/login" not in paths
+    assert not any(path.startswith("/api/auth") for path in paths)
+
+
+def test_with_an_issuer_every_package_route_is_mounted(identity_app: Any) -> None:
+    """With an issuer set every package route is mounted at its public path, including
+    the email ceremony routes the sender enables.
+    """
+    served = _pairs(identity_app)
+
+    missing = [pair for pair in PACKAGE_PATHS if pair not in served]
+
+    assert missing == []
+
+
+def test_the_router_is_mounted_with_no_prefix_of_this_repositorys_own(
+    identity_app: Any,
+) -> None:
+    """The router is mounted with no prefix of this repository's own, since the package
+    already places every route under the issuer's path.
+    """
+    from webbpulse.identity import identity_prefix
+
+    from app.composition.identity import build_identity_settings
+    from app.core.config import settings as app_settings
+
+    assert identity_prefix(build_identity_settings(app_settings)) == "/api/auth"
+
+    doubled = [path for _, path in _pairs(identity_app) if path.startswith("/api/api")]
+    assert doubled == []
+
+
+def test_the_issuers_path_is_where_the_routes_land(identity_app: Any) -> None:
+    """Every package route sits under the issuer's path and nowhere else, so the
+    discovery document and the served paths cannot disagree.
+    """
+    from urllib.parse import urlparse
+
+    prefix = urlparse(ISSUER).path
+
+    served = _pairs(identity_app)
+    for method, path in PACKAGE_PATHS:
+        assert (method, path) in served
+        assert path.startswith(prefix)
+
+
+def test_the_package_answers_the_two_former_collisions(identity_app: Any) -> None:
+    """Two paths once existed on both sides. Row 13 left one declaration of each.
+
+    Through row 12 `composition/domains.py` loaded the legacy routers and
+    `wiring.py` included the package router after them, and FastAPI keeps the
+    first match, so the legacy handler answered both. That ordering was what
+    made row 5 additive. Row 13 deleted the legacy routers, so the package now
+    answers both, and it answers them at the same two paths the frontend was
+    already calling.
+
+    Asserted on the winning endpoint's module rather than on a route count, so
+    that re-introducing a local declaration under `/api/auth` fails here rather
+    than silently shadowing the package on a live path.
+    """
+    winners: dict[tuple[str, str], Any] = {}
+    for route in _effective_routes(identity_app):
+        path = getattr(route, "path", None)
+        for method in getattr(route, "methods", None) or []:
+            winners.setdefault((method, path), getattr(route, "endpoint", None))
+
+    for pair in COLLISIONS:
+        endpoint = winners[pair]
+        assert endpoint is not None
+        assert endpoint.__module__.startswith("webbpulse.identity"), (
+            f"{pair} is answered by {endpoint.__module__}, not the package router"
+        )
+
+
+def test_no_route_under_the_identity_prefix_is_this_repositorys_own(identity_app: Any) -> None:
+    """The whole point of row 13, stated once as a sweep.
+
+    Row 10's two extension routes are the deliberate exception: they are
+    CarModPicker's own, they live under `/api/auth` because that is where the
+    gateway already routes, and `tests/test_identity_row10.py` owns them. Every
+    other path under the prefix must come from the package.
+    """
+    from .test_identity_row10 import EXTENSION_PATHS
+
+    extension_paths = {path for _, path in EXTENSION_PATHS}
+
+    offenders = []
+    for route in _effective_routes(identity_app):
+        path = getattr(route, "path", None)
+        if not isinstance(path, str) or not path.startswith("/api/auth"):
+            continue
+        if path in extension_paths:
+            continue
+        endpoint = getattr(route, "endpoint", None)
+        module = getattr(endpoint, "__module__", "")
+        if not module.startswith("webbpulse.identity"):
+            offenders.append((path, module))
+
+    assert offenders == []
+
+
+def test_the_legacy_auth_surface_is_gone(identity_app: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The twenty-four legacy `/api/auth` routes no longer exist, mounted or not.
+
+    Through row 12 this test asserted the opposite: that every legacy route
+    survived the mount, which was the strong form of "the legacy CMP auth routes
+    must keep working in this row". Row 13 is the row that stops being true, so
+    the assertion is inverted rather than deleted. Keeping it inverted is what
+    catches a revert of the router deletion that leaves the rest of row 13 in
+    place.
+
+    Asserted with the issuer unset as well as set, because an unmounted identity
+    application is where a resurrected legacy router would be easiest to miss.
+    """
+    from app.core.config import settings as app_settings
+
+    from .test_identity_row10 import EXTENSION_PATHS
+
+    extension_paths = {path for _, path in EXTENSION_PATHS}
+
+    with_package = {pair for pair in _pairs(identity_app) if pair[1].startswith("/api/auth")}
+    assert all(pair in PACKAGE_PATHS or pair[1] in extension_paths for pair in with_package)
+
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", "")
+    from app.entrypoints.identity import build_app
+
+    without_package = {pair for pair in _pairs(build_app()) if pair[1].startswith("/api/auth")}
+
+    assert without_package == set()
+
+
+def test_the_mount_adds_exactly_the_package_routes_and_nothing_else(
+    identity_app: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The mount adds exactly the new package routes plus the two extension routes,
+    pinned as a difference so unrelated additions elsewhere do not fail it.
+    """
+    from app.core.config import settings as app_settings
+
+    from .test_identity_row10 import EXTENSION_PATHS
+
+    with_package = _pairs(identity_app)
+
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", "")
+    from app.entrypoints.identity import build_app
+
+    added = with_package - _pairs(build_app())
+
+    assert added == set(PACKAGE_PATHS) | set(EXTENSION_PATHS)
+
+
+def test_the_settings_are_read_from_the_environment_and_not_passed_in(
+    identity_env: None,
+) -> None:
+    """The package reads its settings from the environment itself, so a Terraform
+    rename surfaces as a wrong value rather than a missing argument.
+    """
+    from app.composition.identity import build_identity_settings
+    from app.core.config import settings as app_settings
+
+    identity_settings = build_identity_settings(app_settings)
+
+    assert identity_settings.issuer == ISSUER
+    assert identity_settings.audience == AUDIENCE
+    assert identity_settings.signing_key_arns == [KEY_ARN]
+    assert identity_settings.data_key_arn == DATA_KEY_ARN
+
+
+def test_no_oauth_route_is_mounted(identity_app: Any) -> None:
+    """The package's OAuth routes stay unmounted because no store is supplied for
+    tables that do not exist; this product's own Google flow is untouched.
+    """
+    served = {path for _, path in _pairs(identity_app)}
+
+    assert "/api/auth/oauth/authorize" not in served
+    assert "/api/auth/oauth/callback" not in served
+    assert "/api/auth/oauth/google" not in served
+
+
+def test_building_the_router_opens_no_network_connection(identity_app: Any) -> None:
+    """Building the router opens no network connection, which the fixture enforces by
+    refusing every unexpected client.
+    """
+    assert identity_app is not None

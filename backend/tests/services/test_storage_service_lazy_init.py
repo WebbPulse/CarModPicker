@@ -1,3 +1,8 @@
+"""Tests that StorageService defers every S3 call until storage is used.
+
+Construction must never connect, so a cold start does not pay for or fail on S3.
+"""
+
 import logging
 from typing import Iterator
 from unittest.mock import MagicMock, patch
@@ -18,6 +23,7 @@ BUCKET = "lazy-init-bucket"
 
 @pytest.fixture
 def live_storage_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Point settings at a live bucket and disable the test-environment short circuit."""
     monkeypatch.setattr(settings, "USER_IMAGES_BUCKET", BUCKET)
     monkeypatch.setattr(settings, "AWS_ACCESS_KEY_ID", "AKIATEST")
     monkeypatch.setattr(settings, "AWS_SECRET_ACCESS_KEY", "secret")
@@ -29,10 +35,12 @@ def live_storage_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 def forbidden() -> ClientError:
+    """A HeadBucket 403 ClientError."""
     return ClientError({"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadBucket")
 
 
 def test_constructor_does_not_touch_s3(live_storage_settings: None) -> None:
+    """Constructing the service creates no boto3 client."""
     with patch.object(ss_module.boto3, "client") as client_factory:
         service = StorageService()
 
@@ -43,6 +51,7 @@ def test_constructor_does_not_touch_s3(live_storage_settings: None) -> None:
 
 
 def test_first_use_connects_with_session_token_and_caches_client(live_storage_settings: None) -> None:
+    """First use builds the client with configured credentials and probes the bucket."""
     fake_client = MagicMock()
     with patch.object(ss_module.boto3, "client", return_value=fake_client) as client_factory:
         service = StorageService()
@@ -63,6 +72,7 @@ def test_first_use_connects_with_session_token_and_caches_client(live_storage_se
 def test_empty_credentials_fall_back_to_default_chain(
     live_storage_settings: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Blank credential settings pass None so boto3 uses the default provider chain."""
     monkeypatch.setattr(settings, "AWS_ACCESS_KEY_ID", "")
     monkeypatch.setattr(settings, "AWS_SECRET_ACCESS_KEY", "")
     monkeypatch.setattr(settings, "AWS_SESSION_TOKEN", "")
@@ -78,6 +88,7 @@ def test_empty_credentials_fall_back_to_default_chain(
 def test_probe_failure_is_deferred_until_storage_is_used(
     live_storage_settings: None, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """A denied bucket probe surfaces on each storage call, not at construction."""
     fake_client = MagicMock()
     fake_client.head_bucket.side_effect = forbidden()
     with patch.object(ss_module.boto3, "client", return_value=fake_client):
@@ -101,6 +112,7 @@ def test_probe_failure_is_deferred_until_storage_is_used(
 
 
 def test_missing_bucket_probe_reports_not_found(live_storage_settings: None) -> None:
+    """A 404 probe reports the bucket as not found."""
     fake_client = MagicMock()
     fake_client.head_bucket.side_effect = ClientError({"Error": {"Code": "404", "Message": "Not Found"}}, "HeadBucket")
     with patch.object(ss_module.boto3, "client", return_value=fake_client):
@@ -111,6 +123,7 @@ def test_missing_bucket_probe_reports_not_found(live_storage_settings: None) -> 
 
 
 def test_injected_client_is_not_replaced(live_storage_settings: None) -> None:
+    """A client injected by a test is left alone."""
     injected = MagicMock()
     service = StorageService()
     service.s3_client = injected
@@ -123,6 +136,7 @@ def test_injected_client_is_not_replaced(live_storage_settings: None) -> None:
 
 
 def test_unconfigured_bucket_never_connects(live_storage_settings: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With no bucket configured the service reports 503 without connecting."""
     monkeypatch.setattr(settings, "USER_IMAGES_BUCKET", "")
     with patch.object(ss_module.boto3, "client") as client_factory:
         service = StorageService()
@@ -134,6 +148,7 @@ def test_unconfigured_bucket_never_connects(live_storage_settings: None, monkeyp
 
 
 def test_test_environment_never_connects(live_storage_settings: None) -> None:
+    """In the test environment the service never builds a client."""
     with (
         patch.object(ss_module, "_is_test_environment", return_value=True),
         patch.object(ss_module.boto3, "client") as client_factory,
@@ -147,6 +162,7 @@ def test_test_environment_never_connects(live_storage_settings: None) -> None:
 
 @mock_aws
 def test_lazy_connect_against_moto_bucket(live_storage_settings: None) -> None:
+    """End to end lazy connect and object operations against a moto bucket."""
     s3 = boto3.client("s3", region_name="us-west-2")
     s3.create_bucket(Bucket=BUCKET, CreateBucketConfiguration={"LocationConstraint": "us-west-2"})
     s3.put_object(Bucket=BUCKET, Key="user/abc/x.jpg", Body=b"x")

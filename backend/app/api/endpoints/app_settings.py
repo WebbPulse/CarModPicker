@@ -1,10 +1,7 @@
-"""
-Global app settings endpoints.
+"""Global app settings endpoints.
 
 Stores a single DynamoDB item with runtime-mutable toggles that apply to
 every user (e.g. the premium-system kill switch that disables ads, gates,
-pricing, and all subscription UX). Read is public so anonymous clients can
-honor the toggle; write is admin-only.
 """
 
 import logging
@@ -23,7 +20,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/",
+    "",
     response_model=AppSettingsRead,
     responses=standard_responses(success_description="Current global app settings"),
 )
@@ -33,7 +30,7 @@ async def get_app_settings(repos: Repositories = Depends(get_repositories)) -> A
 
 
 @router.put(
-    "/",
+    "",
     response_model=AppSettingsRead,
     responses=standard_responses(
         success_description="App settings updated",

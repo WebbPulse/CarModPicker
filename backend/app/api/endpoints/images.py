@@ -5,10 +5,12 @@ Supports source URL tracking for deduplication (avoid re-downloading same images
 """
 
 import logging
+from io import BytesIO
 from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel, Field
 
 from app.api.dependencies.auth import (
     get_current_admin_user,
@@ -18,7 +20,8 @@ from app.api.dependencies.auth import (
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.services.storage_service import storage_service
 from app.api.utils.bucket_orphan_utils import get_all_referenced_file_keys
-from app.api.utils.image_url_utils import get_canonical_image_url
+from app.api.utils.image_url_utils import get_canonical_image_url, get_high_res_image_url
+from app.api.utils.remote_image_fetch import assert_url_is_fetchable, fetch_remote_image
 from app.db.dynamo.users import User as DBUser
 
 logger = logging.getLogger(__name__)
@@ -43,6 +46,75 @@ async def get_image_by_source_url(
     return {"file_key": mapping.file_key}
 
 
+ALLOWED_ENTITY_TYPES = ["build_list", "part", "user", "car_generation", "build_log_post"]
+
+
+def _authorize_image_target(
+    entity_type: str,
+    entity_id: Optional[UUID],
+    current_user: DBUser,
+    repos: Repositories,
+) -> None:
+    """Validate the entity type and the caller's right to attach an image to it.
+
+    Shared by the byte upload and the server side fetch so the two routes cannot
+    drift apart on who may write an image where.
+    """
+    if entity_type not in ALLOWED_ENTITY_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid entity_type. Allowed types: {', '.join(ALLOWED_ENTITY_TYPES)}",
+        )
+
+    if not entity_id:
+        return
+
+    entity_owned = False
+    if entity_type == "build_list":
+        entity = repos.build_lists.get(entity_id)
+        if entity and entity.user_id == current_user.id:
+            entity_owned = True
+    elif entity_type == "part":
+        part = repos.parts.get(str(entity_id))
+        if part and part.user_id == current_user.id:
+            entity_owned = True
+    elif entity_type == "user":
+        if entity_id == current_user.id:
+            entity_owned = True
+    elif entity_type == "car_generation":
+        if not current_user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can upload images for cars",
+            )
+        entity_owned = True
+    elif entity_type == "build_log_post":
+        build_list = repos.build_lists.get(entity_id)
+        if build_list:
+            entity_owned = True
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Build list not found",
+            )
+
+    if not entity_owned:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Not authorized to upload images for this {entity_type}",
+        )
+
+    if entity_type == "part":
+        from app.api.schemas.part import MAX_IMAGES_PER_PART
+
+        part = repos.parts.get(str(entity_id))
+        if part and len(part.image_urls or []) >= MAX_IMAGES_PER_PART:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Part already has the maximum number of images ({MAX_IMAGES_PER_PART}).",
+            )
+
+
 @router.post("/upload")
 async def upload_image(
     entity_type: str,
@@ -54,95 +126,14 @@ async def upload_image(
     current_user: DBUser = Depends(get_current_user),
     repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str]:
-    """
-    Upload an image file to S3 bucket.
+    """Upload an image file to S3 bucket.
 
     The file is validated for security (type, size, content) and stored
     in S3 bucket. Returns the file key which should be stored
-    in your database. Use the /presigned-url endpoint to get a URL for displaying.
-
-    Args:
-        entity_type: Type of entity (e.g., 'build_list', 'part', 'user', 'car')
-        entity_id: Optional ID of the entity (for updates)
-        file: Image file to upload
-        current_user: Authenticated user (from JWT token)
-
-    Returns:
-        dict: Contains 'file_key' (store this in your database) and 'presigned_url' (for immediate use)
-
-    Raises:
-        HTTPException: If upload fails, validation fails, or user is not authenticated
     """
-    # Validate entity_type
-    allowed_entity_types = ["build_list", "part", "user", "car_generation", "build_log_post"]
-    if entity_type not in allowed_entity_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid entity_type. Allowed types: {', '.join(allowed_entity_types)}",
-        )
-
-    # If entity_id is provided, verify the user owns the entity
-    if entity_id:
-        entity_owned = False
-        if entity_type == "build_list":
-            entity = repos.build_lists.get(entity_id)
-            if entity and entity.user_id == current_user.id:
-                entity_owned = True
-        elif entity_type == "part":
-            part = repos.parts.get(str(entity_id))
-            if part and part.user_id == current_user.id:
-                entity_owned = True
-        elif entity_type == "user":
-            # Users can only upload images for themselves
-            if entity_id == current_user.id:
-                entity_owned = True
-        elif entity_type == "car_generation":
-            # Cars are centrally managed - only admins can upload images
-            if not current_user.is_admin:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Only admins can upload images for cars",
-                )
-            entity_owned = True
-        elif entity_type == "build_log_post":
-            # For build log posts, verify the user has access to the build list
-            # If entity_id is provided, it should be the build_list_id
-            if entity_id:
-                build_list = repos.build_lists.get(entity_id)
-                if build_list:
-                    # Any authenticated user can upload images for build log posts
-                    # (build logs are public-readable, so images should be too)
-                    entity_owned = True
-                else:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Build list not found",
-                    )
-            else:
-                # If no entity_id provided, allow upload (for new posts)
-                entity_owned = True
-
-        if not entity_owned:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Not authorized to upload images for this {entity_type}",
-            )
-
-        # For part: reject upload if part already has max images (avoid expensive bucket uploads)
-        if entity_type == "part":
-            from app.api.schemas.part import MAX_IMAGES_PER_PART
-
-            part = repos.parts.get(str(entity_id))
-            if part:
-                current_count = len(part.image_urls or [])
-                if current_count >= MAX_IMAGES_PER_PART:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Part already has the maximum number of images ({MAX_IMAGES_PER_PART}).",
-                    )
+    _authorize_image_target(entity_type, entity_id, current_user, repos)
 
     try:
-        # Deduplication: if source_url provided and we already have it, return existing file_key
         if source_url and source_url.strip():
             canonical = get_canonical_image_url(source_url)
             existing = repos.image_source_mappings.get_by_source_url(canonical)
@@ -155,8 +146,6 @@ async def upload_image(
                     "message": "Image already cached; reused existing",
                 }
 
-        # Upload image to S3 bucket
-        # Force square aspect ratio for user profile pictures
         force_square = entity_type == "user"
         file_key = storage_service.upload_image(
             file=file,
@@ -166,12 +155,10 @@ async def upload_image(
             force_square=force_square,
         )
 
-        # Generate presigned URL for immediate use
         presigned_url = storage_service.get_presigned_url(file_key)
 
         logger.info(f"User {current_user.id} uploaded image: {file_key}")
 
-        # Store source_url mapping for future deduplication (part only for now)
         if source_url and source_url.strip() and entity_type == "part":
             try:
                 canonical = get_canonical_image_url(source_url)
@@ -186,7 +173,6 @@ async def upload_image(
         }
 
     except HTTPException:
-        # Re-raise HTTP exceptions (validation errors, etc.)
         raise
     except Exception as e:
         logger.error(f"Unexpected error during image upload: {str(e)}")
@@ -196,36 +182,92 @@ async def upload_image(
         )
 
 
+class FetchFromUrlRequest(BaseModel):
+    """The source image URL the server should fetch, and what it is attached to."""
+
+    source_url: str = Field(..., description="https URL of the image to fetch and store")
+    entity_type: str = Field(..., description="Type of entity the image belongs to")
+    entity_id: Optional[UUID] = Field(None, description="Optional id of the entity being updated")
+
+
+@router.post("/fetch-from-url")
+async def fetch_image_from_url(
+    body: FetchFromUrlRequest,
+    current_user: DBUser = Depends(get_current_user),
+    repos: Repositories = Depends(get_repositories),
+) -> dict[str, str]:
+    """Fetch an image from a public https URL server side and store it.
+
+    The extension cannot read these bytes itself, so the server fetches them
+    behind the same auth, authorization and validation as `/upload`.
+    """
+    _authorize_image_target(body.entity_type, body.entity_id, current_user, repos)
+
+    source_url = body.source_url.strip()
+    if not source_url:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="source_url is required")
+
+    canonical = get_canonical_image_url(source_url)
+    existing = repos.image_source_mappings.get_by_source_url(canonical)
+    if existing:
+        presigned_url = storage_service.get_presigned_url(existing.file_key)
+        logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")
+        return {
+            "file_key": existing.file_key,
+            "presigned_url": presigned_url,
+            "message": "Image already cached; reused existing",
+        }
+
+    assert_url_is_fetchable(source_url)
+    content, extension = fetch_remote_image(get_high_res_image_url(source_url))
+
+    upload = UploadFile(filename=f"image.{extension}", file=BytesIO(content))
+
+    try:
+        file_key = storage_service.upload_image(
+            file=upload,
+            entity_type=body.entity_type,
+            user_id=current_user.id,
+            entity_id=body.entity_id,
+            force_square=body.entity_type == "user",
+        )
+        presigned_url = storage_service.get_presigned_url(file_key)
+        logger.info(f"User {current_user.id} stored image fetched from source URL: {file_key}")
+
+        if body.entity_type == "part":
+            try:
+                repos.image_source_mappings.record(canonical, file_key)
+            except Exception as e:
+                logger.warning(f"Failed to store image source mapping: {e}")
+
+        return {
+            "file_key": file_key,
+            "presigned_url": presigned_url,
+            "message": "Image fetched and stored successfully",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error storing fetched image: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while storing the image",
+        )
+
+
 @router.get("/presigned-url")
 async def get_presigned_url(
     file_key: str,
     expiration: Optional[int] = None,
     current_user: Optional[DBUser] = Depends(get_optional_current_user),
 ) -> dict[str, str]:
-    """
-    Generate a presigned URL for accessing an image in S3 bucket.
+    """Generate a presigned URL for accessing an image in S3 bucket.
 
     The S3 bucket is private; presigned URLs are required to access images.
     These URLs are temporary and expire after the specified time (default: 24 hours).
-
-    For security, if a user is authenticated, we verify they own the image.
-    Public access is allowed for images that may be shared (e.g., public build lists).
-
-    Args:
-        file_key: The file key stored in your database (from upload endpoint)
-        expiration: Optional expiration time in seconds (default: 24 hours, max: 90 days)
-        current_user: Optional authenticated user (for private images)
-
-    Returns:
-        dict: Contains 'presigned_url' for accessing the image
-
-    Raises:
-        HTTPException: If URL generation fails or user doesn't own the image
     """
-    # Validate file key format and security
     storage_service.validate_file_key(file_key)
 
-    # If user is authenticated, verify ownership
     if current_user:
         if not storage_service.verify_file_key_ownership(file_key, current_user.id):
             logger.warning(f"User {current_user.id} attempted to access file_key they don't own: {file_key}")
@@ -257,27 +299,13 @@ async def delete_image(
     file_key: str,
     current_user: DBUser = Depends(get_current_user),
 ) -> dict[str, str]:
-    """
-    Delete an image from S3 bucket.
+    """Delete an image from S3 bucket.
 
     Only the owner of the image can delete it. Ownership is verified by checking
     the user_hash embedded in the file_key.
-
-    Args:
-        file_key: The file key to delete
-        current_user: Authenticated user (from JWT token)
-
-    Returns:
-        dict: Success message
-
-    Raises:
-        HTTPException: If deletion fails, user is not authenticated, or user doesn't own the image
     """
-    # Validate file key format and security
     storage_service.validate_file_key(file_key)
 
-    # Verify ownership before allowing deletion. Admins may delete any image to
-    # support moderation / cleanup of UGC and orphaned uploads.
     is_owner = storage_service.verify_file_key_ownership(file_key, current_user.id)
     if not is_owner and not current_user.is_admin:
         logger.warning(f"User {current_user.id} attempted to delete file_key they don't own: {file_key}")
@@ -313,18 +341,7 @@ async def delete_image(
 async def get_bucket_object_count(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> dict[str, int]:
-    """
-    Get the total count of objects in the S3 bucket (admin only).
-
-    Args:
-        current_user: Authenticated admin user (from JWT token)
-
-    Returns:
-        dict: Contains 'count' with the total number of bucket objects
-
-    Raises:
-        HTTPException: If counting fails or user is not an admin
-    """
+    """Get the total count of objects in the S3 bucket (admin only)."""
     try:
         count = storage_service.count_bucket_objects()
         logger.info(f"Admin {current_user.id} retrieved bucket object count: {count}")
@@ -400,11 +417,10 @@ async def list_orphaned_bucket_objects(
 async def purge_orphaned_bucket_objects(
     current_user: DBUser = Depends(get_current_admin_user),
 ) -> dict[str, int | list[str]]:
-    """
-    Delete bucket objects that are not referenced by any entity (orphans).
+    """Delete bucket objects that are not referenced by any entity (orphans).
+
     Admin only. Non-destructive: only objects with no DB reference are removed.
     Referenced keys come from: part (image_urls), user (image_urls),
-    car (image_urls), build_list (image_urls), image_source_mapping (file_key).
     """
     try:
         referenced = get_all_referenced_file_keys()

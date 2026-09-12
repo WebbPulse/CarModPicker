@@ -1,15 +1,3 @@
-// Phase 8 Plan 10 (D-11 Wave 3) — Register page coverage.
-//
-// Register.tsx posts a UserCreate body to `/users/` via the raw default
-// `apiClient.post<UserRead>(...)` import (not through authApi). On success it
-// navigates the browser to `/login`. Google OAuth is an optional second path
-// gated by isGoogleConfigured() — we force that off so the test only exercises
-// the password-form submission.
-//
-// Like Login.test.tsx we rely on setup.ts's mock of `../../api/client`, so the
-// real domain API modules run while their Axios calls land on the shared mock.
-// Assertions target `apiClient.post` directly.
-
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   render,
@@ -18,26 +6,14 @@ import {
   fireEvent,
   testScenarios,
 } from '../../test/utils/test-utils';
-import { apiClient } from '../../api/client';
-import { mockUser } from '../../test/mocks/api';
+import { register } from '../../api/identityAuth';
 import Register from './Register';
 
-// <GoogleAuthFlow> internally consumes the Google OAuth provider. Stub it out
-// with a harmless placeholder so Register renders without a real provider.
-vi.mock('../../components/authentication/GoogleAuthFlow', () => ({
-  default: () => <button type="button">Sign up with Google</button>,
+vi.mock('../../api/identityAuth', () => ({
+  register: vi.fn(),
 }));
 
-// Force the Google branch off so the test page renders the same way in every
-// env (CI vs local) regardless of VITE_GOOGLE_CLIENT_ID.
-vi.mock('../../hooks/useGoogleSignIn', () => ({
-  isGoogleConfigured: () => false,
-  useGoogleSignIn: () => ({
-    state: { kind: 'idle' },
-    start: vi.fn(),
-    reset: vi.fn(),
-  }),
-}));
+const registerMock = vi.mocked(register);
 
 const getInputs = () => ({
   username: screen.getByPlaceholderText(/choose a username/i),
@@ -90,8 +66,8 @@ describe('Register page', () => {
     expect(screen.getByText(/join carmodpicker/i)).toBeInTheDocument();
   });
 
-  it('submits a UserCreate body to /users/ and navigates to /login on success', async () => {
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: mockUser });
+  it('registers through identity and navigates to /login on success', async () => {
+    registerMock.mockResolvedValueOnce({ status: 'registered' });
 
     render(<Register />, testScenarios.unauthenticated);
     fillAndSubmit({
@@ -101,20 +77,31 @@ describe('Register page', () => {
     });
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalled();
+      expect(registerMock).toHaveBeenCalledTimes(1);
+    });
+    expect(registerMock).toHaveBeenCalledWith(
+      'newuser',
+      'new@example.com',
+      'password123'
+    );
+  });
+
+  it('surfaces the identity failure and stays on the form', async () => {
+    registerMock.mockResolvedValueOnce({
+      status: 'failed',
+      error: 'That address is already registered.',
     });
 
-    expect(vi.mocked(apiClient.post).mock.calls[0]?.[0]).toBe('/users/');
+    render(<Register />, testScenarios.unauthenticated);
+    fillAndSubmit({
+      username: 'taken',
+      email: 'taken@example.com',
+      password: 'password123',
+    });
 
-    const rawBody: unknown = vi.mocked(apiClient.post).mock.calls[0]?.[1];
-    const body = rawBody as {
-      username: string;
-      email: string;
-      password: string;
-    };
-    expect(body.username).toBe('newuser');
-    expect(body.email).toBe('new@example.com');
-    expect(body.password).toBe('password123');
+    expect(
+      await screen.findByText('That address is already registered.')
+    ).toBeInTheDocument();
   });
 
   it('shows a validation error when passwords do not match (and does NOT call the API)', async () => {
@@ -126,16 +113,12 @@ describe('Register page', () => {
       confirm: 'password999',
     });
 
-    // "Passwords don't match" can appear in TWO places: the confirm-password
-    // <Input>'s inline `error` prop AND the top-level apiError banner. Both
-    // are valid representations of the same validation outcome, so we use
-    // getAllByText and assert at least one node exists.
     await waitFor(() => {
       expect(
         screen.getAllByText(/passwords don't match/i).length
       ).toBeGreaterThan(0);
     });
-    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(registerMock).not.toHaveBeenCalled();
   });
 
   it('rejects a password shorter than 8 characters without calling the API', async () => {
@@ -151,6 +134,6 @@ describe('Register page', () => {
         screen.getByText(/password must be at least 8 characters long/i)
       ).toBeInTheDocument();
     });
-    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(registerMock).not.toHaveBeenCalled();
   });
 });

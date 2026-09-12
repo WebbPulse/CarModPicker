@@ -45,12 +45,14 @@ class BaselineSchemaError(ValueError):
 
 
 def _require_keys(d: dict, keys: Iterable[str], *, context: str) -> None:
+    """Raise BaselineSchemaError naming every required key absent from the dict."""
     missing = [k for k in keys if k not in d]
     if missing:
         raise BaselineSchemaError(f"baseline {context} missing required field(s): {missing!r}")
 
 
 def _require_type(d: dict, key: str, expected: type | tuple[type, ...], *, context: str) -> None:
+    """Raise BaselineSchemaError unless the key holds the expected type; bool is never accepted."""
     value = d[key]
     if isinstance(expected, tuple):
         ok = isinstance(value, expected) and not isinstance(value, bool)
@@ -58,11 +60,12 @@ def _require_type(d: dict, key: str, expected: type | tuple[type, ...], *, conte
         ok = isinstance(value, expected) and not (expected is int and isinstance(value, bool))
     if not ok:
         raise BaselineSchemaError(
-            f"baseline {context}: field {key!r} must be {expected!r}, " f"got {type(value).__name__}={value!r}"
+            f"baseline {context}: field {key!r} must be {expected!r}, got {type(value).__name__}={value!r}"
         )
 
 
 def _require_metric(d: dict, key: str, *, context: str) -> None:
+    """Raise BaselineSchemaError unless the key holds a number in the closed range [0, 1]."""
     _require_type(d, key, (int, float), context=context)
     v = d[key]
     if not (0.0 <= float(v) <= 1.0):

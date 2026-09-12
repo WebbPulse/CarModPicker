@@ -1,22 +1,6 @@
-"""QUAL-02 regression guard: no Pydantic v1 anti-patterns reintroduced.
+"""Guards against Pydantic v1 patterns returning.
 
-Two complementary checks:
-
-1. `test_no_forbidden_patterns_in_app`: a grep scan across `backend/app/**/*.py`
-   that fails if any of the Pydantic v1 anti-patterns are found — `@validator`,
-   `@root_validator`, `class Config:`, `.parse_obj(`, and (with an allowlist
-   for known false-positive `.dict()` callers) `.dict()`.
-
-2. `test_no_pydantic_v1_deprecation_warnings_on_roundtrip`: a schema round-trip
-   that runs inside `warnings.catch_warnings()` with
-   `simplefilter("error", pydantic.PydanticDeprecatedSince20)`. This is the
-   ONLY reliable way to catch v1 deprecations in this repo — per Pitfall QU-01,
-   `backend/pytest.ini` has `--disable-warnings`, which suppresses warnings
-   globally and causes CLI `-W error` filters to have no effect.
-
-Tree baseline (03-RESEARCH §D-30, verified 2026-04-22): zero Pydantic v1
-patterns, zero v1 deprecation warnings emitted on UserRead round-trip. This
-test stays green as long as no future PR reintroduces either.
+A grep over backend/app plus a round trip run with v2 deprecations raised as errors.
 """
 
 from __future__ import annotations
@@ -36,13 +20,7 @@ FORBIDDEN_PATTERNS = [
     (re.compile(r"^\s*class\s+Config\s*:"), "Pydantic v1 class Config — use model_config = ConfigDict(...)"),
     (re.compile(r"\.parse_obj\("), "Pydantic v1 .parse_obj() — use .model_validate()"),
 ]
-# Matches any `foo.dict()` call; has false positives on SQLAlchemy row._asdict-adjacent
-# code and on stdlib `dict`-subclass callers. Real Pydantic v1 `.dict()` usage on
-# BaseModel instances is the target.
 DICT_PATTERN = re.compile(r"\b\w+\.dict\(\)")
-# Relative paths (under backend/app/) with legitimate non-Pydantic `.dict()` callers.
-# Populate with a rationale comment only after confirming the call is NOT on a
-# pydantic.BaseModel instance.
 DICT_ALLOWLIST: set[str] = set()
 
 
@@ -52,8 +30,6 @@ def test_no_forbidden_patterns_in_app() -> None:
     for pyfile in BACKEND_APP.rglob("*.py"):
         text = pyfile.read_text(encoding="utf-8")
         for lineno, line in enumerate(text.splitlines(), 1):
-            # Skip pure-comment lines (but keep inline comments — a forbidden
-            # pattern prefixed by code still counts).
             if line.lstrip().startswith("#"):
                 continue
             for pat, label in FORBIDDEN_PATTERNS:
@@ -75,18 +51,12 @@ def test_no_forbidden_patterns_in_app() -> None:
 
 
 def test_no_pydantic_v1_deprecation_warnings_on_roundtrip() -> None:
-    """Schema round-trip under catch_warnings — Pitfall QU-01.
+    """A schema round trip emits no v2 deprecation warning.
 
-    `backend/pytest.ini` has `--disable-warnings`, which means pytest CLI
-    `-W error::DeprecationWarning` flags are a no-op. This test installs the
-    deprecation-as-error filter locally via `warnings.catch_warnings()` so a
-    v1 deprecation on the round-trip becomes a hard failure here.
+    The filter is installed locally because pytest.ini's --disable-warnings makes CLI -W flags a no-op.
     """
     from app.api.schemas.user import UserRead
 
-    # UserRead's required fields (verified via UserRead.model_fields):
-    # id (UUID), username, email (EmailStr), disabled, email_verified,
-    # is_superuser, is_admin, subscription_tier, subscription_status.
     user_payload = {
         "id": uuid4(),
         "username": "regression_test_user",

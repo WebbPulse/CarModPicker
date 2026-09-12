@@ -81,7 +81,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create multiple bug reports
         for i in range(3):
             bug_report_data = BugReportCreate(
                 title=f"Test Bug Report {i}",
@@ -89,11 +88,10 @@ class TestBugReportService:
             )
             service.create_bug_report(
                 bug_report_data,
-                user_id=test_user.id if i % 2 == 0 else None,  # Mix of authenticated and anonymous
+                user_id=test_user.id if i % 2 == 0 else None,
                 logger=logger,
             )
 
-        # Get all bug reports
         reports = service.get_bug_reports(logger=logger)
 
         assert isinstance(reports, list)
@@ -104,7 +102,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create bug reports
         bug_report_data1 = BugReportCreate(
             title="Pending Bug Report",
             description="This is a pending bug report",
@@ -115,7 +112,6 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Update one to resolved
         update_data = BugReportUpdate(status=BugReportStatus.RESOLVED)
         service.update_bug_report(
             bug_report1.id,
@@ -123,7 +119,6 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Create another pending report
         bug_report_data2 = BugReportCreate(
             title="Another Pending Bug Report",
             description="This is another pending bug report",
@@ -134,7 +129,6 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Get only pending reports
         reports = service.get_bug_reports(status="pending", logger=logger)
 
         assert isinstance(reports, list)
@@ -146,7 +140,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create bug reports with different priorities
         bug_report_data1 = BugReportCreate(
             title="High Priority Bug",
             description="This is a high priority bug",
@@ -157,7 +150,6 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Update priority
         update_data = BugReportUpdate(priority=BugReportPriority.HIGH)
         service.update_bug_report(
             bug_report1.id,
@@ -165,7 +157,6 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Create another with default priority (medium)
         bug_report_data2 = BugReportCreate(
             title="Medium Priority Bug",
             description="This is a medium priority bug",
@@ -176,7 +167,6 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Get only high priority reports
         reports = service.get_bug_reports(priority="high", logger=logger)
 
         assert isinstance(reports, list)
@@ -188,7 +178,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create a bug report
         bug_report_data = BugReportCreate(
             title="Test Bug Report",
             description="This is a test bug report",
@@ -199,14 +188,12 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Get reports with details
         reports, total_count = service.get_bug_reports_with_details(logger=logger)
 
         assert isinstance(reports, list)
         assert total_count >= 1
         assert len(reports) >= 1
 
-        # Check that details are included
         report = next((r for r in reports if r.title == "Test Bug Report"), None)
         assert report is not None
         assert report.reporter_username == test_user.username
@@ -216,7 +203,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create an anonymous bug report
         bug_report_data = BugReportCreate(
             title="Anonymous Bug Report",
             description="This is an anonymous bug report",
@@ -227,13 +213,11 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Get reports with details
         reports, total_count = service.get_bug_reports_with_details(logger=logger)
 
         assert isinstance(reports, list)
         assert total_count >= 1
 
-        # Check that anonymous reports have None for reporter_username
         report = next((r for r in reports if r.title == "Anonymous Bug Report"), None)
         assert report is not None
         assert report.reporter_username is None
@@ -243,7 +227,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create a bug report
         bug_report_data = BugReportCreate(
             title="Test Bug Report",
             description="This is a test bug report",
@@ -254,7 +237,6 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Update the bug report
         update_data = BugReportUpdate(
             status=BugReportStatus.IN_PROGRESS,
             priority=BugReportPriority.HIGH,
@@ -275,7 +257,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create a bug report
         bug_report_data = BugReportCreate(
             title="Test Bug Report",
             description="This is a test bug report",
@@ -288,7 +269,6 @@ class TestBugReportService:
 
         assert bug_report.resolved_at is None
 
-        # Update to resolved
         update_data = BugReportUpdate(status=BugReportStatus.RESOLVED)
         updated_report = service.update_bug_report(
             bug_report.id,
@@ -324,7 +304,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create a bug report
         bug_report_data = BugReportCreate(
             title="Test Bug Report",
             description="This is a test bug report",
@@ -335,13 +314,11 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Delete the bug report
         service.delete_bug_report(
             bug_report.id,
             logger=logger,
         )
 
-        # Verify bug report is deleted
         assert BugReportRepository().get(bug_report.id) is None
 
     def test_delete_bug_report_not_found(self, dynamo_tables: Any) -> None:
@@ -366,7 +343,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create a bug report
         bug_report_data = BugReportCreate(
             title="Test Bug Report",
             description="This is a test bug report",
@@ -377,7 +353,6 @@ class TestBugReportService:
             logger=logger,
         )
 
-        # Get the bug report by ID
         result = service.get_bug_report_by_id(
             bug_report.id,
             logger=logger,
@@ -405,7 +380,6 @@ class TestBugReportService:
         service = BugReportService()
         logger = logging.getLogger(__name__)
 
-        # Create multiple bug reports
         for i in range(5):
             bug_report_data = BugReportCreate(
                 title=f"Test Bug Report {i}",
@@ -417,7 +391,6 @@ class TestBugReportService:
                 logger=logger,
             )
 
-        # Get first page
         reports_page1, total_count = service.get_bug_reports_with_details(
             skip=0,
             limit=2,
@@ -427,7 +400,6 @@ class TestBugReportService:
         assert len(reports_page1) == 2
         assert total_count >= 5
 
-        # Get second page
         reports_page2, _ = service.get_bug_reports_with_details(
             skip=2,
             limit=2,
@@ -436,5 +408,4 @@ class TestBugReportService:
 
         assert len(reports_page2) == 2
 
-        # Verify different reports
         assert reports_page1[0].id != reports_page2[0].id

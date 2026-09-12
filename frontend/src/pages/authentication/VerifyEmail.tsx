@@ -1,4 +1,13 @@
+/**
+ * The `/verify-email` page, which serves two behaviours on one path.
+ *
+ * A `?token=` query means a mailed link landed here and `VerifyEmailToken`
+ * handles it; anything else is a signed in user requesting a fresh email.
+ * The path is fixed by `VERIFY_EMAIL_PATH` in the identity contract.
+ */
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { LINK_TOKEN_PARAM } from '@webbpulse/auth';
 import AuthCard from '../../components/auth/AuthCard';
 import AuthRedirectLink from '../../components/auth/AuthRedirectLink';
 import { Button } from '../../components/ui/button';
@@ -6,14 +15,21 @@ import { ConfirmationAlert, ErrorAlert } from '../../components/ui/alert';
 import Spinner from '../../components/ui/spinner';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
-import { apiClient } from '../../api/client';
+import { requestVerificationEmail } from '../../api/identityAuth';
+import VerifyEmailToken from './VerifyEmailToken';
 
+/** Routes `/verify-email` to the token confirmation or the request form. */
 function VerifyEmail() {
+  const [searchParams] = useSearchParams();
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const { user, isLoading: authIsLoading } = useAuth(); // Get user from auth context
+  const { user, isLoading: authIsLoading } = useAuth();
+  const linkToken = searchParams.get(LINK_TOKEN_PARAM);
 
-  const verifyEmailRequestFn = (payload: { email: string }) =>
-    apiClient.post<Record<string, never>>('/auth/verify-email', payload);
+  const verifyEmailRequestFn = async (payload: { email: string }) => {
+    const outcome = await requestVerificationEmail(payload.email);
+    if (!outcome.ok) throw new Error(outcome.message);
+    return { data: outcome };
+  };
 
   const {
     error: apiError,
@@ -27,15 +43,18 @@ function VerifyEmail() {
       setApiError('User email not found. Please log in again.');
       return;
     }
-    setApiError(null); // Clear previous errors
+    setApiError(null);
     setIsSubmitted(false);
 
     const result = await sendEmailVerificationLink({ email: user.email });
     if (result) {
-      // Successfully sent the link
       setIsSubmitted(true);
     }
   };
+
+  if (linkToken !== null && linkToken !== '') {
+    return <VerifyEmailToken />;
+  }
 
   if (authIsLoading) {
     return (

@@ -1,31 +1,26 @@
 import React, { useState } from 'react';
-import { FaShieldAlt } from 'react-icons/fa';
-import { useAuth } from '../../hooks/useAuth';
 import { ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
-import { getApiErrorMessage } from '../../utils/apiError';
+import { changePassword } from '../../api/identityAuth';
 
 interface ChangePasswordDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onPasswordChanged: () => void;
-  userId: string;
 }
 
+/** Changes the account password through identity, taking the current one as proof. */
 const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
   isOpen,
   onClose,
   onPasswordChanged,
-  userId,
 }) => {
-  const { user } = useAuth();
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmNewPassword: '',
-    otp: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,7 +36,6 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       currentPassword: '',
       newPassword: '',
       confirmNewPassword: '',
-      otp: '',
     });
     setError(null);
     onClose();
@@ -51,7 +45,6 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
     e.preventDefault();
     setError(null);
 
-    // Validation
     if (!formData.currentPassword.trim()) {
       setError('Current password is required.');
       return;
@@ -72,43 +65,20 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       return;
     }
 
-    // If 2FA is enabled, require OTP
-    if (user?.totp_enabled) {
-      if (!formData.otp.trim() || formData.otp.length !== 6) {
-        setError('2FA is enabled. Please enter a valid 6-digit OTP code.');
-        return;
-      }
-    }
-
     setIsSubmitting(true);
 
     try {
-      const { usersApi } = await import('../../api/users');
-      const updateData: {
-        current_password: string;
-        password: string;
-        otp?: string;
-      } = {
-        current_password: formData.currentPassword,
-        password: formData.newPassword,
-      };
+      const result = await changePassword(
+        formData.currentPassword,
+        formData.newPassword
+      );
 
-      // Include OTP if 2FA is enabled
-      if (user?.totp_enabled) {
-        updateData.otp = formData.otp;
-      }
-
-      const response = await usersApi.updateUser(userId, updateData);
-
-      if (response.data) {
+      if (result.status === 'changed') {
         handleClose();
         onPasswordChanged();
+      } else {
+        setError(result.error);
       }
-    } catch (err: unknown) {
-      // `getApiErrorMessage` already prefers the envelope's message for an
-      // ApiError and a plain Error's own message otherwise, so the branching
-      // this used to do by hand is the helper's job now.
-      setError(getApiErrorMessage(err, 'Failed to change password'));
     } finally {
       setIsSubmitting(false);
     }
@@ -185,44 +155,6 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
               autoComplete="new-password"
             />
           </div>
-
-          {user?.totp_enabled && (
-            <div>
-              <label
-                htmlFor="otp"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                2FA Code
-              </label>
-              <div className="relative">
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/60"
-                >
-                  <FaShieldAlt />
-                </span>
-                <Input
-                  id="otp"
-                  name="otp"
-                  type="text"
-                  value={formData.otp}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                    setFormData((prev) => ({ ...prev, otp: value }));
-                    setError(null);
-                  }}
-                  placeholder="000000"
-                  disabled={isSubmitting}
-                  required
-                  maxLength={6}
-                  className="pl-10"
-                />
-              </div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                Enter the 6-digit code from your authenticator app
-              </div>
-            </div>
-          )}
 
           <div className="flex space-x-3 pt-4">
             <Button

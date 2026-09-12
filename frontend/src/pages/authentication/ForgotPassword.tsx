@@ -6,14 +6,19 @@ import { Button } from '../../components/ui/button';
 import { ConfirmationAlert, ErrorAlert } from '../../components/ui/alert';
 import { Input } from '../../components/ui/input';
 import useApiRequest from '../../hooks/UseApiRequest';
-import { authApi } from '../../api/auth';
+import { requestPasswordReset } from '../../api/identityAuth';
 
+/** Form that requests a password reset link for an email address. */
 function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [sentMessage, setSentMessage] = useState<string | null>(null);
 
-  const forgotPasswordRequestFn = (payload: { email: string }) =>
-    authApi.resetPassword(payload);
+  const forgotPasswordRequestFn = async (payload: { email: string }) => {
+    const outcome = await requestPasswordReset(payload.email);
+    if (!outcome.ok) throw new Error(outcome.message);
+    return { data: outcome };
+  };
 
   const {
     error: apiError,
@@ -24,7 +29,7 @@ function ForgotPassword() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setApiError(null); // Clear previous errors
+    setApiError(null);
 
     if (!email.trim()) {
       setApiError('Email address cannot be empty.');
@@ -33,7 +38,7 @@ function ForgotPassword() {
 
     const result = await sendPasswordResetLink({ email: email });
     if (result) {
-      // Successfully sent the link
+      setSentMessage(result.message);
       setIsSubmitted(true);
     }
   };
@@ -42,7 +47,12 @@ function ForgotPassword() {
     <AuthCard title="Forgot Password">
       {isSubmitted ? (
         <div>
-          <ConfirmationAlert message="If an account with that email exists, a password reset link has been sent." />
+          <ConfirmationAlert
+            message={
+              sentMessage ??
+              'If an account with that email exists, a password reset link has been sent.'
+            }
+          />
           <AuthRedirectLink
             text="Remembered your password?"
             linkText="Sign In"

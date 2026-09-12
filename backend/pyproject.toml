@@ -1,27 +1,14 @@
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = ['py311']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
+target-version = "py313"
+extend-exclude = ["build", "dist", "htmlcov", ".venv", "venv"]
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 120
-known_first_party = ["app"]
-known_third_party = ["fastapi", "boto3", "pydantic", "pytest"]
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E203"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -56,10 +43,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.bandit]
-# Bandit security scanner configuration
-# This complements the .bandit file for IDE integration
 
-# Exclude directories from scanning
 exclude_dirs = [
     ".venv",
     "venv",
@@ -68,7 +52,87 @@ exclude_dirs = [
     ".mypy_cache",
 ]
 
-# Skip certain test IDs that are false positives
-# B404: subprocess import - We use subprocess safely for migrations (marked with # nosec)
-# B603: subprocess call - We use hardcoded commands, not user input (marked with # nosec)
 skips = ["B404", "B603", "B607"]
+
+[tool.webbpulse.ci]
+test-root = "tests"
+
+[tool.webbpulse.ci.domains]
+identity = [
+    "tests/auth",
+    "tests/dependencies",
+    "tests/utils/test_google_oauth_nonce.py",
+    "tests/test_identity_row5.py",
+    "tests/test_identity_row9.py",
+    "tests/test_identity_row10.py",
+    "tests/test_identity_row11.py",
+    "tests/test_jwt_algorithm_regression.py",
+]
+
+users = [
+    "tests/api/endpoints/test_users.py",
+    "tests/api/endpoints/test_users_admin.py",
+    "tests/api/endpoints/test_app_settings.py",
+    "tests/services/test_user_service.py",
+]
+
+catalog = [
+    "tests/api/endpoints/test_parts.py",
+    "tests/api/endpoints/test_parts_price_history.py",
+    "tests/api/endpoints/test_categories.py",
+    "tests/api/endpoints/test_categories_admin.py",
+    "tests/api/endpoints/test_part_manufacturers.py",
+    "tests/api/endpoints/test_retailers.py",
+    "tests/services/test_part_linker_styling_drift.py",
+    "tests/services/test_part_price_aggregation_service.py",
+    "tests/test_part_listing_service_canonical.py",
+    "tests/test_car_inference.py",
+    "tests/test_car_inference_ambiguity.py",
+    "tests/test_category_inference.py",
+    "tests/test_engine_platforms.py",
+    "tests/test_extract_fitment_candidates.py",
+    "tests/test_extract_year_ranges.py",
+]
+
+vehicles = [
+    "tests/api/endpoints/test_car_generations.py",
+    "tests/api/endpoints/test_search.py",
+    "tests/services/test_car_generation_service.py",
+    "tests/test_car_generations_loader.py",
+    "tests/test_init_cars_display_name.py",
+]
+
+"build-lists" = [
+    "tests/api/endpoints/test_build_lists.py",
+    "tests/api/endpoints/test_build_list_parts.py",
+    "tests/api/endpoints/test_build_list_labor_estimates.py",
+    "tests/services/test_build_list_service.py",
+]
+
+"build-logs" = [
+    "tests/api/endpoints/test_build_logs.py",
+    "tests/test_build_log_orphan_guard.py",
+]
+
+moderation = [
+    "tests/api/endpoints/test_votes.py",
+    "tests/api/endpoints/test_reports.py",
+    "tests/api/endpoints/test_bug_reports.py",
+    "tests/services/test_vote_service.py",
+    "tests/services/test_report_service.py",
+    "tests/services/test_bug_report_service.py",
+]
+
+media = [
+    "tests/api/endpoints/test_images.py",
+    "tests/services/test_storage_service_lazy_init.py",
+    "tests/utils/test_image_utils.py",
+    "tests/utils/test_remote_image_fetch.py",
+]
+
+admin = [
+    "tests/api/endpoints/test_admin.py",
+    "tests/api/endpoints/test_crawled_pages.py",
+    "tests/api/endpoints/test_part_price_alerts.py",
+    "tests/services/test_part_price_alert_evaluation.py",
+]

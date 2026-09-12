@@ -14,6 +14,7 @@ import { buildListPartsApi } from '../../api/build_list_parts';
 import { partsApi } from '../../api/parts';
 import type { PartReadWithVotes, PaginationInfo } from '../../types/Api';
 
+/** The signed in user's own parts, with deletion. */
 const UserParts: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
@@ -61,8 +62,8 @@ const UserParts: React.FC = () => {
       setBuildListCount(null);
       filters.setCurrentPage(1);
       setListRefreshKey((k) => k + 1);
+      // eslint-disable-next-line no-empty
     } catch {
-      // Failed
     } finally {
       setIsDeleting(false);
     }

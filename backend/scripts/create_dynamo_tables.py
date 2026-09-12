@@ -21,6 +21,7 @@ from app.db.dynamo.tables import TABLES  # noqa: E402
 
 
 def main() -> int:
+    """Create any missing table and return 0, or 1 if DYNAMODB_ENDPOINT_URL is unset."""
     if not settings.DYNAMODB_ENDPOINT_URL:
         print(
             "DYNAMODB_ENDPOINT_URL is not set; refusing to create tables against a real AWS account.",

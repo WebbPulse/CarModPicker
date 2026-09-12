@@ -2,7 +2,7 @@
 locals {
   lambda_domains_declared = {
     media = {
-      secrets        = true
+      secrets        = false
       s3             = true
       s3_delete_only = false
       ses            = false
@@ -11,7 +11,7 @@ locals {
       read_tables    = ["users", "car_generations", "parts", "build_lists"]
     }
     build-logs = {
-      secrets        = true
+      secrets        = false
       s3             = false
       s3_delete_only = false
       ses            = false
@@ -20,7 +20,7 @@ locals {
       read_tables    = ["users", "build_lists", "build_logs"]
     }
     moderation = {
-      secrets        = true
+      secrets        = false
       s3             = false
       s3_delete_only = false
       ses            = false
@@ -76,6 +76,36 @@ locals {
         "image_source_mappings",
       ]
     }
+    build-lists = {
+      secrets        = false
+      s3             = true
+      s3_delete_only = true
+      ses            = false
+      memory         = 1024
+      tables = [
+        "build_lists",
+        "build_list_parts",
+        "build_list_phases",
+        "build_list_labor_estimates",
+        "build_logs",
+        "build_log_posts",
+        "parts",
+        "part_cars",
+        "part_listings",
+        "part_price_history",
+        "part_price_alerts",
+        "rate-limits",
+      ]
+      read_tables = [
+        "users",
+        "app_settings",
+        "car_generations",
+        "categories",
+        "part_manufacturers",
+        "retailers",
+        "votes",
+      ]
+    }
     identity = {
       secrets        = true
       s3             = false
@@ -84,6 +114,39 @@ locals {
       memory         = 512
       tables         = ["users", "oauth_accounts", "webauthn_credentials", "rate-limits"]
       read_tables    = []
+    }
+    catalog = {
+      secrets        = true
+      s3             = true
+      s3_delete_only = true
+      ses            = false
+      memory         = 1024
+      tables = [
+        "parts",
+        "part_manufacturers",
+        "retailers",
+        "categories",
+        "part_cars",
+        "part_listings",
+        "part_price_history",
+        "rate-limits",
+      ]
+      read_tables = [
+        "users",
+        "votes",
+        "car_makes",
+        "car_models",
+        "car_generations",
+      ]
+    }
+    users = {
+      secrets        = false
+      s3             = true
+      s3_delete_only = false
+      ses            = false
+      memory         = 512
+      tables         = ["users", "app_settings", "rate-limits"]
+      read_tables    = ["oauth_accounts"]
     }
   }
 

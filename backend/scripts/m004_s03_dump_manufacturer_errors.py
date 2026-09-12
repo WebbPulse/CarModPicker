@@ -68,15 +68,18 @@ class _SourceCaptureHandler(logging.Handler):
     """
 
     def __init__(self) -> None:
+        """Attach at DEBUG level with no source or value captured yet."""
         super().__init__(level=logging.DEBUG)
         self.last_source: Optional[str] = None
         self.last_value: Optional[str] = None
 
     def reset(self) -> None:
+        """Clear the captured source and value before the next prediction."""
         self.last_source = None
         self.last_value = None
 
     def emit(self, record: logging.LogRecord) -> None:
+        """Store the source and value from a manufacturer_universal_resolved record."""
         if record.getMessage() != "manufacturer_universal_resolved":
             return
         self.last_source = getattr(record, "source", None)
@@ -84,6 +87,7 @@ class _SourceCaptureHandler(logging.Handler):
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for the gold-set path and the JSON dump output path."""
     parser = argparse.ArgumentParser(
         prog="m004_s03_dump_manufacturer_errors",
         description=("Dump per-row manufacturer predictions for S03 T05 error analysis."),
@@ -104,16 +108,23 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _row_source(handler: _SourceCaptureHandler) -> str:
+    """Captured ladder source for the last prediction, or "unknown"."""
     return handler.last_source or "unknown"
 
 
 def _serialize(value: Any) -> Any:
+    """Pass JSON-native scalars through unchanged and stringify everything else."""
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     return str(value)
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """Dump per-row manufacturer predictions to JSON and return 0.
+
+    The parsing logger is detached from root while the dump runs so the
+    structured debug log does not reach the CLI output.
+    """
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -124,7 +135,6 @@ def main(argv: Optional[list[str]] = None) -> int:
     prior_level = parsing_logger.level
     parsing_logger.addHandler(capture)
     parsing_logger.setLevel(logging.DEBUG)
-    # Stop the structured debug log from propagating to root so the CLI stays quiet.
     prior_propagate = parsing_logger.propagate
     parsing_logger.propagate = False
 

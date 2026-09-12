@@ -1,18 +1,24 @@
+"""Authentication dependencies for resolving the caller from a request."""
+
 import hmac
 from datetime import timedelta
 from typing import Any, Optional
+from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from webbpulse.log_context import user_id_var
 from webbpulse.security import (
-    TokenError,
     create_token,
     decode_token,
     hash_password,
 )
 from webbpulse.security import verify_password as _verify_password
 
+from app.api.dependencies.identity_claims import (
+    identity_subject,
+    verify_bearer_subject,
+)
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.core.config import settings
 from app.db.dynamo.users import User as DBUser
@@ -23,7 +29,6 @@ __all__ = [
     "ALGORITHM",
     "create_access_token",
     "decode_access_token",
-    "get_access_token_expires_delta_for_user",
     "get_current_active_user_optional",
     "get_current_admin_user",
     "get_current_superuser",
@@ -31,34 +36,26 @@ __all__ = [
     "get_optional_current_user",
     "get_password_hash",
     "require_api_key_or_admin",
+    "resolve_identity_user",
     "verify_api_key",
     "verify_password",
 ]
 
 
-# OAuth2 scheme for Bearer token extraction (FastAPI standard)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_STR}/auth/token")
-# auto_error=False for optional endpoints that can work without auth
-oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl=f"{settings.API_STR}/auth/token", auto_error=False)
+class IdentityAwareOAuth2(OAuth2PasswordBearer):
+    """`OAuth2PasswordBearer` that does not refuse a request an authorizer vouched for."""
 
-# --- Password Utilities ---
-#
-# Both of these are `webbpulse.security` under this app's existing names, kept as
-# thin functions rather than bare import aliases so the names the rest of the
-# codebase already calls stay stable and adopting the package is not also a
-# rename touching a hundred call sites.
-#
-# The package writes bcrypt at cost 12, which is exactly what the local
-# implementation passed explicitly, so every stored hash keeps verifying and
-# nothing needs re-hashing.
-#
-# What changes is the 72 byte boundary. bcrypt reads at most 72 bytes, and 5.0.0,
-# which this app pins, raises ValueError on anything longer instead of
-# truncating. The schemas cap a password at 72 *characters*, and a character is
-# not a byte: 72 accented or CJK characters are well over 72 bytes, passed
-# validation, and then took the hash call into a 500. The package truncates to
-# 72 bytes itself, on a byte boundary, so those passwords now hash and verify
-# instead. See tests/auth/test_long_password_regression.py.
+    async def __call__(self, request: Request) -> Optional[str]:
+        """Return the bearer token, treating an authorizer vouched request as authenticated."""
+        if request.headers.get("authorization"):
+            return await super().__call__(request)
+        if identity_subject(request):
+            return ""
+        return await super().__call__(request)
+
+
+oauth2_scheme = IdentityAwareOAuth2(tokenUrl=f"{settings.API_STR}/auth/token", scheme_name="OAuth2PasswordBearer")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl=f"{settings.API_STR}/auth/token", auto_error=False)
 
 
 def get_password_hash(password: str) -> str:
@@ -71,39 +68,16 @@ def verify_password(plain_password: str, hashed_password_str: Optional[str]) -> 
 
     Returns False if the user has no password set (OAuth-only account), which is
     a real state here rather than an error, and False rather than raising on a
-    stored value that is not a parseable bcrypt hash.
     """
     return _verify_password(plain_password, hashed_password_str)
 
 
-# --- JWT Utilities ---
-
-
-def get_access_token_expires_delta_for_user(user: DBUser) -> timedelta:
-    """Returns the access token expiry duration for a user (their preference clamped to server bounds)."""
-    minutes = getattr(user, "session_expire_minutes", None)
-    if minutes is None:
-        minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    minutes = max(
-        settings.ACCESS_TOKEN_EXPIRE_MINUTES_MIN,
-        min(settings.ACCESS_TOKEN_EXPIRE_MINUTES_MAX, minutes),
-    )
-    return timedelta(minutes=minutes)
-
-
 def create_access_token(data: dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Creates a JWT access token.
+    """Sign a short lived HS256 token with `SECRET_KEY`.
 
-    A thin wrapper over `webbpulse.security.create_token` that keeps this app's
-    two local decisions: the default expiry comes from settings when the caller
-    passes none, and the algorithm is `settings.JWT_ALGORITHM` rather than the
-    package default, so an operator overriding the setting still signs and
-    verifies with the same one.
-
-    The package additionally stamps `iat`, which the local implementation did
-    not. That is additive: nothing in this app requires `iat` to be absent, and
-    a token minted before this change still decodes, so existing sessions are
-    unaffected.
+    Not a session token since row 13. The only caller is the one-click
+    unsubscribe link that `app/core/email.py` signs into price drop alert
+    emails, which no identity access token can replace.
     """
     return create_token(
         data,
@@ -119,111 +93,93 @@ def decode_access_token(token: str) -> dict[str, Any]:
     """Verify a token minted by `create_access_token` and return its claims.
 
     Raises `webbpulse.security.ExpiredToken` or `InvalidToken`, both of which
-    are `TokenError`. Callers that treated every decode failure the same way
-    catch `TokenError`; that is the same set of failures PyJWT's
-    `InvalidTokenError` covered here before, including expiry.
-
-    The algorithm list is always explicit and never read from the token header,
-    which is what refuses `alg: none` and the RS256-verified-as-HMAC confusion.
+    are `TokenError`. The only caller since row 13 is the price alert
+    unsubscribe route; no resolver in this module decodes anything.
     """
     return decode_token(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
 
 
-# --- Dependency to Get Current User ---
+def _subject_from_request(request: Optional[Request]) -> str:
+    """The identity `sub` for this request, from the authorizer or from the header.
+
+    Two sources in order, which is the order `app/composition/identity_extension.
+    py` already reads one in. The authorizer's context is preferred where the
+    """
+    if request is None:
+        return ""
+    subject = identity_subject(request)
+    if subject:
+        return subject
+    return verify_bearer_subject(request)
+
+
+def resolve_identity_user(request: Optional[Request], repos: Repositories) -> Optional[DBUser]:
+    """The CarModPicker user an identity access token names, or `None`.
+
+    **The mapping is the id and nothing else.** `CarModPickerIdentityHooks.
+    claims_for` puts `roles` and `username` in the token and leaves `sub` to the
+    """
+    subject = _subject_from_request(request)
+    if not subject:
+        return None
+    try:
+        user_id = UUID(subject)
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+    user = repos.users.get(user_id)
+    if user is None or user.disabled or not user.email_verified:
+        return None
+    user_id_var.set(str(user.id))
+    return user
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),  # Bearer token from Authorization header (FastAPI standard)
+    request: Request,
+    token: str = Depends(oauth2_scheme),
     repos: Repositories = Depends(get_repositories),
 ) -> DBUser:
-    """
-    Decodes JWT Bearer token from Authorization header, validates credentials, and returns the user.
-    Uses standard OAuth2 Bearer token authentication.
-    """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    """The user this request is for, or 401.
 
-    try:
-        payload = decode_access_token(token)
-        username: Optional[str] = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except TokenError:
-        raise credentials_exception
-
-    user = repos.users.get_by_username(username)
+    Identity only since row 13, from authorizer claims or a verified Bearer
+    token. `token` stays in the signature to keep `oauth2_scheme` in the
+    dependency tree so the published security scheme is unchanged.
+    """
+    user = resolve_identity_user(request, repos)
     if user is None:
-        raise credentials_exception
-    if user.disabled:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
-    if not user.email_verified:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email not verified")
-    user_id_var.set(str(user.id))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 
 async def get_optional_current_user(
+    request: Request,
     token: Optional[str] = Depends(oauth2_scheme_optional),
     repos: Repositories = Depends(get_repositories),
 ) -> Optional[DBUser]:
+    """The user this request is for, or `None` for an anonymous caller.
+
+    Identity only since row 13, and `None` rather than a raise for every way
+    the answer can be nobody, which is what keeps a public page public.
     """
-    Decodes JWT Bearer token and returns the user, or None if not authenticated.
-    This is for endpoints that can work with or without authentication.
-    Uses standard OAuth2 Bearer token authentication.
-    """
-    if token is None:
-        return None
-
-    try:
-        payload = decode_access_token(token)
-        username: Optional[str] = payload.get("sub")
-        if username is None:
-            return None
-    except TokenError:
-        return None
-
-    user = repos.users.get_by_username(username)
-    if user is None or user.disabled or not user.email_verified:
-        return None
-
-    user_id_var.set(str(user.id))
-    return user
+    return resolve_identity_user(request, repos)
 
 
 async def get_current_active_user_optional(
+    request: Request,
     token: Optional[str] = Depends(oauth2_scheme_optional),
     repos: Repositories = Depends(get_repositories),
 ) -> Optional[DBUser]:
+    """The current active user if one is authenticated, otherwise `None`.
+
+    Identity only since row 13, which collapsed its behaviour into
+    `get_optional_current_user`. Kept as its own name so a later divergence
+    is a change to one function rather than an unpicking of an alias.
     """
-    Optionally returns the current active user if a valid Bearer token is present.
-    Returns None if no token, token is invalid/expired, user not found, or user is inactive.
-    Uses standard OAuth2 Bearer token authentication.
-    """
-    if token is None:
-        return None
-    try:
-        payload = decode_access_token(token)
-        username: Optional[str] = payload.get("sub")
-        if username is None:
-            return None  # Invalid token payload
-    except TokenError:  # Covers expired, invalid signature, etc.
-        return None  # Token is invalid or expired
-
-    user = repos.users.get_by_username(username)
-    if user is None:
-        return None  # User from token not found in DB
-
-    if user.disabled:
-        return None  # User is inactive, so not considered an "active user"
-
-    user_id_var.set(str(user.id))
-    return user
-
-
-# --- Admin/Superuser Dependencies ---
+    return resolve_identity_user(request, repos)
 
 
 async def get_current_admin_user(
@@ -254,13 +210,6 @@ async def get_current_superuser(
     return current_user
 
 
-# --- API key or admin dependencies -------------------------------------------
-#
-# The batch price-history route is written to by two kinds of caller that are
-# not interactive users: the Chrome extension and ingestion/admin jobs. Neither
-# should need a per-user account, so they present the shared `X-API-Key` secret
-# instead; an admin bearer token is the human path to the same route.
-
 API_KEY_HEADER = "X-API-Key"
 
 api_key_header_scheme = APIKeyHeader(name=API_KEY_HEADER, auto_error=False)
@@ -271,8 +220,6 @@ def verify_api_key(presented: Optional[str]) -> bool:
 
     Compared with `hmac.compare_digest` so the check does not leak the key
     through its own timing. An unconfigured (empty) key never matches, so a
-    deployment that forgets to set it fails closed rather than accepting the
-    empty string.
     """
     if not presented:
         return False
@@ -283,28 +230,28 @@ def verify_api_key(presented: Optional[str]) -> bool:
 
 
 async def require_api_key_or_admin(
+    request: Request,
     api_key: Optional[str] = Depends(api_key_header_scheme),
     token: Optional[str] = Depends(oauth2_scheme_optional),
     repos: Repositories = Depends(get_repositories),
 ) -> Optional[DBUser]:
-    """Allow a valid `X-API-Key`, or an admin bearer token, and nothing else.
+    """Allow a valid `X-API-Key`, or an admin identity token, and nothing else.
 
     Returns the authenticated admin user, or `None` when the caller got in on
     the API key (there is no user behind a machine credential). Raises through
-    the app's normal `HTTPException` path:
-
-      - no credential at all, or a bad/unknown key with no token -> 401
-      - a valid token belonging to a non-admin user -> 403
+    the app's normal `HTTPException` path: no credential or a bad key with no
+    token is a 401, and a valid token for a non-admin user is a 403. The API
+    key is checked first and is a complete credential on its own. `token` is
+    unread since row 13; `resolve_identity_user` reads both sources.
     """
     if verify_api_key(api_key):
         return None
 
-    if token is None:
+    identity_user = resolve_identity_user(request, repos)
+    if identity_user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    user = await get_current_user(token=token, repos=repos)
-    return await get_current_admin_user(current_user=user)
+    return await get_current_admin_user(current_user=identity_user)

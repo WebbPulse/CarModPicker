@@ -8,7 +8,9 @@
     "build:dev": "vite build && node scripts/inline-content.js",
     "watch": "vite build --watch",
     "dev": "vite build --watch",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -16,14 +18,15 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "@types/chrome": "^0.2.8",
-    "@types/node": "^25.8.0",
+    "@types/chrome": "^0.2.9",
+    "@types/node": "^26.5.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react-swc": "^4.3.3",
     "canvas": "^3.2.3",
     "sharp": "^0.35.3",
     "typescript": "~7.0.2",
-    "vite": "^6.4.2"
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
   }
 }

@@ -1,37 +1,31 @@
+"""User profile routes: reads, updates and deletion. Passwords live in identity."""
+
 import logging
-import os
 from typing import Any, Dict, Optional, Union
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
 from app.api.dependencies.auth import (
-    create_access_token,
-    get_access_token_expires_delta_for_user,
     get_current_admin_user,
     get_current_user,
     get_optional_current_user,
-    get_password_hash,
-    verify_password,
 )
 from app.api.dependencies.repositories import Repositories, get_repositories
 from app.api.schemas.pagination import CursorPage
 from app.api.schemas.user import (
     AdminUserUpdate,
     PublicUserRead,
-    UserCreate,
     UserRead,
     UserUpdate,
 )
-from app.api.services.part_service import PartService, purge_related_rows_for_parts
 from app.api.services.storage_service import storage_service
 from app.api.services.user_service import UserService, user_read, user_reads
 from app.api.utils.cursor_pagination import CursorParams, get_cursor_params, paginate_in_memory
 from app.api.utils.endpoint_decorators import crud_responses
 from app.api.utils.response_patterns import ResponsePatterns
 from app.core.config import settings
-from app.db.dynamo.build_lists import delete_build_list_cascade
-from app.db.dynamo.build_logs import build_log_delete_actions
+from app.db.dynamo.models import utc_now
 from app.db.dynamo.users import EMAIL, UniqueAttributeTaken
 from app.db.dynamo.users import User as DBUser
 
@@ -43,55 +37,23 @@ user_service = UserService()
 
 
 def _raise_duplicate(error: UniqueAttributeTaken) -> None:
+    """Raise the 409 matching whichever unique attribute was already taken."""
     if error.attribute == EMAIL:
         ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
     ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
 
 
-def _purge_owned_moderation(repos: Repositories, user_id: UUID) -> None:
-    repos.votes.delete_for_user(user_id)
-    repos.reports.delete_for_user(user_id)
-
-
-def _purge_owned_build_lists(repos: Repositories, user_id: UUID) -> None:
-    owned = repos.build_lists.query_all("user_id-created_at-index", user_id)
-    for build_list in owned:
-        delete_build_list_cascade(
-            build_list.id,
-            build_lists=repos.build_lists,
-            parts=repos.build_list_parts,
-            phases=repos.build_list_phases,
-            labor_estimates=repos.build_list_labor_estimates,
-            extra_actions=build_log_delete_actions(
-                build_list.id, build_logs=repos.build_logs, posts=repos.build_log_posts
-            ),
-        )
-    added_elsewhere = [str(blp.id) for blp in repos.build_list_parts.scan_all() if blp.added_by == user_id]
-    if added_elsewhere:
-        repos.build_list_parts.batch_delete(added_elsewhere)
-
-
-def _purge_owned_parts(repos: Repositories, user: DBUser) -> None:
-    service = PartService(repos)
-    parts = repos.parts.list_by_user(user.id)
-    for part in parts:
-        service.purge(part)
-    purge_related_rows_for_parts([part.id for part in parts])
-    repos.part_price_alerts.delete_for_user(user.id)
-
-
 def _delete_user_everywhere(repos: Repositories, user: DBUser) -> None:
-    _purge_owned_parts(repos, user)
-    _purge_owned_build_lists(repos, user.id)
-    _purge_owned_moderation(repos, user.id)
-    repos.oauth_accounts.delete_all_for_user(user.id)
-    repos.webauthn_credentials.delete_all_for_user(user.id)
+    """Mark a user deleted and cascade the removal to everything referencing them."""
+    repos.users.update(str(user.id), deleted=True, deleted_at=utc_now())
+
     repos.users.delete_user(user)
 
 
 def _user_page(
     users: list[DBUser], params: CursorParams, repos: Repositories, full: bool
 ) -> CursorPage[Union[UserRead, PublicUserRead]]:
+    """Return one page of users, as full or public reads."""
     if full:
         reads = {read.id: read for read in user_reads(users, repos)}
         return paginate_in_memory(
@@ -148,23 +110,10 @@ async def upload_profile_picture(
     current_user: DBUser = Depends(get_current_user),
     repos: Repositories = Depends(get_repositories),
 ) -> UserRead:
-    """
-    Upload a profile picture for the current user.
+    """Upload a profile picture for the current user.
 
     This endpoint uploads the image to storage and automatically updates
     the user's image_urls field. If the user already has a profile picture,
-    the old one will be deleted from storage.
-
-    Args:
-        file: Image file to upload
-        current_user: Authenticated user (from JWT token)
-        logger: Logger instance
-
-    Returns:
-        UserRead: Updated user object with new profile picture URL
-
-    Raises:
-        HTTPException: If upload fails or validation fails
     """
     try:
         file_key = storage_service.upload_image(
@@ -203,21 +152,10 @@ async def delete_profile_picture(
     current_user: DBUser = Depends(get_current_user),
     repos: Repositories = Depends(get_repositories),
 ) -> UserRead:
-    """
-    Delete the current user's profile picture.
+    """Delete the current user's profile picture.
 
     This endpoint removes the profile picture from storage and clears
     the user's image_urls field.
-
-    Args:
-        current_user: Authenticated user (from JWT token)
-        logger: Logger instance
-
-    Returns:
-        UserRead: Updated user object with profile picture removed
-
-    Raises:
-        HTTPException: If deletion fails
     """
     old_file_key = (current_user.image_urls or [None])[0]
     if not old_file_key:
@@ -255,15 +193,9 @@ async def get_user(
     repos: Repositories = Depends(get_repositories),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
 ) -> Union[UserRead, PublicUserRead]:
-    """
-    Get a user by ID.
+    """Get a user by ID.
 
     Returns full UserRead (with email_verified and totp_enabled) if:
-    - The current user is viewing their own profile
-    - The current user is an admin
-    - The current user is a superuser
-
-    Otherwise returns PublicUserRead (without sensitive fields).
     """
     db_user = repos.users.get(user_id)
     if not db_user:
@@ -292,14 +224,9 @@ async def list_users(
     repos: Repositories = Depends(get_repositories),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
 ) -> CursorPage[Union[UserRead, PublicUserRead]]:
-    """
-    List all users with pagination and search.
+    """List all users with pagination and search.
 
     Returns full UserRead (with email_verified and totp_enabled) for each user if:
-    - The current user is an admin
-    - The current user is a superuser
-
-    Otherwise returns PublicUserRead (without sensitive fields) for each user.
     """
     users = user_service.get_all_users(search=search, logger=logger)
 
@@ -315,42 +242,6 @@ async def list_users(
     return page
 
 
-@router.post(
-    "/",
-    response_model=UserRead,
-    responses=crud_responses("user", "create"),
-)
-async def create_user(
-    user: UserCreate,
-    repos: Repositories = Depends(get_repositories),
-) -> UserRead:
-    """
-    Creates a new user in the database.
-    """
-    if repos.users.get_by_username(user.username):
-        ResponsePatterns.raise_conflict("Username already registered", "USERNAME_EXISTS")
-
-    if repos.users.get_by_email(user.email):
-        ResponsePatterns.raise_conflict("Email already registered", "EMAIL_EXISTS")
-
-    hashed_password = get_password_hash(user.password)
-    email_verified = os.environ.get("TESTING") == "true"
-
-    db_user = DBUser(
-        username=user.username,
-        email=user.email,
-        hashed_password=hashed_password,
-        email_verified=email_verified,
-    )
-
-    try:
-        repos.users.create_user(db_user)
-    except UniqueAttributeTaken as e:
-        _raise_duplicate(e)
-    logger.info(msg=f"User added to database: {db_user.id}")
-    return user_read(db_user, repos)
-
-
 @router.put(
     "/{user_id}",
     response_model=UserRead,
@@ -359,10 +250,10 @@ async def create_user(
 async def update_user(
     user_id: UUID,
     user: UserUpdate,
-    response: Response,
     repos: Repositories = Depends(get_repositories),
     current_user: DBUser = Depends(get_current_user),
 ) -> UserRead:
+    """Update a user profile the caller is allowed to modify."""
     db_user = repos.users.get(user_id)
 
     if not db_user:
@@ -370,27 +261,10 @@ async def update_user(
         ResponsePatterns.raise_not_found("User", user_id)
 
     if db_user.id != current_user.id:
-        logger.warning(f"User {current_user.id} attempt to update user {user_id} " f"without authorization.")
+        logger.warning(f"User {current_user.id} attempt to update user {user_id} without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
-    update_data_dict = user.model_dump(exclude_unset=True)
-    password_is_being_changed = "password" in update_data_dict and update_data_dict["password"]
-    current_password_provided = user.current_password is not None
-
-    if password_is_being_changed:
-        if not current_password_provided:
-            ResponsePatterns.raise_bad_request("Current password is required to change your password")
-        assert user.current_password is not None
-        if not verify_password(user.current_password, db_user.hashed_password):
-            logger.warning(f"User {current_user.id} provided incorrect current password for update.")
-            ResponsePatterns.raise_unauthorized("Incorrect current password")
-    elif current_password_provided:
-        assert user.current_password is not None
-        if not verify_password(user.current_password, db_user.hashed_password):
-            logger.warning(f"User {current_user.id} provided incorrect current password for update.")
-            ResponsePatterns.raise_unauthorized("Incorrect current password")
-
-    update_data = user.model_dump(exclude_unset=True, exclude={"current_password", "otp"})
+    update_data = user.model_dump(exclude_unset=True)
     username_changed = False
     session_expire_minutes_changed = False
     changes: dict[str, Any] = {}
@@ -418,10 +292,6 @@ async def update_user(
             changes["session_expire_minutes"] = clamped
         del update_data["session_expire_minutes"]
 
-    if "password" in update_data and update_data["password"]:
-        changes["hashed_password"] = get_password_hash(update_data["password"])
-        del update_data["password"]
-
     for field, value in update_data.items():
         if value is not None:
             changes[field] = value
@@ -430,21 +300,10 @@ async def update_user(
         db_user = repos.users.update_user(user_id, **changes) if changes else db_user
         logger.info(f"User {user_id} updated successfully by user {current_user.id}.")
 
-        if username_changed or session_expire_minutes_changed:
-            if username_changed:
-                logger.info(
-                    f"Username for user {user_id} changed to '{db_user.username}'. "
-                    f"Client should re-authenticate to get new token."
-                )
-            if session_expire_minutes_changed:
-                logger.info(
-                    f"Session expiry preference updated for user {user_id}. "
-                    f"Returning new token with updated expiry."
-                )
-            new_access_token_data = {"sub": db_user.username}
-            expires_delta = get_access_token_expires_delta_for_user(db_user)
-            new_access_token = create_access_token(data=new_access_token_data, expires_delta=expires_delta)
-            response.headers["X-New-Access-Token"] = new_access_token
+        if username_changed:
+            logger.info(f"Username for user {user_id} changed to '{db_user.username}'.")
+        if session_expire_minutes_changed:
+            logger.info(f"Session expiry preference updated for user {user_id}.")
 
     except UniqueAttributeTaken as e:
         logger.warning(f"Duplicate {e.attribute} during user update for user {user_id}")
@@ -466,7 +325,7 @@ async def delete_user(
     Delete a user account. Users can only delete their own account.
     """
     if user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted to delete user {user_id} " f"without authorization.")
+        logger.warning(f"User {current_user.id} attempted to delete user {user_id} without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to delete this user")
 
     db_user = repos.users.get(user_id)
@@ -535,8 +394,6 @@ async def admin_update_user(
 
     update_data = user_update.model_dump(exclude_unset=True)
 
-    if "password" in update_data:
-        update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
     for key in ("username", "email"):
         if key in update_data and update_data[key] is None:
             del update_data[key]

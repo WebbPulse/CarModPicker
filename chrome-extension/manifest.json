@@ -9,6 +9,12 @@
     "storage",
     "scripting"
   ],
+  "host_permissions": [
+    "https://api.carmodpicker.com/*",
+    "https://api.staging.carmodpicker.com/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -41,6 +47,18 @@
       "http://localhost:4000/*"
     ]
   },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "auth-callback.html"
+      ],
+      "matches": [
+        "https://carmodpicker.com/*",
+        "https://*.carmodpicker.com/*",
+        "http://localhost/*"
+      ]
+    }
+  ],
   "options_page": "options.html",
   "icons": {
     "16": "icons/icon16.png",

@@ -1,9 +1,6 @@
-"""The tombstone predicate: `app/db/dynamo/tombstones.py`.
+"""The tombstone predicate over user and part rows.
 
-Row 23 of `docs/migration/split-plan.md` adds the `deleted` / `deleted_at` pair
-to `users` and `parts` and the reads that honour it. Nothing writes a tombstone
-yet (rows 28 and 30 do that), so these tests construct tombstoned rows directly,
-which is also what proves the predicate is right before its producer exists.
+Rows are constructed directly, which proves the predicate before its producer exists.
 """
 
 from typing import Any
@@ -25,10 +22,12 @@ from app.db.dynamo.users import User
 
 
 def _user(**extra: Any) -> User:
+    """A user row with a unique username and email."""
     return User(username=f"u{uuid7().hex[:8]}", email=f"{uuid7().hex[:8]}@example.com", **extra)
 
 
 def _part(**extra: Any) -> Part:
+    """A part row with generated owner and category ids."""
     return Part(name="Cold air intake", category_id=uuid7(), user_id=uuid7(), **extra)
 
 
@@ -40,6 +39,7 @@ def test_a_row_written_before_row_23_reads_as_live() -> None:
 
 
 def test_a_tombstoned_row_reads_as_deleted() -> None:
+    """A row carrying the deleted flag reads as tombstoned."""
     assert is_tombstoned(_user(deleted=True)) is True
     assert is_tombstoned(_part(deleted=True)) is True
     assert is_tombstoned({DELETED_ATTRIBUTE: True}) is True
@@ -59,12 +59,14 @@ def test_none_is_missing_rather_than_deleted() -> None:
 
 
 def test_live_or_none_collapses_a_tombstone_onto_the_miss_path() -> None:
+    """live_or_none returns a live row and None for a tombstone."""
     live = _user()
     assert live_or_none(live) is live
     assert live_or_none(_user(deleted=True)) is None
 
 
 def test_drop_tombstoned_filters_both_misses_and_tombstones() -> None:
+    """drop_tombstoned removes both misses and tombstoned rows."""
     live = _part()
     assert drop_tombstoned([live, _part(deleted=True), None]) == [live]
 

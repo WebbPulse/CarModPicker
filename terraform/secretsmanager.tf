@@ -4,9 +4,6 @@ module "app_secrets" {
 
   name_prefix = local.prefix
 
-  # One secret per environment. The Lambda API reads this JSON blob at cold start
-  # through APP_SECRETS_ARN and nothing reads the values individually, so the
-  # standalone secret-key and sentry-dsn secrets that predated it are gone.
   secrets = {
     "app" = {
       description = "JSON map of runtime secrets read by the Lambda API at cold start"
@@ -14,6 +11,9 @@ module "app_secrets" {
         SECRET_KEY        = var.secret_key
         SENTRY_DSN        = var.sentry_dsn
         EXTENSION_API_KEY = var.extension_api_key
+
+        OAUTH_GOOGLE_CLIENT_SECRET = var.oauth_google_client_secret
+        OAUTH_GITHUB_CLIENT_SECRET = var.oauth_github_client_secret
       }
     }
   }

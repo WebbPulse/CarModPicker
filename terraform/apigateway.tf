@@ -162,7 +162,6 @@ locals {
         require_identity_jwt = var.domain_jwt_enforced
       }
     }
-    if contains(local.routed_lambda_domains, domain)
   ]...)
 
   domain_anonymous_guard_route_keys = {
@@ -186,24 +185,15 @@ module "api" {
   name        = "${local.prefix}-api"
   description = "CarModPicker ${var.environment} API (Lambda proxy)"
 
-  integrations = merge(
-    {
-      legacy = {
-        lambda_function_name = module.lambda_api.function_name
-        lambda_invoke_arn    = module.lambda_api.invoke_arn
-        timeout_milliseconds = 29000
-      }
-    },
-    {
-      for name in local.routed_lambda_domains : name => {
-        lambda_function_name = module.lambda_domain[name].function_name
-        lambda_invoke_arn    = module.lambda_domain[name].invoke_arn
-        timeout_milliseconds = 29000
-      }
-    },
-  )
+  integrations = {
+    for name in local.routed_lambda_domains : name => {
+      lambda_function_name = module.lambda_domain[name].function_name
+      lambda_invoke_arn    = module.lambda_domain[name].invoke_arn
+      timeout_milliseconds = 29000
+    }
+  }
 
-  default_integration = "legacy"
+  default_integration = null
 
   routes = local.lambda_domain_route_keys
 

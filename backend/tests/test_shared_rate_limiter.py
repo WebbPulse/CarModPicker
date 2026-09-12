@@ -1,10 +1,6 @@
-"""Unit coverage for layer 2 of the rate limiting standard.
+"""Tests for the shared DynamoDB backed rate limiter.
 
-Everything here runs against a fake table client rather than moto. The behaviour that
-matters most is what happens when DynamoDB does not answer, and a fake is the only way
-to provoke a timeout, a throttle and a missing table cheaply and deterministically. The
-fake implements the same `TableClient` protocol the real boto3 table satisfies, so the
-limiter is exercised through exactly the calls it makes in production.
+Runs against a fake table, since what matters most is behaviour when DynamoDB does not answer.
 """
 
 from __future__ import annotations
@@ -29,34 +25,37 @@ from app.api.middleware.shared_rate_limiter import (
 
 
 class FakeTable:
-    """An in-memory stand-in for a boto3 DynamoDB Table.
+    """An in-memory table implementing the three calls the limiter makes.
 
-    Implements only the three calls the limiter makes, with the same conditional-write
-    semantics DynamoDB applies, so a test that passes here is testing the limiter's logic
-    rather than the fake's convenience.
+    Matches DynamoDB's conditional write semantics.
     """
 
     def __init__(self, *, clock: Optional[list[int]] = None) -> None:
+        """Start empty, with no configured failure and an optional shared clock."""
         self.items: dict[str, dict[str, Any]] = {}
         self.raises: Optional[BaseException] = None
         self.calls: list[str] = []
         self._clock = clock
 
     def _fail_if_configured(self) -> None:
+        """Raise the configured exception, if a test set one."""
         if self.raises is not None:
             raise self.raises
 
     @staticmethod
     def _pk(key: Mapping[str, Any]) -> str:
+        """Extract the partition key value from a key mapping."""
         return str(key["pk"])
 
     def get_item(self, **kwargs: Any) -> Mapping[str, Any]:
+        """Return the stored item for a key, or an empty response."""
         self.calls.append("get_item")
         self._fail_if_configured()
         item = self.items.get(self._pk(kwargs["Key"]))
         return {"Item": dict(item)} if item is not None else {}
 
     def put_item(self, **kwargs: Any) -> Mapping[str, Any]:
+        """Store an item under its partition key."""
         self.calls.append("put_item")
         self._fail_if_configured()
         item = dict(kwargs["Item"])
@@ -64,6 +63,7 @@ class FakeTable:
         return {}
 
     def update_item(self, **kwargs: Any) -> Mapping[str, Any]:
+        """Apply the limiter's conditional counter update, refusing when the condition fails."""
         self.calls.append("update_item")
         self._fail_if_configured()
 
@@ -71,8 +71,6 @@ class FakeTable:
         values = kwargs["ExpressionAttributeValues"]
         existing = self.items.get(pk)
 
-        # Mirror `attribute_not_exists(#ttl) OR #ttl > :now`. A lapsed window fails the
-        # condition, which is what drives the limiter's put_item fallback.
         if existing is not None and int(existing.get(TTL_ATTRIBUTE, 0)) <= int(values[":now"]):
             raise ClientError(
                 {"Error": {"Code": "ConditionalCheckFailedException", "Message": "window lapsed"}},
@@ -82,8 +80,6 @@ class FakeTable:
         if existing is None:
             existing = {"pk": pk, COUNT_ATTRIBUTE: 0, TTL_ATTRIBUTE: int(values[":ttl"])}
 
-        # ADD on the counter, and if_not_exists on the TTL so an open window keeps its
-        # original expiry rather than sliding forward on every request.
         existing[COUNT_ATTRIBUTE] = int(existing.get(COUNT_ATTRIBUTE, 0)) + int(values[":one"])
         existing.setdefault(TTL_ATTRIBUTE, int(values[":ttl"]))
         self.items[pk] = existing
@@ -102,10 +98,8 @@ def frozen_now(monkeypatch: pytest.MonkeyPatch) -> list[int]:
 
 
 def make_limiter(table: FakeTable, *, max_requests: int = 3, window_seconds: int = 60) -> SharedRateLimiter:
+    """Build a limiter over a fake table with the given limit and window."""
     return SharedRateLimiter(max_requests, window_seconds, table_client=table)
-
-
-# --- allow ------------------------------------------------------------------
 
 
 def test_requests_under_the_limit_are_allowed(frozen_now: list[int]) -> None:
@@ -133,9 +127,6 @@ def test_separate_identities_do_not_share_a_counter(frozen_now: list[int]) -> No
     assert limiter.is_limited("2.2.2.2") is False
 
 
-# --- deny -------------------------------------------------------------------
-
-
 def test_request_past_the_limit_is_denied_with_a_retry_after(frozen_now: list[int]) -> None:
     """The request after the limit is rejected and reports when to retry."""
     table = FakeTable()
@@ -151,11 +142,7 @@ def test_request_past_the_limit_is_denied_with_a_retry_after(frozen_now: list[in
 
 
 def test_counter_accumulates_across_limiter_instances(frozen_now: list[int]) -> None:
-    """The point of layer 2: the count is in the table, not in the process.
-
-    Two limiter instances over one table stand in for two execution environments, which
-    is exactly what the in-memory layer 1 limiter cannot do.
-    """
+    """The count lives in the table, so two limiter instances share it."""
     table = FakeTable()
     first = make_limiter(table, max_requests=2)
     second = make_limiter(table, max_requests=2)
@@ -165,9 +152,6 @@ def test_counter_accumulates_across_limiter_instances(frozen_now: list[int]) -> 
 
     limited, _ = first.check("5.5.5.5")
     assert limited is True
-
-
-# --- fail open --------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -192,7 +176,6 @@ def test_backend_failure_allows_the_request(frozen_now: list[int], error: BaseEx
     assert limited is False
     assert retry_after is None
 
-    # The individual entry points fail open too, not just the combined check.
     assert limiter.is_limited("1.2.3.4") is False
     assert limiter.retry_after("1.2.3.4") is None
     assert limiter.record_request("1.2.3.4") == 0
@@ -202,11 +185,7 @@ def test_fail_open_is_logged_at_warning(
     frozen_now: list[int],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The WARNING is the compensating control, so it has to actually be emitted.
-
-    It carries `rate_limit_failed_open` as a record attribute so an alarm can match on it,
-    and the error type so the cause is visible without a redeploy.
-    """
+    """Failing open logs a warning carrying the alarm attribute and the error type."""
     table = FakeTable()
     table.raises = ClientError(
         {"Error": {"Code": "ResourceNotFoundException", "Message": "no table"}},
@@ -228,15 +207,7 @@ def test_fail_open_is_logged_at_warning(
 def test_fail_open_emits_a_top_level_json_boolean(
     frozen_now: list[int],
 ) -> None:
-    """The CloudWatch metric filter is `{ $.rate_limit_failed_open IS TRUE }`.
-
-    That pattern selects a real JSON boolean at the top level of the log event. It cannot
-    see inside the `message` string and it does not match the string "true", so this test
-    formats the record through the shared `JsonFormatter` the deployed process installs and
-    asserts on the parsed object rather than on the record attributes: an `extra=` key that
-    the formatter dropped, nested, or stringified would still pass an attribute assertion
-    while leaving the alarm flat at zero.
-    """
+    """The formatted log event carries a top level JSON boolean the metric filter can match."""
     table = FakeTable()
     table.raises = EndpointConnectionError(endpoint_url="https://dynamodb.us-west-2.amazonaws.com/")
     limiter = make_limiter(table)
@@ -258,16 +229,13 @@ def test_fail_open_emits_a_top_level_json_boolean(
     assert lines, "the fail-open path must emit a formatted record"
     payload = json.loads(lines[0])
 
-    # The flag: a top-level JSON boolean, not a string and not nested under anything.
     assert payload["rate_limit_failed_open"] is True
     assert payload["level"] == "WARNING"
 
-    # Context fields, so the alarm points somewhere.
     assert payload["rate_limit_operation"] == "record_request"
     assert payload["exception_type"] == "EndpointConnectionError"
     assert payload["route"] == "/api/parts/{part_id}"
 
-    # The caller is identified by a truncated digest, never by the raw address.
     assert payload["client_key"] == SharedRateLimiter.client_key("1.2.3.4")
     assert "1.2.3.4" not in json.dumps(payload)
 
@@ -285,14 +253,10 @@ def test_fail_open_never_raises_into_the_request_path(frozen_now: list[int]) -> 
     table.raises = RuntimeError("boom")
     limiter = make_limiter(table)
 
-    # No pytest.raises: the assertion is that these simply return.
     limiter.check("1.2.3.4")
     limiter.is_limited("1.2.3.4")
     limiter.retry_after("1.2.3.4")
     limiter.record_request("1.2.3.4")
-
-
-# --- TTL --------------------------------------------------------------------
 
 
 def test_written_items_carry_a_ttl_in_the_future(frozen_now: list[int]) -> None:
@@ -307,11 +271,7 @@ def test_written_items_carry_a_ttl_in_the_future(frozen_now: list[int]) -> None:
 
 
 def test_ttl_is_not_extended_by_later_requests_in_the_same_window(frozen_now: list[int]) -> None:
-    """The window is anchored on its first request.
-
-    If each request slid `expires_at` forward, a caller sending steady traffic would
-    never leave the window and a single burst would lock them out permanently.
-    """
+    """The window is anchored on its first request and later ones do not slide it."""
     table = FakeTable()
     limiter = make_limiter(table, max_requests=10, window_seconds=60)
 
@@ -344,15 +304,10 @@ def test_expired_window_starts_a_fresh_count(frozen_now: list[int]) -> None:
 def test_expired_item_is_treated_as_absent_even_if_dynamodb_still_serves_it(
     frozen_now: list[int],
 ) -> None:
-    """DynamoDB deletes expired items on its own schedule, sometimes hours late.
-
-    A read that trusted the sweeper would keep a caller locked out past the end of their
-    window, so the limiter enforces the window itself.
-    """
+    """An expired item is treated as absent rather than trusting DynamoDB's sweeper."""
     table = FakeTable()
     limiter = make_limiter(table, max_requests=1, window_seconds=60)
 
-    # An item that is well over the limit but whose window has already passed.
     table.items["RATE#1.2.3.4"] = {
         "pk": "RATE#1.2.3.4",
         COUNT_ATTRIBUTE: 500,
@@ -363,13 +318,11 @@ def test_expired_item_is_treated_as_absent_even_if_dynamodb_still_serves_it(
     assert limiter.retry_after("1.2.3.4") is None
 
 
-# --- identity ---------------------------------------------------------------
-
-
 class FakeRequest:
     """Minimal stand-in carrying only what `client_identity` reads."""
 
     def __init__(self, headers: Optional[dict[str, str]] = None, scope: Optional[dict[str, Any]] = None) -> None:
+        """Hold the headers and scope this stand-in exposes."""
         self.headers = headers or {}
         self.scope = scope or {}
         self.client = None
@@ -381,18 +334,14 @@ def test_identity_uses_the_web_adapter_request_context() -> None:
     assert client_identity(request) == "203.0.113.7"  # type: ignore[arg-type]
 
 
-def test_identity_falls_back_to_the_mangum_event_scope() -> None:
+def test_identity_falls_back_to_the_aws_event_scope() -> None:
     """The zip runtime is still serving traffic during the migration."""
     request = FakeRequest(scope={"aws.event": {"requestContext": {"http": {"sourceIp": "198.51.100.9"}}}})
     assert client_identity(request) == "198.51.100.9"  # type: ignore[arg-type]
 
 
 def test_identity_never_trusts_x_forwarded_for() -> None:
-    """The whole point of keying on the request context.
-
-    A caller can put anything in `X-Forwarded-For`, so honouring it would let anyone mint
-    a fresh identity per request while the endpoint looked protected.
-    """
+    """The caller identity comes from the request context, never a forwarded header."""
     request = FakeRequest(
         headers={
             "X-Forwarded-For": "1.2.3.4",
@@ -401,7 +350,6 @@ def test_identity_never_trusts_x_forwarded_for() -> None:
     )
     assert client_identity(request) == "203.0.113.7"  # type: ignore[arg-type]
 
-    # And with no request context at all it still must not read the header.
     spoofed = FakeRequest(headers={"X-Forwarded-For": "1.2.3.4"})
     assert client_identity(spoofed) != "1.2.3.4"  # type: ignore[arg-type]
 

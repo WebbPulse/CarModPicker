@@ -17,14 +17,17 @@ from app.db.dynamo.repository import transact_write
 
 
 def _vote(entity_id: UUID, user_id: UUID, vote_type: str = "upvote", entity_type: str = "part") -> Vote:
+    """Build a vote for the given entity and user."""
     return Vote(user_id=user_id, entity_type=entity_type, entity_id=entity_id, vote_type=vote_type)
 
 
 def _report(entity_id: UUID, user_id: UUID, **extra: Any) -> Report:
+    """Build a spam report for the given entity and user."""
     return Report(user_id=user_id, entity_type="part", entity_id=entity_id, reason="spam", **extra)
 
 
 def test_user_vote_lookup_uses_entity_key(dynamo_tables: Any) -> None:
+    """A user's vote is looked up by entity type and id together, so the same id under another type does not match."""
     votes = VoteRepository()
     part_id, user_id, other = uuid7(), uuid7(), uuid7()
     votes.create(_vote(part_id, user_id, "downvote"))
@@ -38,6 +41,7 @@ def test_user_vote_lookup_uses_entity_key(dynamo_tables: Any) -> None:
 
 
 def test_tallies_and_user_votes_across_entities(dynamo_tables: Any) -> None:
+    """Tallies and per user votes are returned per entity, omitting entities with no votes."""
     votes = VoteRepository()
     a, b, quiet, user_id = uuid7(), uuid7(), uuid7(), uuid7()
     votes.create(_vote(a, user_id))
@@ -51,6 +55,7 @@ def test_tallies_and_user_votes_across_entities(dynamo_tables: Any) -> None:
 
 
 def test_delete_helpers_scope_by_type_and_user(dynamo_tables: Any) -> None:
+    """Deleting by entity type or by user removes only the matching votes."""
     votes = VoteRepository()
     user_id = uuid7()
     car_vote = votes.create(_vote(uuid7(), user_id, entity_type="car_generation"))
@@ -66,6 +71,7 @@ def test_delete_helpers_scope_by_type_and_user(dynamo_tables: Any) -> None:
 
 
 def test_pending_report_lookup_ignores_resolved(dynamo_tables: Any) -> None:
+    """The pending lookup skips a resolved report and finds a later pending one."""
     reports = ReportRepository()
     part_id, user_id = uuid7(), uuid7()
     reports.create(_report(part_id, user_id, status="resolved"))
@@ -76,6 +82,7 @@ def test_pending_report_lookup_ignores_resolved(dynamo_tables: Any) -> None:
 
 
 def test_list_filtered_orders_newest_first(dynamo_tables: Any) -> None:
+    """Filtered report listings order newest first and honour status and entity type."""
     reports = ReportRepository()
     user_id = uuid7()
     now = datetime.now(UTC)
@@ -93,6 +100,7 @@ def test_list_filtered_orders_newest_first(dynamo_tables: Any) -> None:
 
 
 def test_update_clears_admin_notes_with_none(dynamo_tables: Any) -> None:
+    """Passing None for admin notes clears them rather than leaving the old value."""
     reports = ReportRepository()
     report = reports.create(_report(uuid7(), uuid7(), admin_notes="first pass"))
     updated = reports.update(report.id, status="dismissed", admin_notes=None, reviewed_by=uuid7())
@@ -102,6 +110,7 @@ def test_update_clears_admin_notes_with_none(dynamo_tables: Any) -> None:
 
 
 def test_moderation_delete_actions_remove_entity_rows(dynamo_tables: Any) -> None:
+    """The delete actions remove every vote and report for one entity and leave other entities alone."""
     votes, reports = VoteRepository(), ReportRepository()
     part_id, other_part = uuid7(), uuid7()
     votes.create(_vote(part_id, uuid7()))

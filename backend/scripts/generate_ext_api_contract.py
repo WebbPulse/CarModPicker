@@ -3,7 +3,9 @@
 AUTH-06 + D-34—D-37: Chrome Extension API Contract Generator.
 
 Generates ``chrome-extension/API_CONTRACT.md`` from ``app.openapi()`` for the
-16 endpoints the extension calls (allow-list inline below).
+16 endpoints the extension calls. The inline ``EXTENSION_ENDPOINTS`` allow-list
+is D-35 and mirrors ``chrome-extension/src/background.ts``; any change to it
+requires regenerating the contract.
 
 Usage:
 
@@ -17,9 +19,8 @@ Usage:
 
 The companion drift guard (``backend/tests/test_ext_api_contract_up_to_date.py``)
 subprocess-invokes this script with ``--stdout`` and asserts the output matches
-the committed .md. This avoids Python-level import of the script
-(``backend/scripts`` is not a Python package — no ``__init__.py``, not on
-``sys.path``).
+the committed .md. This avoids Python-level import of the script, whose
+directory is not on ``sys.path`` for the test process.
 """
 
 from __future__ import annotations
@@ -30,29 +31,26 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# <repo>/backend/scripts/generate_ext_api_contract.py -> parents[2] = <repo>
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_PATH = REPO_ROOT / "chrome-extension" / "API_CONTRACT.md"
 
-# D-35: Allow-list of (method, path) tuples — mirrors chrome-extension/src/background.ts.
-# Verified inventory per RESEARCH.md Finding 3. Any change to this list requires
-# regeneration.
 EXTENSION_ENDPOINTS: list[tuple[str, str]] = [
     ("GET", "/api/users/me"),
     ("GET", "/api/categories/"),
-    ("GET", "/api/retailers/"),
+    ("GET", "/api/retailers"),
     ("POST", "/api/retailers/get-or-create"),
     ("GET", "/api/parts/check-url"),
     ("GET", "/api/parts/{part_id}"),
     ("GET", "/api/parts/find-by-part-manufacturer-and-part-number"),
     ("POST", "/api/parts/{part_id}/append-images"),
-    ("POST", "/api/parts/"),
+    ("POST", "/api/parts"),
     ("POST", "/api/parts/{part_id}/listings"),
-    ("GET", "/api/part-manufacturers/"),
-    ("POST", "/api/part-manufacturers/"),
-    ("GET", "/api/car-generations/"),
+    ("GET", "/api/part-manufacturers"),
+    ("POST", "/api/part-manufacturers"),
+    ("GET", "/api/car-generations"),
     ("GET", "/api/images/by-source-url"),
     ("POST", "/api/images/upload"),
+    ("POST", "/api/images/fetch-from-url"),
     ("POST", "/api/crawled-pages/scrape"),
 ]
 
@@ -89,16 +87,17 @@ def generate_markdown() -> str:
     drift-guard test does NOT call this function directly — it invokes this
     script as a subprocess and captures stdout. See docstring at top for
     rationale.
+
+    ``backend/`` is put on sys.path first so ``from app.main import app`` works
+    regardless of cwd: running ``python scripts/generate_ext_api_contract.py``
+    puts ``scripts/`` on sys.path[0], not ``backend/``. The app import is
+    function-scope because TESTING=true and ENABLE_RATE_LIMITING=false must be
+    set before ``app.main`` is imported.
     """
-    # Ensure ``backend/`` is on sys.path so ``from app.main import app`` works
-    # regardless of cwd. When invoked as ``python scripts/generate_ext_api_contract.py``
-    # Python puts ``scripts/`` on sys.path[0], not ``backend/``.
     backend_dir = str(Path(__file__).resolve().parents[1])
     if backend_dir not in sys.path:
         sys.path.insert(0, backend_dir)
-    # Function-scope import — TESTING=true ENABLE_RATE_LIMITING=false must be set
-    # BEFORE app.main is imported (conftest-style env-var ordering).
-    from app.main import app  # noqa: PLC0415 — intentional ordering
+    from app.main import app  # noqa: PLC0415
 
     spec = app.openapi()
     schemas = spec.get("components", {}).get("schemas", {})
@@ -129,7 +128,6 @@ def generate_markdown() -> str:
             out.append(f"**Description:** {op['description']}")
             out.append("")
 
-        # Parameters (path + query + header)
         params = op.get("parameters", [])
         if params:
             out.append("**Parameters:**")
@@ -141,14 +139,12 @@ def generate_markdown() -> str:
                 pin = p.get("in", "?")
                 required = "yes" if p.get("required", False) else "no"
                 schema = p.get("schema", {})
-                # Inline schema type (compact).
                 schema_repr = schema.get("type", "") or "$ref"
                 if "enum" in schema:
                     schema_repr += f" (enum: {schema['enum']})"
                 out.append(f"| `{name}` | {pin} | {required} | {schema_repr} |")
             out.append("")
 
-        # Request body
         req_body = op.get("requestBody")
         if req_body:
             content = req_body.get("content", {}).get("application/json", {})
@@ -159,7 +155,6 @@ def generate_markdown() -> str:
             out.append(_schema_to_json_block(flat))
             out.append("")
 
-        # Responses
         responses = op.get("responses", {})
         if responses:
             out.append("**Responses:**")
@@ -183,6 +178,11 @@ def generate_markdown() -> str:
 
 
 def main() -> None:
+    """Write the generated contract to chrome-extension/API_CONTRACT.md, or to stdout.
+
+    ``--stdout`` writes raw Markdown without ``print()``: a trailing newline
+    would break the drift guard's byte-for-byte comparison.
+    """
     parser = argparse.ArgumentParser(
         description="Generate Chrome Extension API Contract from app.openapi().",
     )
@@ -200,9 +200,6 @@ def main() -> None:
     md = generate_markdown()
 
     if args.stdout:
-        # Write raw Markdown to stdout; caller (the pytest drift guard) captures it.
-        # Do NOT use print() — print appends a newline that would break
-        # byte-for-byte equality.
         sys.stdout.write(md)
     else:
         OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

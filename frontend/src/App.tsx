@@ -1,3 +1,8 @@
+/**
+ * Route table and page shell: header, footer, ad slots, and the banners that sit
+ * around every route.
+ */
+
 import { Suspense, useEffect } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -10,6 +15,7 @@ import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
 import GuestRoute from './components/routes/GuestRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import { RouteGroupBoundary } from './components/routes/RouteGroupBoundary';
+import VerifyEmailRoute from './components/routes/VerifyEmailRoute';
 import BetaBanner from './components/shell/BetaBanner';
 import ChromeExtensionPromo from './components/shell/ChromeExtensionPromo';
 import CookieConsentBanner from './components/shell/CookieConsentBanner';
@@ -31,17 +37,16 @@ function loadAdSenseScript(clientId: string) {
   document.head.appendChild(script);
 }
 
-// Lazy load all page components for code splitting
 const Home = lazy(() => import('./pages/Home.tsx'));
 const Profile = lazy(() => import('./pages/Profile.tsx'));
 const ForgotPassword = lazy(
   () => import('./pages/authentication/ForgotPassword.tsx')
 );
-const ForgotPasswordConfirm = lazy(
-  () => import('./pages/authentication/ForgotPasswordConfirm.tsx')
-);
 const Login = lazy(() => import('./pages/authentication/Login.tsx'));
 const Register = lazy(() => import('./pages/authentication/Register.tsx'));
+const ResetPassword = lazy(
+  () => import('./pages/authentication/ResetPassword.tsx')
+);
 const VerifyEmail = lazy(
   () => import('./pages/authentication/VerifyEmail.tsx')
 );
@@ -50,6 +55,9 @@ const VerifyEmailConfirm = lazy(
 );
 const ExtensionAuth = lazy(
   () => import('./pages/authentication/ExtensionAuth.tsx')
+);
+const ExtensionHandoff = lazy(
+  () => import('./pages/authentication/ExtensionHandoff.tsx')
 );
 const Builder = lazy(() => import('./pages/builder/Builder.tsx'));
 const ViewCar = lazy(() => import('./pages/builder/ViewCar.tsx'));
@@ -85,11 +93,6 @@ const ViewPart = lazy(() => import('./pages/builder/ViewPart.tsx'));
 const EditPart = lazy(() => import('./pages/parts/EditPart.tsx'));
 const UserParts = lazy(() => import('./pages/parts/UserParts.tsx'));
 const NotFound = lazy(() => import('./pages/NotFound.tsx'));
-// Dev-only kitchen-sink route. The `import.meta.env.DEV` guard wraps the
-// dynamic import itself so Vite/Rollup constant-folds the entire branch to
-// `null` in production — the `_KitchenSink.tsx` chunk is never emitted and
-// the page module is dead-code-eliminated. The matching <Route> element below
-// is also guarded so navigating to `/_kitchen-sink` in prod 404s.
 const KitchenSink = import.meta.env.DEV
   ? lazy(() => import('./pages/_KitchenSink.tsx'))
   : null;
@@ -103,7 +106,9 @@ const NO_AD_SPACE_PATHS = new Set([
   '/forgot-password/confirm',
   '/verify-email',
   '/verify-email/confirm',
+  '/reset-password',
   '/extension-auth',
+  '/auth/extension-handoff',
 ]);
 
 /** Paths that get spacers for consistent layout but never show ads. */
@@ -124,18 +129,11 @@ function App() {
   const location = useLocation();
   const isPremiumNow = useIsPremium();
   const premiumSystemDisabled = useIsPremiumSystemDisabled();
-  // showAdSpace: render the side columns (ad or spacer) for layout consistency.
-  // showAds: only show actual ads on content pages for free users.
-  // useIsPremium() returns true for premium users AND when the admin kill switch
-  // has disabled the premium system, so this single check covers both gates.
   const showAdSpace = !NO_AD_SPACE_PATHS.has(location.pathname);
   const showAds =
     showAdSpace && !NO_ADS_PATHS.has(location.pathname) && !isPremiumNow;
   const isLandingPage = location.pathname === '/';
 
-  // Load the AdSense loader unconditionally so Google's review crawler detects
-  // the snippet. The script alone sets no ad cookies — cookies are only set
-  // once an ad unit actually renders, which is gated on consent in AdBanner.
   useEffect(() => {
     loadAdSenseScript(ADSENSE_CLIENT_ID);
   }, []);
@@ -143,7 +141,6 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="relative flex flex-col min-h-screen">
-        {/* Background Pattern */}
         <div className="fixed inset-0 opacity-5">
           <div
             className="absolute inset-0"
@@ -153,7 +150,6 @@ function App() {
             }}
           ></div>
         </div>
-        {/* Global ambient orbs — scroll with the page */}
         <div
           className="absolute inset-0 pointer-events-none overflow-hidden opacity-50"
           style={{ zIndex: 0 }}
@@ -175,7 +171,6 @@ function App() {
         </div>
 
         <main className="flex-grow relative z-10 flex w-full">
-          {/* Left margin: ad or spacer (spacer keeps layout when premium hides ads) */}
           {showAdSpace &&
             (showAds ? (
               <AdBanner
@@ -201,20 +196,6 @@ function App() {
               }
             >
               <Routes>
-                {/*
-                  Phase 6 FE-03 / D-07: every <Route> below MUST live inside one of
-                  the four <RouteGroupBoundary> wrappers (admin, authentication,
-                  builder, public). A render-time crash inside one group is
-                  contained by that group's Sentry-backed ErrorBoundary; the other
-                  three groups stay mounted and Header/Footer remain usable.
-                  D-09: the existing app-root <ErrorBoundary> + top-level
-                  <Suspense> are preserved as the last-resort outer catch.
-                  Drift guard: src/App.coverage.test.tsx parametrizes over every
-                  path enumerated here; CI fails if a new <Route> escapes a
-                  RouteGroupBoundary wrapper.
-                */}
-
-                {/* Public route group — unauthenticated browsing + 404 */}
                 <Route
                   element={
                     <RouteGroupBoundary groupName="public">
@@ -248,11 +229,11 @@ function App() {
                     path="/verify-email/confirm"
                     element={<VerifyEmailConfirm />}
                   />
-                  <Route
-                    path="/forgot-password/confirm"
-                    element={<ForgotPasswordConfirm />}
-                  />
                   <Route path="/extension-auth" element={<ExtensionAuth />} />
+                  <Route
+                    path="/auth/extension-handoff"
+                    element={<ExtensionHandoff />}
+                  />
                   <Route path="/car-generations/:carId" element={<ViewCar />} />
                   <Route
                     path="/build-lists/:buildListId"
@@ -267,22 +248,13 @@ function App() {
                   <Route path="/parts/:partId" element={<ViewPart />} />
                   <Route path="/parts" element={<Navigate to="/" replace />} />
 
-                  {/* Dev-only kitchen-sink for visual-regression testing.
-                      Guarded by import.meta.env.DEV so the route — and the
-                      lazy-loaded chunk — are excluded from production builds.
-                      Lives inside the public RouteGroupBoundary per FE-03. */}
                   {import.meta.env.DEV && KitchenSink && (
                     <Route path="/_kitchen-sink" element={<KitchenSink />} />
                   )}
 
-                  {/* 404 Catch-all — MUST be last inside the public group.
-                      Lazy-loaded (Phase 6 FE-03) so the route-coverage test
-                      (src/App.coverage.test.tsx) can apply the same
-                      lazyWithReload throwing-stub mock here as elsewhere. */}
                   <Route path="*" element={<NotFound />} />
                 </Route>
 
-                {/* Authentication group — login / register / forgot-password (redirect if logged in) */}
                 <Route
                   element={
                     <RouteGroupBoundary groupName="authentication">
@@ -298,9 +270,9 @@ function App() {
                       element={<ForgotPassword />}
                     />
                   </Route>
+                  <Route path="/reset-password" element={<ResetPassword />} />
                 </Route>
 
-                {/* Builder group — profile / build lists / parts / checkout (auth-gated) */}
                 <Route
                   element={
                     <RouteGroupBoundary groupName="builder">
@@ -308,8 +280,10 @@ function App() {
                     </RouteGroupBoundary>
                   }
                 >
-                  <Route element={<ProtectedRoute />}>
+                  <Route element={<VerifyEmailRoute />}>
                     <Route path="/verify-email" element={<VerifyEmail />} />
+                  </Route>
+                  <Route element={<ProtectedRoute />}>
                     <Route element={<EmailVerifiedRoute />}>
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/builder" element={<Builder />} />
@@ -328,7 +302,6 @@ function App() {
                   </Route>
                 </Route>
 
-                {/* Admin group — admin dashboard + sub-pages */}
                 <Route
                   element={
                     <RouteGroupBoundary groupName="admin">
@@ -362,7 +335,6 @@ function App() {
             </Suspense>
           </div>
 
-          {/* Right margin: ad or spacer (spacer keeps layout when premium hides ads) */}
           {showAdSpace &&
             (showAds ? (
               <AdBanner
@@ -380,7 +352,6 @@ function App() {
 
         <Footer />
         <CookieConsentBanner />
-        {/* Stacked promo popups, bottom-right. Each child is null when dismissed/ineligible. */}
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 items-end max-w-sm w-[calc(100%-2rem)] sm:w-96 pointer-events-none">
           <ChromeExtensionPromo />
           <SubscriptionPromo />

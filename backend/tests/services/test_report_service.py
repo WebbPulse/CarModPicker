@@ -25,14 +25,11 @@ class TestReportService:
 
     def test_create_report_build_list(self, db_session: Any, test_user: User) -> None:
         """Test creating a report for a build list."""
-        # Create another user and their build list
-        from app.api.dependencies.auth import get_password_hash
 
         other_user = UserRepository().create_user(
             User(
                 username=get_unique_name("other_user"),
                 email=f"{get_unique_name('other_user')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )
@@ -46,7 +43,6 @@ class TestReportService:
             )
         )
 
-        # Create report
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.SPAM, description="This is spam")
@@ -60,21 +56,17 @@ class TestReportService:
 
     def test_create_report_part(self, db_session: Any, test_user: User) -> None:
         """Test creating a report for a global part."""
-        # Create another user and their global part
-        from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.catalog import Category, CategoryRepository
 
         other_user = UserRepository().create_user(
             User(
                 username=get_unique_name("other_user2"),
                 email=f"{get_unique_name('other_user2')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )
         )
 
-        # Get or create a category
         category = next(iter(CategoryRepository().list_all()), None)
         if not category:
             category = Category(
@@ -86,7 +78,6 @@ class TestReportService:
             )
             category = save_catalog(category)
 
-        # Get or create a part_manufacturer
         from app.db.dynamo.catalog import PartManufacturer, PartManufacturerRepository
 
         part_manufacturer = next(iter(PartManufacturerRepository().list_all()), None)
@@ -107,7 +98,6 @@ class TestReportService:
         )
         part = save_catalog(part)
 
-        # Create report
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.INAPPROPRIATE_CONTENT, description="Inappropriate")
@@ -121,7 +111,6 @@ class TestReportService:
 
     def test_create_report_own_entity(self, db_session: Any, test_user: User) -> None:
         """Test that users cannot report their own entities."""
-        # Create build list owned by test_user
         build_list = BuildListRepository().create(
             BuildList(
                 name=get_unique_name("own_build_list"),
@@ -130,7 +119,6 @@ class TestReportService:
             )
         )
 
-        # Try to create report
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.SPAM)
@@ -146,14 +134,11 @@ class TestReportService:
 
     def test_create_report_duplicate(self, db_session: Any, test_user: User) -> None:
         """Test that users cannot create duplicate pending reports."""
-        # Create another user and their build list
-        from app.api.dependencies.auth import get_password_hash
 
         other_user = UserRepository().create_user(
             User(
                 username=get_unique_name("other_user3"),
                 email=f"{get_unique_name('other_user3')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )
@@ -167,13 +152,11 @@ class TestReportService:
             )
         )
 
-        # Create first report
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data = ReportCreate(reason=ReportReason.SPAM)
         service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
 
-        # Try to create duplicate report
         from fastapi import HTTPException
 
         try:
@@ -185,14 +168,11 @@ class TestReportService:
 
     def test_get_reports_no_filters(self, db_session: Any, test_user: User) -> None:
         """Test getting reports with no filters."""
-        # Create reports
-        from app.api.dependencies.auth import get_password_hash
 
         other_user = UserRepository().create_user(
             User(
                 username=get_unique_name("other_user4"),
                 email=f"{get_unique_name('other_user4')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )
@@ -206,14 +186,12 @@ class TestReportService:
             )
         )
 
-        # Create reports - create for different entities to avoid duplicate report error
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data1 = ReportCreate(reason=ReportReason.SPAM)
         report_data2 = ReportCreate(reason=ReportReason.INAPPROPRIATE_CONTENT)
         service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data1, logger)
 
-        # Create a second build list for the second report to avoid duplicate report error
         build_list2 = BuildListRepository().create(
             BuildList(
                 name=get_unique_name("test_build_list4"),
@@ -223,22 +201,18 @@ class TestReportService:
         )
         service.create_report(EntityType.BUILD_LIST, build_list2.id, test_user.id, report_data2, logger)
 
-        # Get reports
         reports = service.get_reports()
         assert isinstance(reports, list)
         assert len(reports) >= 2
 
     def test_get_reports_with_filters(self, db_session: Any, test_user: User) -> None:
         """Test getting reports with filters."""
-        # Create reports
-        from app.api.dependencies.auth import get_password_hash
         from app.db.dynamo.catalog import Category, CategoryRepository
 
         other_user = UserRepository().create_user(
             User(
                 username=get_unique_name("other_user5"),
                 email=f"{get_unique_name('other_user5')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )
@@ -252,7 +226,6 @@ class TestReportService:
             )
         )
 
-        # Get or create a category
         category = next(iter(CategoryRepository().list_all()), None)
         if not category:
             category = Category(
@@ -264,7 +237,6 @@ class TestReportService:
             )
             category = save_catalog(category)
 
-        # Get or create a part_manufacturer
         from app.db.dynamo.catalog import PartManufacturer, PartManufacturerRepository
 
         part_manufacturer = next(iter(PartManufacturerRepository().list_all()), None)
@@ -285,7 +257,6 @@ class TestReportService:
         )
         part = save_catalog(part)
 
-        # Create reports
         service = ReportService()
         logger = logging.getLogger(__name__)
         report_data1 = ReportCreate(reason=ReportReason.SPAM)
@@ -293,26 +264,21 @@ class TestReportService:
         service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data1, logger)
         service.create_report(EntityType.PART, part.id, test_user.id, report_data2, logger)
 
-        # Get reports filtered by entity type
         reports = service.get_reports(entity_type=EntityType.BUILD_LIST)
         assert isinstance(reports, list)
         assert all(r.entity_type == "build_list" for r in reports)
 
-        # Get reports filtered by status
         reports = service.get_reports(status="pending")
         assert isinstance(reports, list)
         assert all(r.status == "pending" for r in reports)
 
     def test_update_report(self, db_session: Any, test_user: User) -> None:
         """Test updating a report."""
-        # Create report
-        from app.api.dependencies.auth import get_password_hash
 
         other_user = UserRepository().create_user(
             User(
                 username=get_unique_name("other_user6"),
                 email=f"{get_unique_name('other_user6')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )
@@ -331,7 +297,6 @@ class TestReportService:
         report_data = ReportCreate(reason=ReportReason.SPAM)
         report = service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
 
-        # Update report
         updated_report = service.update_report(
             report.id,
             "reviewed",
@@ -347,14 +312,11 @@ class TestReportService:
 
     def test_delete_report(self, db_session: Any, test_user: User) -> None:
         """Test deleting a report."""
-        # Create report
-        from app.api.dependencies.auth import get_password_hash
 
         other_user = UserRepository().create_user(
             User(
                 username=get_unique_name("other_user7"),
                 email=f"{get_unique_name('other_user7')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )
@@ -373,23 +335,18 @@ class TestReportService:
         report_data = ReportCreate(reason=ReportReason.SPAM)
         report = service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
 
-        # Delete report
         service.delete_report(report.id, logger)
 
-        # Verify report is deleted
         result = ReportRepository().get(report.id)
         assert result is None
 
     def test_get_reports_with_details(self, db_session: Any, test_user: User) -> None:
         """Test getting reports with details."""
-        # Create report
-        from app.api.dependencies.auth import get_password_hash
 
         other_user = UserRepository().create_user(
             User(
                 username=get_unique_name("other_user8"),
                 email=f"{get_unique_name('other_user8')}@example.com",
-                hashed_password=get_password_hash("testpassword"),
                 email_verified=True,
                 disabled=False,
             )
@@ -408,13 +365,11 @@ class TestReportService:
         report_data = ReportCreate(reason=ReportReason.SPAM, description="Test report")
         service.create_report(EntityType.BUILD_LIST, build_list.id, test_user.id, report_data, logger)
 
-        # Get reports with details
         reports, total_count = service.get_reports_with_details()
         assert isinstance(reports, list)
         assert total_count >= 1
         assert len(reports) >= 1
 
-        # Check that details are included
         report_with_details = next((r for r in reports if r.entity_id == build_list.id), None)
         assert report_with_details is not None
         assert report_with_details.reporter_username == test_user.username

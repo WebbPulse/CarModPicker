@@ -1,29 +1,3 @@
-# Auto-release the Chrome extension whenever chrome-extension/** lands on main.
-#
-# This workflow never pushes a commit to `main`. The `main-protection` ruleset on
-# refs/heads/main requires every change to arrive through a pull request, and
-# GITHUB_TOKEN is not a bypass actor, so a direct push is rejected with GH013.
-#
-# On each run the workflow:
-#   1. Derives the next version from the newest `chrome-extension-v*` tag,
-#      falling back to the manifest version in the tree when no tag exists
-#   2. Patches manifest.json in the build output only, never in a commit to main
-#   3. Builds and packages the extension
-#   4. Publishes the zip to the Chrome Web Store
-#   5. Pushes the annotated tag `chrome-extension-v<version>` (the ruleset targets
-#      refs/heads/main only, so refs/tags/* is not covered) and cuts a GitHub Release
-#   6. Opens a bookkeeping PR against `staging` that bumps the committed manifest
-#
-# The tag is the source of truth for the released version. The manifest committed
-# in the tree is bookkeeping that trails the tag by design, so a missed or closed
-# bookkeeping PR never blocks or corrupts the next release.
-#
-# Auto-publish to the Chrome Web Store requires all four of these on the `production`
-# environment:
-#   - vars: CWS_CLIENT_ID, CWS_EXTENSION_ID (not secret; public identifiers)
-#   - secrets: CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN
-# If any are missing, the publish step is skipped and the tag and Release still succeed.
-# See https://developer.chrome.com/docs/webstore/using-api for setting up the OAuth client.
 name: Chrome Extension Deploy
 
 on:
@@ -38,18 +12,58 @@ permissions:
   contents: write
   pull-requests: write
 
-# Serialize runs so back-to-back merges don't race on the version derivation.
 concurrency:
   group: chrome-extension-release
   cancel-in-progress: false
 
 jobs:
-  # A bookkeeping PR only bumps manifest.json, and the tag is the version of
-  # record, so a promotion whose only extension change is that bump must not
-  # publish a new store version. Compare the extension tree, minus the manifest,
-  # between the newest release tag and the commit being released. A manual
-  # dispatch always releases.
+  gate:
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      allowed: ${{ steps.decide.outputs.allowed }}
+    steps:
+      - name: Decide whether this event is allowed to release
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          AUTO_RELEASE: ${{ vars.CHROME_EXTENSION_AUTO_RELEASE }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch: releasing regardless of CHROME_EXTENSION_AUTO_RELEASE."
+            echo "Manual dispatch, so the release hold does not apply." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [[ "$AUTO_RELEASE" == "true" ]]; then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            echo "CHROME_EXTENSION_AUTO_RELEASE is true: this push may release."
+            echo "CHROME_EXTENSION_AUTO_RELEASE is \`true\`, so this push may release." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "allowed=false" >> "$GITHUB_OUTPUT"
+          echo "CHROME_EXTENSION_AUTO_RELEASE is not 'true' (value: '${AUTO_RELEASE:-unset}'). Holding the release."
+          {
+            echo "### Chrome extension release held"
+            echo
+            echo "\`CHROME_EXTENSION_AUTO_RELEASE\` is \`${AUTO_RELEASE:-unset}\`, not \`true\`, so this push did not publish."
+            echo
+            echo "This is the expected state. The locked decision is a single publish after the"
+            echo "production identity cutover, carrying \`DEFAULT_AUTH_MODE\` = identity."
+            echo
+            echo "To release: set the \`production\` environment variable"
+            echo "\`CHROME_EXTENSION_AUTO_RELEASE\` to \`true\` and re-run, or run this workflow"
+            echo "manually with **Run workflow**, which is never gated. See step 12 of"
+            echo "\`docs/prod-promotion-runbook.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   changes:
+    needs: gate
+    if: needs.gate.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     outputs:
       release: ${{ steps.check.outputs.release }}
@@ -95,8 +109,8 @@ jobs:
           fi
 
   release:
-    needs: changes
-    if: needs.changes.outputs.release == 'true'
+    needs: [gate, changes]
+    if: needs.gate.outputs.allowed == 'true' && needs.changes.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -117,8 +131,6 @@ jobs:
 
           git fetch --tags --force --quiet
 
-          # Newest tag by semver, not by commit date: a release cut from an older
-          # commit must never hand back a version that is already published.
           LAST_TAG=$(git tag -l 'chrome-extension-v*' \
             | sed 's/^chrome-extension-v//' \
             | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
@@ -134,8 +146,6 @@ jobs:
               echo "::error::manifest.json version is not a valid semver: $BASE"
               exit 1
             fi
-            # No tag has ever been pushed, so the manifest version is the last
-            # released version and the next release is the patch above it.
             echo "No chrome-extension-v* tag found; falling back to manifest version $BASE"
           fi
 
@@ -169,8 +179,6 @@ jobs:
             exit 0
           fi
 
-          # sort -V puts the greater version last. Equal versions are caught by the
-          # string compare, so this fails on both "older" and "same".
           if [[ "$NEW_VERSION" == "$LAST_TAG" ]] \
             || [[ "$(printf '%s\n%s\n' "$LAST_TAG" "$NEW_VERSION" | sort -V | tail -n 1)" != "$NEW_VERSION" ]]; then
             echo "::error::Computed version $NEW_VERSION is not strictly greater than the last released version $LAST_TAG."
@@ -295,8 +303,6 @@ jobs:
 
           echo "Published v$NEW_VERSION to Chrome Web Store."
 
-      # The tag is pushed only after the Web Store publish succeeds, so a failed
-      # publish leaves the version number free for the next attempt.
       - name: Push release tag
         id: tag
         env:
@@ -326,8 +332,6 @@ jobs:
           prerelease: false
           generate_release_notes: true
 
-      # Bookkeeping only. The published version is already live and tagged by this
-      # point, so nothing below is allowed to fail the release.
       - name: Prepare manifest bump branch for staging
         id: bookkeeping
         env:
@@ -337,10 +341,6 @@ jobs:
 
           BRANCH="chore/chrome-extension-v$NEW_VERSION"
 
-          # The build step patched manifest.json in the working tree. Drop that
-          # local edit first: otherwise the checkout below either refuses (the
-          # file differs between main and staging) or carries the patched file
-          # over, which would make the "already at version" check pass wrongly.
           git checkout -- chrome-extension/manifest.json
           git fetch origin staging --quiet
           git checkout -B "$BRANCH" origin/staging
@@ -396,12 +396,6 @@ jobs:
             exit 0
           fi
 
-          # "Allow GitHub Actions to create and approve pull requests" may be off at
-          # the repo or org level, in which case this call is refused. The branch is
-          # already pushed, so fall back to printing the compare URL rather than
-          # failing a release that is already live.
-          # stdout carries the PR URL, stderr carries any diagnostics. Keep them
-          # apart so a warning on stderr is never mistaken for the URL.
           if PR_URL=$(gh pr create \
             --base staging \
             --head "$BRANCH" \

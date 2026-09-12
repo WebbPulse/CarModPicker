@@ -1,20 +1,6 @@
-"""AUTH-06 D-36 drift guard: chrome-extension/API_CONTRACT.md matches generator output.
+"""Fails when chrome-extension/API_CONTRACT.md is stale against its generator.
 
-Per D-36, developers regenerate the contract locally when the extension endpoint
-list or underlying route signatures change, then commit the new .md. CI fails
-here if the committed doc is stale.
-
-IMPORTANT: this test does NOT import the generator as a Python module.
-``backend/scripts/`` has no ``__init__.py`` and ``backend/`` itself is not on
-``sys.path`` as a package (pytest.ini sets testpaths=tests with rootdir at
-``backend/``). A Python-level import of the generator would raise
-``ModuleNotFoundError``. Instead we subprocess-invoke the script with
-``--stdout``, which is how ``test_openapi_snapshot.py`` avoids script-import
-issues too (it calls ``app.openapi()`` directly in-process rather than
-importing any script).
-
-Same shape as ``test_openapi_snapshot.py`` in spirit — diff IS the review
-artifact.
+The generator is run as a subprocess rather than imported, because backend/scripts is not an importable package.
 """
 
 from __future__ import annotations
@@ -29,10 +15,7 @@ CONTRACT_PATH = Path(__file__).resolve().parents[2] / "chrome-extension" / "API_
 
 
 def test_api_contract_matches_generator() -> None:
-    # Subprocess-invoke with --stdout — captures Markdown as the generator emits it.
-    # TESTING=true + ENABLE_RATE_LIMITING=false ensure the OpenAPI schema matches the
-    # conftest.py env-var setup used by test_openapi_snapshot.py (pitfall 8 in
-    # PATTERNS.md).
+    """The committed contract matches what the generator emits today."""
     env = {
         **os.environ,
         "TESTING": "true",
@@ -44,7 +27,6 @@ def test_api_contract_matches_generator() -> None:
         text=True,
         check=True,
         env=env,
-        # Run with backend/ as cwd so `from app.main import app` resolves.
         cwd=str(SCRIPT_PATH.parent.parent),
     )
     expected = result.stdout

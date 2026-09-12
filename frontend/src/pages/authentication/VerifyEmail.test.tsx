@@ -1,15 +1,3 @@
-// Phase 8 Plan 10 (D-11 Wave 3) — VerifyEmail page coverage.
-//
-// Authenticated-only screen that lets a user who hasn't verified their email
-// request a new verification link. Three branches matter:
-//   1. No user → "User not found" error + sign-in link.
-//   2. email_verified=true → "Email Already Verified" confirmation.
-//   3. email_verified=false → "Send Verification Email" button → apiClient.post.
-//
-// Authenticated state is constructed from the canonical UserRead mockUser
-// (testScenarios.authenticated's user shape is incompatible with UserRead —
-// see ExtensionAuth.test.tsx for the same workaround).
-
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   render,
@@ -18,8 +6,12 @@ import {
   fireEvent,
 } from '../../test/utils/test-utils';
 import { mockUser } from '../../test/mocks/api';
-import { apiClient } from '../../api/client';
+import { requestVerificationEmail } from '../../api/identityAuth';
 import VerifyEmail from './VerifyEmail';
+
+vi.mock('../../api/identityAuth', () => ({
+  requestVerificationEmail: vi.fn(),
+}));
 
 describe('VerifyEmail page', () => {
   beforeEach(() => {
@@ -48,7 +40,6 @@ describe('VerifyEmail page', () => {
         isLoading: false,
       },
     });
-    // Page displays user email and a "Send Verification Email" button.
     expect(
       screen.getAllByText(new RegExp(mockUser.email, 'i')).length
     ).toBeGreaterThan(0);
@@ -57,8 +48,11 @@ describe('VerifyEmail page', () => {
     ).toBeInTheDocument();
   });
 
-  it('POSTs to /auth/verify-email with the user email when the button is clicked', async () => {
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
+  it('asks the identity service for a mail to the user email on click', async () => {
+    vi.mocked(requestVerificationEmail).mockResolvedValueOnce({
+      ok: true,
+      message: 'Verification email sent.',
+    });
 
     render(<VerifyEmail />, {
       initialAuthState: {
@@ -73,14 +67,8 @@ describe('VerifyEmail page', () => {
     );
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalled();
+      expect(requestVerificationEmail).toHaveBeenCalledWith(mockUser.email);
     });
-    expect(vi.mocked(apiClient.post).mock.calls[0]?.[0]).toBe(
-      '/auth/verify-email'
-    );
-    const rawBody: unknown = vi.mocked(apiClient.post).mock.calls[0]?.[1];
-    const body = rawBody as { email: string };
-    expect(body.email).toBe(mockUser.email);
 
     await waitFor(() => {
       expect(screen.getByText(/verification email sent/i)).toBeInTheDocument();

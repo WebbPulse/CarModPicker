@@ -7,7 +7,6 @@ def test_load_returns_dict_with_expected_top_level_makes() -> None:
 
     data = load_car_generations()
     assert isinstance(data, dict)
-    # Keys verified by grep of current car_generations_data.py:
     assert "Honda" in data
     assert "Toyota" in data
     assert "BMW" in data
@@ -18,7 +17,6 @@ def test_lru_cache_single_load() -> None:
     from app.core.car_generations import load_car_generations
 
     a = load_car_generations()
-    # Identity, not equality: @lru_cache(maxsize=1) must return the same object.
     assert a is load_car_generations()
     assert load_car_generations() is load_car_generations()
 
@@ -44,11 +42,10 @@ def test_seed_directory_exists_and_each_file_parses() -> None:
             continue
         file_count += 1
         payload = json.loads(entry.read_text(encoding="utf-8"))
-        # Each per-make file is a single-key dict.
         assert len(payload) == 1, f"{entry.name} should have exactly one make key"
         merged.update(payload)
     assert file_count >= 40, f"expected at least 40 per-make files, got {file_count}"
     assert "Honda" in merged
     assert "Toyota" in merged
-    assert "Plymouth" in merged  # Recently added — guards against accidental file deletion.
+    assert "Plymouth" in merged
     assert "Chrysler" in merged

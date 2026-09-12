@@ -1,14 +1,6 @@
 [
   [
     "DELETE",
-    "/api/auth/oauth/{account_id}"
-  ],
-  [
-    "DELETE",
-    "/api/auth/webauthn/credentials/{credential_id}"
-  ],
-  [
-    "DELETE",
     "/api/bug-reports/{bug_report_id}"
   ],
   [
@@ -93,19 +85,7 @@
   ],
   [
     "GET",
-    "/api/app-settings/"
-  ],
-  [
-    "GET",
-    "/api/auth/oauth"
-  ],
-  [
-    "GET",
-    "/api/auth/verify-email/confirm"
-  ],
-  [
-    "GET",
-    "/api/auth/webauthn/credentials"
+    "/api/app-settings"
   ],
   [
     "GET",
@@ -149,7 +129,7 @@
   ],
   [
     "GET",
-    "/api/build-lists/"
+    "/api/build-lists"
   ],
   [
     "GET",
@@ -193,7 +173,7 @@
   ],
   [
     "GET",
-    "/api/car-generations/"
+    "/api/car-generations"
   ],
   [
     "GET",
@@ -277,7 +257,7 @@
   ],
   [
     "GET",
-    "/api/part-manufacturers/"
+    "/api/part-manufacturers"
   ],
   [
     "GET",
@@ -313,7 +293,7 @@
   ],
   [
     "GET",
-    "/api/parts/"
+    "/api/parts"
   ],
   [
     "GET",
@@ -385,7 +365,7 @@
   ],
   [
     "GET",
-    "/api/retailers/"
+    "/api/retailers"
   ],
   [
     "GET",
@@ -461,10 +441,6 @@
   ],
   [
     "PATCH",
-    "/api/auth/webauthn/credentials/{credential_id}"
-  ],
-  [
-    "PATCH",
     "/api/build-lists/{build_list_id}/primary-image"
   ],
   [
@@ -497,78 +473,6 @@
   ],
   [
     "POST",
-    "/api/auth/2fa/disable"
-  ],
-  [
-    "POST",
-    "/api/auth/2fa/setup"
-  ],
-  [
-    "POST",
-    "/api/auth/2fa/verify"
-  ],
-  [
-    "POST",
-    "/api/auth/logout"
-  ],
-  [
-    "POST",
-    "/api/auth/oauth/2fa"
-  ],
-  [
-    "POST",
-    "/api/auth/oauth/google"
-  ],
-  [
-    "POST",
-    "/api/auth/oauth/google/connect"
-  ],
-  [
-    "POST",
-    "/api/auth/oauth/google/link"
-  ],
-  [
-    "POST",
-    "/api/auth/oauth/google/signup"
-  ],
-  [
-    "POST",
-    "/api/auth/reset-password"
-  ],
-  [
-    "POST",
-    "/api/auth/reset-password/confirm"
-  ],
-  [
-    "POST",
-    "/api/auth/token"
-  ],
-  [
-    "POST",
-    "/api/auth/token/2fa"
-  ],
-  [
-    "POST",
-    "/api/auth/verify-email"
-  ],
-  [
-    "POST",
-    "/api/auth/webauthn/login/options"
-  ],
-  [
-    "POST",
-    "/api/auth/webauthn/login/verify"
-  ],
-  [
-    "POST",
-    "/api/auth/webauthn/register/options"
-  ],
-  [
-    "POST",
-    "/api/auth/webauthn/register/verify"
-  ],
-  [
-    "POST",
     "/api/bug-reports/"
   ],
   [
@@ -581,7 +485,7 @@
   ],
   [
     "POST",
-    "/api/build-lists/"
+    "/api/build-lists"
   ],
   [
     "POST",
@@ -613,19 +517,23 @@
   ],
   [
     "POST",
+    "/api/images/fetch-from-url"
+  ],
+  [
+    "POST",
     "/api/images/upload"
   ],
   [
     "POST",
-    "/api/part-manufacturers/"
+    "/api/part-manufacturers"
   ],
   [
     "POST",
-    "/api/part-price-alerts/"
+    "/api/part-price-alerts"
   ],
   [
     "POST",
-    "/api/parts/"
+    "/api/parts"
   ],
   [
     "POST",
@@ -645,15 +553,11 @@
   ],
   [
     "POST",
-    "/api/retailers/"
+    "/api/retailers"
   ],
   [
     "POST",
     "/api/retailers/get-or-create"
-  ],
-  [
-    "POST",
-    "/api/users/"
   ],
   [
     "POST",
@@ -665,7 +569,7 @@
   ],
   [
     "PUT",
-    "/api/app-settings/"
+    "/api/app-settings"
   ],
   [
     "PUT",

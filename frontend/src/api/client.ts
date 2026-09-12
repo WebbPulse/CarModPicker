@@ -1,95 +1,55 @@
-// The shared API transport, adapted to the response shape this application
-// already reads.
-//
-// The transport is `@webbpulse/api-client` and the token store is
-// `@webbpulse/auth`. Both replace hand-rolled equivalents that used to live in
-// this file: an axios instance with a request interceptor that attached the
-// bearer token, a response interceptor that stored a rotated token from the
-// `x-new-access-token` header, a `paramsSerializer` that repeated array keys,
-// and three `localStorage` helpers.
-//
-// What did NOT change is the contract this file exports. Ninety modules under
-// `src/api/`, `src/hooks/` and `src/pages/` read `response.data` off an axios
-// style response and catch a rejected promise on a non 2xx, and the test suite
-// mocks this module with objects of the same shape. So `apiClient` below keeps
-// the `{ data }` envelope and the `{ params }` / `{ headers }` request options,
-// and the adapter that maps between the two is the small block at the bottom.
-// Rewriting 257 call sites to unwrap a different envelope would be a much
-// larger change with no behavioural gain, and the brief for this migration is
-// to adapt at the service boundary instead.
-//
-// `createEnvelopeClient` from the shared package is deliberately not used here.
-// It converts a rejection into `{ data: T | null, error }`, which is what
-// Portfolio's call sites expect. CarModPicker's are the opposite: they `await`
-// into a `try` block, catch the rejection, and read a `data` the types say is
-// never null. Wrapping the client in the envelope would make every one of those
-// call sites silently succeed with `data === null` on a failed request. So this
-// file keeps the throwing client and only reshapes the success value.
+/**
+ * Shared HTTP client for the CarModPicker API. Identity only since row 13, so
+ * the access token comes from `AuthClient` and never from `localStorage`.
+ */
+
 import {
   ApiError,
   createApiClient,
   type QueryParams,
   type RequestOptions,
 } from '@webbpulse/api-client';
-import { TokenStore } from '@webbpulse/auth';
+import { getIdentityClient } from './identityClient';
 import { appConfig } from '../config/app';
 
 /**
- * Token storage key. Unchanged from the hand-rolled version: changing it would
- * sign every existing user out on the deploy that adopted this package.
+ * Get the access token.
+ *
+ * The token lives in `AuthClient`'s closure rather than in `localStorage`.
+ * Reading it through here keeps the one caller that needs the raw string,
+ * `ExtensionAuth`, to a single call.
  */
-const TOKEN_STORAGE_KEY = 'access_token';
+export const getStoredToken = (): string | null =>
+  getIdentityClient()?.getAccessToken() ?? null;
 
 /**
- * Backed by `@webbpulse/auth`, which probes `localStorage` with a real write
- * and falls back to an in-memory store. Safari in private mode exposes a
- * `localStorage` whose `setItem` throws, which the previous direct calls did
- * not survive.
+ * Store the token. A no-op, kept callable so call sites need no branch; the
+ * access token stays in memory and only `AuthClient` may set one.
  */
-const tokenStore = new TokenStore(TOKEN_STORAGE_KEY);
+export const setStoredToken = (_token: string): void => {};
 
-/** Get token from storage. */
-export const getStoredToken = (): string | null => tokenStore.get();
+/**
+ * Forget the token. Also a no-op; only the server can revoke the refresh
+ * cookie, so the caller wants `AuthClient.logout()`.
+ */
+export const removeStoredToken = (): void => {};
 
-/** Store token. */
-export const setStoredToken = (token: string): void => {
-  tokenStore.set(token);
-};
-
-/** Remove token from storage. */
-export const removeStoredToken = (): void => {
-  tokenStore.clear();
-};
+/**
+ * The identity token provider. Passing `auth` turns on the shared client's
+ * retry-once-on-401 pipeline.
+ */
+const identityAuth = getIdentityClient();
 
 const sharedClient = createApiClient({
   baseUrl: appConfig.apiBaseUrl,
-  // Send cookies on cross-subdomain calls to the API host. Staging sits behind
-  // the access gate, whose CloudFront signed cookies are set on the staging
-  // apex, so a request from www.staging to api.staging only carries them when
-  // the browser is told to include credentials. Both backends run CORS with
-  // allow_credentials and an explicit origin list, so this is safe in every
-  // environment; auth itself still rides on the Bearer token below.
-  //
-  // This is the shared client's default, stated explicitly because it is load
-  // bearing here rather than incidental.
   credentials: 'include',
   timeoutMs: 30000,
-  getAuthToken: getStoredToken,
-  // The API issues a replacement token mid-session, for example after a
-  // username change. Storing it is what keeps that from signing the user out.
-  onTokenRefresh: setStoredToken,
+  ...(identityAuth !== null ? { auth: identityAuth } : {}),
 });
 
 /**
- * The response shape this application's call sites destructure.
- *
- * Only `data` is exposed. The shared client resolves with `status` and
- * `headers` alongside it, and those pass through untouched at runtime, but no
- * call site in this application reads either: the status that matters is on the
- * thrown `ApiError`, and the one response header that mattered
- * (`x-new-access-token`) is consumed by the client itself. Narrowing the type
- * to what is actually used keeps a caller from taking a dependency on the
- * transport, and lets a test stub a response with the one field it cares about.
+ * Response shape call sites destructure. Only `data` is exposed so callers do
+ * not depend on the transport; status arrives on the thrown `ApiError`.
  */
 export interface ApiClientResponse<T> {
   data: T;
@@ -103,12 +63,8 @@ export interface ApiRequestConfig {
 }
 
 /**
- * Maps axios `params` onto the shared client's `query`.
- *
- * `URLSearchParams` is accepted because a few call sites build one directly.
- * Array values repeat the key (`ids=1&ids=2`) in the shared client, which is
- * what the backend's `ids` and `category_ids` parameters require and what the
- * removed `paramsSerializer` used to do by hand.
+ * Maps axios-style `params` onto the shared client's `query`, accepting a
+ * `URLSearchParams` and repeating keys for array values as the backend needs.
  */
 const toQuery = (
   params: ApiRequestConfig['params']
@@ -132,19 +88,9 @@ const toQuery = (
 };
 
 /**
- * Translates an axios style config into shared client `RequestOptions`.
- *
- * The Content-Type handling is the part that matters. Axios inferred a body
- * encoding from the header it was given; the shared client infers it from the
- * body's type and deliberately leaves `FormData` alone so the browser can set
- * its own multipart boundary. So:
- *
- *   - `multipart/form-data` is dropped. Forwarding it would send a boundary-less
- *     header and the backend would fail to parse the upload. The body is
- *     already a `FormData`, which the shared client passes through untouched.
- *   - `application/x-www-form-urlencoded` is honoured by encoding a plain
- *     object body into `URLSearchParams`, which axios used to do implicitly.
- *     The login endpoint depends on this.
+ * Translates an axios-style config into shared client `RequestOptions`. Drops
+ * `multipart/form-data` so the browser sets its own boundary, and encodes a
+ * form-urlencoded body into `URLSearchParams`.
  */
 const toRequestOptions = (
   config: ApiRequestConfig | undefined,
@@ -161,7 +107,6 @@ const toRequestOptions = (
     const contentType =
       key.toLowerCase() === 'content-type' ? value.toLowerCase() : undefined;
     if (contentType?.includes('multipart/form-data') === true) {
-      // Dropped on purpose: the browser must supply the boundary.
       continue;
     }
     if (contentType?.includes('application/x-www-form-urlencoded') === true) {
@@ -175,11 +120,6 @@ const toRequestOptions = (
         for (const [field, fieldValue] of Object.entries(
           encodedBody as Record<string, unknown>
         )) {
-          // Only primitives are encodable. A nested object has no
-          // form-urlencoded representation and would be appended as the
-          // literal string "[object Object]", which the backend would accept
-          // and then fail to parse. Skipping it surfaces the missing field at
-          // the API instead of sending a corrupt value.
           if (
             typeof fieldValue === 'string' ||
             typeof fieldValue === 'number' ||
@@ -190,8 +130,6 @@ const toRequestOptions = (
         }
         encodedBody = search;
       }
-      // `URLSearchParams` already carries this content type, so the header is
-      // not forwarded either way.
       continue;
     }
     headers[key] = value;
@@ -202,13 +140,8 @@ const toRequestOptions = (
 };
 
 /**
- * The application-facing client.
- *
- * Every method resolves to `{ data, status, headers }` and rejects with the
- * shared `ApiError` on a non 2xx, which is the same "reject on failure"
- * contract the axios instance had. Error consumers read `error.status` and
- * `error.body` rather than `error.response`; `isApiErrorWithStatus` below is
- * the helper for the handful of sites that need the status.
+ * Application-facing client. Each method resolves to `{ data }` and rejects
+ * with `ApiError` on a non 2xx.
  */
 export const apiClient = {
   get: <T = unknown>(
@@ -251,11 +184,7 @@ export const apiClient = {
   },
 };
 
-/**
- * True when the error came back from the API carrying an HTTP status.
- *
- * Replaces `axios.isAxiosError(error)` plus a `error.response?.status` reach.
- */
+/** True when the error came back from the API carrying an HTTP status. */
 export const isApiErrorWithStatus = (error: unknown): error is ApiError =>
   error instanceof ApiError;
 

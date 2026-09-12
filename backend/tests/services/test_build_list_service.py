@@ -24,7 +24,6 @@ class TestBuildListService:
         car_id = uuid4()
         repository = BuildListRepository()
 
-        # Create build lists for the car
         repository.create(
             BuildList(
                 name=get_unique_name("test_build_list_1"),
@@ -43,7 +42,6 @@ class TestBuildListService:
         )
         repository.create(BuildList(name=get_unique_name("other_car"), car_id=uuid4(), user_id=test_user.id))
 
-        # Test the service
         service = BuildListService()
         result = service.get_build_lists_by_car(car_id)
         assert isinstance(result, list)
@@ -60,7 +58,6 @@ class TestBuildListService:
             )
         )
 
-        # Test the service
         service = BuildListService()
         result = service.get_build_lists_by_user(test_user.id)
         assert isinstance(result, list)
@@ -68,11 +65,9 @@ class TestBuildListService:
 
     def test_count_by_user(self, db_session: Any, test_user: User) -> None:
         """Test counting build lists by user."""
-        # Get initial count
         service = BuildListService()
         initial_count = service.count_by_user(test_user.id)
 
-        # Create a build list
         BuildListRepository().create(
             BuildList(
                 name=get_unique_name("test_count_build_list"),
@@ -82,6 +77,5 @@ class TestBuildListService:
             )
         )
 
-        # Test the count increased
         new_count = service.count_by_user(test_user.id)
         assert new_count == initial_count + 1

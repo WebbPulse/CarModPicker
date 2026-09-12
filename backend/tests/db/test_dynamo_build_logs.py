@@ -1,3 +1,5 @@
+"""Covers the build log and build log post repositories, including the build list cascade."""
+
 from typing import Any
 from uuid import uuid4
 
@@ -22,15 +24,18 @@ from app.db.dynamo.build_logs import (
 
 @pytest.fixture
 def build_logs(dynamo_tables: Any) -> BuildLogRepository:
+    """A build log repository backed by the moto tables."""
     return BuildLogRepository()
 
 
 @pytest.fixture
 def posts(dynamo_tables: Any) -> BuildLogPostRepository:
+    """A build log post repository backed by the moto tables."""
     return BuildLogPostRepository()
 
 
 def test_for_build_list_finds_the_thread(build_logs: BuildLogRepository) -> None:
+    """A build list resolves to its own log and not another's."""
     build_list_id = uuid4()
     created = build_logs.create(BuildLog(build_list_id=build_list_id, title="Build Log: Mine"))
     build_logs.create(BuildLog(build_list_id=uuid4(), title="Build Log: Other"))
@@ -42,10 +47,12 @@ def test_for_build_list_finds_the_thread(build_logs: BuildLogRepository) -> None
 
 
 def test_for_build_list_is_none_when_missing(build_logs: BuildLogRepository) -> None:
+    """A build list with no log resolves to None."""
     assert build_logs.for_build_list(uuid4()) is None
 
 
 def test_posts_come_back_oldest_first(posts: BuildLogPostRepository) -> None:
+    """Posts for one log come back oldest first, scoped to that log."""
     build_log_id = uuid4()
     first = posts.create(BuildLogPost(build_log_id=build_log_id, user_id=uuid4(), content="first"))
     second = posts.create(BuildLogPost(build_log_id=build_log_id, user_id=uuid4(), content="second"))
@@ -57,6 +64,7 @@ def test_posts_come_back_oldest_first(posts: BuildLogPostRepository) -> None:
 
 
 def test_posts_paginate_with_a_cursor(posts: BuildLogPostRepository) -> None:
+    """Post listings page through with a cursor and end with none."""
     build_log_id = uuid4()
     for index in range(3):
         posts.create(BuildLogPost(build_log_id=build_log_id, user_id=uuid4(), content=f"post {index}"))
@@ -71,6 +79,7 @@ def test_posts_paginate_with_a_cursor(posts: BuildLogPostRepository) -> None:
 
 
 def test_list_by_user(posts: BuildLogPostRepository) -> None:
+    """Listing by author returns only that author's posts."""
     author = uuid4()
     posts.create(BuildLogPost(build_log_id=uuid4(), user_id=author, content="a"))
     posts.create(BuildLogPost(build_log_id=uuid4(), user_id=author, content="b"))
@@ -80,6 +89,7 @@ def test_list_by_user(posts: BuildLogPostRepository) -> None:
 
 
 def test_anonymous_posts_have_no_user(posts: BuildLogPostRepository) -> None:
+    """A post created without an author stores no user id."""
     post = posts.create(BuildLogPost(build_log_id=uuid4(), content="orphaned"))
 
     assert posts.get_or_raise(post.id).user_id is None
@@ -88,6 +98,7 @@ def test_anonymous_posts_have_no_user(posts: BuildLogPostRepository) -> None:
 def test_build_list_cascade_removes_the_log_and_its_posts(
     build_logs: BuildLogRepository, posts: BuildLogPostRepository
 ) -> None:
+    """Deleting a build list removes its log and posts and leaves other logs alone."""
     build_lists = BuildListRepository()
     build_list = build_lists.create(BuildList(name="Doomed", user_id=uuid4()))
     log = build_logs.create(BuildLog(build_list_id=build_list.id, title="Build Log: Doomed"))
@@ -110,4 +121,5 @@ def test_build_list_cascade_removes_the_log_and_its_posts(
 
 
 def test_delete_actions_are_empty_without_a_log(build_logs: BuildLogRepository, posts: BuildLogPostRepository) -> None:
+    """A build list with no log yields no delete actions."""
     assert build_log_delete_actions(uuid4(), build_logs=build_logs, posts=posts) == []

@@ -1,6 +1,6 @@
 """Tests for image utility functions."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from app.api.utils.image_utils import get_presigned_url_from_file_key, is_file_key
 
@@ -59,6 +59,5 @@ class TestImageUtils:
 
         with patch("app.api.utils.image_utils.storage_service") as mock_storage:
             mock_storage.get_presigned_url.side_effect = Exception("Storage error")
-            # Should return file key as fallback
             result = get_presigned_url_from_file_key(file_key)
             assert result == file_key

@@ -23,13 +23,13 @@ TESTING=true ENABLE_RATE_LIMITING=false python scripts/generate_ext_api_contract
 
 ```json
 {
+  "description": "A user account as returned to its owner.",
   "properties": {
     "disabled": {
       "title": "Disabled",
       "type": "boolean"
     },
     "email": {
-      "format": "email",
       "title": "Email",
       "type": "string"
     },
@@ -215,7 +215,7 @@ TESTING=true ENABLE_RATE_LIMITING=false python scripts/generate_ext_api_contract
 
 ---
 
-## `GET /api/retailers/`
+## `GET /api/retailers`
 
 **Summary:** Get Retailers
 
@@ -236,7 +236,7 @@ TESTING=true ENABLE_RATE_LIMITING=false python scripts/generate_ext_api_contract
   "items": {
     "$ref": "#/components/schemas/RetailerRead"
   },
-  "title": "Response Get Retailers Api Retailers  Get",
+  "title": "Response Get Retailers Api Retailers Get",
   "type": "array"
 }
 ```
@@ -319,6 +319,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ```json
 {
+  "description": "A retailer as returned to clients.",
   "properties": {
     "base_url": {
       "anyOf": [
@@ -481,6 +482,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ```json
 {
+  "description": "A part as returned to clients.",
   "properties": {
     "best_price_cents": {
       "anyOf": [
@@ -668,6 +670,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ```json
 {
+  "description": "Request body for appending images to a part gallery.",
   "properties": {
     "file_keys": {
       "description": "Image references to append: file keys (from images/upload) or external URLs (scraped); max 12.",
@@ -693,6 +696,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ```json
 {
+  "description": "A part as returned to clients.",
   "properties": {
     "best_price_cents": {
       "anyOf": [
@@ -864,7 +868,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ---
 
-## `POST /api/parts/`
+## `POST /api/parts`
 
 **Summary:** Create Part
 
@@ -874,6 +878,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ```json
 {
+  "description": "Request body for creating a part.",
   "properties": {
     "car_ids": {
       "anyOf": [
@@ -1024,6 +1029,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ```json
 {
+  "description": "A part as returned to clients.",
   "properties": {
     "best_price_cents": {
       "anyOf": [
@@ -1213,6 +1219,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ```json
 {
+  "description": "Request body for creating a part listing.",
   "properties": {
     "part_id": {
       "description": "Part ID",
@@ -1267,6 +1274,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ```json
 {
+  "description": "A part listing with its retailer resolved.",
   "properties": {
     "created_at": {
       "format": "date-time",
@@ -1323,6 +1331,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
       "title": "Product Url"
     },
     "retailer": {
+      "description": "A retailer as returned to clients.",
       "properties": {
         "base_url": {
           "anyOf": [
@@ -1431,7 +1440,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ---
 
-## `GET /api/part-manufacturers/`
+## `GET /api/part-manufacturers`
 
 **Summary:** Get Part Manufacturers
 
@@ -1452,7 +1461,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
   "items": {
     "$ref": "#/components/schemas/PartManufacturerResponse"
   },
-  "title": "Response Get Part Manufacturers Api Part Manufacturers  Get",
+  "title": "Response Get Part Manufacturers Api Part Manufacturers Get",
   "type": "array"
 }
 ```
@@ -1478,7 +1487,7 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 
 ---
 
-## `POST /api/part-manufacturers/`
+## `POST /api/part-manufacturers`
 
 **Summary:** Create Part Manufacturer
 
@@ -1531,6 +1540,7 @@ isn't minted twice — an existing match is returned instead.
 
 ```json
 {
+  "description": "A part manufacturer as returned to clients.",
   "properties": {
     "created_at": {
       "format": "date-time",
@@ -1589,9 +1599,11 @@ isn't minted twice — an existing match is returned instead.
 
 ---
 
-## `GET /api/car-generations/`
+## `GET /api/car-generations`
 
 **Summary:** List Entities
+
+**Description:** Return one page of entities.
 
 **Parameters:**
 
@@ -1716,19 +1728,6 @@ Returns the existing file_key if found, so clients can skip re-uploading.
 
 The file is validated for security (type, size, content) and stored
 in S3 bucket. Returns the file key which should be stored
-in your database. Use the /presigned-url endpoint to get a URL for displaying.
-
-Args:
-    entity_type: Type of entity (e.g., 'build_list', 'part', 'user', 'car')
-    entity_id: Optional ID of the entity (for updates)
-    file: Image file to upload
-    current_user: Authenticated user (from JWT token)
-
-Returns:
-    dict: Contains 'file_key' (store this in your database) and 'presigned_url' (for immediate use)
-
-Raises:
-    HTTPException: If upload fails, validation fails, or user is not authenticated
 
 **Parameters:**
 
@@ -1778,14 +1777,100 @@ Raises:
 
 ---
 
-## `POST /api/crawled-pages/scrape`
+## `POST /api/images/fetch-from-url`
 
-**Summary:** Scrape Page From Extension
+**Summary:** Fetch Image From Url
+
+**Description:** Fetch an image from a public https URL server side and store it.
+
+The extension cannot read these bytes itself, so the server fetches them
+behind the same auth, authorization and validation as `/upload`.
 
 **Request body (`application/json`):**
 
 ```json
 {
+  "description": "The source image URL the server should fetch, and what it is attached to.",
+  "properties": {
+    "entity_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional id of the entity being updated",
+      "title": "Entity Id"
+    },
+    "entity_type": {
+      "description": "Type of entity the image belongs to",
+      "title": "Entity Type",
+      "type": "string"
+    },
+    "source_url": {
+      "description": "https URL of the image to fetch and store",
+      "title": "Source Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_url",
+    "entity_type"
+  ],
+  "title": "FetchFromUrlRequest",
+  "type": "object"
+}
+```
+
+**Responses:**
+
+- `200` — Successful Response
+
+```json
+{
+  "additionalProperties": {
+    "type": "string"
+  },
+  "title": "Response Fetch Image From Url Api Images Fetch From Url Post",
+  "type": "object"
+}
+```
+
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
+## `POST /api/crawled-pages/scrape`
+
+**Summary:** Scrape Page From Extension
+
+**Description:** Parse a scraped product page into part fields the caller can review.
+
+**Request body (`application/json`):**
+
+```json
+{
+  "description": "A product page URL and its HTML, submitted by the browser extension.",
   "properties": {
     "html": {
       "title": "Html",
@@ -1811,6 +1896,7 @@ Raises:
 
 ```json
 {
+  "description": "The part fields parsed out of a scraped product page.",
   "properties": {
     "adapter_used": {
       "title": "Adapter Used",

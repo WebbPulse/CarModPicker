@@ -1,9 +1,6 @@
-"""Linker matches across part-number styling drift.
+"""The linker matches across part-number styling drift.
 
-Tier-3 Item #7 contract: ``find_part_by_part_manufacturer_and_part_number``
-keys lookups off ``part_number_normalized`` (alphanumeric-uppercase) so a
-later ingest of ``"AEM 30/2400"`` finds a canonical that was first ingested
-as ``"AEM-30-2400"``. SQLite-backed.
+Lookups key off the normalized part number, so punctuation differences still match.
 """
 
 from __future__ import annotations
@@ -22,6 +19,7 @@ from tests.conftest import save_catalog
 
 
 def _unique(prefix: str) -> str:
+    """A name unique to this worker, so parallel runs do not collide."""
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     return f"{prefix}_{worker}_{uuid.uuid4().hex[:10]}"
 
@@ -35,6 +33,7 @@ def _seed_part(
     part_number: str,
     part_number_normalized: str,
 ) -> DBPart:
+    """Save a universal part carrying the given part number and its normalized form."""
     part = DBPart(
         name=_unique("part"),
         category_id=category_id,
@@ -66,7 +65,6 @@ def test_linker_matches_across_styling_drift(
         part_number_normalized="AEM302400",
     )
 
-    # Each of these styling variants of the same code should resolve.
     for variant in ("AEM-30-2400", "AEM 30/2400", "aem_30_2400", "AEM30-2400"):
         match = find_part_by_part_manufacturer_and_part_number(test_part_manufacturer.id, variant)
         assert match is not None, f"linker missed {variant!r}"
