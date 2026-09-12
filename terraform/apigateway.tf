@@ -210,7 +210,9 @@ module "api" {
       "Content-Type",
       "Origin",
       "X-Admin-Cron-Key",
+      "X-Request-Id",
       "X-Requested-With",
+      "X-Retry-Attempt",
     ]
     expose_headers = [
       "Retry-After",
