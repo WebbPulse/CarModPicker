@@ -15,11 +15,17 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from webbpulse.logging import JsonFormatter
 
 from app.api.middleware.shared_rate_limiter import (
+    ADMIN_CLASS,
+    AUTH_CLASS,
     COUNT_ATTRIBUTE,
+    DEFAULT_CLASS,
+    GET_CLASS,
     REQUEST_CONTEXT_HEADER,
     TTL_ATTRIBUTE,
     SharedRateLimiter,
+    build_limiters,
     client_identity,
+    request_class,
     request_route,
 )
 
@@ -97,9 +103,20 @@ def frozen_now(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     return current
 
 
-def make_limiter(table: FakeTable, *, max_requests: int = 3, window_seconds: int = 60) -> SharedRateLimiter:
-    """Build a limiter over a fake table with the given limit and window."""
-    return SharedRateLimiter(max_requests, window_seconds, table_client=table)
+def make_limiter(
+    table: FakeTable,
+    *,
+    max_requests: int = 3,
+    window_seconds: int = 60,
+    limiter_class: str = DEFAULT_CLASS,
+) -> SharedRateLimiter:
+    """Build a limiter over a fake table with the given limit, window and class."""
+    return SharedRateLimiter(max_requests, window_seconds, request_class=limiter_class, table_client=table)
+
+
+def row_key(identity: str, limiter_class: str = DEFAULT_CLASS) -> str:
+    """The partition key the limiter writes for one caller in one class."""
+    return f"RATE#{limiter_class}#{identity}"
 
 
 def test_requests_under_the_limit_are_allowed(frozen_now: list[int]) -> None:
@@ -266,7 +283,7 @@ def test_written_items_carry_a_ttl_in_the_future(frozen_now: list[int]) -> None:
 
     limiter.check("1.2.3.4")
 
-    item = table.items["RATE#1.2.3.4"]
+    item = table.items[row_key("1.2.3.4")]
     assert item[TTL_ATTRIBUTE] == frozen_now[0] + 90
 
 
@@ -276,12 +293,12 @@ def test_ttl_is_not_extended_by_later_requests_in_the_same_window(frozen_now: li
     limiter = make_limiter(table, max_requests=10, window_seconds=60)
 
     limiter.check("1.2.3.4")
-    first_expiry = table.items["RATE#1.2.3.4"][TTL_ATTRIBUTE]
+    first_expiry = table.items[row_key("1.2.3.4")][TTL_ATTRIBUTE]
 
     frozen_now[0] += 30
     limiter.check("1.2.3.4")
 
-    assert table.items["RATE#1.2.3.4"][TTL_ATTRIBUTE] == first_expiry
+    assert table.items[row_key("1.2.3.4")][TTL_ATTRIBUTE] == first_expiry
 
 
 def test_expired_window_starts_a_fresh_count(frozen_now: list[int]) -> None:
@@ -297,8 +314,8 @@ def test_expired_window_starts_a_fresh_count(frozen_now: list[int]) -> None:
 
     limited, _ = limiter.check("1.2.3.4")
     assert limited is False
-    assert table.items["RATE#1.2.3.4"][COUNT_ATTRIBUTE] == 1
-    assert table.items["RATE#1.2.3.4"][TTL_ATTRIBUTE] == frozen_now[0] + 60
+    assert table.items[row_key("1.2.3.4")][COUNT_ATTRIBUTE] == 1
+    assert table.items[row_key("1.2.3.4")][TTL_ATTRIBUTE] == frozen_now[0] + 60
 
 
 def test_expired_item_is_treated_as_absent_even_if_dynamodb_still_serves_it(
@@ -308,7 +325,7 @@ def test_expired_item_is_treated_as_absent_even_if_dynamodb_still_serves_it(
     table = FakeTable()
     limiter = make_limiter(table, max_requests=1, window_seconds=60)
 
-    table.items["RATE#1.2.3.4"] = {
+    table.items[row_key("1.2.3.4")] = {
         "pk": "RATE#1.2.3.4",
         COUNT_ATTRIBUTE: 500,
         TTL_ATTRIBUTE: frozen_now[0] - 1,
@@ -316,6 +333,129 @@ def test_expired_item_is_treated_as_absent_even_if_dynamodb_still_serves_it(
 
     assert limiter.is_limited("1.2.3.4") is False
     assert limiter.retry_after("1.2.3.4") is None
+
+
+class TestRequestClass:
+    """The pure classification function every limiter lookup goes through."""
+
+    def test_every_get_is_the_get_class(self) -> None:
+        """A GET is a GET whatever it targets, including auth and admin paths."""
+        for path in ("/api/parts", "/api/auth/login", "/api/admin/users", "/api/auth/refresh"):
+            assert request_class("GET", path) == GET_CLASS, path
+
+    def test_method_matching_is_case_insensitive(self) -> None:
+        """A lowercase method classifies the same as an uppercase one."""
+        assert request_class("get", "/api/parts") == GET_CLASS
+
+    def test_auth_writes_are_the_auth_class(self) -> None:
+        """Non-GET writes under /api/auth are credential guesses."""
+        for path in ("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password"):
+            assert request_class("POST", path) == AUTH_CLASS, path
+
+    def test_refresh_and_logout_are_the_default_class(self) -> None:
+        """These run on ordinary page loads and must not spend the auth cap."""
+        for path in ("/api/auth/refresh", "/api/auth/logout"):
+            assert request_class("POST", path) == DEFAULT_CLASS, path
+
+    def test_a_trailing_slash_does_not_escape_the_auth_exemption(self) -> None:
+        """A trailing slash must not turn a refresh into an auth-class request."""
+        assert request_class("POST", "/api/auth/refresh/") == DEFAULT_CLASS
+
+    def test_admin_writes_are_the_admin_class(self) -> None:
+        """Non-GET writes under /api/admin get their own cap."""
+        for path in ("/api/admin/users", "/api/admin/moderation/flags"):
+            assert request_class("DELETE", path) == ADMIN_CLASS, path
+
+    def test_a_path_merely_prefixed_by_auth_is_not_the_auth_class(self) -> None:
+        """Prefix matching respects path segments rather than raw string starts."""
+        assert request_class("POST", "/api/authors") == DEFAULT_CLASS
+
+    def test_everything_else_is_the_default_class(self) -> None:
+        """Ordinary writes fall back to the default cap."""
+        for path in ("/api/parts", "/api/build-lists/7", "/api/users/me"):
+            assert request_class("POST", path) == DEFAULT_CLASS, path
+
+
+class TestPerClassCounters:
+    """Each class counts in its own row, at its own cap."""
+
+    def test_classes_do_not_share_a_counter(self, frozen_now: list[int]) -> None:
+        """Spending one class's window leaves the others untouched."""
+        table = FakeTable()
+        get_limiter = make_limiter(table, max_requests=2, limiter_class=GET_CLASS)
+        auth_limiter = make_limiter(table, max_requests=2, limiter_class=AUTH_CLASS)
+
+        for _ in range(3):
+            get_limiter.check("1.2.3.4")
+
+        assert get_limiter.is_limited("1.2.3.4") is True
+        assert auth_limiter.is_limited("1.2.3.4") is False
+        assert auth_limiter.check("1.2.3.4")[0] is False
+
+    def test_each_class_writes_its_own_row(self, frozen_now: list[int]) -> None:
+        """The partition key carries the class, so the rows are distinct."""
+        table = FakeTable()
+        make_limiter(table, limiter_class=GET_CLASS).check("1.2.3.4")
+        make_limiter(table, limiter_class=ADMIN_CLASS).check("1.2.3.4")
+
+        assert row_key("1.2.3.4", GET_CLASS) in table.items
+        assert row_key("1.2.3.4", ADMIN_CLASS) in table.items
+        assert table.items[row_key("1.2.3.4", GET_CLASS)][COUNT_ATTRIBUTE] == 1
+
+    def test_the_same_class_still_shares_one_row_across_identities(self, frozen_now: list[int]) -> None:
+        """Class namespacing must not accidentally merge two callers."""
+        table = FakeTable()
+        limiter = make_limiter(table, max_requests=1, limiter_class=GET_CLASS)
+
+        limiter.check("1.1.1.1")
+        limiter.check("2.2.2.2")
+
+        assert table.items[row_key("1.1.1.1", GET_CLASS)][COUNT_ATTRIBUTE] == 1
+        assert table.items[row_key("2.2.2.2", GET_CLASS)][COUNT_ATTRIBUTE] == 1
+
+
+class TestBuiltLimiters:
+    """The registry wires each class to its configured cap."""
+
+    def test_every_class_has_a_limiter(self) -> None:
+        """Classification can never look up a class the registry lacks."""
+        limiters = build_limiters(table_client=FakeTable())
+        assert set(limiters) == {GET_CLASS, AUTH_CLASS, ADMIN_CLASS, DEFAULT_CLASS}
+
+    def test_the_caps_match_the_settings_defaults(self) -> None:
+        """The GET cap is well above the default, which is what the incident needed."""
+        limiters = build_limiters(table_client=FakeTable())
+        assert limiters[GET_CLASS].max_requests == 200
+        assert limiters[AUTH_CLASS].max_requests == 10
+        assert limiters[ADMIN_CLASS].max_requests == 30
+        assert limiters[DEFAULT_CLASS].max_requests == 60
+
+    def test_a_burst_of_sixty_one_gets_is_allowed(self, frozen_now: list[int]) -> None:
+        """Sixty one GETs in a window is a page fanout, not abuse."""
+        limiters = build_limiters(table_client=FakeTable())
+        limiter = limiters[GET_CLASS]
+
+        assert all(limiter.check("1.2.3.4")[0] is False for _ in range(61))
+
+    def test_the_get_cap_still_bites_eventually(self, frozen_now: list[int]) -> None:
+        """A generous cap is still a cap."""
+        limiters = build_limiters(table_client=FakeTable())
+        limiter = limiters[GET_CLASS]
+
+        for _ in range(200):
+            assert limiter.check("1.2.3.4")[0] is False
+
+        assert limiter.check("1.2.3.4")[0] is True
+
+    def test_the_auth_cap_bites_at_eleven(self, frozen_now: list[int]) -> None:
+        """Credential guesses get the tightest allowance."""
+        limiters = build_limiters(table_client=FakeTable())
+        limiter = limiters[AUTH_CLASS]
+
+        for _ in range(10):
+            assert limiter.check("1.2.3.4")[0] is False
+
+        assert limiter.check("1.2.3.4")[0] is True
 
 
 class FakeRequest:

@@ -7,16 +7,25 @@ this file pins is which paths reach it and what the middleware does with its ans
 import os
 import unittest.mock
 from contextlib import contextmanager
-from typing import Iterator, Optional
+from typing import Any, Iterator, Mapping, Optional
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import app.api.middleware.rate_limiter as rate_limiter_module
+import app.api.middleware.shared_rate_limiter as shared_rate_limiter_module
 from app.api.middleware.rate_limiter import (
     is_rate_limit_exempt,
+    is_rate_limit_exempt_method,
     rate_limit_middleware,
     rate_limiting_enabled,
+)
+from app.api.middleware.shared_rate_limiter import (
+    ADMIN_CLASS,
+    AUTH_CLASS,
+    DEFAULT_CLASS,
+    GET_CLASS,
+    SharedRateLimiter,
 )
 from app.main import app
 
@@ -24,10 +33,11 @@ from app.main import app
 class StubLimiter:
     """A limiter that answers from a script rather than from DynamoDB."""
 
-    def __init__(self, allowed: int, *, retry_after: Optional[int] = 42) -> None:
+    def __init__(self, allowed: int, *, retry_after: Optional[int] = 42, request_class: str = DEFAULT_CLASS) -> None:
         """Allow `allowed` calls, then report every later one as limited."""
         self.allowed = allowed
         self.retry_after = retry_after
+        self.request_class = request_class
         self.identities: list[str] = []
 
     def check(self, identity: str) -> tuple[bool, Optional[int]]:
@@ -43,15 +53,20 @@ class StubLimiter:
         return f"stub:{identity}"
 
 
+def _stub_registry(limiter: object) -> dict[str, Any]:
+    """Install one stub limiter for every class, so any class routes to it."""
+    return {name: limiter for name in (GET_CLASS, AUTH_CLASS, ADMIN_CLASS, DEFAULT_CLASS)}
+
+
 @contextmanager
-def _limiter_enabled(limiter: object) -> Iterator[None]:
-    """Enable rate limiting and install the given limiter globally.
+def _limiters_enabled(limiters: dict[str, Any]) -> Iterator[None]:
+    """Enable rate limiting and install the given per-class limiters globally.
 
     The suite disables limiting through both the environment and settings, so both
     are overridden.
     """
-    original = rate_limiter_module.shared_rate_limiter
-    rate_limiter_module.shared_rate_limiter = limiter  # type: ignore[assignment]
+    original = shared_rate_limiter_module.shared_rate_limiters
+    shared_rate_limiter_module.shared_rate_limiters = limiters  # type: ignore[assignment]
     with (
         unittest.mock.patch.dict(os.environ, {"ENABLE_RATE_LIMITING": "true"}),
         unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_RATE_LIMITING", True),
@@ -60,7 +75,50 @@ def _limiter_enabled(limiter: object) -> Iterator[None]:
         try:
             yield
         finally:
-            rate_limiter_module.shared_rate_limiter = original
+            shared_rate_limiter_module.shared_rate_limiters = original
+
+
+@contextmanager
+def _limiter_enabled(limiter: object) -> Iterator[None]:
+    """Enable rate limiting with one stub limiter serving every class."""
+    with _limiters_enabled(_stub_registry(limiter)):
+        yield
+
+
+class FakeRegistryTable:
+    """A minimal in-memory stand-in for the rate limits table.
+
+    Enough of DynamoDB's conditional counter semantics for the middleware to
+    count real requests against real caps.
+    """
+
+    def __init__(self) -> None:
+        """Start with no rows."""
+        self.items: dict[str, dict[str, Any]] = {}
+
+    def get_item(self, **kwargs: Any) -> Mapping[str, Any]:
+        """Return the stored row for a key, or an empty response."""
+        item = self.items.get(str(kwargs["Key"]["pk"]))
+        return {"Item": dict(item)} if item is not None else {}
+
+    def put_item(self, **kwargs: Any) -> Mapping[str, Any]:
+        """Store a row under its partition key."""
+        item = dict(kwargs["Item"])
+        self.items[str(item["pk"])] = item
+        return {}
+
+    def update_item(self, **kwargs: Any) -> Mapping[str, Any]:
+        """Increment the counter, seeding the row and its expiry on first use."""
+        pk = str(kwargs["Key"]["pk"])
+        values = kwargs["ExpressionAttributeValues"]
+        item = self.items.setdefault(pk, {"pk": pk, "requests": 0, "expires_at": int(values[":ttl"])})
+        item["requests"] = int(item["requests"]) + int(values[":one"])
+        return {"Attributes": dict(item)}
+
+
+def _real_limiters(table: FakeRegistryTable) -> dict[str, SharedRateLimiter]:
+    """Real limiters at their configured caps, counting in a fake table."""
+    return shared_rate_limiter_module.build_limiters(table_client=table)
 
 
 def _build_app() -> FastAPI:
@@ -72,6 +130,31 @@ def _build_app() -> FastAPI:
     def parts_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         """A non-exempt API route."""
         return {"message": "parts"}
+
+    @test_app.api_route("/api/parts", methods=["OPTIONS"])
+    def parts_preflight() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        """A preflight for the non-exempt API route."""
+        return {"message": "preflight"}
+
+    @test_app.post("/api/parts")
+    def create_part() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        """A default-class write."""
+        return {"message": "created"}
+
+    @test_app.post("/api/auth/login")
+    def login_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        """An auth-class write."""
+        return {"message": "login"}
+
+    @test_app.post("/api/auth/refresh")
+    def refresh_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        """A refresh, which is default class rather than auth."""
+        return {"message": "refresh"}
+
+    @test_app.post("/api/admin/users")
+    def admin_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+        """An admin-class write."""
+        return {"message": "admin"}
 
     @test_app.get("/health")
     def health_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
@@ -218,17 +301,109 @@ class TestRateLimitMiddlewareEnforcement:
     def test_the_limiter_is_not_consulted_when_limiting_is_disabled(self) -> None:
         """With limiting off the middleware passes every request straight through."""
         limiter = StubLimiter(allowed=0)
-        original = rate_limiter_module.shared_rate_limiter
-        rate_limiter_module.shared_rate_limiter = limiter  # type: ignore[assignment]
+        original = shared_rate_limiter_module.shared_rate_limiters
+        shared_rate_limiter_module.shared_rate_limiters = _stub_registry(limiter)
         try:
             with unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_RATE_LIMITING", False):
                 client = TestClient(_build_app())
                 for _ in range(3):
                     assert client.get("/api/parts").status_code == 200
         finally:
-            rate_limiter_module.shared_rate_limiter = original
+            shared_rate_limiter_module.shared_rate_limiters = original
 
         assert limiter.identities == []
+
+
+class TestRateLimitExemptMethods:
+    """Preflights are never counted, whatever path they target."""
+
+    def test_options_is_exempt(self) -> None:
+        """The CORS preflight method is exempt."""
+        assert is_rate_limit_exempt_method("OPTIONS")
+
+    def test_options_is_exempt_case_insensitively(self) -> None:
+        """Method matching does not depend on casing."""
+        assert is_rate_limit_exempt_method("options")
+
+    def test_other_methods_are_not_exempt(self) -> None:
+        """Every method that can carry or change data is counted."""
+        for method in ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"):
+            assert not is_rate_limit_exempt_method(method), method
+
+    def test_preflights_never_reach_the_limiter(self) -> None:
+        """A burst of preflights spends none of the caller's allowance."""
+        limiter = StubLimiter(allowed=0)
+
+        with _limiter_enabled(limiter):
+            client = TestClient(_build_app())
+
+            for _ in range(30):
+                assert client.options("/api/parts").status_code == 200
+
+        assert limiter.identities == []
+
+    def test_preflights_do_not_consume_the_get_allowance(self) -> None:
+        """Preflights before a GET leave the GET allowance untouched."""
+        limiter = StubLimiter(allowed=2)
+
+        with _limiter_enabled(limiter):
+            client = TestClient(_build_app())
+
+            for _ in range(29):
+                assert client.options("/api/parts").status_code == 200
+
+            assert client.get("/api/parts").status_code == 200
+            assert client.get("/api/parts").status_code == 200
+            assert client.get("/api/parts").status_code == 429
+
+
+class TestRateLimitClassesInTheMiddleware:
+    """Each class counts in its own limiter, so one cannot spend another's."""
+
+    @staticmethod
+    def _registry() -> dict[str, StubLimiter]:
+        """A distinct stub limiter per class, each allowing one request."""
+        return {
+            name: StubLimiter(allowed=1, request_class=name)
+            for name in (GET_CLASS, AUTH_CLASS, ADMIN_CLASS, DEFAULT_CLASS)
+        }
+
+    def test_each_class_gets_its_own_counter(self) -> None:
+        """Spending the GET allowance leaves the auth and admin ones intact."""
+        limiters = self._registry()
+
+        with _limiters_enabled(dict(limiters)):
+            client = TestClient(_build_app())
+
+            assert client.get("/api/parts").status_code == 200
+            assert client.get("/api/parts").status_code == 429
+
+            assert client.post("/api/auth/login").status_code == 200
+            assert client.post("/api/admin/users").status_code == 200
+            assert client.post("/api/parts").status_code == 200
+
+        assert len(limiters[GET_CLASS].identities) == 2
+        assert len(limiters[AUTH_CLASS].identities) == 1
+        assert len(limiters[ADMIN_CLASS].identities) == 1
+        assert len(limiters[DEFAULT_CLASS].identities) == 1
+
+    def test_refresh_counts_against_the_default_class(self) -> None:
+        """A refresh runs on every page load and must not spend the auth cap."""
+        limiters = self._registry()
+
+        with _limiters_enabled(dict(limiters)):
+            assert TestClient(_build_app()).post("/api/auth/refresh").status_code == 200
+
+        assert limiters[AUTH_CLASS].identities == []
+        assert len(limiters[DEFAULT_CLASS].identities) == 1
+
+    def test_a_get_burst_of_sixty_one_is_not_limited(self) -> None:
+        """The GET cap is well above the default, so a page fanout survives."""
+        with _limiters_enabled(dict(_real_limiters(FakeRegistryTable()))):
+            client = TestClient(_build_app())
+            statuses = {client.get("/api/parts").status_code for _ in range(61)}
+
+        assert statuses == {200}
 
 
 class TestRateLimitMiddlewareOnTheRealApp:
