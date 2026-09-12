@@ -17,23 +17,6 @@ import {
 } from '../../contexts/AuthContextDefinition';
 import type { UserRead } from '../../types/Api';
 
-/**
- * The methods `useAuth` binds off the client. Every one has to exist on a stub,
- * since the hook binds them all eagerly in a `useMemo`.
- */
-const BOUND_METHODS = [
-  'login',
-  'completeTotp',
-  'signInWithPasskey',
-  'registerPasskey',
-  'listPasskeys',
-  'renamePasskey',
-  'deletePasskey',
-  'startOAuth',
-  'setUser',
-  'reloadUser',
-] as const;
-
 /** A stub auth client whose state a test drives directly. */
 export interface StubAuthClient {
   /** Passed to the package provider in place of a real client. */
@@ -42,13 +25,12 @@ export interface StubAuthClient {
   setState: (patch: Partial<AuthState<UserRead>>) => void;
   /** Moves the store to `anonymous`, as a failed refresh or a logout does. */
   endSession: () => void;
-  logout: ReturnType<typeof vi.fn>;
-  initialize: ReturnType<typeof vi.fn>;
 }
 
 /**
- * Builds a stub `AuthClient` carrying the subscribe, getState and getAccessToken
- * surface the React bindings read, and nothing else.
+ * Builds a stub `AuthClient` carrying only what the React bindings read: the
+ * store surface of `getState` and `subscribe`. `useAuth` binds each client
+ * method lazily on first read, and no guard under this harness reads one.
  */
 export function createStubAuthClient(
   initial: Partial<AuthState<UserRead>> = {}
@@ -69,26 +51,12 @@ export function createStubAuthClient(
     for (const listener of [...listeners]) listener(state);
   };
 
-  const logout = vi.fn((): Promise<void> => {
-    setState({ status: 'anonymous', user: null, hasAccessToken: false });
-    return Promise.resolve();
-  });
-
-  const initialize = vi.fn((): Promise<UserRead | null> =>
-    Promise.resolve(state.user)
-  );
-
   const client = {
     getState: () => state,
-    getAccessToken: () => (state.hasAccessToken ? 'stub-token' : null),
     subscribe: (listener: (next: AuthState<UserRead>) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    logout,
-    initialize,
-    dispose: vi.fn(),
-    ...Object.fromEntries(BOUND_METHODS.map((name) => [name, vi.fn()])),
   } as unknown as AnyAuthClient;
 
   return {
@@ -101,8 +69,6 @@ export function createStubAuthClient(
         hasAccessToken: false,
         pendingMfa: null,
       }),
-    logout,
-    initialize,
   };
 }
 
