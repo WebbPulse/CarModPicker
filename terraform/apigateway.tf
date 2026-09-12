@@ -169,11 +169,17 @@ locals {
     "GET /api/bug-reports/count" = { integration = "moderation" }
   }
 
+  sitemap_route_keys = {
+    "GET /sitemap.xml"        = { integration = "vehicles" }
+    "GET /sitemap-{name}.xml" = { integration = "vehicles" }
+  }
+
   lambda_domain_route_keys = merge(
     local.lambda_domain_generated_route_keys,
     local.identity_jwt_route_keys,
     local.domain_identity_jwt_route_keys,
     local.domain_anonymous_guard_route_keys,
+    local.sitemap_route_keys,
   )
 }
 
