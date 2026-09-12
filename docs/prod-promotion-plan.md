@@ -124,9 +124,10 @@ cleanup. Steps needing the owner present are marked.
 | 11 | Verify the gateway authorizer | no |
 | 12 | Third apply, `domain_jwt_enforced = true` | **yes, apply** |
 | 13 | Soak, a full working day | no |
-| 14 | Chrome extension, single publish | **yes, decision** |
-| 15 | Clear the plaintext TOTP seed | **yes, one-way door** |
-| 16 | Close out and cleanup apply | no |
+| 14 | Chrome extension, then clear the plaintext TOTP seed | **yes, one-way door** |
+| 15 | Dry run `clear_legacy_credentials.py` | **yes, gate** |
+| 16 | Apply `clear_legacy_credentials.py` | **yes, one-way door** |
+| 17 | Close out and cleanup apply | no |
 
 ## Step 0. Gates and restore point
 
@@ -160,7 +161,7 @@ Record the revert target and snapshot the users table:
 
 Expect 174. **That file holds 174 real bcrypt hashes and the plaintext TOTP
 seed.** `jq '.Count'` is the only thing that should read it other than a
-restore. Delete it at step 16.
+restore. Delete it at step 17.
 
 Record the current variable state for the rollback:
 
@@ -374,11 +375,11 @@ decrypt rather than authenticating the wrong person.
 bytes, same RFC 6238 defaults. Nobody rescans a QR code.
 
 **`--apply` deliberately leaves the plaintext on the user row.** Clearing it is
-step 15 and is the one-way door.
+step 14 and is the one-way door.
 
 **Gate: `--verify` exits zero.** It opens the sealed row back through
 `EnvelopeCipher`, writes nothing, and exits non-zero on anything missing,
-unreadable or mismatched. Step 15 must not run unless this passed.
+unreadable or mismatched. Step 14's clear must not run unless this passed.
 
 **Backout:** delete the sealed row. The plaintext is still on the user row.
 
@@ -707,7 +708,7 @@ inferring from the absence of complaints.
 **Gate:** no alarms, and a meaningful number of the 30 have signed in.
 **Owner:** not required, but the decision to end the soak is the owner's.
 
-## Step 14. Chrome extension, the single publish
+## Step 14. Chrome extension, then clear the plaintext TOTP seed
 
 Owner decision.
 
@@ -746,9 +747,9 @@ default, which row 13 flipped to `identity`.
 **Backout:** the `authMode` setting remains in the extension as the backout
 lever for installs on an older build.
 
-## Step 15. Clear the plaintext TOTP seed
+### Clear the plaintext TOTP seed
 
-Owner present. **This is the one-way door.**
+Owner present. **This is a one-way door.**
 
 Only after the soak, and only if step 5's `--verify` exited zero.
 
@@ -767,25 +768,74 @@ After it, the sealed seed is the only copy and
 **Backout:** restore the column from the step 0 snapshot. There is no other
 copy.
 
-### `hashed_password` and `clear_legacy_credentials.py`
+## Step 15. Dry run `clear_legacy_credentials.py`
 
-`backend/scripts/clear_legacy_credentials.py` **exists on `staging`** and
-**must not be run as part of this promotion.** Its own docstring opens with why
-it has to wait: row 13 could not remove `hashed_password` from two call sites,
-`POST /api/users/` and the password change on `PUT /api/users/{user_id}`. Those
-are the users domain's own routes, still called by the SPA, and porting their
-writes needs the users function to hold a grant on the identity `credentials`
-table. `module.identity` takes exactly one role and has no input for a second,
-so that is its own row.
+Dry run only. Nothing is written at this step.
 
-Leave `hashed_password` populated. It costs nothing and the column is still
-written by those two routes.
+`backend/scripts/clear_legacy_credentials.py` exists on `staging` and clearing
+the legacy columns is safe once the two migration scripts have run. The earlier
+note here said to leave `hashed_password` populated because it cost nothing and
+two users-domain routes still wrote it. Both halves were wrong. No live code
+reads or writes `hashed_password` or `totp_secret`, the script's own docstring at
+`backend/scripts/clear_legacy_credentials.py:23` now opens by saying the script
+is safe to run, and the populated column is 174 unusable bcrypt verifiers plus
+the plaintext TOTP seeds, which is a standing exposure rather than a rollback
+asset. The runbook's step 12 caveat carries the `file:line` evidence for every
+one of those claims; read it there rather than restating it here.
 
-The runbook's step 12 states CarModPicker has no `clear_legacy_credentials.py`.
-That was true when it was written and is no longer. Corrected in this pull
-request.
+    cd backend
+    export AWS_PROFILE=CarModPicker-Production/AdministratorAccess AWS_REGION=us-west-2
+    P=--prefix=carmodpicker-production
+    python scripts/clear_legacy_credentials.py $P
 
-## Step 16. Close out
+Two gates, and both must hold before step 16 is even considered:
+
+- [ ] **Zero refusals.** No row classified `mismatch`, `missing_credential` or
+      `errors`. Any of the three refuses the whole run, and a refusal is a signal
+      to stop and read, not to rerun. Expect the remainder to split between
+      `cleared` and `already_clear`.
+- [ ] **The owner has signed in with a real password through the identity path
+      in a browser**, after the cutover, not a synthetic account and not a curl
+      probe. A migrated credential that nobody has exercised has not been proven
+      to work.
+
+A `mismatch` is usually benign and has a known remedy: the identity login path
+opportunistically rehashes a credential, so a user who signed in during the soak
+can hold a credential whose bytes no longer match the legacy column. The fix is
+`migrate_credentials_to_identity.py --replace`, which rewrites only the
+credential rows it is pointed at. The script has no force or overwrite flag.
+
+**Owner:** yes, gate.
+
+## Step 16. Apply `clear_legacy_credentials.py`
+
+Owner present. **This is a one-way door**, on the same footing as the TOTP seed
+clear in step 14.
+
+Only after the soak, and only if step 5's `--verify` exited zero. Neither this
+repository nor Portfolio has run this script against production, so treat it as
+a first application and read the dry run output rather than skimming it.
+
+    cd backend
+    export AWS_PROFILE=CarModPicker-Production/AdministratorAccess AWS_REGION=us-west-2
+    P=--prefix=carmodpicker-production
+    python scripts/clear_legacy_credentials.py $P
+    python scripts/clear_legacy_credentials.py $P --apply
+
+The dry run is repeated immediately before the apply on purpose. Rows can change
+classification during a soak, for the rehash reason above, so the run that gates
+the write should be the one taken minutes before it.
+
+If the apply refuses, nothing was written. Resolve the named rows, with
+`--replace` for a `mismatch`, and run the pair again.
+
+**Backout:** restore the two columns for the affected rows from the step 0
+snapshot. There is no other copy, and nothing in the shipped image would read
+them if there were. Row 13 deleted the legacy routes as code, so a populated
+`hashed_password` column was never the rollback path; the rollback is a revert of
+`main` plus a rebuild.
+
+## Step 17. Close out
 
 - [ ] Delete `~/cmp-prod-users-preflight.json`.
 - [ ] **Delete `LAMBDA_FUNCTION_NAME` and `LAMBDA_ARTIFACTS_BUCKET` from the
@@ -834,8 +884,13 @@ expected outcome and means nothing is needed.
   applying.
 - **Do not set `AUTH_MODE` on the production GitHub Environment.** Row 13 made
   it a constant in the bundle and `VITE_AUTH_MODE` is read by nothing.
-- **Do not run `clear_legacy_credentials.py`.** See step 15.
-- **Do not pass `--replace` to the credential migration on a first run.**
+- **Do not run `clear_legacy_credentials.py` before step 15.** It is safe to
+  run once the two migration scripts have, but it is a one-way door and it is
+  gated on the step 15 dry run refusing nothing and on a real browser sign-in by
+  the owner. Steps 15 and 16 are where it belongs.
+- **Do not pass `--replace` to the credential migration on a first run.** It is
+  the remedy for a `mismatch` at step 15, not a first-run flag, and the script
+  has no force or overwrite flag at all.
 - **Do not use a `-target` apply.** Blocker 1 is fixed in `platform-modules`
   `v2.10.0`; if a run still errors on a count, read the module pin in
   `terraform/identity.tf` first. It must be `~> 2.10` or later.
@@ -854,4 +909,5 @@ expected outcome and means nothing is needed.
 | Through step 8 | Revert `main` to the step 0 sha and wait for the rebuild. **The monolith retirement is not cleanly reversible**: the artifacts bucket's objects are gone. Treat the domain split as fix-forward whatever happens to identity. |
 | Through step 11 | Set `identity_jwt_mode` to `off`, apply, then decide on the code. The frontend is unaffected either way. |
 | Through step 12 | Set `domain_jwt_enforced` to `false` **and** `identity_jwt_mode` to `off`, and apply. **Revert the variables and apply before or alongside any code revert, never after**: until that apply runs, ninety-five routes keep demanding a JWT. |
-| After step 15 | Restore the plaintext seed from the step 0 snapshot, or accept the sealed seed as the only copy and fix forward. Fixing forward is usually right, and the extension is already published. |
+| After step 14 | Restore the plaintext seed from the step 0 snapshot, or accept the sealed seed as the only copy and fix forward. Fixing forward is usually right, and the extension is already published. |
+| After step 16 | The legacy columns are gone. Restore them from the step 0 snapshot before reverting, or fix forward on the identity path. Fixing forward is usually right, and by this point every signed-in user has already proven the identity path works. |

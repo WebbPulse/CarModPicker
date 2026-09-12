@@ -1405,7 +1405,9 @@ path, `flows.py:366` in `webbpulse-python`, opportunistically rehashes a
 credential when `needs_rehash` is true, so a user who signed in during the soak
 can hold a credential whose bytes no longer match the legacy column. The fix is
 `migrate_credentials_to_identity.py --replace`, which overwrites from the users
-table. **Never `--force`.**
+table. **The script has no force or overwrite flag.** `--replace` is the only
+remedy for a `mismatch`, and it rewrites only the credential rows it is pointed
+at.
 
 #### Step 16. Apply `clear_legacy_credentials.py`
 
@@ -1528,7 +1530,7 @@ git revert --no-commit <promotion-merge-sha>
 
 > **`docs/prod-promotion-plan.md` is the sequence to follow.** The nine items
 > below are the 2026-09-10 ordering and are kept for the reasoning in each one.
-> The plan's sixteen steps reorder them around row 13: the credential and TOTP
+> The plan's seventeen steps reorder them around row 13: the credential and TOTP
 > migration moves ahead of the merge, item 7's frontend flip disappears because
 > the bundle is identity only, and the identity stack gets an apply of its own
 > before the merge so the migration has tables to write into.
