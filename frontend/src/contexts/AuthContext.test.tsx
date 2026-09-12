@@ -13,20 +13,22 @@ const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
     user: null as unknown,
     hasAccessToken: false,
     error: null,
+    sessionEnded: null as unknown,
     pendingMfa: null,
   };
   const setState = (patch: Record<string, unknown>) => {
     state = { ...state, ...patch };
     for (const listener of [...listeners]) listener(state);
   };
+  const apiClient = {
+    get: vi.fn().mockResolvedValue({ data: null }),
+    post: vi.fn().mockResolvedValue({ data: null }),
+    put: vi.fn().mockResolvedValue({ data: null }),
+    delete: vi.fn().mockResolvedValue({ data: null }),
+    patch: vi.fn().mockResolvedValue({ data: null }),
+  };
   return {
-    mockApiClient: {
-      get: vi.fn().mockResolvedValue({ data: null }),
-      post: vi.fn().mockResolvedValue({ data: null }),
-      put: vi.fn().mockResolvedValue({ data: null }),
-      delete: vi.fn().mockResolvedValue({ data: null }),
-      patch: vi.fn().mockResolvedValue({ data: null }),
-    },
+    mockApiClient: apiClient,
     mockNavigate: vi.fn(),
     mockIdentityClient: {
       listeners,
@@ -39,6 +41,7 @@ const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
           user: null,
           hasAccessToken: false,
           error: null,
+          sessionEnded: null,
           pendingMfa: null,
         };
       },
@@ -58,6 +61,31 @@ const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
       renamePasskey: vi.fn(),
       deletePasskey: vi.fn(),
       startOAuth: vi.fn(),
+      setUser: vi.fn((user: unknown) => {
+        setState({ user });
+      }),
+      reloadUser: vi.fn(async (): Promise<unknown> => {
+        try {
+          const response = (await apiClient.get('/users/me')) as {
+            data?: unknown;
+          };
+          const user = response.data ?? null;
+          setState({ user });
+          return user;
+        } catch (error) {
+          if ((error as { status?: number }).status === 401) {
+            setState({
+              status: 'anonymous',
+              user: null,
+              hasAccessToken: false,
+              sessionEnded: error,
+            });
+            return null;
+          }
+          setState({ error });
+          throw error;
+        }
+      }),
     },
   };
 });
@@ -234,8 +262,7 @@ describe('AuthContext provider', () => {
     expect(vi.mocked(mockApiClient.get)).toHaveBeenCalledWith('/users/me');
   });
 
-  it('falls back to the store profile and logs nothing when checkAuthStatus() is refused with a 401', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('ends the session when checkAuthStatus() is refused with a 401', async () => {
     renderWithProvider();
 
     await waitFor(() =>
@@ -261,13 +288,11 @@ describe('AuthContext provider', () => {
     fireEvent.click(screen.getByText('check'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
+      expect(screen.getByTestId('state').textContent).toBe('anon')
     );
-    expect(errorSpy).not.toHaveBeenCalled();
-    errorSpy.mockRestore();
   });
 
-  it('logs a non-401 checkAuthStatus() failure', async () => {
+  it('keeps the session and logs a non-401 checkAuthStatus() failure', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     renderWithProvider();
 
@@ -287,6 +312,7 @@ describe('AuthContext provider', () => {
     fireEvent.click(screen.getByText('check'));
 
     await waitFor(() => expect(errorSpy).toHaveBeenCalled());
+    expect(screen.getByTestId('state').textContent).toBe(mockUser.username);
     errorSpy.mockRestore();
   });
 

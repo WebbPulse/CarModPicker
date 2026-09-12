@@ -30,6 +30,8 @@ const BOUND_METHODS = [
   'renamePasskey',
   'deletePasskey',
   'startOAuth',
+  'setUser',
+  'reloadUser',
 ] as const;
 
 /** A stub auth client whose state a test drives directly. */
@@ -56,6 +58,7 @@ export function createStubAuthClient(
     user: null,
     hasAccessToken: false,
     error: null,
+    sessionEnded: null,
     pendingMfa: null,
     ...initial,
   };
@@ -124,7 +127,6 @@ export function renderAuthHarness(
     login: vi.fn(),
     logout: vi.fn().mockResolvedValue(undefined),
     checkAuthStatus: vi.fn().mockResolvedValue(undefined),
-    freshUser: null,
     ...extras,
   };
 

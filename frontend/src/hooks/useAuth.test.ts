@@ -2,7 +2,7 @@
  * Tests for useAuth, the thin wrapper over `@webbpulse/auth/react`.
  */
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import * as Sentry from '@sentry/react';
 import { useAuth } from './useAuth';
@@ -50,13 +50,18 @@ describe('useAuth', () => {
     expect(result.current.isAuthenticated).toBe(false);
   });
 
-  it('prefers the freshly read profile over the store user', () => {
-    const edited = { ...mockUser, username: 'renamed' };
-    const { Wrapper } = authHarness(
-      { status: 'authenticated', user: mockUser },
-      { freshUser: edited }
-    );
+  it('reads the user straight from the store, with no overlay', () => {
+    const { stub, Wrapper } = authHarness({
+      status: 'authenticated',
+      user: mockUser,
+    });
     const { result } = renderHook(() => useAuth(), { wrapper: Wrapper });
+
+    expect(result.current.user?.username).toBe(mockUser.username);
+
+    act(() => {
+      stub.setState({ user: { ...mockUser, username: 'renamed' } });
+    });
 
     expect(result.current.user?.username).toBe('renamed');
   });

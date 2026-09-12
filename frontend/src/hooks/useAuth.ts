@@ -18,14 +18,8 @@ export const useAuth = (): AuthContextType => {
   if (extras === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  const {
-    isAuthenticated,
-    isLoading,
-    user: storeUser,
-  } = usePackageAuth<UserRead>();
-  const { login, logout, checkAuthStatus, freshUser } = extras;
-
-  const user = isAuthenticated ? (freshUser ?? storeUser) : null;
+  const { isAuthenticated, isLoading, user } = usePackageAuth<UserRead>();
+  const { login, logout, checkAuthStatus } = extras;
 
   useEffect(() => {
     Sentry.setUser(user ? { id: String(user.id) } : null);
