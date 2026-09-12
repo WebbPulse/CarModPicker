@@ -1,4 +1,4 @@
-webbpulse[fastapi,otel,dynamodb,aws-otel,security,identity,oauth,passkeys]==0.20.0
+webbpulse[fastapi,otel,dynamodb,aws-otel,security,identity,oauth,passkeys]==0.21.0
 
 annotated-types==0.8.0
 anyio==4.15.1
@@ -24,7 +24,7 @@ bcrypt==5.0.0
 python-multipart==0.0.32
 pyotp==2.10.0
 qrcode[pil]==8.2
-webauthn==2.7.1
+webauthn==3.0.0
 google-auth==2.57.1
 
 requests==2.34.2
