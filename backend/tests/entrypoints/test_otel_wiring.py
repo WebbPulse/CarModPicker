@@ -1,4 +1,4 @@
-"""OpenTelemetry on in the domain functions, Sentry out of them.
+"""OpenTelemetry on in the domain functions, and Sentry gone from the backend.
 
 Each property fails silently in production, so each is asserted on the source.
 """
@@ -59,17 +59,17 @@ def test_an_entrypoint_does_not_initialise_sentry(domain: str) -> None:
             imported.extend(alias.name for alias in node.names)
 
     assert not [name for name in imported if "sentry" in name.lower()], (
-        f"{domain} imports Sentry; row 16 removed it from the domain functions"
+        f"{domain} imports Sentry; Sentry is removed from the backend"
     )
 
     called = _called_names(tree.body)
     assert "init_sentry" not in called, f"{domain} still calls init_sentry"
 
 
-def test_the_monolith_still_initialises_sentry() -> None:
-    """The monolith keeps its Sentry initialisation while it serves production."""
+def test_the_monolith_does_not_initialise_sentry() -> None:
+    """The monolith no longer initialises Sentry, since OpenTelemetry is the only instrumentation."""
     source = (BACKEND / "app" / "composition" / "app.py").read_text()
-    assert "init_sentry" in source
+    assert "sentry" not in source.lower()
 
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))

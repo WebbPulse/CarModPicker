@@ -9,7 +9,6 @@ module "app_secrets" {
       description = "JSON map of runtime secrets read by the Lambda API at cold start"
       json = {
         SECRET_KEY        = var.secret_key
-        SENTRY_DSN        = var.sentry_dsn
         EXTENSION_API_KEY = var.extension_api_key
 
         OAUTH_GOOGLE_CLIENT_SECRET = var.oauth_google_client_secret

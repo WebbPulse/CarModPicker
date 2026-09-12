@@ -7,9 +7,8 @@ import type { MockInstance } from 'vitest';
 import { RouteGroupBoundary } from './RouteGroupBoundary';
 
 /**
- * Covers RouteGroupBoundary: containment, the eventId / Retry / Go Home
- * fallback, and the data-route-group attribute other tests query. Uses the real
- * @sentry/react so the surfaced eventId is genuine.
+ * Covers RouteGroupBoundary: containment, the Retry / Go Home fallback, and
+ * the data-route-group attribute other tests query.
  */
 
 function Thrower(): ReactNode {
@@ -43,7 +42,7 @@ describe('RouteGroupBoundary', () => {
     expect(document.querySelector('[data-route-group]')).toBeNull();
   });
 
-  it('renders the fallback with event ID when a child throws', () => {
+  it('renders the fallback when a child throws', () => {
     render(
       <MemoryRouter>
         <RouteGroupBoundary groupName="builder">
@@ -57,14 +56,13 @@ describe('RouteGroupBoundary', () => {
       screen.getByText(/something went wrong in the builder section/i)
     ).toBeInTheDocument();
     expect(screen.getByText(/kaboom/)).toBeInTheDocument();
-    expect(screen.getByText(/event id:/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /go home/i })
     ).toBeInTheDocument();
   });
 
-  it('Retry button calls resetError and re-renders non-throwing children', () => {
+  it('Retry button clears the error and re-renders non-throwing children', () => {
     let shouldThrow = true;
     function ConditionalThrower(): ReactNode {
       if (shouldThrow) throw new Error('boom');

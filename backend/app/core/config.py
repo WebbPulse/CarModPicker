@@ -14,7 +14,7 @@ from webbpulse.config import BaseServiceSettings
 
 from app.core.secrets import fetch_app_secrets
 
-SECRET_FIELDS = ("SECRET_KEY", "SENTRY_DSN", "EXTENSION_API_KEY")
+SECRET_FIELDS = ("SECRET_KEY", "EXTENSION_API_KEY")
 
 
 class Settings(BaseServiceSettings):
@@ -181,7 +181,7 @@ class Settings(BaseServiceSettings):
             "environment",
             self._ENVIRONMENT_ALIASES.get(self.APP_ENVIRONMENT.strip().lower(), "local"),
         )
-        object.__setattr__(self, "service_name", self.SENTRY_SERVICE_NAME or self.PROJECT_NAME)
+        object.__setattr__(self, "service_name", self.PROJECT_NAME)
         object.__setattr__(self, "app_secrets_arn", self.APP_SECRETS_ARN)
         object.__setattr__(self, "cors_allow_origins", self.allowed_origins_list)
         object.__setattr__(self, "cors_allow_credentials", True)
@@ -292,25 +292,6 @@ class Settings(BaseServiceSettings):
     )
     EMAIL_FROM: str = Field(default="")
 
-    SENTRY_DSN_SETTING: str = Field(
-        default="",
-        alias="SENTRY_DSN",
-        description=(
-            "Sentry DSN for error reporting. Empty = Sentry disabled. Injected via "
-            "Secrets Manager in prod (D-01, D-55)."
-        ),
-    )
-    SENTRY_RELEASE: str = Field(
-        default="",
-        description=(
-            "Release identifier baked at Docker build time (typically git commit SHA, set by GitHub Actions per D-02)."
-        ),
-    )
-    SENTRY_SERVICE_NAME: str = Field(
-        default="",
-        description="Per-process server_name tag: 'apprunner-backend', 'ecs-crawler', 'crawler-cli' (D-11).",
-    )
-
     ENABLE_RATE_LIMITING: bool = True
     ENABLE_SHARED_RATE_LIMITING: bool = True
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 60
@@ -406,11 +387,6 @@ class Settings(BaseServiceSettings):
     def SECRET_KEY(self) -> str:
         """The JWT signing key, resolved on access."""
         return self._resolve_secret("SECRET_KEY")
-
-    @property
-    def SENTRY_DSN(self) -> str:
-        """The Sentry DSN, resolved on access. Empty disables Sentry."""
-        return self._resolve_secret("SENTRY_DSN")
 
     @property
     def EXTENSION_API_KEY(self) -> str:

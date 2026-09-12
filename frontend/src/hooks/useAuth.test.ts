@@ -2,14 +2,11 @@
  * Tests for useAuth, the thin wrapper over `@webbpulse/auth/react`.
  */
 
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import * as Sentry from '@sentry/react';
 import { useAuth } from './useAuth';
 import { mockUser } from '../test/mocks/api';
 import { authHarness } from '../test/utils/authHarness';
-
-vi.mock('@sentry/react', () => ({ setUser: vi.fn() }));
 
 describe('useAuth', () => {
   it('returns unauthenticated state for an anonymous store', () => {
@@ -84,26 +81,5 @@ describe('useAuth', () => {
     expect(typeof result.current.login).toBe('function');
     expect(typeof result.current.logout).toBe('function');
     expect(typeof result.current.checkAuthStatus).toBe('function');
-  });
-
-  it('reports the signed in user to Sentry, and clears it on sign out', async () => {
-    vi.mocked(Sentry.setUser).mockClear();
-    const { stub, Wrapper } = authHarness({
-      status: 'authenticated',
-      user: mockUser,
-    });
-    renderHook(() => useAuth(), { wrapper: Wrapper });
-
-    await waitFor(() =>
-      expect(vi.mocked(Sentry.setUser)).toHaveBeenCalledWith({
-        id: String(mockUser.id),
-      })
-    );
-
-    stub.endSession();
-
-    await waitFor(() =>
-      expect(vi.mocked(Sentry.setUser)).toHaveBeenLastCalledWith(null)
-    );
   });
 });
