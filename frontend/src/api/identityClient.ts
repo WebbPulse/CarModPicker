@@ -8,30 +8,32 @@ import {
   type AuthClient,
   type WebAuthnAdapter,
 } from '@webbpulse/auth';
+import {
+  identityOriginFrom,
+  identityUrl as joinIdentityUrl,
+} from '@webbpulse/discovery';
 import { appConfig } from '../config/app';
 
-/**
- * Strips the API base URL back to its origin, since `AuthClient`'s default
- * paths are already absolute and a `/api` base would send calls to
- * `/api/api/auth/...`. A relative base yields the empty string.
- */
-export const identityOriginFrom = (apiBaseUrl: string): string => {
-  try {
-    return new URL(apiBaseUrl).origin;
-  } catch {
-    if (apiBaseUrl.startsWith('/')) return '';
-    return apiBaseUrl;
-  }
-};
+export {
+  OAUTH_PROVIDERS_PATH,
+  PASSKEY_AVAILABILITY_PATH,
+  identityOriginFrom,
+  oauthProviders,
+  passkeyEnrolmentAvailability,
+  passkeyLoginAvailability,
+  providerLabel,
+  resetAvailabilityCache,
+  type Availability,
+  type OAuthProviderInfo,
+  type PasskeyCapabilities,
+} from '@webbpulse/discovery';
 
 /**
  * Prefixes the identity origin onto an already absolute route path, for the
  * discovery gates that fetch directly instead of through `AuthClient`.
  */
-export const identityUrl = (path: string): string => {
-  const origin = identityOriginFrom(appConfig.apiBaseUrl);
-  return origin === '' ? path : `${origin}${path}`;
-};
+export const identityUrl = (path: string): string =>
+  joinIdentityUrl(identityOriginFrom(appConfig.apiBaseUrl), path);
 
 /**
  * The one instance, or null when it could not be built. Built on first request

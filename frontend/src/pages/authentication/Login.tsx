@@ -8,7 +8,7 @@ import { Input } from '../../components/ui/input';
 import { useAuth } from '../../hooks/useAuth';
 import OAuthProviderButtons from '../../components/authentication/OAuthProviderButtons';
 import PasskeySignInButton from '../../components/authentication/PasskeySignInButton';
-import { useOAuthCallback } from '../../hooks/useOAuthCallback';
+import { useOAuthCallback } from '@webbpulse/auth/react';
 import { describeOAuthCallbackError } from '../../api/identityOAuth';
 import type { PasskeySignInResult } from '../../api/identityPasskeys';
 import type { UserRead } from '../../types/Api';
