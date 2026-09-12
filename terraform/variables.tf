@@ -64,9 +64,8 @@ variable "api_throttle_rate_limit" {
   default     = 25
 }
 
-# Application secrets (stored in Secrets Manager, values injected via HCP workspace vars)
 variable "secret_key" {
-  description = "JWT signing secret for the FastAPI backend"
+  description = "HS256 signing key for the price alert unsubscribe link, the one remaining application-signed token. All session tokens are RS256 and signed in KMS."
   type        = string
   sensitive   = true
 }
@@ -77,10 +76,6 @@ variable "email_from" {
   default     = null
   nullable    = true
 }
-
-# ---------------------------------------------------------------------------
-# Observability (Phase 2 - OBS-01 Sentry, OBS-02 EMF/alarms)
-# ---------------------------------------------------------------------------
 
 variable "sentry_dsn" {
   description = "Sentry DSN for backend error reporting. Empty = Sentry disabled (env-gate handles gracefully). Populated out-of-band via `aws secretsmanager put-secret-value` per D-55."
@@ -118,10 +113,6 @@ variable "staging_profile" {
   }
 }
 
-# ---------------------------------------------------------------------------
-# Staging access gate (platform-modules/aws//modules/staging-access-gate)
-# ---------------------------------------------------------------------------
-
 variable "staging_access_gate" {
   description = "Put the staging site and API behind the shared staging access gate (Cognito sign-in plus CloudFront signed cookies). WebbPulse-Platform sets this on staging workspaces only; production never receives it and every gate resource is skipped there."
   type        = bool
@@ -137,4 +128,120 @@ variable "staging_access_users" {
     condition     = !var.staging_access_gate || length(var.staging_access_users) > 0
     error_message = "staging_access_users must list at least one email when staging_access_gate is true. An empty list is a gate nobody can open."
   }
+}
+
+variable "passkeys_enabled" {
+  description = "Mount the package's seven passkey routes on the identity function. False leaves them undeclared, whatever the passkeys and webauthn-challenges tables hold. Set true on the staging workspace; production receives it at promotion."
+  type        = bool
+  default     = false
+}
+
+variable "passkeys_passwordless" {
+  description = "Allow a passkey to be a first factor, so POST /api/auth/login/passkey/options and verify serve. False with passkeys_enabled true mounts the five management routes and refuses both login routes, which makes a passkey a second factor only. Set true on the staging workspace; production receives it at promotion."
+  type        = bool
+  default     = false
+}
+
+variable "oauth_google_client_id" {
+  description = "Client id of the Google OAuth application. Empty means the package declares no Google route and does not advertise Google on GET /api/auth/oauth/providers. Not a secret; set as an ordinary workspace variable."
+  type        = string
+  default     = ""
+}
+
+variable "oauth_google_client_secret" {
+  description = "Client secret of the Google OAuth application, written into the app secret as OAUTH_GOOGLE_CLIENT_SECRET. An id set with no secret is a provider that is not advertised and whose start route answers 503, rather than a deployment that fails."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "oauth_github_client_id" {
+  description = "Client id of the GitHub OAuth application. Empty means the package declares no GitHub route and does not advertise GitHub on GET /api/auth/oauth/providers. Not a secret; set as an ordinary workspace variable."
+  type        = string
+  default     = ""
+}
+
+variable "oauth_github_client_secret" {
+  description = "Client secret of the GitHub OAuth application, written into the app secret as OAUTH_GITHUB_CLIENT_SECRET. An id set with no secret is a provider that is not advertised and whose start route answers 503, rather than a deployment that fails."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "identity_jwt_mode" {
+  description = <<-EOT
+    How the gateway enforces the identity module's access tokens on the routes that need an
+    authenticated caller. The routes themselves are marked once, with require_identity_jwt in
+    terraform/apigateway.tf; this variable only picks which of the two mechanisms carries out the
+    check, because an HTTP API route takes exactly one authorizer and which one is free depends on
+    whether the staging access gate is in front of the API.
+
+      "gate"    The staging access gate's own Lambda authorizer does both checks: the signed gate
+                cookie as before, then a valid Bearer access token on the marked routes. This is
+                what a gated staging environment has to use, because the gate already occupies the
+                route's one authorizer slot. module.api.identity_jwt stays null and no route moves.
+
+      "native"  API Gateway's own JWT authorizer verifies the token: the RS256 signature against
+                the issuer's JWKS, then iss, aud, exp and nbf, with nothing of ours on the request
+                path. This is the ungated shape, which is what production is. The marked routes
+                become authorization_type JWT and are replaced, because the platform module keeps
+                them in a separate resource so the .well-known routes can exist before the
+                authorizer and the protected routes after it.
+
+      "off"     Nothing is enforced at the gateway. The identity function still verifies the token
+                itself, which it does in every mode: this is an extra gate in front of it, never a
+                replacement for its own check. Every route named in apigateway.tf keeps answering
+                exactly as it does today.
+
+    The default is "off" and PRODUCTION KEEPS IT for now. "native" creates an authorizer whose
+    CreateAuthorizer call synchronously fetches <issuer>/.well-known/openid-configuration from
+    outside AWS, so it fails unless the identity function is already deployed and already serving
+    those two documents at the production API host. The identity stack has not been promoted to
+    production yet, so turning this on there before that promotion fails the apply rather than
+    leaving anything open. Set it to "native" on the production workspace in the apply that follows
+    the promotion, not before.
+  EOT
+
+  type    = string
+  default = "off"
+
+  validation {
+    condition     = contains(["native", "gate", "off"], var.identity_jwt_mode)
+    error_message = "identity_jwt_mode must be one of native, gate or off."
+  }
+
+  validation {
+    condition     = var.identity_jwt_mode != "native" || var.environment != "staging"
+    error_message = "identity_jwt_mode must not be native in staging. Every route there carries the staging access gate's REQUEST authorizer and a route takes exactly one authorizer, so a native JWT authorizer has no slot to occupy. Use gate, which moves the same check into the gate's own Lambda."
+  }
+}
+
+variable "domain_jwt_enforced" {
+  description = <<-EOT
+    Whether the 80 domain route keys that need an authenticated caller actually require an
+    identity access token at the gateway. Row 12 of docs/identity-adoption.md.
+
+    THE KEYS EXIST EITHER WAY. local.domain_identity_jwt_route_keys writes all 80 route keys into
+    the API in both settings, pointing at the same integration the generated `ANY` pair points at,
+    so a request reaches the same function by the same route regardless. This variable only decides
+    whether each of those keys additionally carries require_identity_jwt, which is what puts it in
+    module.api.identity_jwt_route_keys and so into the gate Lambda's list.
+
+    THE DEFAULT IS false AND IT HAS TO BE, because of the ordering this row sits in. With
+    identity_jwt_mode = "gate", the moment a key is marked the gate demands a valid RS256 identity
+    access token on it, and the CarModPicker frontend still sends the legacy HS256 session token,
+    which the gate rejects. Marking the keys before the frontend cutover signs every user out of
+    every write path in staging. So the keys land first, unmarked and inert, and enforcement is a
+    later one line flip on the workspace variable once the frontend sends identity tokens.
+
+    WHAT THE FLIP COSTS IN A PLAN. In staging the platform module keeps a marked route in the same
+    resource at the same address as an unmarked one, with the same authorization_type CUSTOM and
+    the same gate authorizer, because it only moves routes into its own JWT resource when
+    module.api.identity_jwt is non-null, and in gate mode that is null. So flipping this changes no
+    route resource at all: the only diff is the gate authorizer Lambda's environment, which gains
+    the 80 keys. Flipping it back is the rollback and is equally cheap.
+  EOT
+
+  type    = bool
+  default = false
 }
