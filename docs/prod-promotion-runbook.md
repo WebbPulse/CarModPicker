@@ -20,13 +20,30 @@ apply.
 **Nothing in this document is authorised to run itself.** Every merge, every
 apply and every write below is an owner decision.
 
+> **Superseded on the order of steps. Read `docs/prod-promotion-plan.md` first.**
+>
+> This runbook was written on 2026-09-10. Row 13 landed on `staging` on
+> 2026-09-11 and deleted the legacy auth path as code, with no variable in front
+> of it, which changed the order of this promotion materially.
+>
+> `docs/prod-promotion-plan.md` owns the ordered step list and is correct where
+> the two disagree. The three places this document is now wrong are marked
+> inline below: **step 7**, which schedules the credential migration after the
+> merge when it must run before it; **step 11**, which sets an `AUTH_MODE`
+> GitHub variable that row 13 made dead; and **step 12**, which says this
+> repository has no `clear_legacy_credentials.py` when it now does.
+>
+> Everything else here still holds: the blockers, the plan shapes, the variable
+> table, the hard stops and the rollback reasoning are all still the reference,
+> and the plan does not repeat them.
+
 ## State at the time of writing, 2026-09-10
 
 Verified against the live accounts and the live workspaces rather than assumed.
 
 | Thing | Staging (748861776298) | Production (734702670403) |
 | --- | --- | --- |
-| Branch | `staging`, 29 commits ahead of `main` | `main` |
+| Branch | `staging`, **65** commits ahead of `main` as of 2026-09-12 | `main` |
 | HCP workspace | `ws-dNLoiEHVxr2o81XM` | `ws-oh1VvpTBPxmcrSYD` |
 | Declared domains in `lambda_domains.tf` | nine | **five**: `media`, `build-logs`, `moderation`, `vehicles`, `admin` |
 | `terraform/identity.tf` | present | **absent from `main` entirely** |
@@ -44,7 +61,7 @@ Verified against the live accounts and the live workspaces rather than assumed.
 | Frontend `AUTH_MODE` | removed by row 13, the bundle is identity only | removed by row 13, the bundle is identity only |
 | Extension `authMode` | runtime setting, default `identity` since row 13 | runtime setting, default `identity` since row 13 |
 | SES sandbox | in sandbox | in sandbox, `ProductionAccessEnabled: false` |
-| Legacy users | synthetic plus the owner's row | **174 real user rows** |
+| Legacy users | synthetic plus the owner's row | **174 real user rows, 30 with `hashed_password` as their only credential, 1 with TOTP** |
 
 ### The numbers that matter
 
@@ -64,8 +81,14 @@ Verified against the live accounts and the live workspaces rather than assumed.
 
 ### What `main` lacks against `staging`
 
-The 29 commits carry rows 6 and 8 through 12 of the identity adoption, plus
-rows 25 to 32 of the domain split. Concretely, promoting lands all of:
+> **Updated 2026-09-12.** The count is now **65** commits, and they carry
+> **row 13** and domain split rows up to **33** as well. Row 13 is the one that
+> changes this promotion's order rather than just its size, because it retires
+> the legacy auth path as code with no variable in front of it. See
+> `docs/prod-promotion-plan.md`.
+
+The commits carry rows 6 and 8 through 13 of the identity adoption, plus
+rows 25 to 33 of the domain split. Concretely, promoting lands all of:
 
 - Four more domain functions, `build-lists`, `catalog`, `identity` and `users`,
   and their route cuts. Production runs five of the nine today.
@@ -886,6 +909,22 @@ Required:
 
 ### Step 7. Migrate the 174 credentials
 
+> **Out of order, and it matters. See `docs/prod-promotion-plan.md` steps 4 to
+> 6.** This step is written to run after the merge and after the first apply.
+> Row 13 deleted `backend/app/api/endpoints/auth/` outright, so once the merge's
+> images deploy there is no legacy `/api/auth/token` to fall back to and no
+> variable that restores it. Running the migration here would leave the 30
+> production users whose only credential is `hashed_password` locked out between
+> the apply and the migration, with no backout short of reverting `main` and
+> waiting for a rebuild.
+>
+> The migration is purely additive, so it runs **before** the merge instead,
+> against the identity tables created by a Terraform-only apply off a branch
+> that does not carry row 13. The mechanics of this step, the counts, the
+> `--prefix` gotcha and the conflict reasoning are all unchanged and still
+> correct; only its position in the sequence moved.
+
+
 **Portfolio's step 7 refused, and the reason does not exist here.** Its
 identity-aware admin seeder wrote a credential on the identity function's first
 cold start, 48 seconds after the backend deploy and therefore before the
@@ -1100,6 +1139,16 @@ roll back before touching the frontend.
 
 ### Step 11. Flip the frontend, then enforce the domain routes
 
+> **Wrong since row 13. Do not set `AUTH_MODE`.** The paragraph below was
+> correct when written. Row 13 rewrote `frontend/src/api/authMode.ts` so that
+> `AUTH_MODES` is `['identity']` and `AUTH_MODE` is a constant;
+> `VITE_AUTH_MODE` is now read by nothing, and `authMode.test.ts` asserts it is
+> undefined. The bundle the promotion merge ships is identity only with no
+> variable involved, so there is no frontend flip to perform: it happens as part
+> of the merge. Setting the variable would do nothing and would leave a stale
+> value that later reads as a live fact. The browser sign-in gate below is still
+> required, and is `docs/prod-promotion-plan.md` step 9.
+
 The production GitHub Environment has **no `AUTH_MODE` variable**, and neither
 does staging. `VITE_AUTH_MODE` defaults to `bearer` when absent, which is what
 both environments build today.
@@ -1280,13 +1329,24 @@ clearing a row it cannot open.
 **This is the one-way door.** After it, the sealed seed is the only copy and
 `docs/security/totp-seed-encryption.md`'s finding is closed.
 
-Note that **CarModPicker has no `clear_legacy_credentials.py`.** Portfolio has
-one and this repository does not, so clearing `hashed_password` from the users
-table is not a step here. Row 13 owns retiring the legacy `/api/auth` routes and
-the legacy columns, and it is a separate piece of work with its own review, not
-a tail step of this promotion. Leave `hashed_password` populated: it costs
-nothing, and while it is there the bearer rollback in the table below still
-works.
+**Correction: `backend/scripts/clear_legacy_credentials.py` now exists.** Row 13
+added it, so the sentence this paragraph used to carry is out of date. The
+conclusion is unchanged and is now load bearing for a different reason: **do not
+run it.** Its docstring opens with why it has to wait. Row 13 could not remove
+`hashed_password` from two call sites, `POST /api/users/` and the password
+change on `PUT /api/users/{user_id}`, which are the users domain's own routes
+and are still called by the SPA. Porting their writes needs the users function
+to hold a grant on the identity `credentials` table, and `module.identity` takes
+exactly one role with no input for a second, so that is its own row.
+
+Leave `hashed_password` populated. It costs nothing and those two routes still
+write it.
+
+Note also that the bearer rollback this paragraph used to promise **no longer
+exists**. Row 13 deleted the legacy routes as code, so a populated
+`hashed_password` column does not give a rollback path on its own: the code that
+read it is gone. The rollback is a revert of `main` plus a rebuild, which
+`docs/prod-promotion-plan.md` sets out by step reached.
 
 ### Step 13. Close out
 
@@ -1314,14 +1374,19 @@ cheap before step 7 and not cheap after step 12.**
 
 ### What reverting `main` does undo
 
+> **Corrected for row 13.** The `AUTH_MODE` delete below is a no-op, because
+> row 13 made the bundle identity only with no variable. And the revert is not
+> instant: the legacy login returns only once the reverted images finish
+> building and deploying, which is minutes rather than seconds.
+
 Reverting `main` to the sha recorded in step 1 and pushing rebuilds and
 redeploys the previous backend image and the previous frontend bundle. The
-frontend returns to `bearer` mode once `AUTH_MODE` is also removed, and the
-legacy login serves again from the monolith. That covers the application layer,
-and it works **only because step 12 does not clear `hashed_password`**.
+previous image is the one that still carries
+`backend/app/api/endpoints/auth/`, so the legacy login serves again from the
+monolith once it is deployed. That covers the application layer, and it works
+**only because step 12 does not clear `hashed_password`**.
 
 ```bash
-gh variable delete AUTH_MODE --env production --repo WebbPulse/CarModPicker
 git revert --no-commit <promotion-merge-sha>
 ```
 
@@ -1364,6 +1429,14 @@ git revert --no-commit <promotion-merge-sha>
 | After step 12 | Restore the plaintext seeds from the step 1 snapshot before reverting, or accept that the sealed seed is the only copy and fix forward. Fixing forward is usually right here, and the extension is already published. |
 
 ## Recommended sequence, short form
+
+> **`docs/prod-promotion-plan.md` is the sequence to follow.** The nine items
+> below are the 2026-09-10 ordering and are kept for the reasoning in each one.
+> The plan's sixteen steps reorder them around row 13: the credential and TOTP
+> migration moves ahead of the merge, item 7's frontend flip disappears because
+> the bundle is identity only, and the identity stack gets an apply of its own
+> before the merge so the migration has tables to write into.
+
 
 1. **Fix blocker 1** so a production speculative plan renders, as a
    `platform-modules` change, and confirm a plan-only run reaches
