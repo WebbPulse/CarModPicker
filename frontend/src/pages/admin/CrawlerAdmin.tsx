@@ -769,7 +769,7 @@ function RunningCrawlerProgress({
     0,
     Math.floor((Date.now() - startedAt.getTime()) / 1000)
   );
-  const selected = ((job.params?.['adapters'] ?? []) as string[]) ?? [];
+  const selected = (job.params?.['adapters'] as string[] | undefined) ?? [];
   const adaptersData = progress?.adapters ?? {};
   const serverNow = progress?.now ?? new Date().toISOString();
 
