@@ -186,15 +186,24 @@ module "api" {
   name        = "${local.prefix}-api"
   description = "CarModPicker ${var.environment} API (Lambda proxy)"
 
-  integrations = {
-    for name in local.routed_lambda_domains : name => {
-      lambda_function_name = module.lambda_domain[name].function_name
-      lambda_invoke_arn    = module.lambda_domain[name].invoke_arn
-      timeout_milliseconds = 29000
-    }
-  }
+  integrations = merge(
+    {
+      legacy = {
+        lambda_function_name = module.lambda_api.function_name
+        lambda_invoke_arn    = module.lambda_api.invoke_arn
+        timeout_milliseconds = 29000
+      }
+    },
+    {
+      for name in local.routed_lambda_domains : name => {
+        lambda_function_name = module.lambda_domain[name].function_name
+        lambda_invoke_arn    = module.lambda_domain[name].invoke_arn
+        timeout_milliseconds = 29000
+      }
+    },
+  )
 
-  default_integration = null
+  default_integration = "legacy"
 
   routes = local.lambda_domain_route_keys
 
