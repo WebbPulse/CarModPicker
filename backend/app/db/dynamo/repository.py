@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, Any, Generic, Iterable, TypeVar, cast
 
 from boto3.dynamodb.conditions import Attr, ConditionBase, Key
 from botocore.exceptions import ClientError
+from webbpulse.dynamodb import ConditionFailed, ItemNotFound, TransactionCanceled
 
 from app.db.dynamo.client import get_client, get_table, table_name
-from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
 from app.db.dynamo.models import DynamoModel, utc_now
 from app.db.dynamo.serialization import (
     UNIQUE_KEY_PREFIX,

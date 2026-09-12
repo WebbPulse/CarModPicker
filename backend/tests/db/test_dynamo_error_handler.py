@@ -7,11 +7,11 @@ from typing import Any, Dict
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from webbpulse.dynamodb import ConditionFailed, ItemNotFound, TransactionCanceled
 from webbpulse.http import ErrorSpec
 
 from app.api.middleware.error_handler import register_error_handlers
 from app.api.middleware.request_context import request_context_middleware
-from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
 from app.db.dynamo.users import UniqueAttributeTaken
 
 NOT_FOUND_BODY = {
@@ -129,35 +129,19 @@ def test_other_transaction_cancel_maps_to_500() -> None:
     assert "TransactionConflict" not in response.text
 
 
-def test_exception_map_declares_the_constant_renderings() -> None:
-    """The map holds the three constant renderings and keeps TransactionCanceled out.
+def test_exception_map_declares_the_unique_attribute_rendering() -> None:
+    """The map now holds only `UniqueAttributeTaken`.
 
-    Mapping it would flatten a real fault into a 409.
+    `ItemNotFound` and `ConditionFailed` moved to the package's own handlers, and
+    `TransactionCanceled` stays out because mapping it would flatten a real fault
+    into a 409.
     """
     from app.api.middleware.error_handler import DYNAMO_EXCEPTION_MAP
 
-    assert set(DYNAMO_EXCEPTION_MAP) == {
-        ItemNotFound,
-        ConditionFailed,
-        UniqueAttributeTaken,
-    }
+    assert set(DYNAMO_EXCEPTION_MAP) == {UniqueAttributeTaken}
+    assert ItemNotFound not in DYNAMO_EXCEPTION_MAP
+    assert ConditionFailed not in DYNAMO_EXCEPTION_MAP
     assert TransactionCanceled not in DYNAMO_EXCEPTION_MAP
-
-    not_found = DYNAMO_EXCEPTION_MAP[ItemNotFound]
-    assert isinstance(not_found, ErrorSpec)
-    assert (not_found.status, not_found.message, not_found.error_code) == (
-        404,
-        NOT_FOUND_BODY["message"],
-        NOT_FOUND_BODY["error_code"],
-    )
-
-    conflict = DYNAMO_EXCEPTION_MAP[ConditionFailed]
-    assert isinstance(conflict, ErrorSpec)
-    assert (conflict.status, conflict.message, conflict.error_code) == (
-        409,
-        CONFLICT_BODY["message"],
-        CONFLICT_BODY["error_code"],
-    )
 
     taken = DYNAMO_EXCEPTION_MAP[UniqueAttributeTaken]
     assert isinstance(taken, ErrorSpec)
@@ -166,3 +150,11 @@ def test_exception_map_declares_the_constant_renderings() -> None:
         TAKEN_BODY["message"],
         TAKEN_BODY["error_code"],
     )
+
+
+def test_package_handlers_render_the_configured_messages() -> None:
+    """The 404 and 409 wording comes from the constants handed to the package."""
+    from app.api.middleware.error_handler import CONFLICT_MESSAGE, NOT_FOUND_MESSAGE
+
+    assert NOT_FOUND_MESSAGE == NOT_FOUND_BODY["message"]
+    assert CONFLICT_MESSAGE == CONFLICT_BODY["message"]

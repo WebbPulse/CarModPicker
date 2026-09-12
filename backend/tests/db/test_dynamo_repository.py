@@ -9,9 +9,9 @@ from uuid import uuid4
 
 import pytest
 from boto3.dynamodb.conditions import Attr
+from webbpulse.dynamodb import ConditionFailed, ItemNotFound, TransactionCanceled
 
 from app.db.dynamo import client as dynamo_client
-from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
 from app.db.dynamo.models import DynamoModel, TimestampedDynamoModel
 from app.db.dynamo.repository import (
     DynamoRepository,

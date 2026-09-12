@@ -4,9 +4,9 @@ from typing import Any, Dict, Generic, Optional, TypeVar
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from webbpulse.dynamodb import ItemNotFound
 
 from app.api.protocols import HasModelDump
-from app.db.dynamo.errors import ItemNotFound
 from app.db.dynamo.models import DynamoModel
 from app.db.dynamo.repository import DynamoRepository, Page
 from app.db.dynamo.users import User as DBUser

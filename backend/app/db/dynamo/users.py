@@ -7,8 +7,8 @@ from uuid import UUID
 from boto3.dynamodb.conditions import Attr
 from pydantic import Field
 from uuid6 import uuid7
+from webbpulse.dynamodb import DynamoError, TransactionCanceled
 
-from app.db.dynamo.errors import DynamoError, TransactionCanceled
 from app.db.dynamo.models import DynamoModel, TimestampedDynamoModel, utc_now
 from app.db.dynamo.repository import DynamoRepository, RangeCondition, transact_write
 from app.db.dynamo.serialization import composite_key, encode_bytes

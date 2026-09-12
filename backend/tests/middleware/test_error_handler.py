@@ -9,10 +9,10 @@ import pytest
 from fastapi import FastAPI, HTTPException, status
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
+from webbpulse.dynamodb import ConditionFailed, ItemNotFound, TransactionCanceled
 
 from app.api.middleware.error_handler import register_error_handlers
 from app.api.middleware.request_context import request_context_middleware
-from app.db.dynamo.errors import ConditionFailed, ItemNotFound, TransactionCanceled
 
 ENVELOPE_KEYS = {"success", "status", "message", "request_id"}
 

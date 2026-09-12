@@ -293,7 +293,7 @@ def stub_the_two_borrowed_helpers(request: pytest.FixtureRequest, monkeypatch: p
     """Stand in for PartService.purge and delete_build_list_cascade so layer one
     tests the cascade control flow rather than the helpers it reuses.
     """
-    from app.db.dynamo.errors import ItemNotFound
+    from webbpulse.dynamodb import ItemNotFound
 
     state: Dict[str, Any] = {"purge_failures": set(), "cascade_failures": set()}
 
@@ -305,7 +305,7 @@ def stub_the_two_borrowed_helpers(request: pytest.FixtureRequest, monkeypatch: p
         if part.id in state["purge_failures"]:
             raise RuntimeError("DynamoDB throttled")
         if part.id not in self.repos.parts.rows.get(str(part.user_id), []):
-            raise ItemNotFound("parts", part.id)
+            raise ItemNotFound("parts", {"id": str(part.id)})
         self.repos.parts.forget(part.id)
 
     def fake_cascade(build_list_id: Any, *, build_lists: Any, **kwargs: Any) -> None:
