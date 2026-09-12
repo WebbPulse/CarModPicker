@@ -26,7 +26,6 @@ def create_and_login_admin_user(
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"part_manufacturer_admin_{username_suffix}"
     email = f"part_manufacturer_admin_{username_suffix}@example.com"
-    password = "testpassword"
 
     admin_user = UserRepository().create_user(
         DBUser(
@@ -171,7 +170,7 @@ class TestPartManufacturers:
         assert "updated_at" in data
 
     def test_create_part_manufacturer_duplicate_returns_existing(self, client: TestClient, db_session: Any) -> None:
-        """Test creating a part_manufacturer with existing name returns existing part_manufacturer (case-insensitive)."""
+        """Test creating a part_manufacturer with an existing name returns the existing row."""
         _, token = create_and_login_user(client, "dup")
         name = get_unique_name("DupPartManufacturer")
         first = create_part_manufacturer_via_api(client, token, name)
@@ -421,7 +420,10 @@ class TestPartManufacturers:
         assert isinstance(data["count"], int)
 
     def test_create_pm_dedups_into_existing(self, client: TestClient, db_session: Any) -> None:
-        """Typing an existing brand name links to that row, since manufacturers dedupe case insensitively in one global namespace."""
+        """Typing an existing brand name links to that row.
+
+        Manufacturers dedupe case insensitively in one global namespace.
+        """
         existing_name = get_unique_name("HKS")
         existing = DBPartManufacturer(
             name=existing_name,

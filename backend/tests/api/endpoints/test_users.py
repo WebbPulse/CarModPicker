@@ -333,9 +333,6 @@ def test_upload_profile_picture_replaces_old_one(client: TestClient, db_session:
     upload_response1 = client.post(f"{settings.API_STR}/users/me/profile-picture", files=files1, headers=headers)
 
     if upload_response1.status_code == 200:
-        data1 = upload_response1.json()
-        old_image_urls = data1.get("image_urls")
-
         img2 = Image.new("RGB", (100, 100), color="blue")
         img2_bytes = io.BytesIO()
         img2.save(img2_bytes, format="PNG")
@@ -348,7 +345,6 @@ def test_upload_profile_picture_replaces_old_one(client: TestClient, db_session:
 
         if upload_response2.status_code == 200:
             data2 = upload_response2.json()
-            new_image_urls = data2.get("image_urls")
             assert "image_urls" in data2
 
 

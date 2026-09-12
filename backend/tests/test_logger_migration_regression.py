@@ -1,4 +1,7 @@
-"""Fails if any endpoint signature under backend/app reintroduces Depends(get_logger) instead of a module level logger."""
+"""Fails if an endpoint signature under backend/app reintroduces Depends(get_logger).
+
+Endpoints must use a module level logger instead.
+"""
 
 from __future__ import annotations
 

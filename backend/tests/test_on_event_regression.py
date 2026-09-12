@@ -1,4 +1,7 @@
-"""Fails if any module under backend/app reintroduces the deprecated @app.on_event decorator instead of a lifespan context manager."""
+"""Fails if a module under backend/app reintroduces the deprecated @app.on_event.
+
+Modules must use a lifespan context manager instead.
+"""
 
 from __future__ import annotations
 

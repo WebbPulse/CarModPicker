@@ -255,7 +255,7 @@ class TestVoteService:
     def test_get_flagged_entities(self, db_session: Any, test_user: User) -> None:
         """Test getting flagged entities."""
 
-        user2 = UserRepository().create_user(
+        UserRepository().create_user(
             User(
                 username=get_unique_name("user4"),
                 email=f"{get_unique_name('user4')}@example.com",

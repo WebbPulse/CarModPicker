@@ -7,9 +7,8 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.db.dynamo.catalog import Category as DBCategory
-from app.db.dynamo.users import User
+from app.db.dynamo.users import User, UserRepository
 from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user, save_catalog
 
 
@@ -42,7 +41,6 @@ def create_and_login_admin_user(
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
-    password = "testpassword"
 
     admin_user = UserRepository().create_user(
         DBUser(
@@ -580,7 +578,10 @@ class TestBuildLists:
     def test_copy_build_list_with_custom_name(
         self, client: TestClient, premium_test_user: User, db_session: Any
     ) -> None:
-        """Test copying a build list with a custom name. Uses premium_test_user per IN-02 (see test_copy_build_list_success)."""
+        """Test copying a build list with a custom name.
+
+        Uses premium_test_user per IN-02 (see test_copy_build_list_success).
+        """
         token = get_auth_token(client, premium_test_user.username)
         headers = get_auth_headers(token)
 

@@ -1,6 +1,9 @@
-"""Pins that adopting webbpulse.security reads what the deleted code wrote: live sessions stay valid and stored bcrypt hashes still verify.
+"""Pins that adopting webbpulse.security reads what the deleted code wrote.
 
-The old primitives are reproduced here as _legacy_* rather than imported, so they keep asserting once the originals are gone.
+Live sessions stay valid and stored bcrypt hashes still verify.
+
+The old primitives are reproduced here as _legacy_* rather than imported, so they
+keep asserting once the originals are gone.
 """
 
 from __future__ import annotations

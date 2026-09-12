@@ -4,6 +4,7 @@ The crawler uses this to attach scraped parts to the right generations. Returns
 (make, model, generation_name) triples for `resolve_car_triples_to_ids` to resolve.
 """
 
+import datetime as _dt
 import re
 from typing import Optional
 from uuid import UUID
@@ -2483,8 +2484,6 @@ def infer_car_generations(
 
     return _maybe_narrow_by_combined_year_ranges(result, combined)
 
-
-import datetime as _dt
 
 _YEAR_LO: int = 1960
 _YEAR_HI_OFFSET: int = 1

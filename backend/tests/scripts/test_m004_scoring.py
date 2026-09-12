@@ -5,7 +5,6 @@ synthetic inputs with no database and no I/O.
 from __future__ import annotations
 
 import math
-from typing import Any
 
 import pytest
 

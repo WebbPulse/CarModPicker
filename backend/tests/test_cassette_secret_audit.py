@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
@@ -111,7 +110,7 @@ def test_cassette_audit_passes_for_redacted_cassette(tmp_path: Path) -> None:
 
 
 def test_cassette_audit_redacted_markers_present_when_cassettes_exist() -> None:
-    """When committed cassettes carry scrub eligible fields, at least one REDACTED marker appears, proving the filters ran."""
+    """At least one REDACTED marker appears when cassettes carry scrub eligible fields."""
     cassettes = _all_cassettes()
     if not cassettes:
         pytest.skip("No cassettes committed yet — audit-meta guard trivially OK")

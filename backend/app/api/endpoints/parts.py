@@ -104,7 +104,11 @@ async def read_parts_with_votes(
     user_id: Optional[UUID] = Query(None, description="Filter to parts created by this user (for 'My Parts' view)"),
     sort: Optional[str] = Query(
         None,
-        description="Sort: votes_desc (default), votes_asc, lowest_price, highest_price, name_asc, name_desc, part_number_asc, part_number_desc, part_manufacturer_asc, part_manufacturer_desc, category_asc, category_desc",
+        description=(
+            "Sort: votes_desc (default), votes_asc, lowest_price, highest_price, name_asc, "
+            "name_desc, part_number_asc, part_number_desc, part_manufacturer_asc, "
+            "part_manufacturer_desc, category_asc, category_desc"
+        ),
     ),
     search: Optional[str] = Query(None, description="Search in part names and descriptions"),
     min_price_cents: Optional[int] = Query(None, ge=0, description="Filter to parts with best price >= this (cents)"),
@@ -405,8 +409,12 @@ async def set_primary_image_for_part(
 def _best_listing(repos: Repositories, part_id: UUID) -> Optional[PartListingReadWithRetailer]:
     """Return the cheapest priced listing for a part, or None when none are priced."""
     listings = listings_with_retailers(repos.part_listings.list_by_part(part_id))
-    priced = [l for l in listings if l.last_known_price_cents is not None and l.last_known_price_cents >= 0]
-    return min(priced, key=lambda l: (l.last_known_price_cents or 0, str(l.id))) if priced else None
+    priced = [
+        listing
+        for listing in listings
+        if listing.last_known_price_cents is not None and listing.last_known_price_cents >= 0
+    ]
+    return min(priced, key=lambda listing: (listing.last_known_price_cents or 0, str(listing.id))) if priced else None
 
 
 @router.get(
@@ -443,8 +451,12 @@ async def get_part_with_listings(
     """Get a part with all retailer listings (aggregated across the link group) and best price."""
     part = _get_part_or_404(repos, part_id)
     listings = listings_with_retailers(repos.part_listings.list_by_part(part_id))
-    priced = [l for l in listings if l.last_known_price_cents is not None and l.last_known_price_cents >= 0]
-    best_listing = min(priced, key=lambda l: (l.last_known_price_cents or 0, str(l.id))) if priced else None
+    priced = [
+        listing
+        for listing in listings
+        if listing.last_known_price_cents is not None and listing.last_known_price_cents >= 0
+    ]
+    best_listing = min(priced, key=lambda listing: (listing.last_known_price_cents or 0, str(listing.id))) if priced else None
     part_dict = PartRead.model_validate(part).model_dump()
     part_dict["best_price_cents"] = best_listing.last_known_price_cents if best_listing else None
     return PartReadWithListings(**part_dict, listings=listings, best_listing=best_listing)

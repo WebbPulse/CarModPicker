@@ -14,7 +14,8 @@ SNAPSHOT_PATH = Path(__file__).parent / "fixtures" / "openapi_snapshot.json"
 def test_openapi_snapshot_matches() -> None:
     """The live schema matches the committed snapshot.
 
-    app is imported inside the function so conftest's env setup lands first; a module level import leaks rate limit responses into the schema.
+    app is imported inside the function so conftest's env setup lands first; a module
+    level import leaks rate limit responses into the schema.
     """
     from app.main import app
 

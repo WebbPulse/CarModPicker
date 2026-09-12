@@ -17,7 +17,6 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-not-a-real-one")
 INVALID_UUID: UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 INVALID_UUID_STR: str = str(INVALID_UUID)
 
-from app.api.dependencies.auth import get_password_hash  # noqa: E402
 from app.api.schemas.car_generation import CarGenerationRead  # noqa: E402
 from app.api.services.car_generation_service import CarGenerationService  # noqa: E402
 from app.db.dynamo.catalog import (  # noqa: E402

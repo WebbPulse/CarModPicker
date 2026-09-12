@@ -17,7 +17,6 @@ from tests.conftest import (
     get_default_category_id,
     login_user,
     save_catalog,
-    test_part_manufacturer,
 )
 
 
@@ -34,7 +33,6 @@ def create_and_login_admin_user(
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
-    password = "testpassword"
 
     admin_user = UserRepository().create_user(
         DBUser(
@@ -172,7 +170,7 @@ class TestCategories:
 
         car_id = create_car_for_categories_test(db_session)
 
-        build_list_id = create_build_list_for_car_cookie_auth(client, token, car_id)
+        create_build_list_for_car_cookie_auth(client, token, car_id)
 
         for i in range(3):
             part_data = {
@@ -244,7 +242,7 @@ class TestCategories:
 
         car_id = create_car_for_categories_test(db_session)
 
-        build_list_id = create_build_list_for_car_cookie_auth(client, user_token, car_id)
+        create_build_list_for_car_cookie_auth(client, user_token, car_id)
 
         category_id = get_default_category_id(db_session)
 
@@ -285,7 +283,7 @@ class TestCategories:
 
         car_id = create_car_for_categories_test(db_session)
 
-        build_list_id = create_build_list_for_car_cookie_auth(client, user_token, car_id)
+        create_build_list_for_car_cookie_auth(client, user_token, car_id)
 
         part_manufacturer = PartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True

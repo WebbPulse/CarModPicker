@@ -59,7 +59,10 @@ class Settings(BaseServiceSettings):
 
     FRONTEND_URL: str = Field(
         default="",
-        description="Public origin of the user-facing SPA. Empty = per-environment default derived from APP_ENVIRONMENT.",
+        description=(
+            "Public origin of the user-facing SPA. Empty = per-environment default "
+            "derived from APP_ENVIRONMENT."
+        ),
     )
 
     API_URL: str = Field(
@@ -293,11 +296,17 @@ class Settings(BaseServiceSettings):
     SENTRY_DSN_SETTING: str = Field(
         default="",
         alias="SENTRY_DSN",
-        description="Sentry DSN for error reporting. Empty = Sentry disabled. Injected via Secrets Manager in prod (D-01, D-55).",
+        description=(
+            "Sentry DSN for error reporting. Empty = Sentry disabled. Injected via "
+            "Secrets Manager in prod (D-01, D-55)."
+        ),
     )
     SENTRY_RELEASE: str = Field(
         default="",
-        description="Release identifier baked at Docker build time (typically git commit SHA, set by GitHub Actions per D-02).",
+        description=(
+            "Release identifier baked at Docker build time (typically git commit SHA, "
+            "set by GitHub Actions per D-02)."
+        ),
     )
     SENTRY_SERVICE_NAME: str = Field(
         default="",
@@ -340,7 +349,10 @@ class Settings(BaseServiceSettings):
     )
     AWS_SESSION_TOKEN: str = Field(
         default="",
-        description="AWS session token. Lambda sets this alongside the key pair; required whenever the credentials are temporary.",
+        description=(
+            "AWS session token. Lambda sets this alongside the key pair; required "
+            "whenever the credentials are temporary."
+        ),
     )
     AWS_REGION: str = Field(
         default="auto",

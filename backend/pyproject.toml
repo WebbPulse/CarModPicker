@@ -1,26 +1,14 @@
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = ['py311']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
+target-version = "py313"
+extend-exclude = ["build", "dist", "htmlcov", ".venv", "venv"]
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 120
-known_first_party = ["app"]
-known_third_party = ["fastapi", "boto3", "pydantic", "pytest"]
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E203"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
 
 [tool.mypy]
 python_version = "3.11"

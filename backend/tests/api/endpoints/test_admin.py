@@ -9,7 +9,7 @@ from app.db.dynamo.catalog import Part as DBPart
 from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.conftest import INVALID_UUID_STR, auth_headers, catalog_repository, login_user, save_catalog
+from tests.conftest import auth_headers, catalog_repository, login_user, save_catalog
 
 
 def create_and_login_admin_user(client: TestClient, db_session: Any, username_suffix: str = "admin") -> str:
@@ -18,7 +18,7 @@ def create_and_login_admin_user(client: TestClient, db_session: Any, username_su
     email = f"admin_ep_test_{username_suffix}@example.com"
     password = "testpassword"
 
-    admin_user = UserRepository().create_user(
+    UserRepository().create_user(
         DBUser(
             username=username,
             email=email,

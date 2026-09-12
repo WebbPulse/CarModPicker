@@ -38,8 +38,8 @@ pytest -n auto
 pytest -n auto --cov=app --cov-report=term-missing
 
 # Linting
-black --config pyproject.toml .
-isort .
+ruff format .
+ruff check .
 pyright
 bandit -r app
 ```

@@ -17,7 +17,6 @@ def create_and_login_admin_user(
     """Create an admin user and log them in. Returns (user_dict, token)."""
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
-    password = "testpassword"
 
     admin_user = UserRepository().create_user(
         DBUser(
@@ -41,7 +40,6 @@ def create_and_login_regular_user(
     """Create a regular user and log them in. Returns (user_dict, token)."""
     username = f"regular_test_{username_suffix}"
     email = f"regular_test_{username_suffix}@example.com"
-    password = "testpassword"
 
     regular_user = UserRepository().create_user(
         DBUser(
@@ -108,8 +106,7 @@ class TestCategoriesAdminAuthentication:
         """Categories are seeded from backend; create endpoint is removed (404/405)."""
         username = "superuser_test_create"
         email = f"{username}@example.com"
-        password = "testpassword"
-        superuser = UserRepository().create_user(
+        UserRepository().create_user(
             DBUser(
                 username=username,
                 email=email,

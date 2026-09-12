@@ -1,10 +1,8 @@
 """Tests for car service."""
 
-import logging
 import os
 from typing import Any
 
-from app.api.schemas.car_generation import CarGenerationCreate, CarGenerationUpdate
 from app.api.services.car_generation_service import CarGenerationService
 from app.db.dynamo.catalog import CarGenerationRepository
 from app.db.dynamo.users import User
@@ -168,7 +166,6 @@ class TestCarService:
         )
 
         service = CarGenerationService()
-        logger = logging.getLogger(__name__)
         deleted_car = service.delete(car.id, test_user)
 
         assert deleted_car.id == car.id
@@ -180,7 +177,6 @@ class TestCarService:
     def test_delete_car_not_found(self, db_session: Any, test_user: User) -> None:
         """Test deleting a non-existent car."""
         service = CarGenerationService()
-        logger = logging.getLogger(__name__)
 
         from fastapi import HTTPException
 

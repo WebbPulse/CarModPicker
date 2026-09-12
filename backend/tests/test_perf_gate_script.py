@@ -1,4 +1,6 @@
-"""Tests the price history perf gate's own assertion logic against synthetic locust CSVs, so a buggy gate cannot hand out false passes.
+"""Tests the price history perf gate's own assertion logic against synthetic locust CSVs.
+
+A buggy gate cannot hand out false passes.
 
 Skipped unless PERF_GATE_TEST is set, because locust is a heavy install.
 """

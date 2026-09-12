@@ -462,7 +462,7 @@ async def read_build_lists_by_user(
     """
     Retrieve all build lists owned by a specific user.
     Public endpoint - build lists are discoverable via search and catalog, so listing by user is allowed for profile pages.
-    """
+    """  # noqa: E501
     logger = deps["logger"]
 
     skip, limit = validate_pagination_params(skip=skip, limit=limit)

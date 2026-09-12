@@ -1,6 +1,7 @@
 """Sweeps every protected route under /api/ outside /api/admin and /api/auth and asserts anonymous requests get a 401.
 
-Public routes are allow-listed, so drift in either direction fails: a lost auth dependency, a leaked one, or a new route nobody classified.
+Public routes are allow-listed, so drift in either direction fails: a lost auth
+dependency, a leaked one, or a new route nobody classified.
 """
 
 from __future__ import annotations
