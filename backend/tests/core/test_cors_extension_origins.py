@@ -104,3 +104,41 @@ def test_preflight_from_the_configured_frontend_origins_succeeds(client: TestCli
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == origin
     assert response.headers["access-control-allow-credentials"] == "true"
+
+
+API_CLIENT_HEADERS = ["x-request-id", "x-retry-attempt"]
+
+
+@pytest.mark.parametrize("header", API_CLIENT_HEADERS)
+def test_api_client_headers_are_allowed_on_preflight(client: TestClient, header: str) -> None:
+    """`@webbpulse/api-client` sends `x-request-id` always, `x-retry-attempt` on retries.
+
+    Omitting either from `allow_headers` failed the preflight with 400
+    "Disallowed CORS headers", which broke every browser call.
+    """
+    response = client.options(
+        "/health",
+        headers={
+            "Origin": STORE_ORIGIN,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": header,
+        },
+    )
+    assert response.status_code == 200
+    allowed = {h.strip().lower() for h in response.headers["access-control-allow-headers"].split(",")}
+    assert header in allowed
+
+
+def test_full_api_client_header_set_passes_preflight(client: TestClient) -> None:
+    """The real browser preflight sends these together with content-type."""
+    response = client.options(
+        "/health",
+        headers={
+            "Origin": STORE_ORIGIN,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "content-type,authorization," + ",".join(API_CLIENT_HEADERS),
+        },
+    )
+    assert response.status_code == 200
+    allowed = {h.strip().lower() for h in response.headers["access-control-allow-headers"].split(",")}
+    assert {"content-type", "authorization", *API_CLIENT_HEADERS} <= allowed
