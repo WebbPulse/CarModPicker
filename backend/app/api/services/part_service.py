@@ -468,9 +468,11 @@ class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
         normalized = search.normalize_term(term)
         parts = search.scan_matching(
             self.repos.parts,
-            lambda part: part.canonical_part_id is None
-            and not is_tombstoned(part)
-            and (not normalized or search.contains(normalized, part.name, part.description)),
+            lambda part: (
+                part.canonical_part_id is None
+                and not is_tombstoned(part)
+                and (not normalized or search.contains(normalized, part.name, part.description))
+            ),
         )
         return search.paginate(
             parts,
@@ -490,11 +492,13 @@ class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
         }
         parts = search.scan_matching(
             self.repos.parts,
-            lambda part: part.canonical_part_id is None
-            and not is_tombstoned(part)
-            and (
-                search.contains(normalized, part.name, part.description, part.part_number)
-                or part.part_manufacturer_id in manufacturer_ids
+            lambda part: (
+                part.canonical_part_id is None
+                and not is_tombstoned(part)
+                and (
+                    search.contains(normalized, part.name, part.description, part.part_number)
+                    or part.part_manufacturer_id in manufacturer_ids
+                )
             ),
         )
         return search.paginate(

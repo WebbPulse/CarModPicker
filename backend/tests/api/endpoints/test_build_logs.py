@@ -827,9 +827,9 @@ class TestBuildLogs:
 
         assert build_logs.for_build_list(UUID(build_list_id)) is None, "Build log should be deleted with its list"
 
-        assert all(
-            build_log_posts.get(UUID(p)) is None for p in post_ids
-        ), "All posts should be deleted when build list is deleted"
+        assert all(build_log_posts.get(UUID(p)) is None for p in post_ids), (
+            "All posts should be deleted when build list is deleted"
+        )
 
     def test_access_build_log_after_build_list_deletion(
         self, client: TestClient, test_user: DBUser, db_session: Any

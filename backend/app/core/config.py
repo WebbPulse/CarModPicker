@@ -60,8 +60,7 @@ class Settings(BaseServiceSettings):
     FRONTEND_URL: str = Field(
         default="",
         description=(
-            "Public origin of the user-facing SPA. Empty = per-environment default "
-            "derived from APP_ENVIRONMENT."
+            "Public origin of the user-facing SPA. Empty = per-environment default derived from APP_ENVIRONMENT."
         ),
     )
 
@@ -288,7 +287,7 @@ class Settings(BaseServiceSettings):
     EMAIL_ENABLED: bool = Field(
         default=False,
         description=(
-            "Enable email sending via SES. Set to true in production. " "When false, email calls are silently skipped."
+            "Enable email sending via SES. Set to true in production. When false, email calls are silently skipped."
         ),
     )
     EMAIL_FROM: str = Field(default="")
@@ -304,8 +303,7 @@ class Settings(BaseServiceSettings):
     SENTRY_RELEASE: str = Field(
         default="",
         description=(
-            "Release identifier baked at Docker build time (typically git commit SHA, "
-            "set by GitHub Actions per D-02)."
+            "Release identifier baked at Docker build time (typically git commit SHA, set by GitHub Actions per D-02)."
         ),
     )
     SENTRY_SERVICE_NAME: str = Field(

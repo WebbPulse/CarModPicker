@@ -143,7 +143,7 @@ def test_passwordless_off_keeps_the_five_management_routes(
         assert (method, path) in pairs, f"{method} {path} did not mount"
     for method, path in PASSKEY_LOGIN_PATHS:
         assert (method, path) in pairs, (
-            f"{method} {path} is declared by passkeys_enabled and refused by " "passwordless, not removed by it"
+            f"{method} {path} is declared by passkeys_enabled and refused by passwordless, not removed by it"
         )
 
 

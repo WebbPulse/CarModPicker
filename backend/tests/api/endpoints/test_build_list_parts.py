@@ -1223,7 +1223,9 @@ class TestBuildListParts:
         data = response.json()
         assert len(data) == 0
 
-    def test_remove_part_from_build_list_by_part_id_not_found(self, client: TestClient, test_user: User, db_session: Any) -> None:
+    def test_remove_part_from_build_list_by_part_id_not_found(
+        self, client: TestClient, test_user: User, db_session: Any
+    ) -> None:
         """Test removing a non-existent global part from a build list."""
         token = login_user(client, test_user.username)
         headers = get_auth_headers(token)

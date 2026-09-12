@@ -22,5 +22,5 @@ def test_no_app_on_event_in_app() -> None:
             if ON_EVENT_RE.search(line):
                 offenders.append((str(pyfile.relative_to(BACKEND_APP)), lineno))
     assert not offenders, (
-        "@app.on_event found — use the lifespan context manager instead " f"(see backend/app/main.py): {offenders!r}"
+        f"@app.on_event found — use the lifespan context manager instead (see backend/app/main.py): {offenders!r}"
     )

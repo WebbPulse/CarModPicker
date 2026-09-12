@@ -634,9 +634,9 @@ def test_the_package_answers_the_two_former_collisions(identity_app: Any) -> Non
     for pair in COLLISIONS:
         endpoint = winners[pair]
         assert endpoint is not None
-        assert endpoint.__module__.startswith(
-            "webbpulse.identity"
-        ), f"{pair} is answered by {endpoint.__module__}, not the package router"
+        assert endpoint.__module__.startswith("webbpulse.identity"), (
+            f"{pair} is answered by {endpoint.__module__}, not the package router"
+        )
 
 
 def test_no_route_under_the_identity_prefix_is_this_repositorys_own(identity_app: Any) -> None:

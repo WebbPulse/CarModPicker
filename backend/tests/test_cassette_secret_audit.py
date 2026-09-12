@@ -75,9 +75,9 @@ def test_cassette_audit_detection_works_with_leaked_token(tmp_path: Path) -> Non
             snippet = match.group(0)[:40] + "..."
             hits.append(f"{name}: {snippet}")
     assert hits, "Detection failed: leaked token pattern was not caught by BANNED_PATTERNS"
-    assert any(
-        "google_access_token" in h or "authorization_bearer" in h for h in hits
-    ), f"Expected google_access_token or authorization_bearer detection, got: {hits}"
+    assert any("google_access_token" in h or "authorization_bearer" in h for h in hits), (
+        f"Expected google_access_token or authorization_bearer detection, got: {hits}"
+    )
 
 
 def test_cassette_audit_passes_for_redacted_cassette(tmp_path: Path) -> None:
@@ -127,7 +127,7 @@ def test_cassette_audit_redacted_markers_present_when_cassettes_exist() -> None:
         "access_token",
     )
     if not any(key in combined.lower() for key in scrub_eligible_keys):
-        pytest.skip("No scrub-eligible fields present in any cassette — " "REDACTED marker not required")
+        pytest.skip("No scrub-eligible fields present in any cassette — REDACTED marker not required")
 
     assert "REDACTED" in combined, (
         "No `REDACTED` marker found across committed cassettes — vcr_config "

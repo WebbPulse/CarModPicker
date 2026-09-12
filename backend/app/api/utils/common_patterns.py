@@ -42,7 +42,7 @@ def verify_user_access_or_admin(
     if current_user.id != target_user_id and not current_user.is_admin and not current_user.is_superuser:
         if logger:
             logger.warning(
-                f"Access denied: User {current_user.id} " f"attempted to {action_description} for user {target_user_id}"
+                f"Access denied: User {current_user.id} attempted to {action_description} for user {target_user_id}"
             )
         ResponsePatterns.raise_forbidden(f"Not authorized to {action_description}")
 

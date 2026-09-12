@@ -721,9 +721,9 @@ class TestBuildLists:
         assert resp.status_code == 402, f"Expected 402 on copy at free-tier cap, got {resp.status_code}: {resp.text}"
         data = resp.json()
         msg = data.get("detail") or data.get("message") or ""
-        assert (
-            "Free accounts are limited to 1 build list" in msg
-        ), f"Expected cap-exceeded message in 402 body, got: {data}"
+        assert "Free accounts are limited to 1 build list" in msg, (
+            f"Expected cap-exceeded message in 402 body, got: {data}"
+        )
 
         resp = client.get(
             f"{settings.API_STR}/build-lists/user/{test_user.id}",

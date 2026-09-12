@@ -456,7 +456,9 @@ async def get_part_with_listings(
         for listing in listings
         if listing.last_known_price_cents is not None and listing.last_known_price_cents >= 0
     ]
-    best_listing = min(priced, key=lambda listing: (listing.last_known_price_cents or 0, str(listing.id))) if priced else None
+    best_listing = (
+        min(priced, key=lambda listing: (listing.last_known_price_cents or 0, str(listing.id))) if priced else None
+    )
     part_dict = PartRead.model_validate(part).model_dump()
     part_dict["best_price_cents"] = best_listing.last_known_price_cents if best_listing else None
     return PartReadWithListings(**part_dict, listings=listings, best_listing=best_listing)

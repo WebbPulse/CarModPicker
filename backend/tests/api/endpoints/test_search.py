@@ -256,8 +256,7 @@ class TestSearch:
         assert data["build_lists"]["next_cursor"]
 
         response = client.get(
-            f"{settings.API_STR}/search/?q={base_name}&limit=2"
-            f"&build_lists_cursor={data['build_lists']['next_cursor']}"
+            f"{settings.API_STR}/search/?q={base_name}&limit=2&build_lists_cursor={data['build_lists']['next_cursor']}"
         )
         assert response.status_code == 200
         second = response.json()

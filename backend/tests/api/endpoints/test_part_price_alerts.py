@@ -499,5 +499,5 @@ def test_unsubscribe_is_registered_before_parameterised_routes() -> None:
     assert parameterised_indexes, paths
 
     assert unsubscribe_index < min(parameterised_indexes), (
-        "/unsubscribe must be registered before the /{alert_id} routes, " f"got order {paths}"
+        f"/unsubscribe must be registered before the /{{alert_id}} routes, got order {paths}"
     )

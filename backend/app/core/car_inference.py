@@ -2882,8 +2882,7 @@ def _load_engine_platforms() -> dict:
             model_entry = next((m for m in models if m["model"] == model), None)
             if model_entry is None:
                 raise RuntimeError(
-                    f"engine_platforms[{engine_name!r}] references unknown "
-                    f"({make!r}, {model!r}) — model not in seed"
+                    f"engine_platforms[{engine_name!r}] references unknown ({make!r}, {model!r}) — model not in seed"
                 )
             if not any(g["generation_name"] == gen_name for g in model_entry["generations"]):
                 raise RuntimeError(

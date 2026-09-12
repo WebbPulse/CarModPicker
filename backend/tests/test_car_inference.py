@@ -708,12 +708,11 @@ class TestCarAliasesNoDrift:
                 continue
             if not any(g["generation_name"] == gen_name for g in model_entry["generations"]):
                 drift.append(entry)
-        assert (
-            not drift
-        ), f"{len(drift)} CAR_ALIASES entries reference unknown " f"(make, model, gen_name) triples in seed:\n" + "\n".join(
-            f"  {entry!r}" for entry in drift[:20]
-        ) + (
-            "\n  ..." if len(drift) > 20 else ""
+        assert not drift, (
+            f"{len(drift)} CAR_ALIASES entries reference unknown "
+            f"(make, model, gen_name) triples in seed:\n"
+            + "\n".join(f"  {entry!r}" for entry in drift[:20])
+            + ("\n  ..." if len(drift) > 20 else "")
         )
 
     def test_no_exact_duplicate_alias_entries(self) -> None:

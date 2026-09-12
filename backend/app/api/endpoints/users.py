@@ -261,7 +261,7 @@ async def update_user(
         ResponsePatterns.raise_not_found("User", user_id)
 
     if db_user.id != current_user.id:
-        logger.warning(f"User {current_user.id} attempt to update user {user_id} " f"without authorization.")
+        logger.warning(f"User {current_user.id} attempt to update user {user_id} without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
     update_data = user.model_dump(exclude_unset=True)
@@ -325,7 +325,7 @@ async def delete_user(
     Delete a user account. Users can only delete their own account.
     """
     if user_id != current_user.id:
-        logger.warning(f"User {current_user.id} attempted to delete user {user_id} " f"without authorization.")
+        logger.warning(f"User {current_user.id} attempted to delete user {user_id} without authorization.")
         ResponsePatterns.raise_forbidden("Not authorized to delete this user")
 
     db_user = repos.users.get(user_id)

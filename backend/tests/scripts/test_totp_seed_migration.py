@@ -184,7 +184,10 @@ def test_a_pending_enrolment_is_not_a_factor_the_service_challenges(
         data_key_arn=data_key_arn,
     )
     service = MfaService(
-        settings, IdentityStores(totp_factors=store), tokens=None, kms_client=kms  # type: ignore[arg-type]
+        settings,
+        IdentityStores(totp_factors=store),
+        tokens=None,
+        kms_client=kms,  # type: ignore[arg-type]
     )
     assert service.factors_for(user_id) == []
 
