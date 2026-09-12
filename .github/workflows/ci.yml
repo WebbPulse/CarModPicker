@@ -61,6 +61,9 @@ jobs:
       - name: Test the route key resolver
         run: python -m pytest scripts/test_expected_route_key.py -q
 
+      - name: Test the identity smoke expectations
+        run: python -m pytest scripts/test_identity_smoke.py -q
+
   backend:
     name: Backend
     needs: changes
@@ -211,6 +214,7 @@ jobs:
       - frontend
       - frontend-audit-and-imports
       - chrome-extension
+      - scripts
     if: always()
     steps:
       - name: Fail unless every upstream job succeeded or was skipped

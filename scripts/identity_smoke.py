@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Identity-only smoke test: prove an environment runs on identity RS256 alone.
 
-Row 13 deletes the 24 legacy `/api/auth` operations and the HS256 dual mode from
+Row 13 deletes the legacy `/api/auth` operations and the HS256 dual mode from
 every resolver. Before that merges, the question worth real evidence is not
 whether the tests pass, it is whether a live environment still needs any of it.
 This script answers that against a deployed environment, over HTTP, with one
@@ -23,7 +23,7 @@ It checks four things, in the order they build on each other:
    fetched and grepped, because the bundle is what users actually run and a
    source tree that no longer mentions a route proves nothing about what is
    deployed in front of them.
-4. **The 24 legacy operations are harmless.** Each is called with and without the
+4. **The legacy operations are harmless.** Each is called with and without the
    token. What matters is that none answers 5xx and none answers 200: a 404 is
    the post-row-13 answer, a 401 or 403 is the pre-row-13 answer from a route
    that exists but refuses, and either is safe. A 200 means something still
@@ -84,23 +84,19 @@ LEGACY_OPERATIONS: list[tuple[str, str]] = [
     ("DELETE", "/api/auth/oauth/{account_id}"),
     ("DELETE", "/api/auth/webauthn/credentials/{credential_id}"),
     ("GET", "/api/auth/oauth"),
-    ("GET", "/api/auth/verify-email/confirm"),
     ("GET", "/api/auth/webauthn/credentials"),
     ("PATCH", "/api/auth/webauthn/credentials/{credential_id}"),
     ("POST", "/api/auth/2fa/disable"),
     ("POST", "/api/auth/2fa/setup"),
     ("POST", "/api/auth/2fa/verify"),
-    ("POST", "/api/auth/logout"),
     ("POST", "/api/auth/oauth/2fa"),
     ("POST", "/api/auth/oauth/google"),
     ("POST", "/api/auth/oauth/google/connect"),
-    ("POST", "/api/auth/oauth/google/link"),
     ("POST", "/api/auth/oauth/google/signup"),
     ("POST", "/api/auth/reset-password"),
     ("POST", "/api/auth/reset-password/confirm"),
     ("POST", "/api/auth/token"),
     ("POST", "/api/auth/token/2fa"),
-    ("POST", "/api/auth/verify-email"),
     ("POST", "/api/auth/webauthn/login/options"),
     ("POST", "/api/auth/webauthn/login/verify"),
     ("POST", "/api/auth/webauthn/register/options"),
@@ -147,6 +143,7 @@ class Probe:
     kind: str = "read"
     note: str = ""
     needs: list[str] = field(default_factory=list)
+    expect_json: dict[str, Any] | None = None
 
 
 class Client:
@@ -308,6 +305,15 @@ def probes_for(user_id: str) -> list[Probe]:
             kind="write",
             note="403 expected, must NOT be 200",
         ),
+        Probe(
+            "identity",
+            "POST",
+            "/api/auth/logout",
+            ok=(200,),
+            kind="write",
+            expect_json={"signed_out": True},
+            note="package-owned route, not a legacy leftover; runs last because it ends the session",
+        ),
     ]
 
 
@@ -354,6 +360,16 @@ def run_domain_probes(
         )
         verdict = "PASS" if status in probe.ok else "FAIL"
         note = probe.note
+        if verdict == "PASS" and probe.expect_json is not None:
+            try:
+                payload = json.loads(text)
+            except ValueError:
+                payload = None
+            if not isinstance(payload, dict) or any(
+                payload.get(key) != value for key, value in probe.expect_json.items()
+            ):
+                verdict = "FAIL"
+                note = f"expected {probe.expect_json} in the body, got {text[:120]}"
         if status == 401:
             note = "401 while carrying a valid identity token: THIS IS THE ROW 13 RISK"
         elif status >= 500:
@@ -507,13 +523,18 @@ def check_jwks_reachable(client: Client, results: list[Result]) -> bool:
 
 
 def check_legacy(client: Client, token: str | None, results: list[Result]) -> None:
-    """Call all 24 legacy operations and record what answers.
+    """Call every legacy operation and record what answers.
 
     Both a 404 and a 401/403 pass, and they mean different things: 404 is the
     route being gone, 401/403 is the route existing and refusing. Both are safe
     for row 13. A 200 is the finding that would stop it, because something is
     still serving a legacy operation, and a 5xx is a finding of its own because
     a deleted route should not error, it should be absent.
+
+    Only paths the shared identity package does not own belong here. A path the
+    package serves answers from the package, not from a legacy leftover, so
+    listing one turns package behaviour into a false failure. `test_identity_smoke.py`
+    holds that line against the package's own route constants.
     """
     label = "legacy+token" if token else "legacy"
     for method, template in LEGACY_OPERATIONS:
