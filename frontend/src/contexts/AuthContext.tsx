@@ -1,105 +1,88 @@
-import * as Sentry from '@sentry/react';
 import type { ReactNode } from 'react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  apiClient,
-  isApiErrorWithStatus,
-  removeStoredToken,
-} from '../api/client';
-import { restoreSession, signOut } from '../api/identityAuth';
+  AuthProvider as PackageAuthProvider,
+  type AnyAuthClient,
+} from '@webbpulse/auth/react';
+import { apiClient, isApiErrorWithStatus } from '../api/client';
+import { CURRENT_USER_PATH, getIdentityClient } from '../api/identityClient';
 import type { UserRead } from '../types/Api';
-import { AuthContext } from './AuthContextDefinition';
+import {
+  AuthExtrasContext,
+  type AuthExtrasContextType,
+} from './AuthContextDefinition';
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+/**
+ * Supplies the session calls `@webbpulse/auth` does not own. Mounted inside the
+ * package provider so `useAuthClient` resolves, and holding no status of its
+ * own: the package store stays the single source of truth for that.
+ */
+const AuthExtrasProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<UserRead | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
+  const [freshUser, setFreshUser] = useState<UserRead | null>(null);
+
+  const login = useCallback((userData: UserRead) => {
+    setFreshUser(userData);
+  }, []);
 
   const checkAuthStatus = useCallback(async () => {
-    setIsLoading(true);
     try {
-      const response = await apiClient.get<UserRead>('/users/me');
-      if (response.data) {
-        setUser(response.data);
-        setIsAuthenticated(true);
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
-      }
+      const response = await apiClient.get<UserRead>(CURRENT_USER_PATH);
+      setFreshUser(response.data ?? null);
     } catch (error) {
-      setUser(null);
-      setIsAuthenticated(false);
       const status = isApiErrorWithStatus(error) ? error.status : undefined;
-      if (status === 401) {
-        removeStoredToken();
-      }
+      setFreshUser(null);
       if (status !== undefined && status !== 401) {
         console.error('Auth check failed:', error);
       }
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const bootstrap = async () => {
-      const restored = await restoreSession();
-      if (cancelled) return;
-      if (restored === false) {
-        setUser(null);
-        setIsAuthenticated(false);
-        setIsLoading(false);
-        return;
-      }
-      await checkAuthStatus();
-    };
-    void bootstrap();
-    return () => {
-      cancelled = true;
-    };
-  }, [checkAuthStatus]);
-
-  useEffect(() => {
-    Sentry.setUser(user ? { id: String(user.id) } : null);
-  }, [user]);
-
-  const login = (userData: UserRead) => {
-    setUser(userData);
-    setIsAuthenticated(true);
-  };
-
   const logout = useCallback(async () => {
-    setIsLoading(true);
+    const client = getIdentityClient();
     try {
-      await signOut();
+      await client?.logout();
     } catch {
-      removeStoredToken();
+      void 0;
     } finally {
-      setUser(null);
-      setIsAuthenticated(false);
-      setIsLoading(false);
+      setFreshUser(null);
       void navigate('/');
     }
   }, [navigate]);
 
-  const contextValue = useMemo(
-    () => ({
-      isAuthenticated,
-      user,
-      login,
-      logout,
-      checkAuthStatus,
-      isLoading,
-    }),
-    [isAuthenticated, user, logout, checkAuthStatus, isLoading]
+  const value = useMemo<AuthExtrasContextType>(
+    () => ({ login, logout, checkAuthStatus, freshUser }),
+    [login, logout, checkAuthStatus, freshUser]
   );
 
   return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+    <AuthExtrasContext.Provider value={value}>
+      {children}
+    </AuthExtrasContext.Provider>
+  );
+};
+
+/**
+ * Mounts the `@webbpulse/auth` provider, which spends the refresh cookie on
+ * mount, and layers the CarModPicker-only calls on top of it. Renders children
+ * bare when the identity client could not be built, so a deployment with no
+ * identity origin still paints.
+ */
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const client = getIdentityClient();
+
+  if (client === null) {
+    return <>{children}</>;
+  }
+
+  return (
+    <PackageAuthProvider client={client as unknown as AnyAuthClient}>
+      <AuthExtrasProvider>{children}</AuthExtrasProvider>
+    </PackageAuthProvider>
   );
 };
