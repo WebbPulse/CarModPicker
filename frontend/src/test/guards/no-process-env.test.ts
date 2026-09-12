@@ -14,9 +14,7 @@ describe('FE-02: no process.env in frontend browser source (use import.meta.env.
       cwd: srcDir,
       absolute: true,
     });
-    const allowlist = new Set([
-      resolve(__dirname, 'no-process-env.test.ts'),
-    ]);
+    const allowlist = new Set([resolve(__dirname, 'no-process-env.test.ts')]);
     const violations: Array<{ file: string; line: number; match: string }> = [];
     for (const file of files) {
       if (allowlist.has(file)) continue;

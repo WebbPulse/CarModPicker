@@ -100,7 +100,6 @@ vi.mock('../api/client', () => ({
     error instanceof ApiError,
 }));
 
-
 vi.mock('react-router-dom', async () => {
   const actual =
     await vi.importActual<typeof import('react-router-dom')>(

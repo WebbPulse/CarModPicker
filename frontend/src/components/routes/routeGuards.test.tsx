@@ -16,7 +16,6 @@ import { authHarness } from '../../test/utils/authHarness';
 import { mockUser } from '../../test/mocks/api';
 import type { UserRead } from '../../types/Api';
 
-
 vi.mock('../ui/spinner', () => ({
   default: () => <div data-testid="spinner">loading</div>,
 }));
