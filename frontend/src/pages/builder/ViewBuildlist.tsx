@@ -415,8 +415,7 @@ function ViewBuildList() {
                       ]);
                       await fetchBuildList(buildList.id);
                       // eslint-disable-next-line no-empty
-                    } catch {
-                    }
+                    } catch {}
                   })();
                 }}
               />

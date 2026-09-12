@@ -339,8 +339,7 @@ function ViewPart() {
   const openAddToBuildListDialog = () => setIsAddToBuildListDialogOpen(true);
   const closeAddToBuildListDialog = () => setIsAddToBuildListDialogOpen(false);
 
-  const handlePartAddedToBuildList = () => {
-  };
+  const handlePartAddedToBuildList = () => {};
 
   const handleConfirmDelete = async (): Promise<void> => {
     if (!part || !partId) return;
