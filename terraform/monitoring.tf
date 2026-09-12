@@ -18,18 +18,6 @@ locals {
       "consumer-${name}" => module.lambda_stream_consumer[name].log_group_name
     },
   )
-
-  telemetry_error_loggers = ["opentelemetry.*", "webbpulse.otel"]
-
-  application_error_filter_pattern = format(
-    "{ $.level = \"ERROR\" && %s }",
-    join(" && ", [for l in local.telemetry_error_loggers : "$.logger != \"${l}\""]),
-  )
-
-  telemetry_error_filter_pattern = format(
-    "{ $.level = \"ERROR\" && (%s) }",
-    join(" || ", [for l in local.telemetry_error_loggers : "$.logger = \"${l}\""]),
-  )
 }
 
 module "alarms" {
@@ -50,46 +38,17 @@ module "alarms" {
 
   error_log_groups = local.alarm_error_log_groups
 
-  error_filter_pattern = local.application_error_filter_pattern
-
   rate_limit_fail_open_alarm = true
 
   rate_limit_fail_open_log_groups = local.alarm_error_log_groups
 }
 
-resource "aws_cloudwatch_log_metric_filter" "telemetry_errors" {
-  for_each = local.alarm_error_log_groups
-
-  name           = "${local.prefix}-${each.key}-telemetry-errors"
-  log_group_name = each.value
-  pattern        = local.telemetry_error_filter_pattern
-
-  metric_transformation {
-    name          = "${local.prefix}-telemetry-export-errors"
-    namespace     = "WebbPulse/Application"
-    value         = "1"
-    default_value = "0"
-    unit          = "Count"
-  }
+moved {
+  from = aws_cloudwatch_metric_alarm.telemetry_errors
+  to   = module.alarms.aws_cloudwatch_metric_alarm.telemetry_errors[0]
 }
 
-resource "aws_cloudwatch_metric_alarm" "telemetry_errors" {
-  alarm_name        = "${local.prefix}-telemetry-export-errors"
-  alarm_description = "Span export to the X-Ray OTLP endpoint is failing across ${length(local.alarm_error_log_groups)} log groups. Traces are being lost; requests are unaffected. An isolated failure is the shutdown flush losing a race with sandbox teardown and is expected."
-
-  namespace           = "WebbPulse/Application"
-  metric_name         = "${local.prefix}-telemetry-export-errors"
-  statistic           = "Sum"
-  period              = 300
-  evaluation_periods  = 1
-  threshold           = 10
-  comparison_operator = "GreaterThanThreshold"
-  treat_missing_data  = "notBreaching"
-
-  alarm_actions = [module.alarms.sns_topic_arn]
-  ok_actions    = [module.alarms.sns_topic_arn]
-
-  tags = { Name = "${local.prefix}-telemetry-export-errors" }
-
-  depends_on = [aws_cloudwatch_log_metric_filter.telemetry_errors]
+moved {
+  from = aws_cloudwatch_log_metric_filter.telemetry_errors
+  to   = module.alarms.aws_cloudwatch_log_metric_filter.telemetry_errors
 }
