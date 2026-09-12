@@ -258,7 +258,7 @@ export default defineConfig({
         },
       },
     },
-    minify: process.env.NODE_ENV === "production" ? "esbuild" : false,
+    minify: process.env.NODE_ENV === "production" ? "oxc" : false,
     target: "es2015",
     modulePreload: false,
     sourcemap: process.env.NODE_ENV === "production" ? false : true,
