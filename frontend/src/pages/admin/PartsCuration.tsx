@@ -212,7 +212,6 @@ function PartsCuration() {
     if (fromUrl) {
       void loadGroup(fromUrl);
     }
-    // intentional: only on first mount — subsequent URL changes are triggered by handleLookup.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

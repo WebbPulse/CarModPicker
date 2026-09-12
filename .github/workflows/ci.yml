@@ -84,7 +84,6 @@ jobs:
         black --config pyproject.toml --check --diff .
         isort . --check-only --diff
       typecheck-command: pyright
-      # `.bandit`, and individual instances carry `# nosec`.
       security-commands: |
         bandit -r app -ll
         pip-audit -r requirements.txt --ignore-vuln CVE-2024-23342

@@ -29,18 +29,20 @@ TIER_DIRS = (
     ADAPTERS_ROOT / "tier2_browser",
 )
 
-# Matches ``    "<slug>": ClassName,`` inside the ADAPTER_REGISTRY literal.
 REGISTRY_ENTRY_RE = re.compile(r'\s*"([a-z0-9_\-]+)"\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*,')
 
 
 def read_registry_map() -> dict[str, str]:
-    """Parse the hand-maintained ADAPTER_REGISTRY dict into a {ClassName: slug} map."""
+    """Parse the hand-maintained ADAPTER_REGISTRY dict into a {ClassName: slug} map.
+
+    GenericHtmlParser is excluded: it lives at the adapters/ root and is marked
+    IS_FALLBACK=True rather than carrying an ADAPTER_NAME, per D-03.
+    """
     source = INIT_PY.read_text(encoding="utf-8")
     class_to_slug: dict[str, str] = {}
     for m in REGISTRY_ENTRY_RE.finditer(source):
         slug, cls_name = m.group(1), m.group(2)
         if cls_name == "GenericHtmlParser":
-            # Fallback adapter is not under tier*/ and is IS_FALLBACK=True per D-03.
             continue
         if cls_name in class_to_slug and class_to_slug[cls_name] != slug:
             print(
@@ -58,7 +60,6 @@ def find_adapter_class(tree: ast.Module) -> ast.ClassDef | None:
         if not isinstance(node, ast.ClassDef):
             continue
         for base in node.bases:
-            # ``class Foo(RetailerCrawlerAdapter):`` -> ast.Name
             if isinstance(base, ast.Name) and base.id == "RetailerCrawlerAdapter":
                 return node
     return None
@@ -67,11 +68,9 @@ def find_adapter_class(tree: ast.Module) -> ast.ClassDef | None:
 def has_adapter_name(cls: ast.ClassDef) -> bool:
     """Return True if the class already declares an ADAPTER_NAME attribute."""
     for stmt in cls.body:
-        # AnnAssign: ``ADAPTER_NAME: ClassVar[str] = "slug"``
         if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
             if stmt.target.id == "ADAPTER_NAME":
                 return True
-        # Assign: ``ADAPTER_NAME = "slug"``
         if isinstance(stmt, ast.Assign):
             for target in stmt.targets:
                 if isinstance(target, ast.Name) and target.id == "ADAPTER_NAME":
@@ -86,14 +85,11 @@ def first_body_line(cls: ast.ClassDef) -> int:
     """
     body = cls.body
     if not body:
-        # Empty class body -- shouldn't happen for concrete adapters, but be safe.
         raise RuntimeError(f"class {cls.name} has empty body")
     first = body[0]
-    # Detect docstring
     if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
         if len(body) > 1:
             return body[1].lineno
-        # class has only a docstring -- still insert after it
         end = getattr(first, "end_lineno", first.lineno)
         return end + 1
     return first.lineno
@@ -101,7 +97,6 @@ def first_body_line(cls: ast.ClassDef) -> int:
 
 def ensure_classvar_import(source: str) -> str:
     """Ensure ``ClassVar`` is imported from typing. Returns the (possibly modified) source."""
-    # Parse once to find existing typing imports.
     tree = ast.parse(source)
     typing_imports: list[ast.ImportFrom] = []
     for node in tree.body:
@@ -113,16 +108,12 @@ def ensure_classvar_import(source: str) -> str:
 
     lines = source.splitlines(keepends=True)
     if typing_imports:
-        # Inject ClassVar into the first ``from typing import ...`` alphabetically.
         imp = typing_imports[0]
-        line_no = imp.lineno - 1  # 0-based
+        line_no = imp.lineno - 1
         original = lines[line_no]
-        # Handle both single-line and multi-line imports; start with the simple
-        # single-line shape ``from typing import A, B, C\n``.
         m = re.match(r"^(\s*from typing import )(.+?)(\s*)$", original.rstrip("\n"))
         if m:
             prefix, names_part, _trailing = m.group(1), m.group(2), m.group(3)
-            # Split at top-level commas (typing imports don't nest parens in practice).
             names = [n.strip() for n in names_part.split(",")]
             if "ClassVar" not in names:
                 names.append("ClassVar")
@@ -130,12 +121,10 @@ def ensure_classvar_import(source: str) -> str:
                 new_line = f"{prefix}{', '.join(names)}\n"
                 lines[line_no] = new_line
                 return "".join(lines)
-        # Fallback: add a new import line after the existing typing import.
-        insert_at = imp.lineno  # after imp line (1-based -> 0-based insert index)
+        insert_at = imp.lineno
         lines.insert(insert_at, "from typing import ClassVar\n")
         return "".join(lines)
 
-    # No existing typing import. Insert after the last top-level import.
     import_nodes: list[ast.stmt] = [n for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom))]
     if import_nodes:
         last_imp = import_nodes[-1]
@@ -143,7 +132,6 @@ def ensure_classvar_import(source: str) -> str:
         lines.insert(end, "from typing import ClassVar\n")
         return "".join(lines)
 
-    # Truly no imports -- prepend.
     return "from typing import ClassVar\n" + source
 
 
@@ -160,9 +148,7 @@ def insert_adapter_name(path: Path, slug: str) -> tuple[bool, str]:
     if has_adapter_name(cls):
         return False, f"{path.relative_to(BACKEND_ROOT)}: ADAPTER_NAME already present -- SKIP"
 
-    # Ensure ClassVar is importable.
     source = ensure_classvar_import(source)
-    # Re-parse after potential import modification so lineno is correct.
     tree = ast.parse(source)
     cls = find_adapter_class(tree)
     assert cls is not None  # noqa: S101
@@ -170,7 +156,6 @@ def insert_adapter_name(path: Path, slug: str) -> tuple[bool, str]:
     insert_line_1based = first_body_line(cls)
     insert_line_0based = insert_line_1based - 1
 
-    # Determine the indent of the target line (first class-body statement).
     lines = source.splitlines(keepends=True)
     target_line = lines[insert_line_0based]
     indent_match = re.match(r"^(\s*)", target_line)
@@ -193,11 +178,16 @@ def count_adapter_name_declarations() -> int:
             for line in path.read_text(encoding="utf-8").splitlines():
                 if pattern.search(line):
                     total += 1
-                    break  # only count the first declaration per file
+                    break
     return total
 
 
 def main() -> int:
+    """Backfill ADAPTER_NAME across every tier adapter module and return an exit code.
+
+    Returns 1 unless exactly 108 ADAPTER_NAME declarations exist across
+    tier0/tier1/tier2 after the backfill.
+    """
     class_to_slug = read_registry_map()
     print(f"Loaded {len(class_to_slug)} concrete adapter slugs from ADAPTER_REGISTRY", file=sys.stderr)
 

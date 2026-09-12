@@ -19,7 +19,8 @@ the denormalised ``Part`` attributes (``car_ids``, ``best_price_cents``,
 ``net_votes``) that Postgres computed with joins.
 
 Crawler tables (``crawled_pages``, ``crawler_*``, ``background_jobs``) have no
-DynamoDB equivalent and are deliberately left behind.
+DynamoDB equivalent and are deliberately left behind. The table copy order is
+for readability only: DynamoDB enforces no foreign keys.
 """
 
 from __future__ import annotations
@@ -58,8 +59,6 @@ logger = logging.getLogger("backfill")
 Row = dict[str, Any]
 Rows = dict[str, list[Row]]
 
-# (postgres table, Repositories attribute) in the order the tables are copied.
-# Order only matters for readability: DynamoDB enforces no foreign keys.
 TABLES: tuple[tuple[str, str], ...] = (
     ("users", "users"),
     ("oauth_accounts", "oauth_accounts"),
@@ -96,17 +95,11 @@ SKIPPED_TABLES: tuple[str, ...] = (
     "background_jobs",
 )
 
-# Namespace for the ids of build logs this script creates for lists that never had one.
 BUILD_LOG_NAMESPACE = UUID("6f0a1c2e-3b4d-4e5f-8a9b-0c1d2e3f4a5b")
 
 
 class BackfillError(RuntimeError):
-    pass
-
-
-# --------------------------------------------------------------------------
-# Postgres
-# --------------------------------------------------------------------------
+    """Raised when the source data cannot be copied and the operator must fix Postgres."""
 
 
 def fetch_rows(conn: Any, tables: Sequence[str] = TABLE_NAMES) -> Rows:
@@ -122,20 +115,21 @@ def fetch_rows(conn: Any, tables: Sequence[str] = TABLE_NAMES) -> Rows:
 
 
 def _clean_row(row: Row) -> Row:
+    """Convert bytea memoryview values to bytes so the models validate."""
     return {key: bytes(value) if isinstance(value, memoryview) else value for key, value in row.items()}
 
 
 def connect(database_url: str) -> Any:
+    """Open a psycopg2 connection, raising BackfillError when psycopg2 is not installed.
+
+    psycopg2 is not in requirements.txt any more; install psycopg2-binary before
+    running this script.
+    """
     try:
         import psycopg2  # type: ignore[import-not-found]
     except ImportError as exc:  # pragma: no cover - depends on the operator's environment
         raise BackfillError("psycopg2 is required: pip install psycopg2-binary") from exc
     return psycopg2.connect(database_url)
-
-
-# --------------------------------------------------------------------------
-# Row -> model
-# --------------------------------------------------------------------------
 
 
 @dataclass
@@ -147,10 +141,12 @@ class Plan:
     created_build_logs: int = 0
 
     def row_count(self, table: str) -> int:
+        """Number of real models planned for one table, excluding lookup items."""
         return len(self.models.get(table, []))
 
 
 def build_plan(rows: Rows, repos: Repositories) -> Plan:
+    """Validate every Postgres row into a DynamoDB model and plan the lookup items."""
     plan = Plan()
     parts_extra = _part_derived_attributes(rows)
     for table, attr in TABLES:
@@ -174,6 +170,10 @@ def build_plan(rows: Rows, repos: Repositories) -> Plan:
 
 
 def _part_derived_attributes(rows: Rows) -> dict[UUID, dict[str, Any]]:
+    """Compute the denormalised part attributes Postgres derived with joins.
+
+    Returns car_ids, best_price_cents and net_votes keyed by part id.
+    """
     car_ids: dict[UUID, list[UUID]] = defaultdict(list)
     for row in rows.get("part_cars", []):
         car_ids[row["part_id"]].append(row["car_id"])
@@ -227,6 +227,7 @@ def _missing_build_logs(rows: Rows, existing: Iterable[DynamoModel]) -> list[Bui
 
 
 def _lookup_items(table: str, repo: DynamoRepository[Any], models: Sequence[DynamoModel]) -> list[dict[str, Any]]:
+    """Build the unique lookup items for one table, raising BackfillError on a collision."""
     pairs_for = _unique_pairs_function(table, repo)
     if pairs_for is None:
         return []
@@ -245,6 +246,7 @@ def _lookup_items(table: str, repo: DynamoRepository[Any], models: Sequence[Dyna
 
 
 def _unique_pairs_function(table: str, repo: DynamoRepository[Any]) -> Callable[[Any], list[tuple[str, str]]] | None:
+    """Return the callable yielding a model's unique (attribute, value) pairs, or None."""
     if table == "users":
         return lambda user: [(USERNAME, user.username.lower()), (EMAIL, user.email.lower())]
     if table == "oauth_accounts":
@@ -259,12 +261,8 @@ def _unique_pairs_function(table: str, repo: DynamoRepository[Any]) -> Callable[
     return None
 
 
-# --------------------------------------------------------------------------
-# DynamoDB
-# --------------------------------------------------------------------------
-
-
 def write_plan(plan: Plan, repos: Repositories, tables: Sequence[str] = TABLE_NAMES) -> None:
+    """Batch-write the planned models and lookup items for the selected tables."""
     for table, attr in TABLES:
         if table not in tables:
             continue
@@ -291,12 +289,8 @@ def verify_counts(plan: Plan, repos: Repositories, tables: Sequence[str] = TABLE
     return result
 
 
-# --------------------------------------------------------------------------
-# CLI
-# --------------------------------------------------------------------------
-
-
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse the command line into the backfill options."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--database-url", default=None, help="defaults to $DATABASE_URL")
     parser.add_argument("--tables", default=None, help="comma-separated subset to write (all tables are still read)")
@@ -306,6 +300,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Run the backfill and return 0 on success, 1 on a data fault, 2 on bad arguments."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = parse_args(argv)
     database_url = args.database_url or os.environ.get("DATABASE_URL", "")

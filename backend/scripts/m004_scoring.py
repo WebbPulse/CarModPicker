@@ -48,21 +48,19 @@ def _safe_div(num: float, denom: float) -> float:
 
 
 def _f1(precision: float, recall: float) -> float:
+    """Harmonic mean of precision and recall, 0.0 when both are zero."""
     if precision + recall == 0:
         return 0.0
     return 2 * precision * recall / (precision + recall)
 
 
 def _now_iso() -> str:
+    """Current UTC time as a second-resolution ISO 8601 string."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-# ---------------------------------------------------------------------------
-# score_car
-# ---------------------------------------------------------------------------
-
-
 def _normalize_triple(t: Any) -> tuple[str, str, str]:
+    """Coerce a (make, model, generation) tuple to three strings, raising TypeError otherwise."""
     if not isinstance(t, tuple):
         raise TypeError(f"car triple must be a tuple of (make, model, generation), got " f"{type(t).__name__}={t!r}")
     if len(t) != 3:
@@ -113,11 +111,6 @@ def score_car(
     }
 
 
-# ---------------------------------------------------------------------------
-# score_manufacturer / score_category — single-value per-part binary
-# ---------------------------------------------------------------------------
-
-
 def _score_single_value(predicted: Optional[str], truth: Optional[str]) -> dict[str, Any]:
     """Per-part binary scorer used by manufacturer and category.
 
@@ -157,17 +150,13 @@ def score_category(predicted: Optional[str], truth: Optional[str]) -> dict[str, 
     return _score_single_value(predicted, truth)
 
 
-# ---------------------------------------------------------------------------
-# Aggregators — list of per-part scores → baseline-shaped envelope
-# ---------------------------------------------------------------------------
-
-
 def _envelope(
     *,
     signal: str,
     sample_size: int,
     extras: Mapping[str, Any],
 ) -> dict[str, Any]:
+    """Build the baseline-shaped result envelope shared by every aggregator."""
     env: dict[str, Any] = {
         "harness_version": HARNESS_VERSION,
         "signal": signal,

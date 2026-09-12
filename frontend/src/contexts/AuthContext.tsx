@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setUser(null);
       setIsAuthenticated(false);
       setIsLoading(false);
-      void navigate('/'); // Redirect to login after logout
+      void navigate('/');
     }
   }, [navigate]);
 

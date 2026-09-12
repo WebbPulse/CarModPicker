@@ -23,10 +23,12 @@ TARGET = BACKEND_DIR.parent / "terraform" / "dynamodb_tables.json"
 
 
 def render() -> str:
+    """Render the table definitions as the JSON text written to the target file."""
     return json.dumps(export_table_definitions(), indent=2, sort_keys=True) + "\n"
 
 
 def main() -> int:
+    """Write the rendered table definitions to the Terraform JSON file and return 0."""
     TARGET.write_text(render(), encoding="utf-8")
     print(f"wrote {TARGET} ({TARGET.stat().st_size} bytes)")
     return 0

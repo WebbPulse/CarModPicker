@@ -358,7 +358,7 @@ def clear(
                 expression_names=names,
             )
             written.append(decision)
-        except Exception as error:  # noqa: BLE001 - reported, not swallowed
+        except Exception as error:  # noqa: BLE001
             summary["cleared"] -= 1
             summary["errors"] += 1
             written.append(
@@ -372,6 +372,7 @@ def clear(
 
 
 def report(summary: dict[str, int], decisions: list[Decision], apply: bool) -> None:
+    """Print the per-user verdicts and the totals, naming no secret value."""
     mode = "applied" if apply else "dry run, nothing written"
     print(f"legacy credential clearing ({mode})")
     for decision in decisions:
@@ -389,6 +390,7 @@ def report(summary: dict[str, int], decisions: list[Decision], apply: bool) -> N
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the command line; the run is a dry run unless --apply is passed."""
     parser = argparse.ArgumentParser(
         description=(
             "Remove the legacy hashed_password and totp_secret columns from "
@@ -423,6 +425,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Clear the legacy columns and return 1 if any user was refused, else 0."""
     args = parse_args(argv)
 
     credentials = build_credential_store(args.prefix, args.endpoint_url, args.region)

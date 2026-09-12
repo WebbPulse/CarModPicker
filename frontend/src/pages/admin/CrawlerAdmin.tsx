@@ -2408,8 +2408,8 @@ function CrawlerAdmin() {
     try {
       const res = await adminApi.listJobs({ limit: 20 });
       setJobsList(res.data);
+      // eslint-disable-next-line no-empty
     } catch {
-      // silently fail
     } finally {
       setIsLoadingJobs(false);
     }

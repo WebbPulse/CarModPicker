@@ -87,6 +87,11 @@ Three modes, and they are meant to be run as three separate commands:
 `docs/security/totp-seed-encryption.md` prefers a lazy migrate-on-use, and its
 reversibility concern is exactly what the split above answers: until step 3
 runs, rollback is doing nothing.
+
+## SECRET_KEY and EMAIL_FROM are set to placeholders at import
+
+As in the sibling credential script: `app.core.config` refuses to construct
+without them, and this migration authenticates nobody.
 """
 
 from __future__ import annotations
@@ -99,8 +104,6 @@ from typing import TYPE_CHECKING, Any, Iterable, NamedTuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# See the sibling credential script: `app.core.config` refuses to construct
-# without these, and this migration authenticates nobody.
 for _name, _placeholder in (
     ("SECRET_KEY", "migration"),
     ("EMAIL_FROM", "migration@example.com"),
@@ -121,14 +124,11 @@ from app.db.dynamo.tables import USERS  # noqa: E402
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from webbpulse.identity import TotpFactorStore
 
-#: The legacy attributes on a CarModPicker user row.
 LEGACY_SEED_FIELD = "totp_secret"
 LEGACY_ENABLED_FIELD = "totp_enabled"
 
-#: The actions `plan` may return, and the keys of the summary.
 ACTIONS = ("seal", "unchanged", "conflict", "skip")
 
-#: The actions `verify` and `clear` report.
 VERIFY_ACTIONS = ("verified", "mismatch", "unreadable", "missing", "skip")
 CLEAR_ACTIONS = ("cleared", "already_clear", "refused", "skip")
 
@@ -144,6 +144,7 @@ class SeedConflict(Exception):
     """
 
     def __init__(self, conflicts: list[str]) -> None:
+        """Record the conflicting user ids and build the message naming --replace."""
         self.conflicts = conflicts
         detail = ", ".join(str(user_id) for user_id in conflicts)
         super().__init__(
@@ -162,15 +163,16 @@ class Decision(NamedTuple):
     row a second time inside the write, which costs nothing because the row is
     already in memory, and buys the guarantee that no structure this module
     returns can leak one.
+
+    `activate` is whether the factor should be active, taken from `totp_enabled`
+    and reported so a dry run shows the state it would write. `created_at` is
+    preserved across a `--replace`, as in the credential script.
     """
 
     user_id: str
     action: str
     detail: str
-    #: Whether the factor should be active, from `totp_enabled`. Reported so a
-    #: dry run shows the state it would write.
     activate: bool = False
-    #: Preserved across a `--replace`, as in the credential script.
     created_at: str = ""
 
 
@@ -269,7 +271,6 @@ def plan(
         seed = _seed_of(user)
 
         if not seed:
-            # No second factor, which is most accounts. Nothing to seal.
             decisions.append((Decision(user_id, "skip", "no TOTP seed on the user row"), user))
             continue
 
@@ -284,9 +285,6 @@ def plan(
         if opened == seed and bool(existing.activated_at) == activate:
             decisions.append((Decision(user_id, "unchanged", "factor already matches", activate), user))
         elif opened == seed:
-            # Same seed, wrong state. Resealing rewrites `activated_at` to match
-            # `totp_enabled`, which is a correction rather than a conflict: the
-            # user's phone holds this seed either way.
             detail = "factor holds this seed but the wrong active state"
             decisions.append(
                 (
@@ -369,11 +367,7 @@ def migrate(
                 secret_nonce=sealed.nonce,
                 wrapped_data_key=sealed.wrapped_key,
                 created_at=decision.created_at or now_iso(),
-                # The whole of the factor's state. Empty means enrolled but
-                # never confirmed, which is what `totp_enabled = False` with a
-                # seed present means today.
                 activated_at=(now_iso() if decision.activate else ""),
-                # No watermark to carry: the legacy implementation keeps none.
                 last_used_step=0,
             )
         )
@@ -441,6 +435,10 @@ def clear_plaintext(
     stays: this pass never destroys the only readable copy of a seed.
 
     Dry run unless `apply` is true, like every other mode.
+
+    The write is a DynamoDB REMOVE rather than a SET to null: the attribute goes
+    away entirely, which is what `totp_secret: str | None = None` reads back as,
+    and it leaves nothing on the row a later reader could mistake for a seed.
     """
     from webbpulse.dynamodb import Repository
 
@@ -476,10 +474,6 @@ def clear_plaintext(
         decisions.append(Decision(user_id, "cleared", "sealed copy verified"))
         summary["cleared"] += 1
         if apply:
-            # REMOVE rather than SET to null: the attribute simply goes away,
-            # which is what `totp_secret: str | None = None` reads back as, and
-            # it leaves nothing on the row for a later reader to mistake for a
-            # seed.
             repository.update(
                 {USERS.partition_key.name: user_id},
                 update_expression=f"REMOVE {LEGACY_SEED_FIELD}",
@@ -501,6 +495,7 @@ def report(summary: dict[str, int], decisions: list[Decision], mode: str) -> Non
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the command line; the run is a dry run unless --apply is passed."""
     parser = argparse.ArgumentParser(
         description=(
             "Seal each user's plaintext TOTP seed into the identity totp-factors "
@@ -561,6 +556,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None, *, kms_client: Any = None) -> int:
+    """Run the seal, verify or clear pass and return a non-zero code on anything blocking.
+
+    `--verify` exits non-zero on any mismatch, unreadable or missing factor so
+    the runbook's "verify came back clean" step is an exit code rather than a
+    reading.
+    """
     args = parse_args(argv)
 
     store = build_store(args.prefix, args.endpoint_url, args.region)
@@ -569,8 +570,6 @@ def main(argv: list[str] | None = None, *, kms_client: Any = None) -> int:
     if args.verify:
         summary, decisions = verify(iter_user_rows(args.prefix, args.endpoint_url, args.region), store, cipher)
         report(summary, decisions, "verify, read only")
-        # Non-zero on anything that would block a clear, so the runbook's
-        # "verify came back clean" step is a exit code rather than a reading.
         blocked = summary["mismatch"] + summary["unreadable"] + summary["missing"]
         return 1 if blocked else 0
 

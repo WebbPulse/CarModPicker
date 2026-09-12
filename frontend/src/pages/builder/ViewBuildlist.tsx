@@ -414,10 +414,8 @@ function ViewBuildList() {
                         fileKey,
                       ]);
                       await fetchBuildList(buildList.id);
-                    } catch {
-                      // Errors surface via the gallery's own error UI on next action;
-                      // a transient failure here is rare since the upload already succeeded.
-                    }
+                      // eslint-disable-next-line no-empty
+                    } catch {}
                   })();
                 }}
               />

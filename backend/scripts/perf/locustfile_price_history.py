@@ -22,7 +22,11 @@ Budget enforced by the wrapper script (NOT here):
 - error rate == 0
 
 If the budget is missed the wrapper opens R036 (materialized part_price_summary)
-per D004 — see backend/scripts/perf/README.md.
+per D004 - see backend/scripts/perf/README.md.
+
+The pool path is overridable via the PART_ID_POOL_PATH env var so a contributor
+can point locust at a custom pool without editing this file. Credentials are
+supplied out of band and never committed here.
 """
 
 from __future__ import annotations
@@ -36,27 +40,24 @@ from typing import List
 from locust import HttpUser, between, events, task
 from locust.env import Environment
 
-# Default pool location — overridable via PART_ID_POOL env var so a contributor
-# can point locust at a custom pool without editing this file.
 _DEFAULT_POOL_PATH = Path(__file__).resolve().parent.parent.parent / ".perf-runs" / "part-id-pool.json"
 PART_ID_POOL_PATH = Path(os.environ.get("PART_ID_POOL_PATH", str(_DEFAULT_POOL_PATH)))
 
 WINDOW = os.environ.get("PERF_WINDOW", "90d")
 BATCH_SIZE = int(os.environ.get("PERF_BATCH_SIZE", "50"))
 
-# POST /api/parts/price-history takes require_api_key_or_admin: a matching
-# X-API-Key, or an admin bearer token. Both are supplied out of band so no
-# credential is ever committed here. The key is preferred — it needs no admin
-# account and no login round trip before the run.
 API_KEY = os.environ.get("PERF_API_KEY", "")
 BEARER_TOKEN = os.environ.get("PERF_BEARER_TOKEN", "")
 
-# Loaded at @events.test_start so we fail fast with a clear message instead of
-# crashing inside the first user's task with a confusing FileNotFoundError.
 _PART_ID_POOL: List[str] = []
 
 
 def _load_pool() -> List[str]:
+    """Read the part-id pool JSON array, raising RuntimeError if it is missing or empty.
+
+    Called from the test_start listener so a bad pool fails fast with a clear
+    message instead of a FileNotFoundError inside the first user task.
+    """
     if not PART_ID_POOL_PATH.exists():
         raise RuntimeError(
             f"Part ID pool not found at {PART_ID_POOL_PATH}. "
@@ -115,12 +116,15 @@ class PriceHistoryUser(HttpUser):
 
     @task(4)
     def get_single_price_history(self) -> None:
+        """GET one part's price history, reported under a stable stats label.
+
+        The fixed `name` groups every per-id request into one stats row so the
+        wrapper script can read the GET percentile without the sample being
+        split across one row per UUID.
+        """
         if not _PART_ID_POOL:
             return
-        part_id = random.choice(_PART_ID_POOL)  # noqa: S311 - perf-test sample, not crypto
-        # `name` groups all per-id requests under one stats row so the wrapper
-        # script can find the GET endpoint percentile by a stable label
-        # instead of one row per UUID (which would split the sample beyond use).
+        part_id = random.choice(_PART_ID_POOL)  # noqa: S311
         self.client.get(
             f"/api/parts/{part_id}/price-history?window={WINDOW}",
             name="GET /api/parts/{id}/price-history",
@@ -128,10 +132,13 @@ class PriceHistoryUser(HttpUser):
 
     @task(1)
     def post_batch_price_history(self) -> None:
+        """POST a batch price-history summary for distinct parts.
+
+        Samples without replacement so the batch matches the frontend, where
+        each visible card is a distinct part.
+        """
         if not _PART_ID_POOL:
             return
-        # Sample WITHOUT replacement so the batch matches realistic frontend
-        # behavior (each visible card has a distinct part).
         sample_size = min(BATCH_SIZE, len(_PART_ID_POOL))
         part_ids = random.sample(_PART_ID_POOL, sample_size)  # noqa: S311
         self.client.post(
