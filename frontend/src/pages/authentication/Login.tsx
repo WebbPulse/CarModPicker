@@ -104,7 +104,7 @@ function Login() {
     event.preventDefault();
     setApiError(null);
 
-    if (!username.trim() || !password.trim()) {
+    if (challenge === null && (!username.trim() || !password.trim())) {
       setApiError('Username and password cannot be empty.');
       return;
     }
@@ -253,6 +253,16 @@ function Login() {
                     <FaShieldAlt className="text-primary text-3xl" />
                   </div>
                 </div>
+                <input
+                  type="text"
+                  name="username"
+                  autoComplete="username"
+                  value={username}
+                  readOnly
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="sr-only"
+                />
                 <div>
                   <label
                     htmlFor="otp"
@@ -269,6 +279,7 @@ function Login() {
                       name="otp"
                       type="text"
                       autoComplete="one-time-code"
+                      autoFocus
                       required
                       value={otp}
                       onChange={(e) => {
