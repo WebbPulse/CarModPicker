@@ -48,21 +48,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
+          version: "0.12.10"
           python-version: "3.13"
-
-      - name: Install pytest
-        run: python -m pip install --upgrade pip pytest
 
       - name: Check shell syntax
         run: bash -n scripts/verify_route_cut.sh
 
       - name: Test the route key resolver
-        run: python -m pytest scripts/test_expected_route_key.py -q
+        run: uv run --no-project --with pytest python -m pytest scripts/test_expected_route_key.py -q
 
       - name: Test the identity smoke expectations
-        run: python -m pytest scripts/test_identity_smoke.py -q
+        run: uv run --no-project --with pytest python -m pytest scripts/test_identity_smoke.py -q
 
   backend:
     name: Backend
@@ -71,19 +69,20 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: WebbPulse/.github/.github/workflows/python-ci.yml@v2
+    uses: WebbPulse/.github/.github/workflows/python-ci.yml@v3
     with:
       python-version: "3.13"
       working-directory: backend
       install-command: >-
-        python -m pip install --upgrade pip &&
-        pip install -r requirements.txt &&
-        pip install pytest-cov pytest-xdist pyright bandit pip-audit
+        uv lock --upgrade-package webbpulse &&
+        uv sync --locked &&
+        uv run --no-sync python -c
+        'import importlib.metadata as m; print("webbpulse", m.version("webbpulse"))'
       ruff-target: "app tests scripts"
       typecheck-command: pyright
       security-commands: |
         bandit -r app -ll
-        pip-audit -r requirements.txt --ignore-vuln CVE-2024-23342
+        uv export --frozen --no-dev --no-emit-project --no-hashes --no-emit-package webbpulse -o /tmp/requirements-audit.txt && pip-audit --no-deps -r /tmp/requirements-audit.txt --ignore-vuln CVE-2024-23342
       pytest-args: "--dist=loadfile"
       pytest-workers: auto
       coverage-source: app
@@ -97,7 +96,7 @@ jobs:
           "EMAIL_FROM": "test@example.com"
         }
       codeartifact-domain: webbpulse
-      codeartifact-repository: python
+      codeartifact-index: codeartifact
       aws-region: us-west-2
     secrets:
       role-to-assume: ${{ vars.CI_AWS_ROLE_ARN }}
