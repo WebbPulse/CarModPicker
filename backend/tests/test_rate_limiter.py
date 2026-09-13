@@ -19,9 +19,11 @@ from app.api.middleware.rate_limiter import (
     AUTH_CLASS,
     DEFAULT_CLASS,
     GET_CLASS,
+    WINDOW_SECONDS,
     build_rate_limit_middleware,
     is_rate_limit_exempt,
     is_rate_limit_exempt_method,
+    limit_classes,
     rate_limiting_enabled,
 )
 from app.main import app
@@ -268,24 +270,24 @@ class TestRateLimitMiddlewareEnforcement:
             response = client.get("/api/parts")
 
         assert response.status_code == 429
-        assert response.json() == {
-            "detail": "Too many requests",
-            "message": "Rate limit exceeded",
-            "retry_after": 42,
-        }
+        assert response.json() == {"detail": "Too many requests. Try again in 42 seconds."}
         assert response.headers["Retry-After"] == "42"
-        assert response.headers["X-RateLimit-Remaining-Minute"] == "0"
 
-    def test_retry_after_falls_back_to_a_minute(self) -> None:
-        """An unreadable window yields the default Retry-After rather than none."""
-        limiter = StubLimiter(allowed=0, retry_after=None)
+    def test_the_429_carries_the_rate_limit_headers(self) -> None:
+        """The package envelope emits both header styles, naming the class that rejected."""
+        limiter = StubLimiter(allowed=0, request_class=f"RATE#{GET_CLASS}")
 
         with _limiter_enabled(limiter):
             response = TestClient(_build_app()).get("/api/parts")
 
         assert response.status_code == 429
-        assert response.json()["retry_after"] == 60
-        assert response.headers["Retry-After"] == "60"
+        cap = next(cls.limit for cls in limit_classes() if cls.name == f"RATE#{GET_CLASS}")
+        remaining = cap - 1
+        assert response.headers["RateLimit"] == f'"RATE#{GET_CLASS}";r={remaining};t=42'
+        assert response.headers["RateLimit-Policy"] == f'"RATE#{GET_CLASS}";q={cap};w={WINDOW_SECONDS}'
+        assert response.headers["X-RateLimit-Limit"] == str(cap)
+        assert response.headers["X-RateLimit-Remaining"] == str(remaining)
+        assert response.headers["X-RateLimit-Reset"] == "42"
 
     def test_exempt_paths_are_never_limited(self) -> None:
         """Exempt paths stay unlimited and never reach the limiter."""

@@ -17,8 +17,8 @@ import os
 from typing import Any, Tuple
 
 from fastapi import Request
-from fastapi.responses import JSONResponse, Response
-from webbpulse.ratelimit import LimitClass, RateLimitDecision
+from fastapi.responses import Response
+from webbpulse.ratelimit import LimitClass
 
 from ...core.config import settings
 
@@ -50,8 +50,6 @@ AUTH_CLASS_EXEMPT_PATHS: frozenset[str] = frozenset(
         f"{AUTH_PATH_PREFIX}/logout",
     }
 )
-
-DEFAULT_RETRY_AFTER = 60
 
 
 def limit_classes() -> list[LimitClass]:
@@ -170,27 +168,6 @@ def client_identity(request: Request) -> str:
     return client_ip(request)
 
 
-def render_rate_limited(decision: RateLimitDecision) -> Response:
-    """The 429 CarModPicker's clients already parse, body and headers unchanged.
-
-    The package's own envelope is a different shape, so this stays until the
-    clients that read `retry_after` are gone.
-    """
-    retry_after = decision.reset_after or DEFAULT_RETRY_AFTER
-    return JSONResponse(
-        status_code=429,
-        content={
-            "detail": "Too many requests",
-            "message": "Rate limit exceeded",
-            "retry_after": retry_after,
-        },
-        headers={
-            "Retry-After": str(retry_after),
-            "X-RateLimit-Remaining-Minute": "0",
-        },
-    )
-
-
 def build_rate_limit_middleware(**kwargs: Any) -> Any:
     """The configured shared middleware: four classes over the first-request window."""
     from webbpulse.ratelimit import rate_limit_middleware as shared_middleware
@@ -203,7 +180,6 @@ def build_rate_limit_middleware(**kwargs: Any) -> Any:
         exempt_methods=RATE_LIMIT_EXEMPT_METHODS,
         anchor="first_request",
         count_attribute="requests",
-        renderer=render_rate_limited,
         enabled=rate_limiting_enabled,
         **kwargs,
     )
