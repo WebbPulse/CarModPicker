@@ -1,5 +1,10 @@
 # Production promotion plan, the ordered sequence
 
+**Status: complete. The promotion finished on 2026-09-13.** Every step, 0
+through 17, was executed that day; step 13 was removed by owner decision rather
+than run. This document is now the record of what was done, not a plan of
+pending work.
+
 The concrete step list for promoting `staging` to `main` and into the
 production workspace `ws-oh1VvpTBPxmcrSYD`.
 
@@ -832,20 +837,23 @@ nothing.
 
 Two gates, and both must hold before step 16 is even considered:
 
-- [ ] **Zero refusals.** No row classified `mismatch`, `missing_credential` or
+- [x] **Zero refusals.** No row classified `mismatch`, `missing_credential` or
       `errors`. Any of the three refuses the whole run, and a refusal is a signal
       to stop and read, not to rerun. Expect the remainder to split between
       `cleared` and `already_clear`.
-- [ ] **The owner has signed in with a real password through the identity path
+- [x] **The owner has signed in with a real password through the identity path
       in a browser**, after the cutover, not a synthetic account and not a curl
       probe. A migrated credential that nobody has exercised has not been proven
       to work.
 
-A `mismatch` is usually benign and has a known remedy: the identity login path
-opportunistically rehashes a credential, so a user who has signed in since the
-cutover can hold a credential whose bytes no longer match the legacy column.
-The fix is `migrate_credentials_to_identity.py --replace`, which rewrites only the
-credential rows it is pointed at. The script has no force or overwrite flag.
+A `mismatch` is usually benign, and the remedy depends on which side holds the
+newer secret. When the identity credential is the newer one, which is the case
+here because the owner changed their password after the migration ran, the fix
+is to remove the stale `hashed_password` attribute from that one row, then
+rerun the dry run and expect zero refusals. `--replace` is the remedy only for
+the other direction, where the legacy hash is the newer one:
+`migrate_credentials_to_identity.py --replace` rewrites only the credential rows
+it is pointed at. The script has no force or overwrite flag.
 
 **Owner:** yes, gate.
 
@@ -866,11 +874,13 @@ treat it as a first application and read the dry run output rather than skimming
     python scripts/clear_legacy_credentials.py $P --apply
 
 The dry run is repeated immediately before the apply on purpose. Rows can change
-classification between runs, for the rehash reason above, so the run that gates
+classification between runs, for the mismatch reason above, so the run that gates
 the write should be the one taken minutes before it.
 
-If the apply refuses, nothing was written. Resolve the named rows, with
-`--replace` for a `mismatch`, and run the pair again.
+If the apply refuses, nothing was written. Resolve the named rows by the step
+15 rule, removing the stale `hashed_password` attribute when the identity
+credential is newer and using `--replace` only when the legacy hash is newer,
+and run the pair again.
 
 **Backout:** restore the two columns for the affected rows from the step 0
 snapshot. There is no other copy, and nothing in the shipped image would read
@@ -880,31 +890,34 @@ them if there were. Row 13 deleted the legacy routes as code, so a populated
 
 ## Step 17. Close out
 
-- [ ] Delete `~/cmp-prod-users-preflight.json`.
-- [ ] **Delete `LAMBDA_FUNCTION_NAME` and `LAMBDA_ARTIFACTS_BUCKET` from the
+- [x] Delete `~/cmp-prod-users-preflight.json`.
+- [x] **Delete `LAMBDA_FUNCTION_NAME` and `LAMBDA_ARTIFACTS_BUCKET` from the
       `production` GitHub Environment.** Row 32 deleted `backend-deploy.yml`, the
       monolith function and the artifacts bucket, so both variables now name
-      things that do not exist. `TFC_WORKSPACE_ID` and `TFC_API_TOKEN` stay,
-      because `frontend-deploy.yml` still polls with them.
-- [ ] Confirm no `AUTH_MODE` variable was ever set on the `production`
+      things that do not exist. `TFC_WORKSPACE_ID` went with them on
+      2026-09-13, deleted from both environments: the shared `spa-deploy`
+      workflow resolves the workspace by name, so nothing reads the id. Only
+      the `TFC_API_TOKEN` secret stays.
+- [x] Confirm no `AUTH_MODE` variable was ever set on the `production`
       environment. It is read by nothing and would be a stale value someone
       later reads as a live fact.
-- [ ] Confirm `dig +short TXT _dmarc.carmodpicker.com` is unchanged.
-- [ ] Confirm the CloudWatch alarms are quiet.
-- [ ] Confirm `aws sesv2 get-email-identity --email-identity carmodpicker.com`
+- [x] Confirm `dig +short TXT _dmarc.carmodpicker.com` is unchanged.
+- [x] Confirm the CloudWatch alarms are quiet.
+- [x] Confirm `aws sesv2 get-email-identity --email-identity carmodpicker.com`
       still reports DKIM `SUCCESS`.
-- [ ] Decide separately on `passkeys_enabled` and `passkeys_passwordless`. Both
+- [x] Decide separately on `passkeys_enabled` and `passkeys_passwordless`. Both
       default `false` in this repository, deliberately, as a staged rollout
       switch; staging has them `true`. With both unset the passkey routes are
-      not declared in production, so **passkey sign-in is not part of the
+      not declared in production, so **passkey sign-in was not part of the
       production verification** at any step above. That is expected, not a
       fault. `passkeys_passwordless` in particular makes a passkey a way in
       with no password, so it is its own decision rather than a follow-on from
-      `passkeys_enabled`.
-- [ ] Decide separately on appealing the SES sandbox case. Sending is
+      `passkeys_enabled`. **Decided on 2026-09-13: both flags are `true` in
+      production.** Passkeys are enabled there.
+- [x] Decide separately on appealing the SES sandbox case. Sending is
       sandbox-limited until an owner-approved support case says otherwise, and
       the earlier request was denied.
-- [ ] `extension_api_key` is unset in both environments and is unrelated to this
+- [x] `extension_api_key` is unset in both environments and is unrelated to this
       promotion. Empty means API-key auth is disabled and only an admin bearer
       token is accepted on the batch price-history route. Leave it unless there
       is a separate reason.
