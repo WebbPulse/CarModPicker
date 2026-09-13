@@ -1,7 +1,13 @@
 """Error handlers, delegating to the shared `webbpulse` envelope.
 
-Every error response in this API is the org standard envelope::
-{"success": false, "status": 404, "message": "...", "request_id": "...",
+Every error response in this API is the org standard envelope, including the
+unmatched route 404 and any other raw Starlette or FastAPI error::
+
+    {"success": false, "status": 404, "message": "...", "request_id": "...",
+     "error_code": "NOT_FOUND"}
+
+A 422 carries the same fields plus a flat `details` list of
+`{field, message, type}` entries.
 """
 
 from typing import Any
@@ -29,13 +35,16 @@ DYNAMO_EXCEPTION_MAP: dict[type[BaseException], int | ErrorSpec] = {
 def error_handler_options() -> dict[str, Any]:
     """CarModPicker's error handler arguments, shared by `create_app` and the suite.
 
-    `error_codes=True` keeps the `error_code` key every existing client and test
-    reads. `validation_details=True` keeps the 422 `details` list. `error_envelope`
-    is deliberately unset: the exact-body tests pin the current shape.
+    `error_envelope="detailed"` is the org standard shape and implies
+    `error_codes` and `validation_details`, so every response carries
+    `error_code` and a 422 carries the flat `details` list without the legacy
+    `errors` key. Both are passed explicitly so the intent survives a change to
+    the package default.
     """
     from webbpulse.http import DynamoDBErrorHandlerOptions
 
     return {
+        "error_envelope": "detailed",
         "error_codes": True,
         "validation_details": True,
         "dynamodb_handlers": True,
@@ -58,6 +67,7 @@ def register_error_handlers(app: FastAPI) -> None:
     options = error_handler_options()
     register_shared_handlers(
         app,
+        error_envelope=options["error_envelope"],
         error_codes=options["error_codes"],
         validation_details=options["validation_details"],
         dynamodb=options["dynamodb_handlers"],

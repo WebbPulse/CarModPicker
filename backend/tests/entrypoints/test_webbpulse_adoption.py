@@ -33,7 +33,7 @@ def test_unmatched_route_returns_the_envelope(media_client: TestClient) -> None:
     response = media_client.get("/api/no-such-path-abc123")
     assert response.status_code == 404
     body = response.json()
-    assert "detail" not in body
+    assert set(body) == {"success", "status", "message", "request_id", "error_code"}
     assert body["success"] is False
     assert body["status"] == 404
     assert body["error_code"] == "NOT_FOUND"
@@ -46,7 +46,7 @@ def test_handled_error_returns_the_envelope(media_client: TestClient) -> None:
     response = media_client.get("/api/images/by-source-url")
     assert response.status_code == 401
     body = response.json()
-    assert "detail" not in body
+    assert set(body) == {"success", "status", "message", "request_id", "error_code"}
     assert body["success"] is False
     assert body["status"] == 401
     assert body["message"] == "Not authenticated"
@@ -55,14 +55,25 @@ def test_handled_error_returns_the_envelope(media_client: TestClient) -> None:
 
 
 def test_validation_error_returns_the_envelope_with_details() -> None:
-    """A validation error keeps the error code and the per field details list."""
+    """A validation error keeps the error code and the per field details list.
+
+    The legacy `errors` list is gone: `details` is the only carrier of the per
+    field reasons, and no shape carries Starlette's `detail`.
+    """
     from app.composition.app import app
 
     client = TestClient(app, raise_server_exceptions=False)
     response = client.get("/api/parts/not-a-uuid")
     assert response.status_code == 422
     body = response.json()
-    assert "detail" not in body
+    assert set(body) == {
+        "success",
+        "status",
+        "message",
+        "request_id",
+        "error_code",
+        "details",
+    }
     assert body["success"] is False
     assert body["status"] == 422
     assert body["error_code"] == "VALIDATION_ERROR"
