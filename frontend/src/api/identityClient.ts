@@ -36,8 +36,12 @@ export {
 export const identityUrl = (path: string): string =>
   joinIdentityUrl(identityOriginFrom(appConfig.apiBaseUrl), path);
 
-/** Where the signed in profile is read from, in the users domain. */
-export const CURRENT_USER_PATH = '/users/me';
+/**
+ * Where the signed in profile is read from, in the users domain. Carries the
+ * `/api` prefix because `identityOriginFrom` strips the configured base URL back
+ * to a bare origin, the same way the package's own `/api/auth/...` routes do.
+ */
+export const CURRENT_USER_PATH = '/api/users/me';
 
 /**
  * The one instance, or null when it could not be built. Built on first request
