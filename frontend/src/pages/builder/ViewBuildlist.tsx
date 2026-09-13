@@ -107,7 +107,7 @@ function ViewBuildList() {
       ? buildList.description.slice(0, 160)
       : buildList?.name
         ? `Parts, photos, and build log for ${buildList.name} on CarModPicker.`
-        : 'View a community build — parts list, photos, build log, and costs on CarModPicker.',
+        : 'View a community build: parts list, photos, build log, and costs on CarModPicker.',
     canonicalPath: buildListId ? `/build-lists/${buildListId}` : undefined,
   });
 

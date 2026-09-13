@@ -43,7 +43,7 @@ const BuildListsCatalog: React.FC = () => {
   useDocumentMeta({
     title: 'Build Lists',
     description:
-      'Explore car builds from the CarModPicker community. See how enthusiasts modify their cars — parts used, build logs, photos, and costs.',
+      'Explore car builds from the CarModPicker community. See how enthusiasts modify their cars: parts used, build logs, photos, and costs.',
     canonicalPath: '/build-lists',
   });
   const [searchParams, setSearchParams] = useSearchParams();
@@ -558,7 +558,7 @@ const BuildListsCatalog: React.FC = () => {
             {hasCostRange && (
               <span className={filterChipClass}>
                 {costMin.trim() && costMax.trim()
-                  ? `$${costMin.trim()} – $${costMax.trim()}`
+                  ? `$${costMin.trim()} to $${costMax.trim()}`
                   : costMin.trim()
                     ? `Min $${costMin.trim()}`
                     : `Max $${costMax.trim()}`}

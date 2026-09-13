@@ -11,7 +11,7 @@ function TermsOfService() {
   useDocumentMeta({
     title: 'Terms of Service',
     description:
-      'Read the CarModPicker Terms of Service — the rules for using the platform, user responsibilities, and content policies.',
+      'Read the CarModPicker Terms of Service: the rules for using the platform, user responsibilities, and content policies.',
     canonicalPath: '/terms-of-service',
   });
   return (
@@ -141,7 +141,7 @@ function TermsOfService() {
             <ul className="list-disc list-inside space-y-2 ml-2">
               <li>
                 Reset, migrate, wipe, or delete the database, user-uploaded
-                images, accounts, or any other stored content — in whole or in
+                images, accounts, or any other stored content, in whole or in
                 part.
               </li>
               <li>
@@ -225,7 +225,7 @@ function TermsOfService() {
               MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
               NON-INFRINGEMENT, ACCURACY, OR UNINTERRUPTED OR ERROR-FREE
               OPERATION. ANY PART COMPATIBILITY, FITMENT, PRICING, OR OTHER DATA
-              IS USER-SUBMITTED AND NOT VERIFIED — DO NOT RELY ON IT FOR
+              IS USER-SUBMITTED AND NOT VERIFIED. DO NOT RELY ON IT FOR
               SAFETY-CRITICAL DECISIONS. VERIFY INDEPENDENTLY BEFORE PURCHASING
               OR INSTALLING PARTS.
             </p>

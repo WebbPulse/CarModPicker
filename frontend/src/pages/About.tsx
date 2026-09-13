@@ -16,7 +16,7 @@ function About() {
   useDocumentMeta({
     title: 'About',
     description:
-      'Learn about CarModPicker — a platform where car enthusiasts plan modifications, track build progress, and share their work with the community.',
+      'Learn about CarModPicker, a platform where car enthusiasts plan modifications, track build progress, and share their work with the community.',
     canonicalPath: '/about',
   });
   const features = [

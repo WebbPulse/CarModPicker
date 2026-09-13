@@ -81,7 +81,7 @@ const RecordPriceDialog: React.FC<RecordPriceDialogProps> = ({
   const scrapedPriceFormatted =
     scrapedPriceCents != null
       ? `$${(scrapedPriceCents / 100).toFixed(2)}`
-      : "—";
+      : "-";
 
   /** Add the selected images, record the price, and open the part page. */
   const handleRecordPrice = async () => {

@@ -448,7 +448,7 @@ function PartsCuration() {
             </Button>
           </form>
           <p className="mt-2 text-xs text-muted-foreground">
-            Matches any Part — catalog canonical, duplicate, or UGC — whose
+            Matches any Part, catalog canonical, duplicate, or UGC, whose
             PartListing has this exact URL. UGC rows intentionally allow URL
             collisions, so you may see multiple matches.
           </p>
@@ -728,12 +728,12 @@ function PartsCuration() {
                         <td className="py-1 pr-3 text-muted-foreground">
                           {entry.before_canonical_id
                             ? truncate(entry.before_canonical_id, 13)
-                            : '—'}
+                            : '-'}
                         </td>
                         <td className="py-1 text-muted-foreground">
                           {entry.after_canonical_id
                             ? truncate(entry.after_canonical_id, 13)
-                            : '—'}
+                            : '-'}
                         </td>
                       </tr>
                     ))}
@@ -763,7 +763,7 @@ function PartsCuration() {
               . Existing canonical links may be re-elected.
             </p>
             <p className="text-xs text-warning mb-6">
-              Run a dry-run first if you haven&apos;t — this mutation has no
+              Run a dry-run first if you haven&apos;t. This mutation has no
               undo.
             </p>
             <div className="flex justify-end gap-3">

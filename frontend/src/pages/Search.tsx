@@ -35,7 +35,7 @@ function Search() {
   useDocumentMeta({
     title: queryFromUrl ? `Search: ${queryFromUrl}` : 'Search',
     description: queryFromUrl
-      ? `Search results on CarModPicker for "${queryFromUrl}" — builds and users matching your query.`
+      ? `Search results on CarModPicker for "${queryFromUrl}": builds and users matching your query.`
       : 'Search CarModPicker for builds and users across the community.',
     canonicalPath: '/search',
   });

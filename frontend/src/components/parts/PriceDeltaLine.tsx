@@ -49,9 +49,9 @@ export default function PriceDeltaLine({ summary }: PriceDeltaLineProps) {
   }
 
   const minStr =
-    summary.min_cents !== null ? formatDollars(summary.min_cents) : '—';
+    summary.min_cents !== null ? formatDollars(summary.min_cents) : '-';
   const maxStr =
-    summary.max_cents !== null ? formatDollars(summary.max_cents) : '—';
+    summary.max_cents !== null ? formatDollars(summary.max_cents) : '-';
 
   return (
     <span data-testid="price-delta-line" className="text-xs text-gray-400">
