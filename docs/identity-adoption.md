@@ -494,7 +494,7 @@ unchanged per environment, so no passkey is re-enrolled and no link is re-made.
 | 11 | Domains read authorizer claims; `sub` becomes the user id | 8, 9 | landed |
 | 12a | Terraform: 80 explicit domain route keys behind `domain_jwt_enforced`, default off | 11 | landed |
 | 12 | Cutover: flip `VITE_AUTH_MODE`, run migrations, verify, then `domain_jwt_enforced = true` | 7, 9, 10, 11, 12a | staging: landed. Frontend flipped and verified; enforcement on since 2026-09-11 and verified at the gateway. The 4KB environment blocker is fixed upstream in `staging-access-gate` 2.11.0 |
-| 13 | Retire legacy: 24 routes, `hashed_password`, `totp_secret`, `SECRET_KEY` | 12, soak | **this change**, draft until the row 12 soak. Includes the users domain password port: `POST /api/users/` deleted, password change and admin password set deleted, both legacy hash helpers deleted |
+| 13 | Retire legacy: 24 routes, `hashed_password`, `totp_secret`, `SECRET_KEY` | 12 | **this change**, draft until the row 12 precondition holds. Includes the users domain password port: `POST /api/users/` deleted, password change and admin password set deleted, both legacy hash helpers deleted |
 
 Row 6 ships dark behind a flag, which makes row 12 a variable flip rather than a
 deploy. Until row 13 lands, the whole sequence rolls back by setting that flag
@@ -523,8 +523,10 @@ This row is the deletion, and it is the first one in the sequence that is not
 reversible by a variable. Rows 6 through 12 all rolled back by flipping
 `VITE_AUTH_MODE` or `domain_jwt_enforced` and redeploying, because the legacy
 path was still sitting there. After row 13 there is nothing to flip back to, so
-the pull request is opened as a draft and stays that way until the row 12 soak
-has run its course.
+the pull request is opened as a draft and stays that way until the row 12
+precondition holds: the cutover has landed, the owner has signed in through the
+identity path in a browser, one authenticated write has succeeded, and
+`aws cloudwatch describe-alarms --state-value ALARM` returns empty.
 
 **The 24 routes.** Every route this application served under `/api/auth` is
 gone, along with the four routers that carried them, their request and response

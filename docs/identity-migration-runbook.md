@@ -54,15 +54,18 @@ python backend/scripts/migrate_totp_seeds_to_identity.py --apply
 #    if anything is missing, unreadable or mismatched.
 python backend/scripts/migrate_totp_seeds_to_identity.py --verify
 
-# ---- the cutover happens here: flip VITE_AUTH_MODE and soak ----
+# ---- the cutover happens here: flip VITE_AUTH_MODE ----
 
-# 6. Only after the soak, and only after step 5 exited zero. Dry run first.
+# 6. Only after the cutover precondition holds, and only after step 5 exited
+#    zero. Dry run first.
 python backend/scripts/migrate_totp_seeds_to_identity.py --clear-plaintext
 python backend/scripts/migrate_totp_seeds_to_identity.py --clear-plaintext --apply
 ```
 
 Steps 1 to 5 are reversible. Step 6 is not, which is why it is on the far side of
-the soak.
+the cutover precondition: the cutover has landed, the owner has signed in through
+the identity path in a browser, one authenticated write has succeeded, and
+`aws cloudwatch describe-alarms --state-value ALARM` returns empty.
 
 ## Reading the summary counts
 
@@ -129,7 +132,7 @@ If the identity rows have to go, delete them from `credentials` and
 
 Once step 6 has run, the sealed copy is the only copy of every TOTP seed. That is
 why `--verify` gates it, why `--clear-plaintext` re-verifies each row rather than
-trusting the earlier run, and why the step waits for a soak.
+trusting the earlier run, and why the step waits for that precondition.
 
 ## What is deliberately not logged
 
@@ -924,13 +927,14 @@ deletes data. Read this whole section before starting.
 
 ## Before you start
 
-**The row 12 soak must have run its course.** Row 12 flipped every client onto
+**The row 12 precondition must hold.** Row 12 flipped every client onto
 the identity path and turned on `domain_jwt_enforced`. The evidence that it
-held is what authorises this merge: no elevated 401 rate on the domain
-functions, no support traffic about sign in, and the legacy `/api/auth` routes
-receiving no requests. Check the last of those directly in the access logs
-rather than inferring it, because a forgotten client is exactly what this row
-would break.
+held is what authorises this merge: the owner has signed in through the identity
+path in a browser, one authenticated write has succeeded,
+`aws cloudwatch describe-alarms --state-value ALARM` returns empty, and the
+legacy `/api/auth` routes are receiving no requests. Check the last of those
+directly in the access logs rather than inferring it, because a forgotten client
+is exactly what this row would break.
 
 The pull request is opened as a draft and stays a draft until that is true.
 
@@ -948,7 +952,7 @@ The order is chosen so that the one way door is last. Everything up to step 3
 reverts by reverting the pull request. Step 4 does not.
 
 ```
-1. Merge the pull request into staging, once the soak is clean.
+1. Merge the pull request into staging, once that precondition holds.
 2. Let the deploy land. Nine domain images plus the frontend bundle.
 3. Verify, below. Nothing has been deleted from any row at this point.
 4. After step 3 verifies clean:
