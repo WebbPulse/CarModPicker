@@ -1020,8 +1020,8 @@ decrypt rather than authenticating the wrong person.
 bytes, same RFC 6238 defaults. Nobody rescans a QR code.
 
 **`--apply` deliberately leaves the plaintext on the user row.** Clearing it is a
-separate `--clear-plaintext` pass and it belongs on the far side of the soak, at
-step 12, because it is the irreversible half.
+separate `--clear-plaintext` pass and it belongs on the far side of the step 12
+precondition, because it is the irreversible half.
 
 **Gate: `--verify` exits zero.** It opens every sealed row back through
 `EnvelopeCipher` and checks it, writing nothing, and exits non-zero if anything
@@ -1241,7 +1241,7 @@ reader owns that coercion. The Lambda Web Adapter forwards the request context i
 `x-amzn-request-context` as **plain JSON, not base64**; a base64 decode of it
 fails and presents as a 401.
 
-### Step 12. Chrome extension, soak, then clear the plaintext
+### Step 12. Chrome extension, then clear the plaintext
 
 Publish the extension per the blocker 7 decision. This is the one store publish
 the locked decision allows, and it carries `DEFAULT_AUTH_MODE = "identity"`.
@@ -1303,19 +1303,21 @@ installs keep working through the handoff either way, because `getAuthMode()`
 reads `chrome.storage.sync` and an install that has never set it falls to the
 shipped default.
 
-**Then soak.** Watch for a real working day before the irreversible step:
+**Then check the precondition once, rather than watching for it.** The soak this
+step used to define was removed by owner decision on 2026-09-13. Step 12 of
+`docs/prod-promotion-plan.md` has landed, the owner has signed in through the
+identity path in a browser, one authenticated write has succeeded, and the alarms
+are quiet:
 
 ```bash
 aws cloudwatch describe-alarms --state-value ALARM \
   --query 'MetricAlarms[].AlarmName' --output text
 ```
 
-Expect empty. Watch the identity function's error rate and the gateway 4xx rate,
-and give the 174 users time to sign in on their own schedule. A user who has not
-signed in since the cutover has not tested anything.
+Expect empty.
 
-**Only after the soak, and only if step 8's `--verify` exited zero**, clear the
-plaintext TOTP seeds:
+**Only after that precondition holds, and only if step 8's `--verify` exited
+zero**, clear the plaintext TOTP seeds:
 
 ```bash
 cd backend
@@ -1402,10 +1404,10 @@ Two gates, and both must hold before step 16 is even considered:
 
 A `mismatch` here is usually benign and has a known remedy. The identity login
 path, `flows.py:366` in `webbpulse-python`, opportunistically rehashes a
-credential when `needs_rehash` is true, so a user who signed in during the soak
-can hold a credential whose bytes no longer match the legacy column. The fix is
-`migrate_credentials_to_identity.py --replace`, which overwrites from the users
-table. **The script has no force or overwrite flag.** `--replace` is the only
+credential when `needs_rehash` is true, so a user who has signed in since the
+cutover can hold a credential whose bytes no longer match the legacy column. The
+fix is `migrate_credentials_to_identity.py --replace`, which overwrites from the
+users table. **The script has no force or overwrite flag.** `--replace` is the only
 remedy for a `mismatch`, and it rewrites only the credential rows it is pointed
 at.
 
@@ -1414,8 +1416,8 @@ at.
 Owner present. **This is a one-way door**, on the same footing as the TOTP seed
 clear above.
 
-Run it only after the soak this step already defines, and only if step 8's
-`--verify` exited zero.
+Run it only after step 12 has landed and the owner's own sign in and one
+authenticated write succeed, and only if step 8's `--verify` exited zero.
 
 ```bash
 cd backend
@@ -1426,7 +1428,7 @@ python scripts/clear_legacy_credentials.py $P --apply
 ```
 
 The dry run is repeated immediately before the apply on purpose. Rows can change
-classification during a soak, for the rehash reason above, so the run that gates
+classification between runs, for the rehash reason above, so the run that gates
 the write should be the one taken minutes before it.
 
 If the apply refuses, nothing was written. Resolve the named rows, with
@@ -1559,7 +1561,8 @@ git revert --no-commit <promotion-merge-sha>
    frontend, and get a **real browser sign-in from the owner**.
 8. Set `domain_jwt_enforced = true`, apply the third run, expect eighty route
    replacements, and re-probe an authenticated write both ways.
-9. Publish the extension with the identity default, soak for a working day, then
-   `--clear-plaintext --apply`. Then dry run `clear_legacy_credentials.py`, and
-   apply it once the dry run refuses nothing and the owner has signed in with a
-   real password in a browser. Steps 15 and 16.
+9. Publish the extension with the identity default, confirm the step 12
+   precondition once, then `--clear-plaintext --apply`. Then dry run
+   `clear_legacy_credentials.py`, and apply it once the dry run refuses nothing
+   and the owner has signed in with a real password in a browser. Steps 15
+   and 16.
