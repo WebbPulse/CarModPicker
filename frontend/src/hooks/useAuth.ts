@@ -17,8 +17,17 @@ export const useAuth = (): AuthContextType => {
   if (extras === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  const { isAuthenticated, isLoading, user } = usePackageAuth<UserRead>();
+  const { isAuthenticated, isLoading, isBusy, user } =
+    usePackageAuth<UserRead>();
   const { login, logout, checkAuthStatus } = extras;
 
-  return { isAuthenticated, user, isLoading, login, logout, checkAuthStatus };
+  return {
+    isAuthenticated,
+    user,
+    isLoading,
+    isBusy,
+    login,
+    logout,
+    checkAuthStatus,
+  };
 };

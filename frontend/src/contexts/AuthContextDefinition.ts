@@ -32,7 +32,10 @@ export interface AuthExtrasContextType {
 export interface AuthContextType extends AuthExtrasContextType {
   isAuthenticated: boolean;
   user: UserRead | null;
+  /** True only until the session first settles. The flag a route guard gates on. */
   isLoading: boolean;
+  /** True while a session call is in flight. The flag a button spinner gates on. */
+  isBusy: boolean;
 }
 
 /** Context carrying the CarModPicker-only session calls to the tree. */

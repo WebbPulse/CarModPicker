@@ -8,16 +8,25 @@ import { mockUser } from '../test/mocks/api';
 
 const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
   const listeners = new Set<(state: unknown) => void>();
-  let state = {
+  const freshState = () => ({
     status: 'unknown' as string,
     user: null as unknown,
     hasAccessToken: false,
     error: null,
     sessionEnded: null as unknown,
     pendingMfa: null,
-  };
+    settled: false,
+  });
+  let state = freshState();
   const setState = (patch: Record<string, unknown>) => {
-    state = { ...state, ...patch };
+    const next = { ...state, ...patch };
+    if (
+      !next.settled &&
+      (next.status === 'authenticated' || next.status === 'anonymous')
+    ) {
+      next.settled = true;
+    }
+    state = next;
     for (const listener of [...listeners]) listener(state);
   };
   const apiClient = {
@@ -36,14 +45,7 @@ const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
       setState,
       reset: () => {
         listeners.clear();
-        state = {
-          status: 'unknown',
-          user: null,
-          hasAccessToken: false,
-          error: null,
-          sessionEnded: null,
-          pendingMfa: null,
-        };
+        state = freshState();
       },
       subscribe: (listener: (next: unknown) => void) => {
         listeners.add(listener);
