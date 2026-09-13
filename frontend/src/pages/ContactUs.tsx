@@ -6,7 +6,7 @@ function ContactUs() {
   useDocumentMeta({
     title: 'Contact Us',
     description:
-      'Get in touch with the CarModPicker team. Send feedback, questions, or business inquiries — we read every message.',
+      'Get in touch with the CarModPicker team. Send feedback, questions, or business inquiries. We read every message.',
     canonicalPath: '/contact-us',
   });
   return (

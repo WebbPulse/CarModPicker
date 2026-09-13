@@ -119,7 +119,7 @@ function getFitCell(
   if (gp.is_universal) return { label: 'Universal' };
   const ids = gp.car_ids ?? [];
   const n = ids.length;
-  if (n === 0) return { label: '—' };
+  if (n === 0) return { label: '-' };
   if (n === 1) {
     const firstId = ids[0];
     const car = firstId != null ? carsById[firstId] : undefined;
@@ -148,9 +148,9 @@ function getPartManufacturerName(
     const b = part_manufacturers.find(
       (br) => br.id === gp.part_manufacturer_id
     );
-    return b?.name ?? '—';
+    return b?.name ?? '-';
   }
-  return '—';
+  return '-';
 }
 
 /** A comparator for the current sort column and direction, tie-broken by name. */
@@ -171,13 +171,13 @@ function buildSortComparator(
         return p.part.name;
       case 'part_manufacturer': {
         const v = getPartManufacturerName(p, part_manufacturers);
-        return v === '—' ? null : v;
+        return v === '-' ? null : v;
       }
       case 'part_number':
         return p.part.part_number ?? null;
       case 'fit': {
         const v = getFitCell(p, carsById).label;
-        return v === '—' ? null : v;
+        return v === '-' ? null : v;
       }
       default:
         return null;
@@ -516,9 +516,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                   <td
                     className="px-4 py-2 min-w-0 overflow-hidden"
                     title={
-                      notes
-                        ? `${gp.name}${notes ? ` — ${notes}` : ''}`
-                        : gp.name
+                      notes ? `${gp.name}${notes ? `: ${notes}` : ''}` : gp.name
                     }
                   >
                     <Link
@@ -567,10 +565,10 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                   {visibleColumns.includes('part_number') && (
                     <td
                       className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
-                      title={gp.part_number ?? '—'}
+                      title={gp.part_number ?? '-'}
                     >
                       <span className="block truncate">
-                        {gp.part_number ?? '—'}
+                        {gp.part_number ?? '-'}
                       </span>
                     </td>
                   )}
@@ -620,7 +618,7 @@ const BuildListPartTable: React.FC<BuildListPartTableProps> = ({
                           )}
                         </span>
                       ) : (
-                        <span className="text-gray-500">—</span>
+                        <span className="text-gray-500">-</span>
                       )}
                     </td>
                   )}

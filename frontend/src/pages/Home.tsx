@@ -260,7 +260,7 @@ export default function HomePage() {
               <div className="grid grid-cols-2 gap-6 text-center">
                 <div className="animate-slideInUp">
                   <div className="text-3xl font-bold text-primary mb-2">
-                    {buildListsCountData?.count ?? '—'}
+                    {buildListsCountData?.count ?? '-'}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Build Lists
@@ -271,7 +271,7 @@ export default function HomePage() {
                   style={{ animationDelay: '0.1s' }}
                 >
                   <div className="text-3xl font-bold text-primary mb-2">
-                    {partsCountData?.count ?? '—'}
+                    {partsCountData?.count ?? '-'}
                   </div>
                   <div className="text-sm text-muted-foreground">Parts</div>
                 </div>
@@ -280,7 +280,7 @@ export default function HomePage() {
                   style={{ animationDelay: '0.2s' }}
                 >
                   <div className="text-3xl font-bold text-primary mb-2">
-                    {retailersCountData?.count ?? '—'}
+                    {retailersCountData?.count ?? '-'}
                   </div>
                   <div className="text-sm text-muted-foreground">Retailers</div>
                 </div>
@@ -289,7 +289,7 @@ export default function HomePage() {
                   style={{ animationDelay: '0.3s' }}
                 >
                   <div className="text-3xl font-bold text-primary mb-2">
-                    {partManufacturersCountData?.count ?? '—'}
+                    {partManufacturersCountData?.count ?? '-'}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Part Manufacturers

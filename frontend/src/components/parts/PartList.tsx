@@ -490,7 +490,7 @@ function PartList({
   const getCategoryName = useCallback(
     (categoryId: string) => {
       const cat = categories.find((c) => c.id === categoryId);
-      return cat?.display_name ?? cat?.name ?? '—';
+      return cat?.display_name ?? cat?.name ?? '-';
     },
     [categories]
   );
@@ -502,9 +502,9 @@ function PartList({
         const b = part_manufacturers.find(
           (br) => br.id === part.part_manufacturer_id
         );
-        return b?.name ?? '—';
+        return b?.name ?? '-';
       }
-      return '—';
+      return '-';
     },
     [part_manufacturers]
   );
@@ -519,7 +519,7 @@ function PartList({
       if (part.is_universal) return { label: 'Universal', title: undefined };
       const ids = part.car_ids ?? [];
       const n = ids.length;
-      if (n === 0) return { label: '—', title: undefined };
+      if (n === 0) return { label: '-', title: undefined };
       if (n === 1) {
         const firstId = ids[0];
         const car = firstId != null ? effectiveCarsById[firstId] : undefined;
@@ -740,10 +740,10 @@ function PartList({
                   {visibleColumns.includes('part_number') && (
                     <td
                       className="px-4 py-2 text-gray-400 min-w-0 overflow-hidden font-mono text-xs"
-                      title={part.part_number ?? '—'}
+                      title={part.part_number ?? '-'}
                     >
                       <span className="block truncate">
-                        {part.part_number ?? '—'}
+                        {part.part_number ?? '-'}
                       </span>
                     </td>
                   )}
@@ -802,7 +802,7 @@ function PartList({
                           ${(part.best_price_cents / 100).toFixed(2)}
                         </span>
                       ) : (
-                        <span className="text-gray-500">—</span>
+                        <span className="text-gray-500">-</span>
                       )}
                     </td>
                   )}

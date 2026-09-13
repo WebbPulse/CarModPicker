@@ -54,7 +54,7 @@ const TIER_META: Record<
 > = {
   http: {
     label: 'T0',
-    full: 'Tier 0 — plain HTTP',
+    full: 'Tier 0: plain HTTP',
     badge: 'bg-success/40 border-success/60 text-success',
     row: 'border-l-2 border-l-success/70',
     chipSelected: 'border-success bg-success/40 text-success',
@@ -63,7 +63,7 @@ const TIER_META: Record<
   },
   tls: {
     label: 'T1',
-    full: 'Tier 1 — TLS impersonation (curl_cffi)',
+    full: 'Tier 1: TLS impersonation (curl_cffi)',
     badge: 'bg-warning/40 border-warning/60 text-warning',
     row: 'border-l-2 border-l-warning/70',
     chipSelected: 'border-warning bg-warning/40 text-warning',
@@ -72,7 +72,7 @@ const TIER_META: Record<
   },
   browser: {
     label: 'T2',
-    full: 'Tier 2 — headless browser (FlareSolverr)',
+    full: 'Tier 2: headless browser (FlareSolverr)',
     badge: 'bg-destructive/40 border-destructive/60 text-destructive',
     row: 'border-l-2 border-l-destructive/70',
     chipSelected: 'border-destructive bg-destructive/40 text-destructive',
@@ -82,7 +82,7 @@ const TIER_META: Record<
   },
   unverified: {
     label: 'T4',
-    full: 'T4 — unverified: new adapter awaiting smoke test',
+    full: 'T4 unverified: new adapter awaiting smoke test',
     badge: 'bg-info/40 border-info/60 text-info',
     row: 'border-l-2 border-l-info/70',
     chipSelected: 'border-info bg-info/40 text-info',
@@ -337,7 +337,7 @@ function CrawlerRunResult({ summary }: { summary: Record<string, unknown> }) {
                 <summary className="cursor-pointer font-mono text-gray-200">
                   {r.adapter}{' '}
                   <span className="text-gray-500 font-sans">
-                    — {errTotal} error(s), {missTotal} parse miss(es)
+                    {errTotal} error(s), {missTotal} parse miss(es)
                   </span>
                 </summary>
                 <div className="mt-2 space-y-2">
@@ -721,7 +721,7 @@ function classifyActivity(
 }
 
 function formatAge(lastParsedAt: string | null, serverNowIso: string): string {
-  if (!lastParsedAt) return '—';
+  if (!lastParsedAt) return '-';
   const last = new Date(lastParsedAt).getTime();
   const now = new Date(serverNowIso).getTime();
   const s = Math.max(0, Math.floor((now - last) / 1000));
@@ -1042,7 +1042,7 @@ const BackgroundJobItem = memo(function BackgroundJobItem({
               {job.status}
             </span>
             <span className="text-xs text-gray-300 font-medium truncate">
-              #{job.id} — {typeLabel}
+              #{job.id}: {typeLabel}
             </span>
             <span className="text-gray-500 text-[10px] shrink-0">
               {job.triggered_by}
@@ -1110,8 +1110,9 @@ const BackgroundJobItem = memo(function BackgroundJobItem({
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
                   </span>
                   Running for{' '}
-                  <ElapsedTimer startedAt={startedAt} endedAt={completedAt} /> —
-                  results will appear when the job completes
+                  <ElapsedTimer startedAt={startedAt} endedAt={completedAt} />
+                  {'. '}
+                  Results will appear when the job completes
                 </div>
               )}
 
@@ -1289,7 +1290,7 @@ const AdapterTuningCard = memo(function AdapterTuningCard({
       </h2>
       <p className="text-xs text-muted-foreground mb-2">
         Per-retailer delay, run limit, and default category. Applies on the next
-        scheduled run — no AWS sync needed.
+        scheduled run, no AWS sync needed.
       </p>
 
       {configSaveError && (
@@ -1399,7 +1400,7 @@ const LiveCrawlerRow = memo(function LiveCrawlerRow({
       <input
         type="number"
         min="1"
-        placeholder="—"
+        placeholder="-"
         defaultValue={limitValue}
         onBlur={(e) => onLimitChange(adapter, e.target.value)}
         className="w-12 px-1 py-0.5 text-xs text-center rounded border border-white/20 bg-gray-800 text-foreground focus:border-success focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -2233,7 +2234,7 @@ const SchedulesCard = memo(function SchedulesCard({
         <div className="flex items-start gap-2 p-2 mb-2 rounded border border-yellow-600/50 bg-yellow-900/20 text-yellow-300 text-xs">
           <span className="mt-0.5 shrink-0">⚠</span>
           <span>
-            Schedules unavailable — backend did not respond. Requires AWS
+            Schedules unavailable. Backend did not respond. Requires AWS
             EventBridge plumbing.
           </span>
         </div>
@@ -2257,7 +2258,7 @@ const SchedulesCard = memo(function SchedulesCard({
         </div>
       ) : schedules.length === 0 ? (
         <p className="text-xs text-gray-500 py-2">
-          No schedules yet — create one above.
+          No schedules yet. Create one above.
         </p>
       ) : (
         <div className="space-y-2">
@@ -2888,7 +2889,7 @@ function CrawlerAdmin() {
                             key={tier}
                             type="button"
                             onClick={() => toggleTierSelection(tier)}
-                            title={`${meta.full} — ${selectedCount}/${total} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
+                            title={`${meta.full}: ${selectedCount}/${total} selected (click to ${allSelected ? 'deselect' : 'select'} all)`}
                             className={`px-1.5 py-0.5 rounded border text-[10px] font-mono leading-none transition-colors ${cls}`}
                           >
                             {meta.label}
@@ -2933,7 +2934,7 @@ function CrawlerAdmin() {
                         <LocalTextInput
                           type="number"
                           min="1"
-                          placeholder="—"
+                          placeholder="-"
                           initialValue={globalCrawlerLimit}
                           inputKey={globalLimitSyncKey}
                           onCommit={setGlobalCrawlerLimit}
@@ -3057,8 +3058,8 @@ function CrawlerAdmin() {
                   </h3>
                   <p className="text-[11px] text-muted-foreground mb-2">
                     Re-run parse → ingest on every URL with archived HTML (same
-                    pipeline as a live crawl). Background job — watch server
-                    logs for per-outcome counts.
+                    pipeline as a live crawl). Background job, watch server logs
+                    for per-outcome counts.
                   </p>
                   <Button
                     onClick={() => void handleRescrapeArchives()}

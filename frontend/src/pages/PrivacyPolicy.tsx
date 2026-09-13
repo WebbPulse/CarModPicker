@@ -49,8 +49,8 @@ function PrivacyPolicy() {
               <li>
                 <strong>Content you create</strong>: cars, build lists, parts,
                 build logs, images you upload, votes, and comments. Items you
-                submit privately — such as content reports to moderators and bug
-                reports — are kept internal and are not displayed publicly.
+                submit privately, such as content reports to moderators and bug
+                reports, are kept internal and are not displayed publicly.
               </li>
               <li>
                 <strong>Technical data</strong>: IP address, user agent,
@@ -66,7 +66,7 @@ function PrivacyPolicy() {
                 <strong>Data from our Chrome extension</strong>: if you install
                 our optional extension, it does <em>not</em> run in the
                 background and does <em>not</em> passively track your browsing
-                history. When — and only when — you click the extension's action
+                history. When, and only when, you click the extension's action
                 button on a page, it captures that page's URL and its rendered
                 HTML and sends them to our servers for parsing into product
                 information. Before the HTML is stored or parsed, our servers
@@ -112,8 +112,8 @@ function PrivacyPolicy() {
               <li>
                 To display user-submitted content (usernames, builds, parts,
                 comments) publicly on the Service. Assume anything you post
-                publicly is public. Content you submit privately — such as
-                moderation reports and bug reports — is used only for operations
+                publicly is public. Content you submit privately, such as
+                moderation reports and bug reports, is used only for operations
                 and is not displayed to other users.
               </li>
             </ul>
@@ -134,11 +134,11 @@ function PrivacyPolicy() {
             </p>
             <ul className="list-disc list-inside space-y-2 ml-2">
               <li>
-                <strong>Cloud infrastructure providers</strong> — for hosting,
+                <strong>Cloud infrastructure providers</strong>: for hosting,
                 storage, and transactional email.
               </li>
               <li>
-                <strong>Advertising partners</strong> — third-party vendors,
+                <strong>Advertising partners</strong>: third-party vendors,
                 including Google, may use cookies to serve ads based on your
                 prior visits to our Service or other websites. Google's use of
                 advertising cookies enables it and its partners to serve ads to
@@ -163,7 +163,7 @@ function PrivacyPolicy() {
                 .
               </li>
               <li>
-                <strong>Retailer websites</strong> — if you use features that
+                <strong>Retailer websites</strong>: if you use features that
                 link to or interact with retailer pages, your interaction with
                 those sites is governed by their own policies.
               </li>
@@ -221,7 +221,7 @@ function PrivacyPolicy() {
               period for your data. The Service is in active development and is
               operated on a best-effort basis. We may, at any time and without
               prior notice, reset, migrate, wipe, or delete accounts, databases,
-              uploaded images, or any other stored content — for example:
+              uploaded images, or any other stored content, for example:
             </p>
             <ul className="list-disc list-inside space-y-2 ml-2">
               <li>during schema changes or infrastructure moves;</li>
@@ -233,7 +233,7 @@ function PrivacyPolicy() {
               via the Chrome extension is stored so that the parsed product
               information can be refreshed or corrected later. We retain it only
               for as long as it remains useful for that purpose, and we may
-              delete or overwrite it at any time without notice — for example:
+              delete or overwrite it at any time without notice, for example:
             </p>
             <ul className="list-disc list-inside space-y-2 ml-2">
               <li>when the associated part is removed;</li>
@@ -313,22 +313,22 @@ function PrivacyPolicy() {
             </p>
             <ul className="list-disc list-inside space-y-2 ml-2">
               <li>
-                <strong>Performance of a contract</strong> — to provide the
+                <strong>Performance of a contract</strong>: to provide the
                 Service you signed up for (e.g. authenticate you, display your
                 builds).
               </li>
               <li>
-                <strong>Legitimate interests</strong> — to secure the Service,
+                <strong>Legitimate interests</strong>: to secure the Service,
                 prevent abuse, debug issues, improve features, and send
                 operational communications.
               </li>
               <li>
-                <strong>Consent</strong> — where we rely on your consent (for
+                <strong>Consent</strong>: where we rely on your consent (for
                 example, optional cookies for personalized advertising). You may
                 withdraw consent at any time.
               </li>
               <li>
-                <strong>Legal obligation</strong> — to comply with applicable
+                <strong>Legal obligation</strong>: to comply with applicable
                 law.
               </li>
             </ul>

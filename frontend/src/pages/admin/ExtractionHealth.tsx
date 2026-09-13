@@ -27,7 +27,7 @@ function formatErrorMessage(err: unknown): string {
   const status = e.response?.status;
   const detail = e.message ?? 'Request failed';
   const prefix = status ? `HTTP ${status}` : 'Network error';
-  return `${prefix} — ${detail}. Check crawled_pages.parse_status for ingest health.`;
+  return `${prefix}: ${detail}. Check crawled_pages.parse_status for ingest health.`;
 }
 
 function formatPercent(ratio: number): string {
@@ -181,7 +181,7 @@ function ExtractionHealth() {
                     const partsTotal = block.parts_total;
                     const summary =
                       partsTotal === 0
-                        ? '—'
+                        ? '-'
                         : `${block.parts_with_specs} / ${partsTotal}`;
                     const fieldNames = Object.keys(block.per_field).sort();
                     return (
@@ -223,7 +223,7 @@ function ExtractionHealth() {
                                     </td>
                                     <td className="py-1 text-gray-200">
                                       {partsTotal === 0
-                                        ? '—'
+                                        ? '-'
                                         : formatPercent(ratio)}
                                     </td>
                                   </tr>
