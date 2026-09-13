@@ -26,7 +26,6 @@ coverage.xml
 htmlcov/
 tests/
 
-requirements.txt
 
 docker-compose.yml
 Dockerfile
@@ -35,7 +34,6 @@ scripts/
 README.md
 
 pytest.ini
-pyproject.toml
 pyrightconfig.json
 runtime.txt
 .bandit

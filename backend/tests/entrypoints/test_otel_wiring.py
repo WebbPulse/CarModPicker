@@ -6,6 +6,7 @@ Each property fails silently in production, so each is asserted on the source.
 from __future__ import annotations
 
 import ast
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -124,15 +125,15 @@ def test_the_module_level_app_is_not_the_one_main_serves(domain: str) -> None:
     )
 
 
-@pytest.mark.parametrize("filename", ["requirements.txt", "requirements-lambda.txt"])
-def test_both_requirements_files_carry_the_aws_otel_extra(filename: str) -> None:
-    """Both requirements files carry the aws-otel extra that signs the OTLP export."""
+def test_the_runtime_dependency_carries_the_aws_otel_extra() -> None:
+    """The webbpulse runtime dependency carries the aws-otel extra that signs the OTLP export."""
+    project = tomllib.loads((BACKEND / "pyproject.toml").read_text())
     line = next(
-        raw.strip() for raw in (BACKEND / filename).read_text().splitlines() if raw.strip().startswith("webbpulse[")
+        raw for raw in project["project"]["dependencies"] if raw.startswith("webbpulse[")
     )
     extras = line.split("[", 1)[1].split("]", 1)[0].split(",")
-    assert "otel" in extras, f"{filename}: the otel extra is what provides configure_tracing"
+    assert "otel" in extras, "pyproject.toml: the otel extra is what provides configure_tracing"
     assert "aws-otel" in extras, (
-        f"{filename}: without the aws-otel extra the exporter posts unsigned and "
+        "pyproject.toml: without the aws-otel extra the exporter posts unsigned and "
         "every span is silently rejected with a 403"
     )
