@@ -58,11 +58,19 @@ before anything is written, and the two columns are classified independently:
 process exits non-zero on either, because both mean removing the column would
 take away a way into the account without having confirmed there is another one.
 
-A `mismatch` on the password is usually a password changed after the migration
-ran, through one of the three routes named above. The right answer is still a
-human: re-run `migrate_credentials_to_identity.py --replace` so the identity
-store carries the newer secret, then run this again. This script will not make
-that judgement on its own.
+A `mismatch` on the password means the legacy column and the identity
+credential hold different secrets. The right answer is still a human, and it
+depends on which side is newer:
+
+  - the identity credential is newer, the usual case when the password was
+    changed through the identity path after the migration ran: remove the stale
+    `hashed_password` attribute from that one row, then rerun the dry run and
+    expect zero refusals,
+  - the legacy hash is newer: re-run
+    `migrate_credentials_to_identity.py --replace` so the identity store
+    carries the newer secret, then run this again.
+
+This script will not make that judgement on its own.
 
 An account with **neither** column and no credential is `already_clear` rather
 than a refusal. That is an OAuth only or passkey only account, which is an

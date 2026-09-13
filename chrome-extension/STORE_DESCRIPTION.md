@@ -1,8 +1,8 @@
-# Chrome Web Store Listing — CarModPicker Browser Companion
+# Chrome Web Store Listing: CarModPicker Browser Companion
 
 Ready-to-paste content for every field in the Web Store submission form.
 Keep this file in sync with `manifest.json` and the privacy policy at
-`frontend/src/pages/PrivacyPolicy.tsx` — if any of the three drift, a reviewer
+`frontend/src/pages/PrivacyPolicy.tsx`. If any of the three drift, a reviewer
 will reject the next update.
 
 ---
@@ -17,7 +17,7 @@ Already set in `manifest.json`:
 
 ## 2. Short summary (132 char max)
 
-> Capture product info from any retailer page and save it as a part in your CarModPicker build list — on click, never in the background.
+> Capture product info from any retailer page and save it as a part in your CarModPicker build list, on click, never in the background.
 
 (130 chars)
 
@@ -27,7 +27,7 @@ Already set in `manifest.json`:
 
 > **Turn any retailer's product page into a CarModPicker part in one click.**
 >
-> CarModPicker is a free platform for tracking your car builds — your cars, your build lists, the parts that go on them, and the forum-style logs of what you changed and when. The browser companion lets you capture parts from anywhere on the web, not just the retailers we've built native crawlers for.
+> CarModPicker is a free platform for tracking your car builds: your cars, your build lists, the parts that go on them, and the forum-style logs of what you changed and when. The browser companion lets you capture parts from anywhere on the web, not just the retailers we've built native crawlers for.
 >
 > **How it works**
 >
@@ -40,7 +40,7 @@ Already set in `manifest.json`:
 > **Built to respect your privacy**
 >
 > - The extension only runs when you click it. No background monitoring, no passive page tracking, no analytics.
-> - Before the captured HTML is stored or parsed, the server strips scripts (other than product structured data), styles, iframes, and form-field values — so autofilled inputs and inline user-state blobs never hit our database.
+> - Before the captured HTML is stored or parsed, the server strips scripts (other than product structured data), styles, iframes, and form-field values, so autofilled inputs and inline user-state blobs never hit our database.
 > - The extension does not read your cookies, browser storage, or request headers.
 > - Data captured by the extension is used only to parse product info for your account. We don't sell it, transfer it, use it for advertising, or let humans read it except for security, legal compliance, or with your consent.
 >
@@ -72,7 +72,7 @@ Alternative: "Productivity" is less crowded. Pick based on which discovery surfa
 
 ### `scripting`
 
-> Used together with activeTab to inject a single inline function into the active tab — on user click — that returns `document.documentElement.outerHTML`. This is the capture step for the product page the user chose. No code is loaded from any remote source; the injected function is defined inline in the extension bundle and consists of one expression.
+> Used together with activeTab to inject a single inline function into the active tab, on user click, that returns `document.documentElement.outerHTML`. This is the capture step for the product page the user chose. No code is loaded from any remote source; the injected function is defined inline in the extension bundle and consists of one expression.
 
 ### `storage`
 
@@ -100,9 +100,9 @@ If the reviewer asks anyway:
 
 Check **yes** on:
 
-- **Personally identifiable information** — the extension transmits the user's CarModPicker auth token with each request.
-- **Authentication information** — same reason (auth token stored in `chrome.storage`).
-- **Website content** — the extension transmits the rendered HTML of product pages the user chooses to capture.
+- **Personally identifiable information**: the extension transmits the user's CarModPicker auth token with each request.
+- **Authentication information**: same reason (auth token stored in `chrome.storage`).
+- **Website content**: the extension transmits the rendered HTML of product pages the user chooses to capture.
 
 Leave **unchecked**:
 
@@ -134,7 +134,7 @@ Check all three:
 ## 12. Support / homepage URLs
 
 - **Homepage:** `https://carmodpicker.com`
-- **Support email:** `tyler@webbpulse.com` (matches the contact email in the privacy policy — reviewers check for continuity)
+- **Support email:** `tyler@webbpulse.com` (matches the contact email in the privacy policy, reviewers check for continuity)
 
 ---
 
@@ -144,7 +144,7 @@ English (United States)
 
 ---
 
-## Screenshots and assets (not drafted here — you have to produce them)
+## Screenshots and assets (not drafted here, you have to produce them)
 
 Required before submission:
 
@@ -163,9 +163,9 @@ Required before submission:
 
 Every claim in this document has to survive a reviewer re-reading it next to your code. If any of these change, update this doc in the same PR:
 
-- `chrome-extension/manifest.json` — permissions, host_permissions, content_scripts.matches, CSP.
-- `chrome-extension/src/pages/popup.tsx` — the `handleScrape` flow and what data leaves the browser.
-- `chrome-extension/src/content.ts` — what runs on which domains.
-- `backend/app/crawlers/sanitize.py` — what gets stripped before storage.
-- `backend/app/api/endpoints/crawled_pages.py` — the `/scrape` and `/html` endpoints.
-- `frontend/src/pages/PrivacyPolicy.tsx` — sections 1, 4, and 5 in particular.
+- `chrome-extension/manifest.json`: permissions, host_permissions, content_scripts.matches, CSP.
+- `chrome-extension/src/pages/popup.tsx`: the `handleScrape` flow and what data leaves the browser.
+- `chrome-extension/src/content.ts`: what runs on which domains.
+- `backend/app/crawlers/sanitize.py`: what gets stripped before storage.
+- `backend/app/api/endpoints/crawled_pages.py`: the `/scrape` and `/html` endpoints.
+- `frontend/src/pages/PrivacyPolicy.tsx`: sections 1, 4, and 5 in particular.
