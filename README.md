@@ -30,17 +30,35 @@ The shared `webbpulse` and `@webbpulse/*` packages float to the newest release a
 
 ### Backend
 
+The backend is a uv project: dependencies live in `backend/pyproject.toml` and
+resolve through the committed `backend/uv.lock`. Third-party packages come from
+public PyPI; `webbpulse` comes only from the CodeArtifact index.
+
+Install uv once ([docs](https://docs.astral.sh/uv/getting-started/installation/)),
+then export the index credentials in any shell that installs:
+
 ```bash
-cd backend
-docker-compose up -d                    # DynamoDB Local (:8001) + MinIO (:9000)
-python scripts/create_dynamo_tables.py  # create the app's tables (needs DYNAMODB_ENDPOINT_URL in .env)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+export UV_INDEX_CODEARTIFACT_USERNAME=aws
+export UV_INDEX_CODEARTIFACT_PASSWORD="$(aws codeartifact get-authorization-token \
+  --domain webbpulse --domain-owner 432410731887 --region us-west-2 \
+  --query authorizationToken --output text)"
 ```
 
 ```bash
-pytest -n auto            # always -n auto; moto in-memory DynamoDB, no services needed
-ruff format . && ruff check . && pyright && bandit -r app
+cd backend
+uv sync                                    # create .venv from uv.lock
+docker-compose up -d                       # DynamoDB Local (:8001) + MinIO (:9000)
+uv run python scripts/create_dynamo_tables.py  # needs DYNAMODB_ENDPOINT_URL in .env
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+```bash
+uv run pytest -n auto     # always -n auto; moto in-memory DynamoDB, no services needed
+uv run ruff format . && uv run ruff check . && uv run pyright && uv run bandit -r app
+```
+
+The token is short lived, so re-export it when `uv sync` reports a 401. To pick up
+a newer `webbpulse` release, run `uv lock --upgrade-package webbpulse`.
 
 ### Frontend
 

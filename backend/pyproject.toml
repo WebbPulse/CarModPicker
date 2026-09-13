@@ -1,3 +1,67 @@
+[project]
+name = "carmodpicker-backend"
+version = "0"
+requires-python = ">=3.13"
+dependencies = [
+  "webbpulse[fastapi,otel,dynamodb,aws-otel,security,identity,oauth,passkeys]>=0.28.1,<1",
+  "fastapi>=0.141.1",
+  "pydantic[email]>=2.13.5",
+  "pydantic-settings>=2.15.0",
+  "python-json-logger>=4.2.0",
+  "click>=8.5.0",
+  "typing_extensions>=4.16.0",
+  "uuid6>=2025.0.1",
+  "PyJWT[crypto]>=2.13.0",
+  "bcrypt>=5.0.0",
+  "python-multipart>=0.0.32",
+  "pyotp>=2.10.0",
+  "qrcode[pil]>=8.2",
+  "webauthn>=3.0.0",
+  "google-auth>=2.57.1",
+  "requests>=2.34.2",
+  "httpx>=0.28.1",
+  "beautifulsoup4>=4.15.0",
+  "defusedxml>=0.7.1",
+  "pybreaker>=1.4.1",
+  "boto3>=1.43.90",
+  "Pillow>=12.3.0",
+]
+
+[dependency-groups]
+dev = [
+  "uvicorn>=0.52.4",
+  "curl_cffi>=0.16.3",
+  "boto3-stubs[s3,sesv2,dynamodb]>=1.43.90",
+  "moto[s3,dynamodb]>=5.2.3",
+  "pytest>=9.1.1",
+  "pytest-asyncio>=1.4.0",
+  "pytest-xdist>=3.8.0",
+  "pytest-cov>=7.1.0",
+  "pytest-recording>=0.13.4",
+  "ruff>=0.16.6",
+  "pyright>=1.1.407",
+  "bandit>=1.8.6",
+  "pip-audit>=2.9.0",
+  "watchdog>=6.0.0",
+  "locust>=2.46.5",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "codeartifact"
+url = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/"
+explicit = true
+
+[tool.uv.sources]
+webbpulse = { index = "codeartifact" }
+
+[tool.webbpulse.ci]
+test-root = "tests"
+domains-root = "tests/domains"
+entrypoints = "app/entrypoints"
+
 [tool.ruff]
 line-length = 120
 target-version = "py313"
@@ -22,85 +86,3 @@ exclude_dirs = [
 
 skips = ["B404", "B603", "B607"]
 
-[tool.webbpulse.ci]
-test-root = "tests"
-
-[tool.webbpulse.ci.domains]
-identity = [
-    "tests/auth",
-    "tests/dependencies",
-    "tests/utils/test_google_oauth_nonce.py",
-    "tests/test_identity_row5.py",
-    "tests/test_identity_row9.py",
-    "tests/test_identity_row10.py",
-    "tests/test_identity_row11.py",
-    "tests/test_jwt_algorithm_regression.py",
-]
-
-users = [
-    "tests/api/endpoints/test_users.py",
-    "tests/api/endpoints/test_users_admin.py",
-    "tests/api/endpoints/test_app_settings.py",
-    "tests/services/test_user_service.py",
-]
-
-catalog = [
-    "tests/api/endpoints/test_parts.py",
-    "tests/api/endpoints/test_parts_price_history.py",
-    "tests/api/endpoints/test_categories.py",
-    "tests/api/endpoints/test_categories_admin.py",
-    "tests/api/endpoints/test_part_manufacturers.py",
-    "tests/api/endpoints/test_retailers.py",
-    "tests/services/test_part_linker_styling_drift.py",
-    "tests/services/test_part_price_aggregation_service.py",
-    "tests/test_part_listing_service_canonical.py",
-    "tests/test_car_inference.py",
-    "tests/test_car_inference_ambiguity.py",
-    "tests/test_category_inference.py",
-    "tests/test_engine_platforms.py",
-    "tests/test_extract_fitment_candidates.py",
-    "tests/test_extract_year_ranges.py",
-]
-
-vehicles = [
-    "tests/api/endpoints/test_car_generations.py",
-    "tests/api/endpoints/test_search.py",
-    "tests/services/test_car_generation_service.py",
-    "tests/test_car_generations_loader.py",
-    "tests/test_init_cars_display_name.py",
-]
-
-"build-lists" = [
-    "tests/api/endpoints/test_build_lists.py",
-    "tests/api/endpoints/test_build_list_parts.py",
-    "tests/api/endpoints/test_build_list_labor_estimates.py",
-    "tests/services/test_build_list_service.py",
-]
-
-"build-logs" = [
-    "tests/api/endpoints/test_build_logs.py",
-    "tests/test_build_log_orphan_guard.py",
-]
-
-moderation = [
-    "tests/api/endpoints/test_votes.py",
-    "tests/api/endpoints/test_reports.py",
-    "tests/api/endpoints/test_bug_reports.py",
-    "tests/services/test_vote_service.py",
-    "tests/services/test_report_service.py",
-    "tests/services/test_bug_report_service.py",
-]
-
-media = [
-    "tests/api/endpoints/test_images.py",
-    "tests/services/test_storage_service_lazy_init.py",
-    "tests/utils/test_image_utils.py",
-    "tests/utils/test_remote_image_fetch.py",
-]
-
-admin = [
-    "tests/api/endpoints/test_admin.py",
-    "tests/api/endpoints/test_crawled_pages.py",
-    "tests/api/endpoints/test_part_price_alerts.py",
-    "tests/services/test_part_price_alert_evaluation.py",
-]

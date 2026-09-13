@@ -20,12 +20,17 @@ names with `id(db_session)`; it has no database behaviour of its own. The
 
 ```bash
 cd backend
-pytest -n auto                              # whole suite, parallel
-pytest -n auto --cov=app --cov-report=term-missing
-pytest -n auto tests/api/endpoints/test_auth.py
-pytest -n auto -k "test_name"
-pytest -n 0                                 # sequential, for debugging
+uv run pytest -n auto                       # whole suite, parallel
+uv run pytest -n auto --cov=app --cov-report=term-missing
+uv run pytest -n auto tests/domains/identity # one CI domain
+uv run pytest -n auto -k "test_name"
+uv run pytest -n 0                          # sequential, for debugging
 ```
+
+CI splits the suite by directory: each immediate subdirectory of
+`tests/domains/` is its own job, and a shared job runs
+`pytest tests --ignore=tests/domains`. A domain directory's name must match an
+`app/entrypoints/` module, with `-` written as `_`.
 
 Rate limiting is disabled in tests by default; set `ENABLE_RATE_LIMITING=true`
 to exercise it.

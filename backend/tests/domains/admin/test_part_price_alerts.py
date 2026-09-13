@@ -17,8 +17,8 @@ from app.db.dynamo.catalog import Part as DBPart
 from app.db.dynamo.part_price_alerts import PartPriceAlertRepository
 from app.db.dynamo.users import User as DBUser
 from app.db.dynamo.users import UserRepository
-from tests.api.endpoints.test_users import create_and_login_user, get_auth_headers
 from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
+from tests.domains.users.test_users import create_and_login_user, get_auth_headers
 
 ALERTS_PATH = f"{settings.API_STR}/part-price-alerts"
 
