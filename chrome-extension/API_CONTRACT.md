@@ -189,6 +189,65 @@ TESTING=true ENABLE_RATE_LIMITING=false python scripts/generate_ext_api_contract
 }
 ```
 
+- `422` — Request validation failed.
+
+```json
+{
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
+  "properties": {
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
+  "type": "object"
+}
+```
+
 
 ---
 
@@ -209,6 +268,65 @@ TESTING=true ENABLE_RATE_LIMITING=false python scripts/generate_ext_api_contract
   },
   "title": "Response Get Categories Api Categories  Get",
   "type": "array"
+}
+```
+
+- `422` — Request validation failed.
+
+```json
+{
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
+  "properties": {
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
+  "type": "object"
 }
 ```
 
@@ -241,20 +359,61 @@ TESTING=true ENABLE_RATE_LIMITING=false python scripts/generate_ext_api_contract
 }
 ```
 
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -383,20 +542,61 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 }
 ```
 
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -438,20 +638,61 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 }
 ```
 
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -633,20 +874,61 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 ```
 
 - `404` — Resource not found
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -847,20 +1129,61 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 ```
 
 - `404` — Resource not found
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -1182,20 +1505,61 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 - `400` — Bad request
 - `403` — Not authorized
 - `409` — Part already exists
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -1419,20 +1783,61 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 ```
 
 - `404` — Resource not found
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -1466,20 +1871,61 @@ adding parts from a retailer not yet in the catalog. Any authenticated user.
 }
 ```
 
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -1651,20 +2097,61 @@ isn't minted twice — an existing match is returned instead.
 }
 ```
 
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -1699,20 +2186,61 @@ Returns the existing file_key if found, so clients can skip re-uploading.
 }
 ```
 
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -1756,20 +2284,61 @@ in S3 bucket. Returns the file key which should be stored
 }
 ```
 
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -1839,20 +2408,61 @@ behind the same auth, authorization and validation as `/upload`.
 }
 ```
 
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
@@ -2013,20 +2623,61 @@ behind the same auth, authorization and validation as `/upload`.
 }
 ```
 
-- `422` — Validation Error
+- `422` — Request validation failed.
 
 ```json
 {
+  "description": "The `\"detailed\"` error envelope every handler renders, and what OpenAPI advertises.\n\n`details` is present only on a 422, where it holds one entry per offending field.",
   "properties": {
-    "detail": {
-      "items": {
-        "$ref": "#/components/schemas/ValidationError"
-      },
-      "title": "Detail",
-      "type": "array"
+    "details": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/components/schemas/ValidationErrorDetail"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Per-field validation failures. Present only on a 422.",
+      "title": "Details"
+    },
+    "error_code": {
+      "description": "A stable machine readable code, such as `NOT_FOUND`.",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "description": "A human readable summary safe to surface to a caller.",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "description": "The request id, echoed in the `X-Request-ID` header.",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "status": {
+      "description": "The HTTP status code, repeated in the body.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "success": {
+      "default": false,
+      "description": "Always `false` on an error response.",
+      "title": "Success",
+      "type": "boolean"
     }
   },
-  "title": "HTTPValidationError",
+  "required": [
+    "status",
+    "message",
+    "request_id",
+    "error_code"
+  ],
+  "title": "ErrorResponse",
   "type": "object"
 }
 ```
