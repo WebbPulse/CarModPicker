@@ -180,5 +180,5 @@ jobs:
       codeartifact-index: codeartifact
     secrets:
       role-to-assume: ${{ needs.resolve-env.outputs.role-to-assume }}
-      e2e-user-password: ${{ secrets.E2E_USER_PASSWORD }}
+      E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
       codeartifact-domain-owner: ${{ needs.resolve-env.outputs.codeartifact-domain-owner }}
