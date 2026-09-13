@@ -335,6 +335,37 @@ def test_load_user_by_email_answers_none_for_an_unknown_address(
     assert hooks.load_user_by_email("nobody@example.com") is None
 
 
+def test_load_user_by_email_finds_a_user_by_username(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A value without an `@` is a username, which the login form also accepts."""
+    created = hooks.create_user(email="byname@example.com", attributes={"username": "byname"})
+
+    loaded = hooks.load_user_by_email("byname")
+
+    assert loaded is not None
+    assert loaded["id"] == created["id"]
+
+
+def test_load_user_by_email_matches_a_username_case_insensitively(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """The username index is keyed on the lowercased value, so casing never matters."""
+    created = hooks.create_user(email="mixed@example.com", attributes={"username": "MixedCase"})
+
+    loaded = hooks.load_user_by_email("mIXEDcASE")
+
+    assert loaded is not None
+    assert loaded["id"] == created["id"]
+
+
+def test_load_user_by_email_answers_none_for_an_unknown_username(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """An unknown username answers None rather than falling back to the email index."""
+    assert hooks.load_user_by_email("nobody") is None
+
+
 def test_create_user_derives_a_username_from_the_address(
     hooks: CarModPickerIdentityHooks,
 ) -> None:
