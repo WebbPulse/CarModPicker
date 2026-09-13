@@ -309,6 +309,87 @@ describe('the TOTP step', () => {
     fireEvent.change(code, { target: { value: 'abcd-efgh-ijkl' } });
     expect((code as HTMLInputElement).value).toBe('abcd-efgh-ijkl');
   });
+
+  it('exposes the code field the way a password manager looks for it', async () => {
+    signInResult = {
+      status: 'mfa-required',
+      challenge: { kind: 'identity-ticket', ticket: 'tick-1', factors: [] },
+    };
+    await renderLogin();
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your username or email/i),
+      { target: { value: 'me' } }
+    );
+    fireEvent.change(screen.getByPlaceholderText(/enter your password/i), {
+      target: { value: 'pw' },
+    });
+    fireEvent.submit(
+      screen
+        .getByPlaceholderText(/enter your username or email/i)
+        .closest('form')!
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/two-factor authentication/i)).toBeTruthy();
+    });
+
+    const code =
+      screen.getByLabelText<HTMLInputElement>(/authentication code/i);
+    expect(code.id).toBe('otp');
+    expect(code.name).toBe('otp');
+    expect(code.getAttribute('autocomplete')).toBe('one-time-code');
+    expect(code.closest('form')).toBeTruthy();
+    expect(document.activeElement).toBe(code);
+  });
+
+  it('keeps the username in the form so the manager knows the account', async () => {
+    signInResult = {
+      status: 'mfa-required',
+      challenge: { kind: 'identity-ticket', ticket: 'tick-1', factors: [] },
+    };
+    await renderLogin();
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your username or email/i),
+      { target: { value: 'me' } }
+    );
+    fireEvent.change(screen.getByPlaceholderText(/enter your password/i), {
+      target: { value: 'pw' },
+    });
+    fireEvent.submit(
+      screen
+        .getByPlaceholderText(/enter your username or email/i)
+        .closest('form')!
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/two-factor authentication/i)).toBeTruthy();
+    });
+
+    const form = screen.getByLabelText(/authentication code/i).closest('form')!;
+    const carried = form.querySelector<HTMLInputElement>(
+      'input[autocomplete="username"]'
+    );
+    expect(carried).toBeTruthy();
+    expect(carried?.value).toBe('me');
+    expect(form.querySelector('input[type="password"]')).toBeNull();
+  });
+
+  it('submits the code when the step was reached without a typed password', async () => {
+    setUrl('?mfa_ticket=tick-9');
+    await renderLogin();
+    await waitFor(() => {
+      expect(screen.getByText(/two-factor authentication/i)).toBeTruthy();
+    });
+
+    const code = screen.getByLabelText(/authentication code/i);
+    fireEvent.change(code, { target: { value: '123456' } });
+    fireEvent.submit(code.closest('form')!);
+
+    await waitFor(() => {
+      expect(completeMfa).toHaveBeenCalledWith(
+        { kind: 'identity-ticket', ticket: 'tick-9', factors: [] },
+        '123456'
+      );
+    });
+  });
 });
 
 describe('the OAuth callback', () => {
