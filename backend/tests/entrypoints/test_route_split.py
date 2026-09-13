@@ -50,7 +50,7 @@ numbers so a future reader does not have to re-derive which is which.
 ## Counting routes is version dependent
 
 `len(app.routes)` is not that 156 on every supported version, which is why
-`_effective_routes` exists. Starlette 1.x, which `requirements.txt` pins via
+`_effective_routes` exists. Starlette 1.x, which `pyproject.toml` pins via
 FastAPI 0.141.1, changed `include_router` to store one lazy `_IncludedRouter`
 per included router instead of copying the sub-router's routes into the parent.
 On that version `app.routes` has 30 entries for Root A: the 4 doc routes, the 5

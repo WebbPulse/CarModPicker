@@ -13,7 +13,7 @@ import pytest
 _HERE = Path(__file__).parent
 CASSETTE_ROOTS = [
     _HERE / "cassettes",
-    _HERE / "auth" / "cassettes",
+    _HERE / "domains",
 ]
 
 BANNED_PATTERNS: dict[str, re.Pattern[str]] = {

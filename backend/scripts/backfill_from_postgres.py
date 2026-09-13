@@ -3,7 +3,7 @@
 Run from backend/ against the production account, after Terraform has
 created the tables and before ``api_target`` is flipped to ``lambda``:
 
-    pip install psycopg2-binary            # not in requirements.txt any more
+    uv pip install psycopg2-binary         # not a project dependency
     export DATABASE_URL=postgresql://user:pass@host:5432/carmodpicker?sslmode=require
     export AWS_PROFILE=CarModPicker-Production/AdministratorAccess
     export APP_ENVIRONMENT=production      # picks the carmodpicker-production-* tables
@@ -122,7 +122,7 @@ def _clean_row(row: Row) -> Row:
 def connect(database_url: str) -> Any:
     """Open a psycopg2 connection, raising BackfillError when psycopg2 is not installed.
 
-    psycopg2 is not in requirements.txt any more; install psycopg2-binary before
+    psycopg2 is not a project dependency; install psycopg2-binary before
     running this script.
     """
     try:
