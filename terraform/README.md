@@ -1,166 +1,96 @@
-# Terraform — CarModPicker AWS Infrastructure
+# Terraform: CarModPicker AWS Infrastructure
 
-Terraform configuration for the CarModPicker AWS stack. One root module, two HCP Terraform workspaces:
+One root module, applied by two HCP Terraform workspaces in the `WebbPulse` organization:
 
 | Workspace | AWS account | VCS branch | `environment` | `staging_profile` |
 | --- | --- | --- | --- | --- |
-| `CarModPicker` | 734702670403 | `main` | `production` | — |
-| `CarModPicker-staging` | 748861776298 | `staging` | `staging` | `full` (intended), `reduced` (fallback) |
+| `CarModPicker` | 734702670403 | `main` | `production` | n/a |
+| `CarModPicker-staging` | 748861776298 | `staging` | `staging` | `full` or `reduced` |
 
-State lives in HCP Terraform; applies are triggered by pushing to the bound branch. Production is manual-apply.
+The `cloud` block in `versions.tf` names `CarModPicker`; the staging workspace overrides it.
+State lives in HCP Terraform and AWS credentials come from HCP dynamic provider credentials, so the local checkout needs none.
 
-## Architecture at a glance
+**Manual apply is the real gate on production.** A merge to `main` cannot change AWS by itself: it queues a run, and someone has to confirm the apply.
 
-```
-                  ┌────────────────────────────────────────┐
-Route53 ──┐       │              CloudFront                │
-          ├──── www.carmodpicker.com ──▶  S3 (frontend)    │
-          │       │  + uri_rewrite CloudFront Function     │
-          │       └────────────────────────────────────────┘
-          │
-          ├──── carmodpicker.com ──▶ S3 website redirect ──▶ www
-          │
-          └──── api.carmodpicker.com ──▶ HTTP API ──▶ nine per-domain Lambdas (container images) ──▶ DynamoDB
-                                                          ├──▶ Secrets Manager (<prefix>/app)
-                                                          ├──▶ S3 (user images)
-                                                          └──▶ SES
-```
+## What this builds
 
-Single-region deployment in `us-west-2`. The CloudFront cert lives in `us-east-1` via the `aws.us_east_1` provider alias; the HTTP API cert is regional. Staging serves the same shape one label down: `staging.carmodpicker.com`, `www.staging.carmodpicker.com`, `api.staging.carmodpicker.com`, from a child zone it owns and that the parent zone delegates to (see "Staging profiles").
+Single region, `us-west-2`. Route 53 and ACM for the served domain, CloudFront and S3 for the SPA, an HTTP API in front of nine per-domain Lambda container images plus stream consumers, DynamoDB tables, SQS queues, S3 for user images and crawl data, SES, Secrets Manager, CloudWatch alarms and X-Ray Transaction Search. The CloudFront certificate is issued in `us-east-1` through the `aws.us_east_1` alias; the API certificate is regional. There is no VPC and no NAT Gateway.
 
-## Environment shaping
-
-These inputs decide what a workspace builds. Every other resource is unconditional.
-
-| Variable | Default | Effect |
-| --- | --- | --- |
-| `custom_domain_enabled` | `null` → `true` in production or when `staging_profile = full` | Hosted zone, ACM certs, custom-domain records, SES domain identity, CloudFront aliases, HTTP API domain name. |
-| `domain_name` | `carmodpicker.com` | Registered apex. `local.domain_name` is the domain actually served: `domain_name` in production, `staging.<domain_name>` in staging. Every hostname, the hosted zone, the ACM certs, the SES identity and the CloudFront apex→www redirect derive from it. |
-| `parent_route53_zone_id` | `null` | Staging only: hosted zone id of `domain_name` in the production account, where the NS delegation for `staging.<domain_name>` is written. Required when staging has a custom domain. |
-| `route53_write_role_arn` | `null` | Staging only: role in the production account, scoped to that one NS record, assumed by the `aws.parent_dns` provider alias. Required when staging has a custom domain. |
-| `email_from` | `null` → `no-reply@<served domain>` with a custom domain, `no-reply@<domain_name>` without | Sender address for transactional mail; must belong to the SES identity the environment verifies. |
-| `staging_access_gate` | `false` | Staging only, pushed by WebbPulse-Platform. With `staging_profile = full`, puts the site and API behind the shared staging access gate (see below). Production never receives it. |
-| `staging_access_users` | `[]` | Staging only, pushed by WebbPulse-Platform. Email addresses allowed through the gate; each becomes an invited Cognito user. |
-
-### Staging profiles
-
-`staging_profile` is `reduced` or `full` (`none` is rejected — a staging workspace with nothing in it should not exist).
-
-- **`full`** (intended): everything `reduced` builds plus real DNS. The staging account owns a hosted zone for `staging.carmodpicker.com`; in the same apply the `aws.parent_dns` provider assumes `route53_write_role_arn` in the production account and writes the `NS` delegation for `staging.carmodpicker.com` into `parent_route53_zone_id` (the `carmodpicker.com` zone owned by the production workspace). Both ACM validations `depends_on` that record so validation does not start before the child zone is reachable. Hostnames: `staging.carmodpicker.com` (CloudFront alias, 301 → www), `www.staging.carmodpicker.com` (SPA), `api.staging.carmodpicker.com` (HTTP API custom domain), `bounce.staging.carmodpicker.com` (SES MAIL FROM). SES uses the domain identity exactly as production does; `email_from` defaults to `no-reply@staging.carmodpicker.com`. Both variables are pushed to the workspace by WebbPulse-Platform; until they are, the profile must stay `reduced`.
-- **`reduced`** (fallback): DynamoDB + Lambda + HTTP API + CloudFront + S3 + SES, no custom domain. The frontend is served from the CloudFront hostname, the API from the `execute-api` endpoint, and SES sends from a mailbox identity (`email_from`, defaulting to `no-reply@carmodpicker.com`) instead of a domain identity. Outputs `frontend_url` and `api_url` carry the generated hostnames.
-
-Switching `reduced` → `full` changes `frontend_url` and `api_url`, so `VITE_API_URL` on the `staging` GitHub Environment has to be re-copied from `frontend_api_base_url` afterwards. The access gate no longer changes it: the frontend calls the API host in every environment.
-
-### Staging access gate
-
-When WebbPulse-Platform sets `staging_access_gate = true` (and the profile is `full`), `staging_access_gate.tf` instantiates `app.terraform.io/WebbPulse/platform-modules/aws//modules/staging-access-gate` as `carmodpicker-staging` and the rest of the configuration wires it in, every edit gated on `local.staging_gate_enabled` so the production plan is a no-op:
-
-- **CloudFront**: one extra origin (the gate's login Lambda function URL), `trusted_key_groups` on the default behavior, and ordered behaviors for `/_auth/*` (login origin) and `/index.html` (S3, no key group, so the 403/404 SPA fallback still works). Only the frontend goes through CloudFront; the API is not proxied. The viewer-request association switches from `frontend_uri_rewrite` to the gate's function, which runs the same `appHandler` from `cloudfront_functions/app_handler.js.tftpl` before its session check.
-- **HTTP API**: `disable_execute_api_endpoint = true` and the `$default` route uses the module's REQUEST authorizer, which has no identity sources and a TTL of 0. It admits an `OPTIONS` preflight, a request carrying the `x-origin-verify` header, or a browser request carrying the gate's CloudFront signed cookies; everything else gets a 401.
-- **Deploy role**: `ssm:GetParameter` on `/carmodpicker-staging/access-gate/origin-verify`, for any pipeline step that must call `api.staging.carmodpicker.com` directly (send the value as `x-origin-verify`; read it with `aws ssm get-parameter --with-decryption` and mask it).
-- **Frontend**: API calls go to `https://api.staging.carmodpicker.com` exactly as production goes to `https://api.carmodpicker.com`. Set `VITE_API_URL` on the `staging` GitHub Environment to the `frontend_api_base_url` output (`https://api.staging.carmodpicker.com`; the frontend appends `/api`). The axios client sends `withCredentials: true`, and the cookies are set on `Domain=staging.carmodpicker.com` with `SameSite=Lax`, so a request from `www.staging` to `api.staging` is same-site and carries them. `/health` and `/ready` stay at the API root and are reached at `https://api.staging.carmodpicker.com/health` with the header.
-- **Chrome extension**: the extension talks to `api.staging.carmodpicker.com/api` directly and cannot complete the hosted UI flow, so it does not work against a gated staging without the header.
-
-Outputs: `staging_access_gate_hosted_ui`, `staging_access_gate_user_pool_id`, `frontend_api_base_url`.
-
-### Production cutover (completed 2026-09-06)
-
-Production ran App Runner + RDS PostgreSQL alongside Lambda + DynamoDB until the Lambda path was proven, then the legacy stack was destroyed. The data was copied with `backend/scripts/backfill_from_postgres.py`, `api.carmodpicker.com` was flipped to the HTTP API alias, and the VPC, RDS, ECR and App Runner resources were removed. The last RDS snapshot is `carmodpicker-production-final-snapshot` in the production account; delete it once nothing needs the old data.
-
-## Shared platform modules
-
-Most of this stack is now assembled from `app.terraform.io/WebbPulse/platform-modules/aws`, pinned at `~> 1.1` or later:
-
-| Module | Instantiated in | What it owns |
-| --- | --- | --- |
-| `staging-dns` | `route53.tf` | The hosted zone for the served domain and, in staging only, the NS delegation written into the parent zone through `aws.parent_dns`. |
-| `http-api` | `apigateway.tf` | The HTTP API, its `$default` stage, integration, route, invoke permission, custom domain, mapping and alias record. |
-| `staging-access-gate` | `staging_access_gate.tf` | Cognito sign-in and CloudFront signed cookies in front of staging. See below. |
-| `spa-frontend` | `cloudfront.tf` | The frontend bucket, its public access block, the origin access control and bucket policy, the CloudFront distribution with the access-gate origins and behaviors, and the apex and `www` alias records. |
-| `ecr-repository` | `ecr.tf` | One ECR repository and lifecycle policy per per-domain Lambda, `carmodpicker-<env>/<domain>`. |
-| `github-actions-role` | `iam_github_actions.tf` | The GitHub Actions OIDC provider, the `github-actions-deploy` role and its inline deploy policy. |
-
-The adoption was a pure state move: the speculative plans on both workspaces read `0 to add, 0 to change, 0 to destroy`. The `moved` blocks that carried the state across have been applied in both workspaces and are no longer in the configuration.
-
-What stays hand-written is what a single-provider module cannot own: the ACM certificates (`acm.tf`, one in `aws.us_east_1` for CloudFront and one regional for the API) with their DNS validation records, the CloudFront Function in `cloudfront_function.tf`, and the SES and verification records in `route53.tf`.
+Most of the stack comes from `app.terraform.io/WebbPulse/platform-modules/aws` submodules: `staging-dns`, `http-api`, `staging-access-gate`, `spa-frontend`, `ecr-repository`, `lambda-function`, `app-secrets`, `identity` and `github-actions-role`. Hand written is what a single-provider module cannot own: the ACM certificates, the CloudFront Function, and the SES records.
 
 ## File map
 
-| File | What it manages |
-| --- | --- |
-| `versions.tf` | Terraform version pin, AWS + archive provider versions, HCP Terraform cloud block (production workspace; the staging workspace overrides it). |
-| `providers.tf` | Default `aws` provider, `aws.us_east_1` alias (CloudFront certs), `aws.parent_dns` alias that assumes `route53_write_role_arn` when set (staging NS delegation). |
-| `variables.tf` | Input variables: region, environment, shaping toggles above, throttling, secrets. |
-| `locals.tf` | `project`, `prefix` (`carmodpicker-<env>`), `custom_domain`, `domain_name` (served domain), `active_domain` (served domain, or the apex when no custom domain is bound), `parent_delegation`, `email_from`, `frontend_url`, `api_url`, `allowed_origins`. |
-| `data.tf` | `aws_caller_identity`, `aws_region` lookups for ARN construction. |
-| `outputs.tf` | API/Lambda/DynamoDB/CloudFront identifiers plus everything the deploy workflows need, including `domain_lambda_function_names`, `domain_lambda_function_arns` and `domain_lambda_log_group_names`, which carry only the per-domain functions that exist. |
-| `dynamodb.tf` | One `aws_dynamodb_table` per entry in `dynamodb_tables.json`, on-demand billing, PITR + deletion protection in production. Also `local.dynamodb_stream_view_types`, the four tables the seams read as an event source: `users`, `parts`, `votes` and `part_listings`, each streamed `NEW_AND_OLD_IMAGES`. Every other table is unstreamed. A view type cannot be edited once a stream exists, so changing one of these mints a new stream ARN and silently detaches every consumer reading the old one. |
-| `dynamodb_tables.json` | Generated from `backend/app/db/dynamo/tables.py` by `backend/scripts/export_dynamo_tables.py`; a backend test fails when it is stale. |
-| `lambda_domains.tf` | `local.lambda_domains_declared` (per-domain memory, write tables, read tables, whether it reads the app secret and the user images bucket), the `local.domain_functions_enabled` bootstrap gate that resolves `local.lambda_domains` to it or to empty, `var.bootstrap_image_tag`, `module "lambda_domain"` (`platform-modules/aws//modules/lambda-function`, `package_type = "Image"`, `arm64`, 29 s, 7-day logs, Active tracing) and one `aws_iam_role_policy` per domain. All nine entries, `media`, `build-logs`, `moderation`, `vehicles`, `admin`, `build-lists`, `identity`, `catalog` and `users`; row 31 added the last one and the map is now complete. `vehicles` is the one entry with `secrets = false` and with no table in its write list but the rate limiter's, because every route it serves is a public read, and `admin` is its mirror image with fourteen written tables, because the two admin modules seed and purge six domains' tables by design. `admin` lost `build_list_parts` from that list in row 28, which is the first grant a seam has actually taken back. `catalog`, added in row 29, is the first entry whose grants match its repository bundle exactly with no bundle-to-grant gap, because row 28 had just moved the purge cascade's three tables onto `catalog-part-purge-consumer`; it is also the second entry after `media` to take the narrow `s3_delete_only` flag rather than the broad one, on the strength of a single `delete_object` call. `users`, added in row 31, is the second with no bundle-to-grant gap and for the same reason one row later: row 30 moved the account delete cascade onto `users-delete-consumer` and took twenty repositories with it, leaving three. It is also the second and last entry to take the broad S3 flag, which section 3.4 predicted, because its profile-picture route puts and deletes on the same request. |
-| `lambda_stream_consumers.tf` | `local.lambda_stream_consumers_declared` and the same `local.domain_functions_enabled` bootstrap gate `lambda_domains.tf` uses, `module "lambda_stream_consumer"` over the same `lambda-function` module, one `aws_iam_role_policy` per consumer, and the event source mappings. Three entries today: `catalog-votes-consumer` (row 24), `admin-price-alerts-consumer` (row 25) and `catalog-part-purge-consumer` (row 28). A consumer runs a domain's image with a different `command`, so it is deployed by the same `UpdateFunctionCode` call a domain function is. Every entry sets every attribute including the ones it does not use, because the map is read through a conditional and Terraform type-checks a conditional's two branches against each other, so a key present on one entry and absent on another breaks the plan rather than defaulting. `catalog-part-purge-consumer` is the one entry with a `work_queue`, and it carries two mappings: the `parts` stream and the `part-purge` queue. |
-| `apigateway.tf` | `module "api"` (`platform-modules/aws//modules/http-api`): HTTP API with explicit per-domain Lambda proxy routes and no default integration, `$default` stage with throttling + JSON access logs, invoke permissions, and the custom domain, mapping and alias record when `local.custom_domain`. Note that the `$default` **stage** is unrelated to the `$default` **route** and is still here; only the route is gone. Also the strangler: `local.routed_lambda_domains_declared` and `local.lambda_domain_path_prefixes` name the domains cut off `$default` so far and the path prefixes each one serves, and `local.lambda_domain_route_keys` turns every prefix into a bare and a `{proxy+}` route key. All nine domains are cut, `media`, `build-logs`, `moderation`, `vehicles`, `admin`, `build-lists`, `identity`, `catalog` and `users`. Row 32 retired the monolith, so `default_integration` is now `null` and there is no `$default` route at all: nothing falls through, and anything the explicit routes do not match answers 404 at the gateway. Of the five root routes every domain entrypoint serves, the two sitemap routes are back on the API: `local.sitemap_route_keys` cuts `GET /sitemap.xml` plus one literal key per child sitemap to the `vehicles` integration, which is the one domain whose repository bundle and DynamoDB read grants already cover all three tables `sitemap_service` reads (`parts`, `car_generations`, `build_lists`), so routing them there adds no grant and no bundle entry. The children are spelled out from `local.sitemap_child_names` rather than written as the application's own `/sitemap-{name}.xml`, because **API Gateway validates each path part against `^(\{[\w.:-]+\+?\}|[a-zA-Z0-9.:_-]+)$`: a part is either a whole path variable or a literal, never a variable embedded in one.** `GET /sitemap-{name}.xml` plans green and fails the apply with a 400 `BadRequestException: One or more path parts appear to be invalid`, the same plan-green apply-400 shape as a route key ending in a slash. `local.sitemap_child_names` therefore has to stay in step with the four names `sitemap_service` serves (`static`, `parts`, `cars`, `build-lists`), which are the same four its index advertises; a fifth child sitemap needs a name here or it 404s at the gateway while working on a direct invoke. The FastAPI route is still the single `/sitemap-{name}.xml`, since the gateway passes the raw path through and the function does its own matching. They are back because they are public SEO surface: `frontend/public/robots.txt` advertises `https://api.carmodpicker.com/sitemap.xml` and the crawlers fetch the index and its four children hourly. The other three (`/`, `/health`, `/ready`) stay off the API and answer 404 there: they are liveness and readiness probes for the function behind the adapter, not public endpoints, and a gateway route for them would only publish a health surface and a second root the SPA does not use. Each domain function still serves all five on its own entrypoint, so the three that are not routed remain reachable by direct invoke. `admin` is the one that names two children of a parent it does not serve, `/api/admin/db-ops` and `/api/admin/stats`, because there is no route at `/api/admin` itself. `catalog` is the widest at four prefixes, and its four are sibling trees rather than one tree with children: route keys match literally rather than by string prefix, so `/api/parts` claims neither `/api/part-manufacturers` nor `admin`'s `/api/part-price-alerts`. It is also the first cut where every bare key carries real traffic, because seven of its routes are declared at `"/"` and so mount with a trailing slash that the gateway normalises onto the bare key. |
-| `s3.tf` | `user-images` (private), `crawl-data` (private). The frontend bucket moved into `module "frontend"`. The `lambda-artifacts` bucket went with the zip chain in row 32. |
-| `cloudfront.tf` | `module "frontend"` (`platform-modules/aws//modules/spa-frontend`): the frontend bucket and its OAC and policy, the distribution with managed cache/origin/headers policies, the SPA 403/404 fallback, the access-gate origins and behaviors, and the apex and `www` alias records. Aliases and the ACM cert apply only with a custom domain. |
-| `cloudfront_function.tf` | Viewer-request function `frontend_uri_rewrite`: `cloudfront_functions/app_handler.js.tftpl` (apex → www 301 and `/foo` → `/foo/index.html` rewrite for prerendered routes, as `appHandler`) wrapped by `uri_rewrite.js.tftpl` as `handler`. Unused on staging while the access gate is on. |
-| `staging_access_gate.tf` | `module "staging_access_gate"` (count 0 or 1): Cognito user pool, login Lambda, CloudFront key group and function, HTTP API authorizer, SSM secrets. See "Staging access gate". |
-| `acm.tf` | Wildcard cert for the served domain in `us-east-1` (CloudFront) and a regional cert for `api.<domain>` (HTTP API), both DNS-validated; validation waits on the staging delegation record. |
-| `route53.tf` | `module "staging_dns"` (`platform-modules/aws//modules/staging-dns`): the hosted zone for the served domain plus, in staging, the NS delegation into the parent zone through `aws.parent_dns`. Then the SES DKIM/MAIL-FROM/DMARC and verification records. The apex and `www` alias records live in `module "frontend"`, the `api` alias record in `module "api"`. |
-| `ses.tf` | SESv2 configuration set, domain identity (custom domain) or mailbox identity (`email_from`), custom MAIL FROM, SNS topic + subscription for bounces/complaints, account-level VDM. |
-| `secretsmanager.tf` | `<prefix>/app`, the one JSON secret per environment (`SECRET_KEY`, `EXTENSION_API_KEY`), resolved by the Lambda on the first read of a secret through `APP_SECRETS_ARN`, not at import. `EXTENSION_API_KEY` comes from `var.extension_api_key` and is the shared secret `POST /api/parts/price-history` accepts in the `X-API-Key` header; it is **not set on any workspace yet**, and until an operator adds it as a sensitive variable on `CarModPicker` and `CarModPicker-staging` the key stays empty and that route accepts admin bearer tokens only. |
-| `ecr.tf` | `module "registry"` (`platform-modules/aws//modules/ecr-repository`): one ECR repository plus lifecycle policy per entry in `local.lambda_domain_names`, named `carmodpicker-<env>/<domain>`, IMMUTABLE tags, scan on push, keep the last 10 `sha-` tagged images, untagged expired after a day. `backend/Dockerfile` builds what they hold: one image per domain from a shared base image in the Artifacts account, `arm64`, selected by `ARG DOMAIN`, tagged `sha-<commit>`. Nothing deploys from them yet; the workflow that pushes and deploys is the split plan's row 12. |
-| `iam_github_actions.tf` | `module "github_actions_role"` (`platform-modules/aws//modules/github-actions-role`): GitHub OIDC provider + `github-actions-deploy` role: Lambda code updates on the thirteen image functions (nine domains plus four stream consumers), frontend sync, invalidation, and (gate on) reading the origin-verify SSM parameter. The artifacts-bucket `s3:PutObject`/`s3:GetObject` grant went with the zip chain in row 32. |
-| `sqs.tf` | The event plumbing for the seams. Four stream consumer dead letter queues, one per streamed table, which nothing writes to directly: they are the `on_failure` destination an event source mapping uses once its retries are spent, and the mappings and their consumer functions arrive with rows 24 and 25. Then two work queues for the seams that are genuinely asynchronous jobs, `part-purge` (row 28, drained by `catalog-part-purge-consumer` since that row) and `user-delete` (row 30, still unused), each with its own dead letter queue and a `maxReceiveCount` of 5. The work queue visibility timeout is `local.work_queue_consumer_timeout * 6`, which is why a consumer on one of these queues pins its own timeout to that value and sets no batch window. All six are standard queues with SSE-SQS on. Also the one aggregate dead letter queue depth alarm over all six. |
-| `monitoring.tf` | Alarms SNS topic; Lambda errors/throttles, HTTP API 5xx and p99 integration latency, one aggregate DynamoDB throttle alarm across every table. The two aggregate Lambda alarms cover `alarm_lambda_function_names`, which is the domains whose function has actually been created plus the stream consumers, and the `api-alarms` module chunks that list in groups of ten with one alarm pair per chunk. Thirteen names after row 31, so two chunks and two pairs: chunk zero holds the nine domains and `admin-price-alerts-consumer`, and chunk one holds the other three consumers behind the suffixed `-lambda-errors-aggregate-2` and `-lambda-throttles-aggregate-2`. Row 29 took the decision to accept the module's chunking rather than give the consumers an aggregate of their own, and row 31 is the last row that renumbers this list for a domain: with all nine in, only a new consumer can move a term again. The comments in the file carry the arithmetic and the reasoning. |
-| `management.tf` | Tag-based Resource Group, Cost Explorer anomaly monitor + daily email subscription, monthly cost budgets. |
+Flat root module; file names say what they own. The ones worth knowing before you read anything else:
 
-## Conventions
+- `lambda_domains.tf`: the nine domain functions, `media`, `build-logs`, `moderation`, `vehicles`, `admin`, `build-lists`, `identity`, `catalog` and `users`, plus `var.bootstrap_image_tag` and a runtime IAM policy each. `lambda_stream_consumers.tf` adds the stream and work-queue consumers, each running its domain's image with a different `command`, so one deploy call updates both.
+- `apigateway.tf`: `module "api"`, explicit per-domain proxy route keys with `default_integration = null`, so an unmatched path is a gateway 404 rather than falling through.
+- `dynamodb_tables.json`: generated from `backend/app/db/dynamo/tables.py` by `backend/scripts/export_dynamo_tables.py`. Edit the Python, not the JSON; a backend test fails when the two drift. Four tables carry `NEW_AND_OLD_IMAGES` streams: `users`, `parts`, `votes`, `part_listings`.
+- `outputs.tf`: everything the deploy workflows read, mapped below.
 
-- **Naming**: every resource name starts with `local.prefix` = `carmodpicker-<environment>`.
-- **Tags**: `Project`, `Environment`, `ManagedBy=terraform` applied globally via provider `default_tags`.
-- **Secrets**: values flow HCP workspace variable → `var.*` → Secrets Manager. The Lambda resolves `<prefix>/app` through `APP_SECRETS_ARN` on the first read of a secret field, not at import (`backend/app/core/config.py`, `backend/app/core/secrets.py`). A function that reads no secret makes no call and needs no `secretsmanager:GetSecretValue` grant. No secret values live in Terraform state outputs or version control.
-- **Lambda code is not Terraform's**: every function here is a container image, and Terraform owns only the create. `deploy-backend.yml` builds the nine domain images into the `ecr.tf` repositories and calls `update-function-code` with a digest-pinned image URI, and `image_uri` is on the module's `ignore_changes` list so the next apply does not revert a deploy back to the bootstrap tag. The four stream consumers run a domain's image with a different `command`, so they are deployed by the same call. Nothing in this root reads an image tag except `var.bootstrap_image_tag`, which seeds `image_uri` at create time and gates `local.domain_functions_enabled`. Before row 32 the same division was worded around a zip: the monolith was created from a placeholder archive with `ignore_changes` on the package attributes, and `backend-deploy.yml` uploaded the real zip to `<prefix>-lambda-artifacts` and called `update-function-code`. That path is gone with the monolith, and so are the bucket and the workflow.
-- **The nine ECR repositories are IMMUTABLE**, which is a constraint on CI rather than on Terraform: a rerun of a workflow for the same commit would push a `sha-<40 hex>` tag that already exists and fail. The build job's `skip-if-tag-exists` guard resolves the tag with `aws ecr batch-get-image` and skips the build when it already resolves. `describe-images` is the wrong call for the guard and is deliberately not used: it can return metadata for a tag that has no manifest, and the deploy role holds `ecr:DescribeImages` on the shared base image repository but not on the nine.
-- **No VPC**: the Lambda is not in a VPC and there is no NAT Gateway; every dependency is reached over public AWS endpoints.
+## Staging profiles
+
+`staging_profile` is `reduced` or `full`. `none` is rejected by a variable validation: a staging workspace with nothing in it should not exist.
+
+- **`full`** (intended): everything `reduced` builds plus real DNS, served as `staging.carmodpicker.com`, `www.staging.carmodpicker.com` and `api.staging.carmodpicker.com`. The staging account owns the child hosted zone, and the same apply writes its `NS` delegation into the parent zone in the production account through the `aws.parent_dns` alias, which assumes `route53_write_role_arn` and targets `parent_route53_zone_id`. SES uses the domain identity exactly as production does.
+- **`reduced`** (fallback while those two variables are absent): no custom domain. The frontend is served from the CloudFront hostname, the API from the `execute-api` endpoint, and SES sends from a mailbox identity.
+
+Switching `reduced` to `full` changes `frontend_url` and `api_url`, so `VITE_API_URL` on the `staging` GitHub Environment has to be re-copied from `frontend_api_base_url` afterwards.
+
+### Staging access gate
+
+When `staging_access_gate = true` and the profile is `full`, `staging_access_gate.tf` instantiates the `staging-access-gate` submodule, every edit gated so the production plan is a no-op. CloudFront gains the gate's login origin, `trusted_key_groups` on the default behavior and ordered behaviors for `/_auth/*` and `/index.html`. The HTTP API sets `disable_execute_api_endpoint = true` and puts the gate's REQUEST authorizer on its routes: it admits an `OPTIONS` preflight, a request carrying the `x-origin-verify` header, or a browser request carrying the gate's signed cookies, and 401s everything else. The deploy role gets `ssm:GetParameter` on `/carmodpicker-staging/access-gate/origin-verify`, for any pipeline step that must call the API directly. Outputs: `staging_access_gate_hosted_ui`, `staging_access_gate_user_pool_id`.
+
+## Production cutover
+
+Production was cut over from App Runner + RDS PostgreSQL to Lambda + DynamoDB on 2026-09-06, and the legacy VPC, RDS, ECR and App Runner resources were destroyed.
 
 ## HCP workspace variables
 
-Set per workspace, not in `.tfvars`:
+Set per workspace, not in `.tfvars`.
 
-- `environment` and `staging_profile` — pushed from the WebbPulse-Platform repo.
-- `parent_route53_zone_id` and `route53_write_role_arn` — staging only, pushed from the WebbPulse-Platform repo; required once the profile is `full`.
-- `staging_access_gate` and `staging_access_users` — staging only, pushed from the WebbPulse-Platform repo; turn on the staging access gate.
-- `secret_key` — sensitive, set by hand.
-- `extension_api_key` — sensitive, set by hand, **not yet set on either workspace**. The shared secret `POST /api/parts/price-history` accepts in the `X-API-Key` header, for the Chrome extension and ingestion jobs. It lands in the `<prefix>/app` JSON as `EXTENSION_API_KEY`. Leaving it unset is a supported state and not a startup failure: the API-key path is simply closed and the route accepts admin bearer tokens only. To turn the key path on, set it on `CarModPicker` and `CarModPicker-staging` (distinct values per environment), apply, then put the same value in the Chrome extension's options page.
-- `bootstrap_image_tag`: the `sha-<40 hex>` image tag every function in `local.lambda_domains_declared` is created from, set by hand once per workspace. It must already exist in each of those domains' ECR repositories before the apply, because Lambda pulls and optimises the image at `CreateFunction` and a tag that does not resolve fails the create. It is a seed and nothing more: `image_uri` is on the module's `ignore_changes` list, so `deploy-backend.yml` owns the image afterwards and this value never needs changing. **Refresh it before confirming any row-cut apply.** A row cut creates a function from this tag in a repository that has never had one created from it, and `ecr.tf` expires all but the last ten `sha-` tagged images per repository, so a tag left pointing at an older commit is expired out from under the apply. A speculative plan cannot detect that: the plan renders the image URI as a string and only `CreateFunction` resolves it, so the run is green and the apply fails partway through. Row 20's apply failed exactly this way, on a tag still pointing at row 14's commit. The routine is: set `bootstrap_image_tag` to `sha-<current staging head>`, confirm the tag is present in the new domain's repository with `aws ecr describe-images --repository-name carmodpicker-<env>/<domain> --image-ids imageTag=sha-<sha>`, then confirm the apply. It defaults to `""`, which is the bootstrap value for an account whose repositories hold no images yet: `local.lambda_domains` and `local.routed_lambda_domains` both resolve to empty, so the apply builds the repositories, the IAM, the tables, the API and the alarms, and creates no domain function and cuts no route. A new account applies once with the default, dispatches `Deploy Backend` to push the images, sets the real tag, and applies again. See section 6.6 of `docs/migration/split-plan.md`.
-- `adopt_spans_log_group`: whether to import the reserved `aws/spans` log group and hold it at 7 day retention. Defaults to `true`, which is correct for every environment where X-Ray has already written a span. A brand new account needs `false` on its first apply, because X-Ray creates that group itself on the first export and an import block whose target does not exist is a plan time error. Apply with `false`, generate one span, set it `true`, apply again.
-- `custom_domain_enabled`, `domain_name`, `email_from` — optional, see above.
+| Variable | Notes |
+| --- | --- |
+| `environment`, `staging_profile` | Pushed from the WebbPulse-Platform repo. |
+| `parent_route53_zone_id`, `route53_write_role_arn` | Staging only, pushed from WebbPulse-Platform. A variable validation requires both once staging has a custom domain. |
+| `staging_access_gate`, `staging_access_users` | Staging only, pushed from WebbPulse-Platform. |
+| `secret_key` | Sensitive, set by hand. Lands in the `<prefix>/app` JSON as `SECRET_KEY`. |
+| `oauth_google_client_secret`, `oauth_github_client_secret` | Sensitive, set by hand. Land in the same JSON secret; the matching client ids are non-sensitive variables. |
+| `extension_api_key` | Sensitive, set by hand. Lands in the `<prefix>/app` JSON as `EXTENSION_API_KEY`, the shared secret `POST /api/parts/price-history` accepts in the `X-API-Key` header. Leaving it unset is a supported state: that route then accepts admin bearer tokens only. |
+| `bootstrap_image_tag` | The `sha-<40 hex>` seed tag every image function is created from. Defaults to `""`, which resolves the function and route maps to empty so a fresh account can apply once with no images in ECR. See the gotcha below. |
+| `adopt_spans_log_group` | Whether to import the reserved `aws/spans` log group. Defaults to `true`. See the gotcha below. |
+| `custom_domain_enabled`, `domain_name`, `email_from` | Optional shaping overrides. |
 
-AWS credentials are injected automatically via HCP Terraform dynamic provider credentials (no static keys).
+## GitHub Environment variables and their outputs
 
-## GitHub Environments
-
-The deploy workflows select the `production` or `staging` GitHub Environment from the branch and read every value from it. Populate each from this workspace's outputs:
+The deploy workflows select the `production` or `staging` GitHub Environment from the branch and read every deploy-time value from it. Populate each from the matching workspace's outputs.
 
 | Variable | Output |
 | --- | --- |
 | `AWS_DEPLOY_ROLE_ARN` | `github_actions_role_arn` |
-| `TFC_WORKSPACE_ID` | HCP workspace id (`ws-…`) |
 | `FRONTEND_S3_BUCKET` | `frontend_bucket` |
 | `CLOUDFRONT_DISTRIBUTION_ID` | `cloudfront_distribution_id` |
-| `VITE_API_URL` | `frontend_api_base_url` (`https://api.carmodpicker.com` in production, `https://api.staging.carmodpicker.com` on staging) |
-| `CWS_EXTENSION_ID` | Chrome Web Store extension id |
+| `VITE_API_URL` | `frontend_api_base_url` |
+| `CWS_EXTENSION_ID` | Chrome Web Store extension id, not a Terraform output |
 
-Secret: `TFC_API_TOKEN`.
+`CI_AWS_ROLE_ARN` is repository-scoped rather than environment-scoped, because a `pull_request` job cannot read an Environment whose deployment branch policy admits only `main` and `staging`. Take the **staging** workspace's `github_actions_ci_role_arn`. That role holds read-only CodeArtifact access and `sts:GetServiceBearerToken` and nothing else, so pull request CI can mint a token for the private `webbpulse` and `@webbpulse/*` packages without being able to deploy.
 
-`LAMBDA_FUNCTION_NAME` and `LAMBDA_ARTIFACTS_BUCKET` used to sit in this table, mapped to the `lambda_function_name` and `lambda_artifacts_bucket` outputs. Row 32 removed both outputs along with the function and the bucket they named. If either variable is still set on a GitHub Environment, delete it: nothing reads it, and a stale value here is easily mistaken for a live one. `TFC_WORKSPACE_ID` and `TFC_API_TOKEN` stay, but only `frontend-deploy.yml` uses them now.
+Other hostname-bearing outputs worth knowing: `api_url`, `frontend_url`, `domain_name`, `route53_zone_id`, `route53_zone_name_servers`.
 
-### Repository variables
+## Gotchas
 
-One deploy-adjacent variable is repository-scoped rather than environment-scoped, because a `pull_request` job cannot read an Environment whose deployment branch policy admits only `main` and `staging`:
+- **An API Gateway route key cannot end in a slash.** The plan is green and the apply fails with a `BadRequestException`. The gateway does not normalise a trailing slash away for you at declaration time.
+- **A path part is either a whole variable or a literal, never a variable embedded in a literal.** `GET /sitemap-{name}.xml` plans green and fails the apply the same way, which is why `local.sitemap_child_names` in `apigateway.tf` spells out one literal route key per child sitemap. A fifth child sitemap needs its name added there or it 404s at the gateway while still working on a direct invoke.
+- **`aws/spans` is a reserved log group name.** `CreateLogGroup` rejects names beginning with `aws/`, so Terraform cannot create it: X-Ray creates it on the first span export and `transaction_search.tf` imports it to hold 7 day retention. An import block whose target does not exist is a plan time error, so a brand new account applies once with `adopt_spans_log_group = false`, generates one span, then sets it `true` and applies again.
+- **`bootstrap_image_tag` is a create-time seed that expires out from under you.** It seeds `image_uri` at `CreateFunction` and also gates `local.domain_functions_enabled`; after that `image_uri` is on the `lambda-function` module's `ignore_changes` list, so `deploy-backend.yml` owns every update. The ECR lifecycle policy keeps only the last ten `sha-` tagged images per repository, so a tag left pointing at an older commit is expired. A speculative plan cannot detect it: the plan renders the image URI as a string and only `CreateFunction` resolves it, so the run is green and the apply fails partway through. **Refresh it to a current tag before any apply that creates a function**, then confirm the tag resolves with `aws ecr describe-images --repository-name carmodpicker-<env>/<domain> --image-ids imageTag=sha-<sha>`.
+- **The ECR repositories use immutable tags**, so a workflow rerun for the same commit would fail on a tag that already exists. The build job skips instead, resolving the tag with `aws ecr batch-get-image`.
+- **A DynamoDB stream view type cannot be edited once a stream exists.** Changing one mints a new stream ARN and silently detaches every consumer reading the old one.
 
-| Variable | Output | Notes |
-| --- | --- | --- |
-| `CI_AWS_ROLE_ARN` | `github_actions_ci_role_arn` | Take the **staging** workspace's value. The three CI workflows assume it through OIDC purely to mint a read-only CodeArtifact token so `pip install` can resolve `webbpulse`. The role holds the CodeArtifact reads and nothing else, and its trust names `pull_request` plus the `staging` and `main` branch refs rather than a wildcard, so a pull request cannot reach the deploy role. |
+## Conventions
+
+- **Naming**: every resource name starts with `local.prefix`, `carmodpicker-<environment>`.
+- **Tags**: `Project`, `Environment`, `ManagedBy=terraform`, applied globally via provider `default_tags`.
+- **Secrets**: values flow HCP workspace variable to `var.*` to Secrets Manager. The Lambda resolves `<prefix>/app` through `APP_SECRETS_ARN` on the first read of a secret field, not at import, so a function that reads no secret makes no call and needs no `secretsmanager:GetSecretValue` grant. No secret values live in outputs or version control.
+- **Lambda code is not Terraform's**: every function is a container image and Terraform owns only the create.
 
 ## Local validation
 
@@ -169,10 +99,8 @@ terraform fmt -check -recursive terraform/
 cd terraform && terraform init -backend=false && terraform validate
 ```
 
-`terraform plan` runs in HCP on push; the local checkout has no credentials and should not need any.
+`terraform plan` runs in HCP on push.
 
-## Destroy / teardown notes
+## Teardown notes
 
-- DynamoDB tables have `deletion_protection_enabled = true` in production.
-- Secrets use `recovery_window_in_days = 0` for immediate deletion.
-
+DynamoDB tables set `point_in_time_recovery` and `deletion_protection` to `true` in production, so a production table cannot be destroyed without clearing protection first.

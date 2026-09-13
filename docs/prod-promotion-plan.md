@@ -3,12 +3,10 @@
 The concrete step list for promoting `staging` to `main` and into the
 production workspace `ws-oh1VvpTBPxmcrSYD`.
 
-`docs/prod-promotion-runbook.md` is the reference for this promotion: the
-blockers, the plan shapes, the variable table and the rollback matrix all live
-there and are not repeated here. This document owns the **order**, and it exists
-because row 13 landed on `staging` after that runbook was written and changed
-the order materially. Where the two disagree, this document is correct and the
-runbook carries a pointer at the top of the affected step.
+**This document is the single authority on this promotion.** An earlier
+`docs/prod-promotion-runbook.md`, written 2026-09-10, was superseded on ordering
+by row 13 and has been deleted; everything from it that still applies to a
+pending step is folded in below. Git history keeps the original.
 
 Read `docs/identity-adoption.md` for what the rows are and
 `docs/identity-migration-runbook.md` for the scripts.
@@ -18,9 +16,9 @@ write is an owner decision.
 
 ## The finding that sets the order
 
-The runbook, written 2026-09-10, assumes the promotion merge lands a tree that
-can still serve legacy auth, and schedules the credential migration at its step
-7, after the merge and after the first apply. **That is no longer true.** Row 13
+The original runbook, written 2026-09-10, assumed the promotion merge lands a
+tree that can still serve legacy auth, and scheduled the credential migration
+after the merge and after the first apply. **That is no longer true.** Row 13
 (`bd9c9bc3`, PR 421) landed on `staging` on 2026-09-11 and deleted the legacy
 auth path as code, with no variable in front of it.
 
@@ -71,9 +69,9 @@ that remain after the merge are all Terraform variables, not code:
 | **Row 13, legacy auth retired** | **code only, no variable** | **lands with the merge** |
 
 The last row is the whole problem. Rows 8 and 12 are genuinely deferrable to
-later applies and the runbook's three-apply structure is right for them. Row 13
+later applies and the original three-apply structure is right for them. Row 13
 is not deferrable at all, so it cannot be sequenced after the merge the way the
-runbook's step 7 assumes.
+original ordering assumed.
 
 Splitting the merge to defer row 13 was considered and rejected. It would mean
 reverting `backend/app/api/endpoints/auth/`, `domains.py`, `lambda_handler.py`,
@@ -105,7 +103,7 @@ mechanism and why a `-target` apply is not needed.
 ## Summary
 
 **Applies: five.** One identity-stack-only apply before the merge, then the
-runbook's three (first apply, mode native, domain enforcement), then one
+the original three (first apply, mode native, domain enforcement), then one
 cleanup. Steps needing the owner present are marked.
 
 | # | Step | Owner present |
@@ -134,7 +132,7 @@ cleanup. Steps needing the owner present are marked.
 Owner present. Nothing below runs until every box is checked.
 
 - [ ] A production speculative plan renders, `planned_and_finished` with a diff.
-      Blocker 1 in the runbook, fixed in `platform-modules` `v2.10.0`.
+      Fixed in `platform-modules` `v2.10.0`.
 - [ ] The divergence check and trial merge are clean, re-run today:
 
       git fetch origin
@@ -388,7 +386,7 @@ unreadable or mismatched. Step 14's clear must not run unless this passed.
 Owner present, in a browser.
 
 This is the gate that makes the merge safe, and it has no equivalent in the
-runbook because the runbook had legacy auth to fall back on. Here the merge is
+the original ordering, which had legacy auth to fall back on. Here the merge is
 one-way, so identity sign-in must be proven **before** it, while the monolith is
 still there to fall back to.
 
@@ -487,7 +485,7 @@ partway at `CreateFunction`. Do not proceed.
 The frontend deploy that follows the merge ships the identity-only bundle. **No
 `AUTH_MODE` GitHub variable is needed and none should be set**: row 13 made
 `AUTH_MODE` a constant in `authMode.ts` and `VITE_AUTH_MODE` is read by nothing.
-The runbook's step 11 says to set it and that instruction is obsolete.
+The original runbook said to set it and that instruction is obsolete.
 
 **Backout:** revert `main` to the step 0 sha and wait for a rebuild. Users are
 on legacy auth until the images redeploy, which is minutes, not seconds.
@@ -500,7 +498,8 @@ The merge queued a run before the tag was refreshed. **Discard it and queue a
 fresh one** rather than confirming a plan against the stale tag.
 
 Step 2 already created the identity stack, so this plan is smaller than the
-runbook's 201/6/18. Expect roughly **160 to add, 6 to change, 18 to destroy**.
+the 2026-09-10 estimate of 201/6/18. Expect roughly **160 to add, 6 to change,
+18 to destroy**.
 Treat the counts as shapes to check, not a number to match, and read every
 destroy line.
 
@@ -657,6 +656,10 @@ frontend deploy.
             "description":"Require an identity access token at the gateway on the 80 domain route keys that need an authenticated caller. The keys exist and are inert either way."}}}' \
       https://app.terraform.io/api/v2/workspaces/ws-oh1VvpTBPxmcrSYD/vars
 
+The description text above is the one to paste when the variable is created:
+the keys exist and are inert either way, and the flip is only safe once the
+deployed frontend sends identity tokens.
+
 **This is not Portfolio's 0/1/0, and it is not staging's shape either.** In
 `gate` mode the platform module keeps a marked route at the same address and the
 only diff is the gate authorizer Lambda's environment gaining the route list.
@@ -787,15 +790,40 @@ copy.
 Dry run only. Nothing is written at this step.
 
 `backend/scripts/clear_legacy_credentials.py` exists on `staging` and clearing
-the legacy columns is safe once the two migration scripts have run. The earlier
-note here said to leave `hashed_password` populated because it cost nothing and
-two users-domain routes still wrote it. Both halves were wrong. No live code
-reads or writes `hashed_password` or `totp_secret`, the script's own docstring at
-`backend/scripts/clear_legacy_credentials.py:23` now opens by saying the script
-is safe to run, and the populated column is 174 unusable bcrypt verifiers plus
-the plaintext TOTP seeds, which is a standing exposure rather than a rollback
-asset. The runbook's step 12 caveat carries the `file:line` evidence for every
-one of those claims; read it there rather than restating it here.
+the legacy columns is safe once the two migration scripts have run. An earlier
+note said to leave `hashed_password` populated because it cost nothing and two
+users-domain routes still wrote it. Both halves were wrong, and the evidence is
+recorded here rather than in the deleted runbook:
+
+- There is no `POST /api/users/` route at all.
+  `backend/app/api/endpoints/users.py` declares one `POST`, the profile picture
+  upload.
+- `PUT /api/users/{user_id}` has no password branch. It copies `UserUpdate`
+  fields through and clamps `session_expire_minutes`, nothing else.
+- Neither `UserUpdate` nor `AdminUserUpdate` in
+  `backend/app/api/schemas/user.py` carries a password field, so the route could
+  not receive one.
+- The `User` model in `backend/app/db/dynamo/users.py` declares neither
+  `hashed_password` nor `totp_secret`.
+- Across `backend/app/**` there are exactly two non-test mentions of the column:
+  a parameter name in `backend/app/api/dependencies/auth.py`, and a discarding
+  `record.pop("hashed_password", None)` in
+  `backend/app/composition/identity_hooks.py`. `get_password_hash` and
+  `verify_password` in that auth module have zero callers in the application.
+- The script's own docstring at `backend/scripts/clear_legacy_credentials.py:23`
+  opens by saying the script is safe to run.
+
+So leaving the column populated buys nothing. It is 174 unusable bcrypt
+verifiers plus the plaintext TOTP seeds, a standing exposure rather than a
+rollback asset, and row 13 deleted the legacy routes as code so there is nothing
+in the shipped image that could read it.
+
+The script is built for exactly this. It is a dry run unless `--apply` is
+passed, it classifies every row before it writes anything, it refuses the entire
+run on any `mismatch` or `missing_credential` rather than clearing half a table,
+it issues one DynamoDB `REMOVE` for both `hashed_password` and `totp_secret`,
+and it is idempotent, so a second run reports `already_clear` and writes
+nothing.
 
     cd backend
     export AWS_PROFILE=CarModPicker-Production/AdministratorAccess AWS_REGION=us-west-2
@@ -866,10 +894,20 @@ them if there were. Row 13 deleted the legacy routes as code, so a populated
 - [ ] Confirm `aws sesv2 get-email-identity --email-identity carmodpicker.com`
       still reports DKIM `SUCCESS`.
 - [ ] Decide separately on `passkeys_enabled` and `passkeys_passwordless`. Both
-      default `false` in production, so **passkey sign-in is not part of the
+      default `false` in this repository, deliberately, as a staged rollout
+      switch; staging has them `true`. With both unset the passkey routes are
+      not declared in production, so **passkey sign-in is not part of the
       production verification** at any step above. That is expected, not a
-      fault.
-- [ ] Decide separately on appealing the SES sandbox case.
+      fault. `passkeys_passwordless` in particular makes a passkey a way in
+      with no password, so it is its own decision rather than a follow-on from
+      `passkeys_enabled`.
+- [ ] Decide separately on appealing the SES sandbox case. Sending is
+      sandbox-limited until an owner-approved support case says otherwise, and
+      the earlier request was denied.
+- [ ] `extension_api_key` is unset in both environments and is unrelated to this
+      promotion. Empty means API-key auth is disabled and only an admin bearer
+      token is accepted on the batch price-history route. Leave it unless there
+      is a separate reason.
 
 A final cleanup apply may be wanted if step 2's branch left anything that the
 step 8 apply did not reconcile. Read the plan; a zero-change plan is the
@@ -913,7 +951,41 @@ expected outcome and means nothing is needed.
   trial merge at step 0 shows conflict markers, the fix is a separate pull
   request into `staging` that merges `main` back first, reviewed on its own.
 
-## Rollback, by step reached
+## Rollback
+
+### What reverting `main` does not undo
+
+Folded in from the deleted runbook, because a code revert is the lever most
+likely to be reached for and these are the parts it does not cover.
+
+- **The gateway authorizer and the route markings.** Both are Terraform state,
+  not code deployment. Removing them means setting `domain_jwt_enforced` back to
+  `false` and `identity_jwt_mode` back to `off` and applying. Until that apply
+  runs, ninety-five routes keep demanding a JWT, and a reverted frontend that
+  stopped sending one is locked out of every write path. **Revert the two
+  variables and apply before or alongside the code revert, never after.**
+- **The identity tables and the two KMS keys.** A revert of the code plans them
+  for destroy, and all ten tables carry `deletion_protection = true` because
+  `var.environment == "production"`. The destroy fails rather than losing data,
+  which is the safe failure, but a clean revert needs them removed from state or
+  the protection lifted deliberately. Prefer leaving them: unused tables cost
+  nothing and hold the migrated credentials.
+- **The monolith retirement.** Row 32 destroyed
+  `carmodpicker-production-api`, `$default`, the artifacts bucket and the zip
+  chain. Reverting the code plans them back as creates, but the artifacts
+  bucket's objects are gone. **This is the least reversible part of the
+  infrastructure change and it is independent of identity.** Treat the domain
+  split as fix-forward whatever happens to identity.
+- **The cleared plaintext TOTP seeds, step 14.** Once cleared, the sealed copy
+  is the only one. Recovery is restoring the column from the step 0 snapshot.
+- **Anything written through the identity path after the cutover.** A password
+  changed through the identity flow exists only in the `credentials` table, and
+  a revert to the legacy column resurrects the old password for that user.
+
+A revert is also not instant: the previous images have to finish building and
+deploying, which is minutes rather than seconds.
+
+### By step reached
 
 | Reached | Rollback |
 | --- | --- |
