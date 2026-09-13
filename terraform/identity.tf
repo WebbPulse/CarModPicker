@@ -28,6 +28,7 @@ module "identity" {
 
   attach_role_policies = true
 
+  users_stream_enabled   = true
   users_table_stream_arn = module.dynamodb.stream_arns["users"]
   identity_function_name = module.lambda_domain["identity"].function_name
   users_key_attribute    = "id"
