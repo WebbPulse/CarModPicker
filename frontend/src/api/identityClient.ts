@@ -34,7 +34,14 @@ export {
  * discovery gates that fetch directly instead of through `AuthClient`.
  */
 export const identityUrl = (path: string): string =>
-  joinIdentityUrl(identityOriginFrom(appConfig.apiBaseUrl), path);
+  joinIdentityUrl(identityOrigin(), path);
+
+/**
+ * The origin the identity routes are mounted on, for the hooks that take the
+ * origin rather than a built URL.
+ */
+export const identityOrigin = (): string =>
+  identityOriginFrom(appConfig.apiBaseUrl);
 
 /**
  * Where the signed in profile is read from, in the users domain. Carries the
@@ -42,6 +49,9 @@ export const identityUrl = (path: string): string =>
  * to a bare origin, the same way the package's own `/api/auth/...` routes do.
  */
 export const CURRENT_USER_PATH = '/api/users/me';
+
+/** The identity client as the panels take it, with the user type applied. */
+export type IdentityClient = AuthClient<UserRead>;
 
 /**
  * The one instance, or null when it could not be built. Built on first request

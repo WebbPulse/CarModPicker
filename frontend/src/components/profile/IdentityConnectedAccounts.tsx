@@ -1,26 +1,22 @@
 /**
  * The connected accounts panel for identity mode: link and unlink providers.
- * Linking is a full-page navigation because the start route redirects to a host
- * that sends no CORS headers; the callback returns with a marker in the query.
+ * The state machine is `useConnectedAccountsPanel` and the provider list is
+ * `useOAuthProviders`; this file is the markup. Linking is a full-page
+ * navigation because the start route redirects to a host that sends no CORS
+ * headers; the callback returns with a marker in the query.
  */
-import { useCallback, useEffect, useState } from 'react';
 import { FaGithub, FaGoogle, FaLink, FaTrash } from 'react-icons/fa';
 import { GITHUB_PROVIDER, GOOGLE_PROVIDER } from '@webbpulse/auth';
+import { useConnectedAccountsPanel } from '@webbpulse/auth/panels';
+import { useOAuthProviders } from '@webbpulse/discovery/react';
 import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
 import Spinner from '../ui/spinner';
 import {
-  OAUTH_PROVIDERS_PATH,
-  identityUrl,
-  oauthProviders,
-  type OAuthProviderInfo,
+  getIdentityClient,
+  identityOrigin,
+  type IdentityClient,
 } from '../../api/identityClient';
-import {
-  listLinks,
-  startProviderLink,
-  unlinkProvider,
-  type OAuthLink,
-} from '../../api/identityOAuth';
 
 /** A date for display, falling back to the raw value rather than throwing. */
 const formatDate = (value: string | undefined): string => {
@@ -39,73 +35,22 @@ const ProviderIcon: React.FC<{ provider: string }> = ({ provider }) => {
   return <FaLink />;
 };
 
-function IdentityConnectedAccounts() {
-  const [providers, setProviders] = useState<OAuthProviderInfo[]>([]);
-  const [links, setLinks] = useState<OAuthLink[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+/** The panel body, mounted only once the identity client could be built. */
+const ConnectedAccountsBody: React.FC<{ client: IdentityClient }> = ({
+  client,
+}) => {
+  const providers = useOAuthProviders({ identityOrigin: identityOrigin() });
+  const panel = useConnectedAccountsPanel({
+    client,
+    providers,
+    returnTo: `${globalThis.location.pathname}${globalThis.location.search}`,
+    messages: {
+      removed: (provider: string) =>
+        `${providers.find((entry) => entry.id === provider)?.displayName ?? provider} disconnected.`,
+    },
+  });
 
-  const load = useCallback(async () => {
-    const [configured, current] = await Promise.all([
-      oauthProviders(identityUrl(OAUTH_PROVIDERS_PATH)),
-      listLinks(),
-    ]);
-    setProviders(configured);
-    if (current.status === 'ok') {
-      setLinks(current.links);
-    } else {
-      setError(current.error);
-    }
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  /**
-   * Starts a link by leaving the page; `returnTo` brings the user back here,
-   * where the callback hook reads the marker and reloads the list. The start
-   * answers with JSON, so this resolves only when it was refused.
-   */
-  const handleLink = async (provider: string) => {
-    setError(null);
-    setSuccess(null);
-    setBusy(true);
-    const result = await startProviderLink(
-      provider,
-      `${globalThis.location.pathname}${globalThis.location.search}`
-    );
-    if (result.status === 'failed') {
-      setError(result.error);
-      setBusy(false);
-    }
-  };
-
-  const handleUnlink = async (link: OAuthLink) => {
-    const label =
-      providers.find((p) => p.id === link.provider)?.displayName ??
-      link.provider;
-    if (!window.confirm(`Disconnect your ${label} account?`)) return;
-    setError(null);
-    setSuccess(null);
-    setBusy(true);
-    try {
-      const result = await unlinkProvider(link.provider);
-      if (result.status === 'ok') {
-        setSuccess(`${label} disconnected.`);
-        await load();
-      } else {
-        setError(result.error);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (isLoading) {
+  if (panel.loading) {
     return (
       <div className="flex justify-center py-8">
         <Spinner />
@@ -113,9 +58,9 @@ function IdentityConnectedAccounts() {
     );
   }
 
-  const linkable = providers.filter(
-    (provider) => !links.some((link) => link.provider === provider.id)
-  );
+  const links = panel.items ?? [];
+  const label = (provider: string): string =>
+    providers.find((entry) => entry.id === provider)?.displayName ?? provider;
 
   return (
     <div className="space-y-4">
@@ -126,8 +71,8 @@ function IdentityConnectedAccounts() {
         </p>
       </div>
 
-      {error && <ErrorAlert message={error} />}
-      {success && <ConfirmationAlert message={success} />}
+      {panel.error && <ErrorAlert message={panel.error} />}
+      {panel.notice && <ConfirmationAlert message={panel.notice} />}
 
       {providers.length === 0 && (
         <p className="text-sm text-muted-foreground">
@@ -137,55 +82,61 @@ function IdentityConnectedAccounts() {
 
       {links.length > 0 && (
         <ul className="space-y-2">
-          {links.map((link) => {
-            const label =
-              providers.find((p) => p.id === link.provider)?.displayName ??
-              link.provider;
-            return (
-              <li
-                key={link.provider}
-                className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 p-3"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="shrink-0 text-primary">
-                    <ProviderIcon provider={link.provider} />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-white">
-                      {label}
-                    </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {link.email || 'Connected'} · since{' '}
-                      {formatDate(link.linkedAt)}
-                    </div>
+          {links.map((link) => (
+            <li
+              key={link.provider}
+              className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 p-3"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="shrink-0 text-primary">
+                  <ProviderIcon provider={link.provider} />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-white">
+                    {label(link.provider)}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {link.email || 'Connected'} · since{' '}
+                    {formatDate(link.linkedAt)}
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  aria-label={`Disconnect ${label}`}
-                  onClick={() => void handleUnlink(link)}
-                  disabled={busy}
-                >
-                  <FaTrash />
-                </Button>
-              </li>
-            );
-          })}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                aria-label={`Disconnect ${label(link.provider)}`}
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      `Disconnect your ${label(link.provider)} account?`
+                    )
+                  ) {
+                    return;
+                  }
+                  void panel.unlink(link.provider);
+                }}
+                disabled={
+                  panel.busy || panel.blocked[link.provider] !== undefined
+                }
+              >
+                <FaTrash />
+              </Button>
+            </li>
+          ))}
         </ul>
       )}
 
-      {linkable.length > 0 && (
+      {panel.connectable.length > 0 && (
         <div className="space-y-2">
-          {linkable.map((provider) => (
+          {panel.connectable.map((provider) => (
             <Button
               key={provider.id}
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => void handleLink(provider.id)}
-              disabled={busy}
+              onClick={() => void panel.link(provider.id)}
+              disabled={panel.busy}
             >
               <ProviderIcon provider={provider.id} />
               <span>Connect {provider.displayName}</span>
@@ -195,6 +146,17 @@ function IdentityConnectedAccounts() {
       )}
     </div>
   );
+};
+
+/** The connected accounts panel, or the unavailable notice in bearer mode. */
+function IdentityConnectedAccounts() {
+  const client = getIdentityClient();
+  if (client === null) {
+    return (
+      <ErrorAlert message="Connected accounts are not available in this deployment." />
+    );
+  }
+  return <ConnectedAccountsBody client={client} />;
 }
 
 export default IdentityConnectedAccounts;

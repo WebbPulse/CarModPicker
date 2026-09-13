@@ -86,12 +86,12 @@ describe('IdentityTotpSettings when no factor is enrolled', () => {
     expect(done).not.toBeDisabled();
   });
 
-  it('explains a mistyped activation code rather than saying "an error occurred"', async () => {
+  it('renders the refusal sentence for a mistyped activation code', async () => {
     enrolTotp.mockResolvedValue(anEnrolment);
     activateTotp.mockResolvedValue({
       ok: false,
       reason: 'invalid-code',
-      message: '',
+      message: 'That code is not right. Check your authenticator app.',
     });
     render(<IdentityTotpSettings enabled={false} onChanged={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /set up two-factor/i }));
@@ -103,12 +103,12 @@ describe('IdentityTotpSettings when no factor is enrolled', () => {
     ).toBeInTheDocument();
   });
 
-  it('explains an expired enrolment', async () => {
+  it('renders the refusal sentence for an expired enrolment', async () => {
     enrolTotp.mockResolvedValue(anEnrolment);
     activateTotp.mockResolvedValue({
       ok: false,
       reason: 'no-pending-enrolment',
-      message: '',
+      message: 'That enrolment expired. Start again to get a fresh QR code.',
     });
     render(<IdentityTotpSettings enabled={false} onChanged={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /set up two-factor/i }));
@@ -201,11 +201,11 @@ describe('IdentityTotpSettings when a factor is enrolled', () => {
     });
   });
 
-  it('explains a rate limited refusal', async () => {
+  it('renders the refusal sentence for a rate limited attempt', async () => {
     disableTotp.mockResolvedValue({
       ok: false,
       reason: 'rate-limited',
-      message: '',
+      message: 'Too many attempts. Wait a few minutes, then try again.',
     });
     render(<IdentityTotpSettings enabled={true} onChanged={vi.fn()} />);
     typeCode('123456');
@@ -213,7 +213,7 @@ describe('IdentityTotpSettings when a factor is enrolled', () => {
     expect(await screen.findByText(/too many attempts/i)).toBeInTheDocument();
   });
 
-  it('prefers the server own message over the fallback', async () => {
+  it('renders a refusal naming a policy the server enforces', async () => {
     disableTotp.mockResolvedValue({
       ok: false,
       reason: 'invalid-code',
