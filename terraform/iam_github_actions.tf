@@ -93,16 +93,13 @@ locals {
 }
 
 locals {
-  gate_policy_statements = concat(
-    local.staging_gate_enabled ? [
+  gate_policy_statements = [
+    for statement in [
       {
         sid       = "GateParameterRead"
         actions   = ["ssm:GetParameter"]
-        resources = [module.staging_access_gate[0].origin_verify_ssm_parameter_arn]
-        condition = null
+        resources = [one(module.staging_access_gate[*].origin_verify_ssm_parameter_arn)]
       },
-    ] : [],
-    local.staging_gate_enabled ? [
       {
         sid       = "E2EDecryptGateParameter"
         actions   = ["kms:Decrypt"]
@@ -113,17 +110,18 @@ locals {
           }
         }
       },
-    ] : [],
-  )
+    ] : statement if local.staging_gate_enabled
+  ]
 
-  e2e_signing_policy_statements = var.environment == "staging" ? [
-    {
-      sid       = "E2EMintStagingIdentityToken"
-      actions   = ["kms:Sign", "kms:GetPublicKey"]
-      resources = local.identity_signing_key_arns
-      condition = null
-    },
-  ] : []
+  e2e_signing_policy_statements = [
+    for statement in [
+      {
+        sid       = "E2EMintStagingIdentityToken"
+        actions   = ["kms:Sign", "kms:GetPublicKey"]
+        resources = local.identity_signing_key_arns
+      },
+    ] : statement if var.environment == "staging"
+  ]
 }
 
 module "github_actions_role" {
