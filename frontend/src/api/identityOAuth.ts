@@ -15,12 +15,24 @@ import { getIdentityClient } from './identityClient';
 export { describeOAuthCallbackError, readOAuthCallback, stripOAuthParams };
 export type { OAuthCallbackResult, OAuthLink };
 
-/** What a link or unlink produced, in the one shape the panel renders. */
+/** What an unlink produced, in the one shape the panel renders. */
 export type OAuthLinkResult =
   { status: 'ok' } | { status: 'failed'; error: string };
 
+/**
+ * What a link start produced. The success carries the provider's authorization
+ * URL, because starting a link only begins when the caller navigates to it.
+ */
+export type OAuthLinkStartResult =
+  | { status: 'ok'; authorizationUrl: string }
+  | { status: 'failed'; error: string };
+
 /** The sentence shown when the identity client is not the running mechanism. */
 const UNAVAILABLE = 'Connected accounts are not available in this deployment.';
+
+/** The sentence shown when the server accepted the start but named no URL. */
+const NO_AUTHORIZATION_URL =
+  'Could not start that connection. Please try again.';
 
 /**
  * The URL a "Continue with X" button points at, or null in bearer mode.
@@ -39,22 +51,28 @@ export const oauthStartUrl = (
 };
 
 /**
- * Starts attaching a provider to the signed in account, navigating for the same
- * reason a sign in start does. A refusal carries the server's wording.
+ * Starts attaching a provider to the signed in account. The route answers with
+ * JSON rather than a redirect, since it is called with an `Authorization`
+ * header a redirect would drop, so the caller has to navigate to the returned
+ * URL for anything to happen. A refusal carries the server's wording.
  */
 export const linkProvider = async (
   provider: string,
   returnTo?: string
-): Promise<OAuthLinkResult> => {
+): Promise<OAuthLinkStartResult> => {
   const identity = getIdentityClient();
   if (identity === null) return { status: 'failed', error: UNAVAILABLE };
   try {
     const outcome = await identity.linkOAuthProvider(provider, {
       ...(returnTo === undefined ? {} : { returnTo }),
     });
-    return outcome.ok
-      ? { status: 'ok' }
-      : { status: 'failed', error: outcome.message };
+    if (!outcome.ok) {
+      return { status: 'failed', error: outcome.message };
+    }
+    if (outcome.authorizationUrl === '') {
+      return { status: 'failed', error: NO_AUTHORIZATION_URL };
+    }
+    return { status: 'ok', authorizationUrl: outcome.authorizationUrl };
   } catch (error) {
     return {
       status: 'failed',
@@ -64,6 +82,21 @@ export const linkProvider = async (
           : 'Could not connect that account.',
     };
   }
+};
+
+/**
+ * Starts a link and leaves the page for the provider. Returns only when the
+ * start was refused, since a success is a navigation away from here.
+ */
+export const startProviderLink = async (
+  provider: string,
+  returnTo?: string
+): Promise<OAuthLinkStartResult> => {
+  const result = await linkProvider(provider, returnTo);
+  if (result.status === 'ok') {
+    globalThis.location.assign(result.authorizationUrl);
+  }
+  return result;
 };
 
 /** The providers attached to the signed in account. */

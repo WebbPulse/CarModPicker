@@ -11,13 +11,13 @@ import { Button } from '../ui/button';
 import Spinner from '../ui/spinner';
 import {
   OAUTH_PROVIDERS_PATH,
-  getIdentityClient,
   identityUrl,
   oauthProviders,
   type OAuthProviderInfo,
 } from '../../api/identityClient';
 import {
   listLinks,
+  startProviderLink,
   unlinkProvider,
   type OAuthLink,
 } from '../../api/identityOAuth';
@@ -67,18 +67,21 @@ function IdentityConnectedAccounts() {
 
   /**
    * Starts a link by leaving the page; `returnTo` brings the user back here,
-   * where the callback hook reads the marker and reloads the list.
+   * where the callback hook reads the marker and reloads the list. The start
+   * answers with JSON, so this resolves only when it was refused.
    */
-  const handleLink = (provider: string) => {
-    const identity = getIdentityClient();
-    if (identity === null) {
-      setError('Connected accounts are not available in this deployment.');
-      return;
-    }
+  const handleLink = async (provider: string) => {
+    setError(null);
+    setSuccess(null);
     setBusy(true);
-    void identity.linkOAuthProvider(provider, {
-      returnTo: `${globalThis.location.pathname}${globalThis.location.search}`,
-    });
+    const result = await startProviderLink(
+      provider,
+      `${globalThis.location.pathname}${globalThis.location.search}`
+    );
+    if (result.status === 'failed') {
+      setError(result.error);
+      setBusy(false);
+    }
   };
 
   const handleUnlink = async (link: OAuthLink) => {
@@ -181,7 +184,7 @@ function IdentityConnectedAccounts() {
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => handleLink(provider.id)}
+              onClick={() => void handleLink(provider.id)}
               disabled={busy}
             >
               <ProviderIcon provider={provider.id} />

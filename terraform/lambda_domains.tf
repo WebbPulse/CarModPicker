@@ -2,39 +2,43 @@
 locals {
   lambda_domains_declared = {
     media = {
-      secrets        = false
-      s3             = true
-      s3_delete_only = false
-      ses            = false
-      memory         = 512
-      tables         = ["image_source_mappings", "rate-limits"]
-      read_tables    = ["users", "car_generations", "parts", "build_lists"]
+      secrets     = false
+      s3          = true
+      s3_upload   = true
+      s3_delete   = true
+      ses         = false
+      memory      = 512
+      tables      = ["image_source_mappings", "rate-limits"]
+      read_tables = ["users", "car_generations", "parts", "build_lists"]
     }
     build-logs = {
-      secrets        = false
-      s3             = false
-      s3_delete_only = false
-      ses            = false
-      memory         = 256
-      tables         = ["build_log_posts", "rate-limits"]
-      read_tables    = ["users", "build_lists", "build_logs"]
+      secrets     = false
+      s3          = true
+      s3_upload   = false
+      s3_delete   = false
+      ses         = false
+      memory      = 256
+      tables      = ["build_log_posts", "rate-limits"]
+      read_tables = ["users", "build_lists", "build_logs"]
     }
     moderation = {
-      secrets        = false
-      s3             = false
-      s3_delete_only = false
-      ses            = false
-      memory         = 256
-      tables         = ["votes", "reports", "bug_reports", "rate-limits"]
-      read_tables    = ["users", "build_lists", "car_generations", "parts"]
+      secrets     = false
+      s3          = false
+      s3_upload   = false
+      s3_delete   = false
+      ses         = false
+      memory      = 256
+      tables      = ["votes", "reports", "bug_reports", "rate-limits"]
+      read_tables = ["users", "build_lists", "car_generations", "parts"]
     }
     vehicles = {
-      secrets        = false
-      s3             = false
-      s3_delete_only = false
-      ses            = false
-      memory         = 256
-      tables         = ["rate-limits"]
+      secrets   = false
+      s3        = true
+      s3_upload = false
+      s3_delete = false
+      ses       = false
+      memory    = 256
+      tables    = ["rate-limits"]
       read_tables = [
         "car_generations",
         "car_models",
@@ -46,11 +50,12 @@ locals {
       ]
     }
     admin = {
-      secrets        = true
-      s3             = false
-      s3_delete_only = false
-      ses            = false
-      memory         = 256
+      secrets   = true
+      s3        = false
+      s3_upload = false
+      s3_delete = false
+      ses       = false
+      memory    = 256
       tables = [
         "part_price_alerts",
         "car_makes",
@@ -77,11 +82,12 @@ locals {
       ]
     }
     build-lists = {
-      secrets        = false
-      s3             = true
-      s3_delete_only = true
-      ses            = false
-      memory         = 1024
+      secrets   = false
+      s3        = true
+      s3_upload = false
+      s3_delete = true
+      ses       = false
+      memory    = 1024
       tables = [
         "build_lists",
         "build_list_parts",
@@ -107,20 +113,22 @@ locals {
       ]
     }
     identity = {
-      secrets        = true
-      s3             = false
-      s3_delete_only = false
-      ses            = true
-      memory         = 512
-      tables         = ["users", "oauth_accounts", "webauthn_credentials", "rate-limits"]
-      read_tables    = []
+      secrets     = true
+      s3          = false
+      s3_upload   = false
+      s3_delete   = false
+      ses         = true
+      memory      = 512
+      tables      = ["users", "oauth_accounts", "webauthn_credentials", "rate-limits"]
+      read_tables = []
     }
     catalog = {
-      secrets        = true
-      s3             = true
-      s3_delete_only = true
-      ses            = false
-      memory         = 1024
+      secrets   = true
+      s3        = true
+      s3_upload = false
+      s3_delete = true
+      ses       = false
+      memory    = 1024
       tables = [
         "parts",
         "part_manufacturers",
@@ -140,14 +148,19 @@ locals {
       ]
     }
     users = {
-      secrets        = false
-      s3             = true
-      s3_delete_only = false
-      ses            = false
-      memory         = 512
-      tables         = ["users", "app_settings", "rate-limits"]
-      read_tables    = ["oauth_accounts"]
+      secrets     = false
+      s3          = true
+      s3_upload   = true
+      s3_delete   = true
+      ses         = false
+      memory      = 512
+      tables      = ["users", "app_settings", "rate-limits"]
+      read_tables = ["oauth_accounts"]
     }
+  }
+
+  domain_uses_user_images = {
+    for name, domain in local.lambda_domains : name => domain.s3 || domain.s3_upload || domain.s3_delete
   }
 
   domain_functions_enabled = var.bootstrap_image_tag != ""
@@ -215,7 +228,7 @@ locals {
         EMAIL_FROM    = local.email_from
         EMAIL_ENABLED = "true"
       } : {},
-      domain.s3 ? {
+      local.domain_uses_user_images[name] ? {
         USER_IMAGES_BUCKET = aws_s3_bucket.user_images.bucket
       } : {},
 
@@ -340,17 +353,29 @@ resource "aws_iam_role_policy" "lambda_domain" {
       ] : [],
       each.value.s3 ? [
         {
-          Sid    = each.value.s3_delete_only ? "DeleteUserImageObjects" : "ReadWriteUserImageObjects"
-          Effect = "Allow"
-          Action = each.value.s3_delete_only ? [
-            "s3:DeleteObject",
-            ] : [
-            "s3:PutObject",
-            "s3:GetObject",
-            "s3:DeleteObject",
-          ]
+          Sid      = "ReadUserImageObjectsToPresignThem"
+          Effect   = "Allow"
+          Action   = ["s3:GetObject"]
           Resource = ["${aws_s3_bucket.user_images.arn}/*"]
         },
+      ] : [],
+      each.value.s3_upload ? [
+        {
+          Sid      = "UploadUserImageObjects"
+          Effect   = "Allow"
+          Action   = ["s3:PutObject"]
+          Resource = ["${aws_s3_bucket.user_images.arn}/*"]
+        },
+      ] : [],
+      each.value.s3_delete ? [
+        {
+          Sid      = "DeleteUserImageObjects"
+          Effect   = "Allow"
+          Action   = ["s3:DeleteObject"]
+          Resource = ["${aws_s3_bucket.user_images.arn}/*"]
+        },
+      ] : [],
+      local.domain_uses_user_images[each.key] ? [
         {
           Sid      = "ListTheUserImagesBucket"
           Effect   = "Allow"

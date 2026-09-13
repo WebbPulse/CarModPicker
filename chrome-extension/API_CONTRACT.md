@@ -1,461 +1,2035 @@
 # Chrome Extension API Contract
 
-Every HTTP call the extension makes. All are issued by the MV3 service worker
-in `src/background.ts`; no content script, popup or options page calls the API.
+Generated from `app.openapi()`. Do not edit by hand.
 
-## Base URL
+Regenerate:
 
-`chrome.storage.sync.apiUrl`, defaulting to `https://api.carmodpicker.com/api`.
-Every path below is relative to that base. Local development points at port 8000
-directly: the port 4000 frontend proxy sends no CORS headers for
-`chrome-extension://` origins.
-
-## Auth and headers
-
-The extension authenticates with a **bearer token, not cookies**. `apiRequest`
-sets on every call:
-
-| Header | Value |
-| --- | --- |
-| `Content-Type` | `application/json` |
-| `Authorization` | `Bearer <token>` when `chrome.storage.local.authToken` is set |
-| `X-API-Key` | value of `chrome.storage.local.apiKey` when set |
-
-CORS is granted by **explicit origin**: the backend builds
-`chrome-extension://<id>` origins from `CHROME_EXTENSION_IDS`. There is no
-`chrome-extension://.*` regex and no `null` origin, so an id outside that list is
-refused at the preflight.
-
-Sign in exchanges a short lived handoff code for an access token. That one call
-carries no `Authorization` header, since it is what a signed out extension uses
-to sign in. No refresh token comes back: an expired token means signing in again.
-
-## Endpoints
-
-The extension sends a trailing slash on `/categories/`, `/car-generations/`,
-`/part-manufacturers/`, `/retailers/` and `/parts/`; the backend registers those
-routes without one and FastAPI's slash redirect answers a `307` to the canonical
-path. The redirect preserves the method and body, so writes are unaffected.
-
-| Method | Path | Auth | Called by |
-| --- | --- | --- | --- |
-| POST | `/auth/extension/token` | none | `exchangeHandoffCode` |
-| GET | `/users/me` | bearer | `getCurrentUser` |
-| GET | `/categories/` | bearer | `getCategories` |
-| GET | `/car-generations/?limit=` | bearer | `getCars` |
-| GET | `/car-generations/search?q=&limit=` | bearer | `searchCars` |
-| GET | `/part-manufacturers/?active_only=` | bearer | `getPartManufacturers` |
-| GET | `/part-manufacturers/search?q=&limit=` | bearer | `searchPartManufacturers` |
-| POST | `/part-manufacturers/` | bearer | `createPartManufacturer` |
-| GET | `/retailers/?active_only=` | bearer | `getRetailers` |
-| POST | `/retailers/get-or-create` | bearer | `getOrCreateRetailerByDomain` |
-| GET | `/parts/check-url?product_url=` | bearer | `checkProductUrl` |
-| GET | `/parts/{part_id}` | bearer | `getPart` |
-| GET | `/parts/find-by-part-manufacturer-and-part-number?part_manufacturer_id=&part_number=` | bearer | `findExistingPartByPartManufacturerAndPartNumber` |
-| POST | `/parts/` | bearer | `createPart` |
-| POST | `/parts/{part_id}/listings` | bearer | `addPartListing` |
-| POST | `/parts/{part_id}/append-images` | bearer | `appendImagesToPart` |
-| GET | `/images/by-source-url?source_url=` | bearer | `getImageBySourceUrl` |
-| POST | `/images/fetch-from-url` | bearer | `uploadImage` |
-| POST | `/crawled-pages/scrape` | bearer | `scrapeAndParsePage` |
+```
+cd backend
+TESTING=true ENABLE_RATE_LIMITING=false python scripts/generate_ext_api_contract.py
+```
 
 ---
 
-### POST `/auth/extension/token`
+## `GET /api/users/me`
 
-Spends a handoff code for an access token.
+**Summary:** Read Users Me Route
 
-Request:
+**Description:** Fetch the current logged in user.
 
-```json
-{ "code": "<handoff code>" }
-```
+**Responses:**
 
-Response `200`:
+- `200` — Successful Response
 
 ```json
 {
-  "access_token": "<jwt>",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-```
-
-`401` with `detail.error_code` of `HANDOFF_CODE_INVALID` when the code is
-expired, forged, or is an access token rather than a handoff code.
-
----
-
-### GET `/users/me`
-
-Response `200` (`UserRead`):
-
-```json
-{
-  "id": "uuid",
-  "username": "string",
-  "email": "string",
-  "disabled": false,
-  "email_verified": true,
-  "image_urls": ["string"] ,
-  "is_superuser": false,
-  "is_admin": false,
-  "is_service_account": false,
-  "subscription_tier": "string",
-  "subscription_status": "string",
-  "subscription_expires_at": "datetime | null",
-  "totp_enabled": false,
-  "instagram_url": null,
-  "facebook_url": null,
-  "reddit_url": null,
-  "youtube_url": null,
-  "tiktok_url": null,
-  "session_expire_minutes": null,
-  "oauth_accounts": []
-}
-```
-
-`image_urls` come back as presigned URLs, not file keys. There are no
-`created_at` or `updated_at` fields on this response.
-
----
-
-### GET `/categories/`
-
-Response `200`: a bare array of `CategoryResponse`.
-
-```json
-[
-  {
-    "id": "uuid",
-    "name": "exhaust",
-    "display_name": "Exhaust Systems",
-    "description": "string | null",
-    "icon": "string | null",
-    "is_active": true,
-    "sort_order": 0,
-    "created_at": "datetime",
-    "updated_at": "datetime"
-  }
-]
-```
-
-`display_name` is required on the response, not nullable.
-
----
-
-### GET `/car-generations/`
-
-Query: `limit` (1 to 1000, default 100), `cursor`.
-
-Response `200`: a **`CursorPage`**, not a bare array.
-
-```json
-{
-  "items": [
-    {
-      "id": "uuid",
-      "car_make_name": "string",
-      "car_model_name": "string",
-      "car_model_display_name": "string | null",
-      "generation_name": "string",
-      "display_name": "string | null",
-      "start_year": 2020,
-      "end_year": null,
-      "description": "string | null",
-      "image_urls": ["string"],
-      "display_label": "string"
+  "description": "A user account as returned to its owner.",
+  "properties": {
+    "disabled": {
+      "title": "Disabled",
+      "type": "boolean"
+    },
+    "email": {
+      "title": "Email",
+      "type": "string"
+    },
+    "email_verified": {
+      "title": "Email Verified",
+      "type": "boolean"
+    },
+    "facebook_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Facebook Url"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "image_urls": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Image Urls"
+    },
+    "instagram_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Instagram Url"
+    },
+    "is_admin": {
+      "title": "Is Admin",
+      "type": "boolean"
+    },
+    "is_service_account": {
+      "default": false,
+      "title": "Is Service Account",
+      "type": "boolean"
+    },
+    "is_superuser": {
+      "title": "Is Superuser",
+      "type": "boolean"
+    },
+    "oauth_accounts": {
+      "default": [],
+      "items": {
+        "$ref": "#/components/schemas/OAuthAccountRead"
+      },
+      "title": "Oauth Accounts",
+      "type": "array"
+    },
+    "reddit_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Reddit Url"
+    },
+    "session_expire_minutes": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Session Expire Minutes"
+    },
+    "subscription_expires_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Subscription Expires At"
+    },
+    "subscription_status": {
+      "title": "Subscription Status",
+      "type": "string"
+    },
+    "subscription_tier": {
+      "title": "Subscription Tier",
+      "type": "string"
+    },
+    "tiktok_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Tiktok Url"
+    },
+    "totp_enabled": {
+      "default": false,
+      "title": "Totp Enabled",
+      "type": "boolean"
+    },
+    "username": {
+      "title": "Username",
+      "type": "string"
+    },
+    "youtube_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Youtube Url"
     }
+  },
+  "required": [
+    "id",
+    "username",
+    "email",
+    "disabled",
+    "email_verified",
+    "is_superuser",
+    "is_admin",
+    "subscription_tier",
+    "subscription_status"
   ],
-  "next_cursor": "string | null",
-  "has_next": false
+  "title": "UserRead",
+  "type": "object"
 }
 ```
 
-### GET `/car-generations/search`
-
-Query: `q` (required), `limit`, `cursor`. Same `CursorPage[CarGenerationRead]`
-body as the list route.
 
 ---
 
-### GET `/part-manufacturers/`
+## `GET /api/categories/`
 
-Query: `active_only` (default `true`).
+**Summary:** Get Categories
 
-Response `200`: a bare array of `PartManufacturerResponse`.
+**Description:** Get all active categories (seeded from backend source code).
 
-```json
-[
-  {
-    "id": "uuid",
-    "name": "string",
-    "description": "string | null",
-    "is_active": true,
-    "created_at": "datetime",
-    "updated_at": "datetime"
-  }
-]
-```
+**Responses:**
 
-### GET `/part-manufacturers/search`
-
-Query: `q` (required), `limit`, `cursor`. Response `200`: a
-**`CursorPage[PartManufacturerResponse]`**, unlike the plain list route.
-
-### POST `/part-manufacturers/`
-
-Request (`PartManufacturerCreate`):
+- `200` — Successful Response
 
 ```json
-{ "name": "string", "description": "string | null", "is_active": true }
+{
+  "items": {
+    "$ref": "#/components/schemas/CategoryResponse"
+  },
+  "title": "Response Get Categories Api Categories  Get",
+  "type": "array"
+}
 ```
 
-Response `200`: one `PartManufacturerResponse`. The route dedupes on a case
-insensitive name match and returns the existing manufacturer, so a create on an
-existing brand is not a `409`.
 
 ---
 
-### GET `/retailers/`
+## `GET /api/retailers`
 
-Query: `active_only` (default `true`). Response `200`: a bare array of
-`RetailerRead`.
+**Summary:** Get Retailers
 
-```json
-[
-  {
-    "id": "uuid",
-    "name": "string",
-    "domain": "string | null",
-    "base_url": "string | null",
-    "is_active": true,
-    "created_at": "datetime",
-    "updated_at": "datetime"
-  }
-]
-```
+**Description:** Get all retailers (optionally filtered to active only).
 
-### POST `/retailers/get-or-create`
+**Parameters:**
 
-Request:
+| Name | In | Required | Schema |
+|------|----|----------|--------|
+| `active_only` | query | no | boolean |
+
+**Responses:**
+
+- `200` — Successful Response
 
 ```json
 {
-  "domain": "a90shop.com",
-  "name": "string (optional, derived from the domain when omitted)",
-  "base_url": "string (optional)"
+  "items": {
+    "$ref": "#/components/schemas/RetailerRead"
+  },
+  "title": "Response Get Retailers Api Retailers Get",
+  "type": "array"
 }
 ```
 
-Response `200`: one `RetailerRead`. `400` when `domain` is blank.
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
 
 ---
 
-### GET `/parts/check-url`
+## `POST /api/retailers/get-or-create`
 
-Query: `product_url`.
+**Summary:** Get Or Create Retailer By Domain
 
-Response `200`:
+**Description:** Get existing retailer by domain or create one. For use by scrapers when
+adding parts from a retailer not yet in the catalog. Any authenticated user.
 
-```json
-{ "existing_part_id": "uuid | null" }
-```
-
-The route swallows its own errors and answers `200` with a null id rather than
-raising, so a null result does not prove the catalog was reachable.
-
-### GET `/parts/{part_id}`
-
-Response `200`: one `PartRead`. This is the generic CRUD read route, so it
-carries **no `listings` and no `best_listing`**; those belong to
-`/parts/{part_id}/with-listings`, which the extension does not call.
+**Request body (`application/json`):**
 
 ```json
 {
-  "id": "uuid",
-  "name": "string",
-  "description": "string | null",
-  "best_price_cents": null,
-  "image_urls": ["presigned url"],
-  "category_id": "uuid",
-  "user_id": "uuid",
-  "car_ids": ["uuid"],
-  "is_universal": false,
-  "part_manufacturer_id": "uuid | null",
-  "part_number": "string | null",
-  "gtin": "string | null",
-  "canonical_part_id": "uuid | null",
-  "edit_count": 0,
-  "created_at": "datetime",
-  "updated_at": "datetime"
+  "description": "Request body for get-or-create retailer by domain (scraper use).",
+  "properties": {
+    "base_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Base URL e.g. https://www.a90shop.com",
+      "title": "Base Url"
+    },
+    "domain": {
+      "description": "Domain e.g. a90shop.com",
+      "title": "Domain",
+      "type": "string"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Display name; derived from domain if omitted",
+      "title": "Name"
+    }
+  },
+  "required": [
+    "domain"
+  ],
+  "title": "RetailerGetOrCreateRequest",
+  "type": "object"
 }
 ```
 
-`PartRead` has no `is_verified` and no `source` field.
+**Responses:**
 
-### GET `/parts/find-by-part-manufacturer-and-part-number`
-
-Query: `part_manufacturer_id` (uuid, required), `part_number` (required, min
-length 1).
-
-Response `200`: one `PartRead`. `404` when nothing matches, which is how the
-scraper tells an update from a create.
-
-### POST `/parts/`
-
-Request (`PartCreate`):
+- `200` — Successful Response
 
 ```json
 {
-  "name": "string",
-  "description": "string | null",
-  "image_urls": ["file key or external url"],
-  "product_url": "string | null",
-  "category_id": "uuid",
-  "car_ids": ["uuid"],
-  "is_universal": false,
-  "part_manufacturer_id": "uuid | null",
-  "part_number": "string | null",
-  "gtin": "string | null",
-  "retailer_id": "uuid | null",
-  "price_cents": 0
+  "description": "A retailer as returned to clients.",
+  "properties": {
+    "base_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Base URL (e.g., https://www.a90shop.com)",
+      "title": "Base Url"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "domain": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Domain (e.g., a90shop.com)",
+      "title": "Domain"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "is_active": {
+      "default": true,
+      "description": "Whether the retailer is active",
+      "title": "Is Active",
+      "type": "boolean"
+    },
+    "name": {
+      "description": "Retailer display name (e.g., A90Shop)",
+      "title": "Name",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "id",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "RetailerRead",
+  "type": "object"
 }
 ```
 
-`image_urls` is capped at 12 entries; the first is the primary image.
-`part_manufacturer_id` is **optional**: a scrape that cannot determine the brand
-leaves it null. `price_cents` must be 0 to 2147483647. There is no top level
-`price` field on the request.
-
-Response `200`: one `PartRead`. `409` when the part already exists.
-
-### POST `/parts/{part_id}/listings`
-
-Request (`PartListingCreate`):
+- `422` — Validation Error
 
 ```json
 {
-  "part_id": "uuid",
-  "retailer_id": "uuid",
-  "product_url": "string | null",
-  "price_cents": 0
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
 }
 ```
 
-The body `part_id` must equal the path `part_id`, or the route answers `409`
-with error code `PART_ID_MISMATCH`. `404` when the part or retailer is unknown.
-
-Response `200` (`PartListingReadWithRetailer`):
-
-```json
-{
-  "id": "uuid",
-  "part_id": "uuid",
-  "retailer_id": "uuid",
-  "product_url": "string | null",
-  "last_known_price_cents": 0,
-  "last_price_updated_at": "datetime | null",
-  "created_at": "datetime",
-  "updated_at": "datetime",
-  "retailer": { "...RetailerRead": "" }
-}
-```
-
-### POST `/parts/{part_id}/append-images`
-
-Request:
-
-```json
-{ "file_keys": ["string"] }
-```
-
-Response `200`: the updated `PartRead`. `400` when the gallery already holds 12
-images; the extension's `MAX_IMAGES_PER_GLOBAL_PART` must equal the backend's
-`MAX_IMAGES_PER_PART`, which is 12.
 
 ---
 
-### GET `/images/by-source-url`
+## `GET /api/parts/check-url`
 
-Query: `source_url`. The backend canonicalizes the URL before looking it up.
+**Summary:** Check Product Url Exists
 
-Response `200`:
+**Description:** Check if a product URL already exists in the parts catalog.
 
-```json
-{ "file_key": "string" }
-```
+**Parameters:**
 
-`404` when nothing is cached for that source URL, which is the normal signal that
-an image still needs fetching.
+| Name | In | Required | Schema |
+|------|----|----------|--------|
+| `product_url` | query | no | $ref |
 
-### POST `/images/fetch-from-url`
+**Responses:**
 
-Request:
-
-```json
-{
-  "source_url": "https://...",
-  "entity_type": "part",
-  "entity_id": "uuid (optional)"
-}
-```
-
-The extension always sends `entity_type: "part"`, plus `entity_id` when it
-already has a part, which lets the backend refuse an upload onto a full gallery.
-
-Response `200`:
+- `200` — URL check completed
 
 ```json
 {
-  "file_key": "string",
-  "presigned_url": "string",
-  "message": "string"
+  "additionalProperties": {
+    "anyOf": [
+      {
+        "format": "uuid",
+        "type": "string"
+      },
+      {
+        "type": "null"
+      }
+    ]
+  },
+  "title": "Response Check Product Url Exists Api Parts Check Url Get",
+  "type": "object"
 }
 ```
 
-The server fetches the bytes, not the extension: a service worker fetch to a
-retailer image CDN is an ordinary cross origin request, most of those CDNs send
-no `Access-Control-Allow-Origin`, and the hosts are whatever page the user
-scraped, so `host_permissions` cannot cover them.
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
 
 ---
 
-### POST `/crawled-pages/scrape`
+## `GET /api/parts/{part_id}`
 
-Request:
+---
 
-```json
-{ "url": "https://...", "html": "<!doctype html>..." }
-```
+## `GET /api/parts/find-by-part-manufacturer-and-part-number`
 
-Response `200` (`ScrapeResponse`):
+**Summary:** Find Part By Part Manufacturer And Part Number Endpoint
+
+**Description:** Find an existing part by part manufacturer and part number (normalized). Returns 404 if not found.
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|------|----|----------|--------|
+| `part_manufacturer_id` | query | yes | string |
+| `part_number` | query | yes | string |
+
+**Responses:**
+
+- `200` — Existing part found
 
 ```json
 {
-  "name": "string | null",
-  "description": "string | null",
-  "price": 0,
-  "image_urls": ["string"],
-  "product_url": "string",
-  "part_manufacturer": "string | null",
-  "part_number": "string | null",
-  "adapter_used": "generic",
-  "inferred_category": "string | null",
-  "html_size_bytes": 0,
-  "html_sha256": "string"
+  "description": "A part as returned to clients.",
+  "properties": {
+    "best_price_cents": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Lowest current price from any retailer listing (computed when available)",
+      "title": "Best Price Cents"
+    },
+    "canonical_part_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When set, this part is a duplicate. Clients should redirect or resolve to the referenced canonical part for display.",
+      "title": "Canonical Part Id"
+    },
+    "car_ids": {
+      "description": "Car IDs this part is associated with",
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "title": "Car Ids",
+      "type": "array"
+    },
+    "category_id": {
+      "format": "uuid",
+      "title": "Category Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Description"
+    },
+    "edit_count": {
+      "title": "Edit Count",
+      "type": "integer"
+    },
+    "gtin": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "UPC/EAN/GTIN (digits only)",
+      "title": "Gtin"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "image_urls": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Image Urls"
+    },
+    "is_universal": {
+      "default": false,
+      "description": "When True, part fits all cars",
+      "title": "Is Universal",
+      "type": "boolean"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "part_manufacturer_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Part Manufacturer Id"
+    },
+    "part_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Part Number"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "user_id": {
+      "format": "uuid",
+      "title": "User Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "category_id",
+    "user_id",
+    "edit_count",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "PartRead",
+  "type": "object"
 }
 ```
 
-`price` is in **cents**, from the parser's `price_cents`. There is no `archived`
-and no `archive_skipped_duplicate` field. A page the parser cannot read still
-answers `200`, with every parsed field null or empty.
+- `404` — Resource not found
+- `422` — Validation Error
 
-`400` when `url` or `html` is blank. `413` when the HTML exceeds
-`CRAWLED_PAGE_MAX_HTML_BYTES`.
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
 
-## Error envelope
 
-A non-2xx body carries `detail`, either a plain string or an object with
-`error_code` and `message`. `apiRequest` reads `detail.message` when `detail` is
-an object and falls back to `HTTP <status>: <statusText>`.
+---
+
+## `POST /api/parts/{part_id}/append-images`
+
+**Summary:** Append Images To Part
+
+**Description:** Append image file keys to a part's gallery.
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|------|----|----------|--------|
+| `part_id` | path | yes | string |
+
+**Request body (`application/json`):**
+
+```json
+{
+  "description": "Request body for appending images to a part gallery.",
+  "properties": {
+    "file_keys": {
+      "description": "Image references to append: file keys (from images/upload) or external URLs (scraped); max 12.",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 12,
+      "title": "File Keys",
+      "type": "array"
+    }
+  },
+  "required": [
+    "file_keys"
+  ],
+  "title": "PartAppendImages",
+  "type": "object"
+}
+```
+
+**Responses:**
+
+- `200` — Images appended to part
+
+```json
+{
+  "description": "A part as returned to clients.",
+  "properties": {
+    "best_price_cents": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Lowest current price from any retailer listing (computed when available)",
+      "title": "Best Price Cents"
+    },
+    "canonical_part_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When set, this part is a duplicate. Clients should redirect or resolve to the referenced canonical part for display.",
+      "title": "Canonical Part Id"
+    },
+    "car_ids": {
+      "description": "Car IDs this part is associated with",
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "title": "Car Ids",
+      "type": "array"
+    },
+    "category_id": {
+      "format": "uuid",
+      "title": "Category Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Description"
+    },
+    "edit_count": {
+      "title": "Edit Count",
+      "type": "integer"
+    },
+    "gtin": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "UPC/EAN/GTIN (digits only)",
+      "title": "Gtin"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "image_urls": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Image Urls"
+    },
+    "is_universal": {
+      "default": false,
+      "description": "When True, part fits all cars",
+      "title": "Is Universal",
+      "type": "boolean"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "part_manufacturer_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Part Manufacturer Id"
+    },
+    "part_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Part Number"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "user_id": {
+      "format": "uuid",
+      "title": "User Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "category_id",
+    "user_id",
+    "edit_count",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "PartRead",
+  "type": "object"
+}
+```
+
+- `404` — Resource not found
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
+## `POST /api/parts`
+
+**Summary:** Create Part
+
+**Description:** Create a user-contributed part, optionally with a retailer listing and price.
+
+**Request body (`application/json`):**
+
+```json
+{
+  "description": "Request body for creating a part.",
+  "properties": {
+    "car_ids": {
+      "anyOf": [
+        {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Car IDs this part fits. Ignored when is_universal is True.",
+      "title": "Car Ids"
+    },
+    "category_id": {
+      "format": "uuid",
+      "title": "Category Id",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Description"
+    },
+    "gtin": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "UPC/EAN/GTIN barcode for dedup (digits only stored); e.g. 012345678901",
+      "title": "Gtin"
+    },
+    "image_urls": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Images: file keys (from images/upload) and/or external URLs (scraped); max 12. First entry is the primary/display image.",
+      "title": "Image Urls"
+    },
+    "is_universal": {
+      "default": false,
+      "description": "When True, part fits all cars; no need to list car_ids.",
+      "title": "Is Universal",
+      "type": "boolean"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "part_manufacturer_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Manufacturer/brand for this part. Optional: scraped pages where the brand cannot be confidently determined leave this NULL rather than minting a sentinel 'Unknown' brand row. The DB column is also nullable.",
+      "title": "Part Manufacturer Id"
+    },
+    "part_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Part Number"
+    },
+    "price_cents": {
+      "anyOf": [
+        {
+          "maximum": 2147483647.0,
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Price in cents for this retailer (creates/updates listing)",
+      "title": "Price Cents"
+    },
+    "product_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Product URL at retailer (used only with retailer_id for listing)",
+      "title": "Product Url"
+    },
+    "retailer_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Retailer ID when product_url is from a known retailer",
+      "title": "Retailer Id"
+    }
+  },
+  "required": [
+    "name",
+    "category_id"
+  ],
+  "title": "PartCreate",
+  "type": "object"
+}
+```
+
+**Responses:**
+
+- `200` — Successful Response
+
+```json
+{
+  "description": "A part as returned to clients.",
+  "properties": {
+    "best_price_cents": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Lowest current price from any retailer listing (computed when available)",
+      "title": "Best Price Cents"
+    },
+    "canonical_part_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When set, this part is a duplicate. Clients should redirect or resolve to the referenced canonical part for display.",
+      "title": "Canonical Part Id"
+    },
+    "car_ids": {
+      "description": "Car IDs this part is associated with",
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "title": "Car Ids",
+      "type": "array"
+    },
+    "category_id": {
+      "format": "uuid",
+      "title": "Category Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Description"
+    },
+    "edit_count": {
+      "title": "Edit Count",
+      "type": "integer"
+    },
+    "gtin": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "UPC/EAN/GTIN (digits only)",
+      "title": "Gtin"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "image_urls": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Image Urls"
+    },
+    "is_universal": {
+      "default": false,
+      "description": "When True, part fits all cars",
+      "title": "Is Universal",
+      "type": "boolean"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "part_manufacturer_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Part Manufacturer Id"
+    },
+    "part_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Part Number"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "user_id": {
+      "format": "uuid",
+      "title": "User Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "category_id",
+    "user_id",
+    "edit_count",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "PartRead",
+  "type": "object"
+}
+```
+
+- `400` — Bad request
+- `403` — Not authorized
+- `409` — Part already exists
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
+## `POST /api/parts/{part_id}/listings`
+
+**Summary:** Create Or Update Part Listing
+
+**Description:** Create or update a retailer listing for a part (and optionally add a price).
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|------|----|----------|--------|
+| `part_id` | path | yes | string |
+
+**Request body (`application/json`):**
+
+```json
+{
+  "description": "Request body for creating a part listing.",
+  "properties": {
+    "part_id": {
+      "description": "Part ID",
+      "format": "uuid",
+      "title": "Part Id",
+      "type": "string"
+    },
+    "price_cents": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Initial price in cents (creates first price history)",
+      "title": "Price Cents"
+    },
+    "product_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Product page URL at this retailer",
+      "title": "Product Url"
+    },
+    "retailer_id": {
+      "description": "Retailer ID",
+      "format": "uuid",
+      "title": "Retailer Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "part_id",
+    "retailer_id"
+  ],
+  "title": "PartListingCreate",
+  "type": "object"
+}
+```
+
+**Responses:**
+
+- `200` — Part listing created or updated
+
+```json
+{
+  "description": "A part listing with its retailer resolved.",
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "last_known_price_cents": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Last known price in cents",
+      "title": "Last Known Price Cents"
+    },
+    "last_price_updated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When last price was observed",
+      "title": "Last Price Updated At"
+    },
+    "part_id": {
+      "description": "Part ID",
+      "format": "uuid",
+      "title": "Part Id",
+      "type": "string"
+    },
+    "product_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Product page URL at this retailer",
+      "title": "Product Url"
+    },
+    "retailer": {
+      "description": "A retailer as returned to clients.",
+      "properties": {
+        "base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Base URL (e.g., https://www.a90shop.com)",
+          "title": "Base Url"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Domain (e.g., a90shop.com)",
+          "title": "Domain"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "is_active": {
+          "default": true,
+          "description": "Whether the retailer is active",
+          "title": "Is Active",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Retailer display name (e.g., A90Shop)",
+          "title": "Name",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "id",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "RetailerRead",
+      "type": "object"
+    },
+    "retailer_id": {
+      "description": "Retailer ID",
+      "format": "uuid",
+      "title": "Retailer Id",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "part_id",
+    "retailer_id",
+    "id",
+    "created_at",
+    "updated_at",
+    "retailer"
+  ],
+  "title": "PartListingReadWithRetailer",
+  "type": "object"
+}
+```
+
+- `404` — Resource not found
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
+## `GET /api/part-manufacturers`
+
+**Summary:** Get Part Manufacturers
+
+**Description:** List part manufacturers.
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|------|----|----------|--------|
+| `active_only` | query | no | boolean |
+
+**Responses:**
+
+- `200` — Successful Response
+
+```json
+{
+  "items": {
+    "$ref": "#/components/schemas/PartManufacturerResponse"
+  },
+  "title": "Response Get Part Manufacturers Api Part Manufacturers Get",
+  "type": "array"
+}
+```
+
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
+## `POST /api/part-manufacturers`
+
+**Summary:** Create Part Manufacturer
+
+**Description:** Create a manufacturer.
+
+Dedupes by case-insensitive name (and canonical key) so the same brand
+isn't minted twice — an existing match is returned instead.
+
+**Request body (`application/json`):**
+
+```json
+{
+  "description": "User-supplied create payload.",
+  "properties": {
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Part manufacturer description",
+      "title": "Description"
+    },
+    "is_active": {
+      "default": true,
+      "description": "Whether the part manufacturer is active",
+      "title": "Is Active",
+      "type": "boolean"
+    },
+    "name": {
+      "description": "Part manufacturer name",
+      "title": "Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "PartManufacturerCreate",
+  "type": "object"
+}
+```
+
+**Responses:**
+
+- `200` — Successful Response
+
+```json
+{
+  "description": "A part manufacturer as returned to clients.",
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Part manufacturer description",
+      "title": "Description"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "is_active": {
+      "default": true,
+      "description": "Whether the part manufacturer is active",
+      "title": "Is Active",
+      "type": "boolean"
+    },
+    "name": {
+      "description": "Part manufacturer name",
+      "title": "Name",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "id",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "PartManufacturerResponse",
+  "type": "object"
+}
+```
+
+- `201` — Part Manufacturer created successfully
+- `400` — Invalid part manufacturer data
+- `403` — Not authorized to create part manufacturer
+- `422` — Validation error
+
+---
+
+## `GET /api/car-generations`
+
+**Summary:** List Entities
+
+**Description:** Return one page of entities.
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|------|----|----------|--------|
+| `limit` | query | no | integer |
+| `cursor` | query | no | $ref |
+
+**Responses:**
+
+- `200` — Car_Generation page retrieved successfully
+
+```json
+{
+  "properties": {
+    "has_next": {
+      "default": false,
+      "title": "Has Next",
+      "type": "boolean"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/components/schemas/CarGenerationRead"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Next Cursor"
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "title": "CursorPage[CarGenerationRead]",
+  "type": "object"
+}
+```
+
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
+## `GET /api/images/by-source-url`
+
+**Summary:** Get Image By Source Url
+
+**Description:** Check if we've already stored an image from this source URL (deduplication).
+Returns the existing file_key if found, so clients can skip re-uploading.
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|------|----|----------|--------|
+| `source_url` | query | yes | string |
+
+**Responses:**
+
+- `200` — Successful Response
+
+```json
+{
+  "additionalProperties": {
+    "type": "string"
+  },
+  "title": "Response Get Image By Source Url Api Images By Source Url Get",
+  "type": "object"
+}
+```
+
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
+## `POST /api/images/upload`
+
+**Summary:** Upload Image
+
+**Description:** Upload an image file to S3 bucket.
+
+The file is validated for security (type, size, content) and stored
+in S3 bucket. Returns the file key which should be stored
+
+**Parameters:**
+
+| Name | In | Required | Schema |
+|------|----|----------|--------|
+| `entity_type` | query | yes | string |
+| `entity_id` | query | no | $ref |
+
+**Request body (`application/json`):**
+
+```json
+{}
+```
+
+**Responses:**
+
+- `200` — Successful Response
+
+```json
+{
+  "additionalProperties": {
+    "type": "string"
+  },
+  "title": "Response Upload Image Api Images Upload Post",
+  "type": "object"
+}
+```
+
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
+## `POST /api/images/fetch-from-url`
+
+**Summary:** Fetch Image From Url
+
+**Description:** Fetch an image from a public https URL server side and store it.
+
+The extension cannot read these bytes itself, so the server fetches them
+behind the same auth, authorization and validation as `/upload`.
+
+**Request body (`application/json`):**
+
+```json
+{
+  "description": "The source image URL the server should fetch, and what it is attached to.",
+  "properties": {
+    "entity_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional id of the entity being updated",
+      "title": "Entity Id"
+    },
+    "entity_type": {
+      "description": "Type of entity the image belongs to",
+      "title": "Entity Type",
+      "type": "string"
+    },
+    "source_url": {
+      "description": "https URL of the image to fetch and store",
+      "title": "Source Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_url",
+    "entity_type"
+  ],
+  "title": "FetchFromUrlRequest",
+  "type": "object"
+}
+```
+
+**Responses:**
+
+- `200` — Successful Response
+
+```json
+{
+  "additionalProperties": {
+    "type": "string"
+  },
+  "title": "Response Fetch Image From Url Api Images Fetch From Url Post",
+  "type": "object"
+}
+```
+
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
+
+## `POST /api/crawled-pages/scrape`
+
+**Summary:** Scrape Page From Extension
+
+**Description:** Parse a scraped product page into part fields the caller can review.
+
+**Request body (`application/json`):**
+
+```json
+{
+  "description": "A product page URL and its HTML, submitted by the browser extension.",
+  "properties": {
+    "html": {
+      "title": "Html",
+      "type": "string"
+    },
+    "url": {
+      "title": "Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "html"
+  ],
+  "title": "ScrapeRequest",
+  "type": "object"
+}
+```
+
+**Responses:**
+
+- `200` — Successful Response
+
+```json
+{
+  "description": "The part fields parsed out of a scraped product page.",
+  "properties": {
+    "adapter_used": {
+      "title": "Adapter Used",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Description"
+    },
+    "html_sha256": {
+      "default": "",
+      "title": "Html Sha256",
+      "type": "string"
+    },
+    "html_size_bytes": {
+      "default": 0,
+      "title": "Html Size Bytes",
+      "type": "integer"
+    },
+    "image_urls": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Image Urls",
+      "type": "array"
+    },
+    "inferred_category": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Inferred Category"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Name"
+    },
+    "part_manufacturer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Part Manufacturer"
+    },
+    "part_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Part Number"
+    },
+    "price": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Price"
+    },
+    "product_url": {
+      "title": "Product Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "product_url",
+    "adapter_used"
+  ],
+  "title": "ScrapeResponse",
+  "type": "object"
+}
+```
+
+- `413` — HTML payload exceeds the configured maximum UTF-8 byte size.
+
+```json
+{
+  "properties": {
+    "detail": {
+      "type": "string"
+    }
+  },
+  "type": "object"
+}
+```
+
+- `422` — Validation Error
+
+```json
+{
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+    }
+  },
+  "title": "HTTPValidationError",
+  "type": "object"
+}
+```
+
+
+---
