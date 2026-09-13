@@ -11,8 +11,7 @@ from urllib.parse import urlparse
 from pydantic import Field, model_validator
 from pydantic_settings import SettingsConfigDict
 from webbpulse.config import BaseServiceSettings
-
-from app.core.secrets import fetch_app_secrets
+from webbpulse.security import app_secrets
 
 SECRET_FIELDS = ("SECRET_KEY", "EXTENSION_API_KEY")
 
@@ -384,7 +383,7 @@ class Settings(BaseServiceSettings):
         arn = os.environ.get("APP_SECRETS_ARN", "") or self.APP_SECRETS_ARN
         if not arn:
             return ""
-        return fetch_app_secrets(arn).get(name, "")
+        return app_secrets(arn).get(name, "")
 
     @property
     def SECRET_KEY(self) -> str:

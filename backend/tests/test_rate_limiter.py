@@ -1,6 +1,6 @@
 """Tests for the rate limiting middleware and its exemption list.
 
-The limiter's own counting behaviour lives in `test_shared_rate_limiter.py`; what
+The limiter's own counting behaviour lives in `test_rate_limit_classes.py`; what
 this file pins is which paths reach it and what the middleware does with its answer.
 """
 
@@ -11,21 +11,18 @@ from typing import Any, Iterator, Mapping, Optional
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from webbpulse.ratelimit import RateLimitDecision
 
 import app.api.middleware.rate_limiter as rate_limiter_module
-import app.api.middleware.shared_rate_limiter as shared_rate_limiter_module
 from app.api.middleware.rate_limiter import (
-    is_rate_limit_exempt,
-    is_rate_limit_exempt_method,
-    rate_limit_middleware,
-    rate_limiting_enabled,
-)
-from app.api.middleware.shared_rate_limiter import (
     ADMIN_CLASS,
     AUTH_CLASS,
     DEFAULT_CLASS,
     GET_CLASS,
-    SharedRateLimiter,
+    build_rate_limit_middleware,
+    is_rate_limit_exempt,
+    is_rate_limit_exempt_method,
+    rate_limiting_enabled,
 )
 from app.main import app
 
@@ -40,42 +37,54 @@ class StubLimiter:
         self.request_class = request_class
         self.identities: list[str] = []
 
-    def check(self, identity: str) -> tuple[bool, Optional[int]]:
+    def check(self, identity: str, *, limit: int, window_seconds: int, now: Any = None) -> RateLimitDecision:
         """Count one call and report whether it should be rejected."""
         self.identities.append(identity)
-        if len(self.identities) <= self.allowed:
-            return False, None
-        return True, self.retry_after
+        allowed = len(self.identities) <= self.allowed
+        return RateLimitDecision(
+            allowed=allowed,
+            limit=limit,
+            remaining=max(limit - len(self.identities), 0),
+            reset_after=0 if allowed or self.retry_after is None else self.retry_after,
+            window_seconds=window_seconds,
+            limit_name=self.request_class,
+        )
 
-    @staticmethod
-    def client_key(identity: str) -> str:
-        """A stable handle for one caller, safe to log."""
-        return f"stub:{identity}"
+
+_CLASS_NAMES = (GET_CLASS, AUTH_CLASS, ADMIN_CLASS, DEFAULT_CLASS)
+
+
+def _namespaced(limiters: dict[str, Any]) -> dict[str, Any]:
+    """Key a per-class registry by the namespace the middleware looks it up under."""
+    return {f"RATE#{name}": limiter for name, limiter in limiters.items()}
 
 
 def _stub_registry(limiter: object) -> dict[str, Any]:
     """Install one stub limiter for every class, so any class routes to it."""
-    return {name: limiter for name in (GET_CLASS, AUTH_CLASS, ADMIN_CLASS, DEFAULT_CLASS)}
+    return {name: limiter for name in _CLASS_NAMES}
 
 
 @contextmanager
 def _limiters_enabled(limiters: dict[str, Any]) -> Iterator[None]:
-    """Enable rate limiting and install the given per-class limiters globally.
+    """Enable rate limiting and install the given per-class limiters.
 
     The suite disables limiting through both the environment and settings, so both
     are overridden.
     """
-    original = shared_rate_limiter_module.shared_rate_limiters
-    shared_rate_limiter_module.shared_rate_limiters = limiters  # type: ignore[assignment]
     with (
         unittest.mock.patch.dict(os.environ, {"ENABLE_RATE_LIMITING": "true"}),
         unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_RATE_LIMITING", True),
         unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_SHARED_RATE_LIMITING", True),
     ):
+        _INSTALLED.clear()
+        _INSTALLED.update(_namespaced(limiters))
         try:
             yield
         finally:
-            shared_rate_limiter_module.shared_rate_limiters = original
+            _INSTALLED.clear()
+
+
+_INSTALLED: dict[str, Any] = {}
 
 
 @contextmanager
@@ -116,15 +125,22 @@ class FakeRegistryTable:
         return {"Attributes": dict(item)}
 
 
-def _real_limiters(table: FakeRegistryTable) -> dict[str, SharedRateLimiter]:
+def _real_limiters(table: FakeRegistryTable) -> dict[str, Any]:
     """Real limiters at their configured caps, counting in a fake table."""
-    return shared_rate_limiter_module.build_limiters(table_client=table)
+    from webbpulse.ratelimit import RateLimiter
+
+    limiters = {}
+    for name in _CLASS_NAMES:
+        limiter = RateLimiter(namespace=f"RATE#{name}", anchor="first_request", count_attribute="requests")
+        limiter._table = table
+        limiters[name] = limiter
+    return limiters
 
 
 def _build_app() -> FastAPI:
     """A test app carrying one limited route and two exempt ones."""
     test_app = FastAPI()
-    test_app.middleware("http")(rate_limit_middleware)
+    test_app.middleware("http")(build_rate_limit_middleware(limiters=dict(_INSTALLED)))
 
     @test_app.get("/api/parts")
     def parts_endpoint() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
@@ -301,15 +317,15 @@ class TestRateLimitMiddlewareEnforcement:
     def test_the_limiter_is_not_consulted_when_limiting_is_disabled(self) -> None:
         """With limiting off the middleware passes every request straight through."""
         limiter = StubLimiter(allowed=0)
-        original = shared_rate_limiter_module.shared_rate_limiters
-        shared_rate_limiter_module.shared_rate_limiters = _stub_registry(limiter)
+        _INSTALLED.clear()
+        _INSTALLED.update(_namespaced(_stub_registry(limiter)))
         try:
             with unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_RATE_LIMITING", False):
                 client = TestClient(_build_app())
                 for _ in range(3):
                     assert client.get("/api/parts").status_code == 200
         finally:
-            shared_rate_limiter_module.shared_rate_limiters = original
+            _INSTALLED.clear()
 
         assert limiter.identities == []
 

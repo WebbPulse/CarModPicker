@@ -10,8 +10,8 @@ from typing import Any, Iterator
 from uuid import uuid4
 
 import pytest
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa, utils
+from cryptography.hazmat.primitives.asymmetric import rsa
+from webbpulse.testing import FakeKms
 
 from app.composition.identity_hooks import CarModPickerIdentityHooks
 from app.db.dynamo.users import User
@@ -52,39 +52,6 @@ COLLISIONS = (
     ("POST", "/api/auth/logout"),
     ("POST", "/api/auth/verify-email"),
 )
-
-
-class FakeKms:
-    """A KMS client for one key that signs the digest it is handed with a local private
-    key and returns the DER public key the kid is derived from.
-    """
-
-    def __init__(self, key: rsa.RSAPrivateKey) -> None:
-        """Hold the local private key this fake signs with."""
-        self._key = key
-
-    def get_public_key(self, *, KeyId: str) -> dict[str, Any]:
-        """Return the DER SubjectPublicKeyInfo for the key."""
-        from webbpulse.identity import KMS_SIGNING_ALGORITHM
-
-        return {
-            "KeyId": KeyId,
-            "PublicKey": self._key.public_key().public_bytes(
-                encoding=serialization.Encoding.DER,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            ),
-            "KeySpec": "RSA_2048",
-            "KeyUsage": "SIGN_VERIFY",
-            "SigningAlgorithms": [KMS_SIGNING_ALGORITHM],
-        }
-
-    def sign(self, *, KeyId: str, Message: bytes, MessageType: str, SigningAlgorithm: str) -> dict[str, Any]:
-        """Sign the digest without re-hashing it, which is what MessageType DIGEST means."""
-        return {
-            "KeyId": KeyId,
-            "Signature": self._key.sign(Message, padding.PKCS1v15(), utils.Prehashed(hashes.SHA256())),
-            "SigningAlgorithm": SigningAlgorithm,
-        }
 
 
 @pytest.fixture(scope="module")
