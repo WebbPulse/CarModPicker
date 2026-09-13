@@ -123,7 +123,7 @@ const PartsActiveFilterChips: React.FC<PartsActiveFilterChipsProps> = (
       {hasPriceRange && (
         <span className={filterChipClass}>
           {priceMin.trim() && priceMax.trim()
-            ? `$${priceMin.trim()} – $${priceMax.trim()}`
+            ? `$${priceMin.trim()} to $${priceMax.trim()}`
             : priceMin.trim()
               ? `Min $${priceMin.trim()}`
               : `Max $${priceMax.trim()}`}

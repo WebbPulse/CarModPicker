@@ -106,7 +106,7 @@ const fetchPriceSummaryRequestFn = ({
   });
 
 function formatCents(cents: number | null): string {
-  if (cents == null) return '—';
+  if (cents == null) return '-';
   return `$${(cents / 100).toFixed(2)}`;
 }
 
@@ -421,8 +421,8 @@ function ViewPart() {
             Viewing non-canonical duplicate (admin curation)
           </div>
           <div className="mt-1 text-xs text-warning/90">
-            This record is hidden from public browsing — the canonical drives
-            the surface page. Canonical:{' '}
+            This record is hidden from public browsing. The canonical drives the
+            surface page. Canonical:{' '}
             <Link
               to={`/admin/parts-curation?part=${part.canonical_part_id}`}
               className="underline hover:text-white font-mono"
@@ -729,7 +729,7 @@ function ViewPart() {
                     data-testid="price-summary-header"
                     className="text-sm text-gray-400 mb-3"
                   >
-                    {formatCents(summary.min_cents)}–
+                    {formatCents(summary.min_cents)}-
                     {formatCents(summary.max_cents)} across {retailers.length}{' '}
                     {retailers.length === 1 ? 'retailer' : 'retailers'}
                     {headerLastObserved && (

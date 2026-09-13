@@ -427,7 +427,7 @@ function UserManagement() {
                           Admin
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </td>
                     <td className="p-2">
@@ -436,7 +436,7 @@ function UserManagement() {
                           Superuser
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </td>
                     <td className="p-2">

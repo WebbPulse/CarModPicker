@@ -11,8 +11,8 @@ export function formatCarYearRange(
   startYear: number,
   endYear: number | null | undefined
 ): string {
-  if (endYear == null) return `${startYear}–present`;
-  return `${startYear}–${endYear}`;
+  if (endYear == null) return `${startYear}-present`;
+  return `${startYear}-${endYear}`;
 }
 
 /** Fills absent name and label fields so callers can render without null checks. */

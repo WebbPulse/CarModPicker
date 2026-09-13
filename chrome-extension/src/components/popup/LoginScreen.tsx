@@ -131,7 +131,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, sendMessage }) => {
         <div className="space-y-4">
           <p className="text-sm text-neutral-400 text-center">
             Sign in on the CarModPicker website using your password manager,
-            passkey, Google account, or 2FA — then come back here.
+            passkey, Google account, or 2FA, then come back here.
           </p>
           <button
             type="button"

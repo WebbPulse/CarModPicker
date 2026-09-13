@@ -43,7 +43,7 @@ const BUCKET_ENTITY_TYPE_ORDER = [
 ] as const;
 
 function formatStatCount(value: number | null): string {
-  return value?.toLocaleString() ?? '—';
+  return value?.toLocaleString() ?? '-';
 }
 
 /** Panel with a two column metric grid, so values align within the card. */
@@ -343,7 +343,7 @@ function SystemStatistics() {
         );
       } else if (staleApiRoutesNotice) {
         setCountsError(
-          'The API process looks out of date (new routes returned 404). Restart the backend so it loads the latest code—for example: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000. Until then, supplemental table counts stay empty.'
+          'The API process looks out of date (new routes returned 404). Restart the backend so it loads the latest code, for example: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000. Until then, supplemental table counts stay empty.'
         );
       } else {
         setCountsError(null);
@@ -643,7 +643,7 @@ function SystemStatistics() {
                     <span className="font-mono text-muted-foreground">
                       CRAWL_BUCKET
                     </span>{' '}
-                    (and AWS / LocalStack) to store archives in S3—then counts
+                    (and AWS / LocalStack) to store archives in S3, then counts
                     appear here (about two objects per archived page: .html +
                     .url).
                   </p>
