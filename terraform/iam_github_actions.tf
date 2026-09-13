@@ -96,9 +96,12 @@ locals {
   gate_policy_statements = [
     for statement in [
       {
-        sid       = "GateParameterRead"
-        actions   = ["ssm:GetParameter"]
-        resources = [one(module.staging_access_gate[*].origin_verify_ssm_parameter_arn)]
+        sid     = "GateParameterRead"
+        actions = ["ssm:GetParameter"]
+        resources = [
+          one(module.staging_access_gate[*].origin_verify_ssm_parameter_arn),
+          one(module.staging_access_gate[*].signing_key_ssm_parameter_arn),
+        ]
       },
       {
         sid       = "E2EDecryptGateParameter"
