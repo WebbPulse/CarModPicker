@@ -47,6 +47,8 @@ PACKAGE_PATHS = (
     ("GET", "/api/auth/passkeys/availability"),
 )
 
+PASS_THROUGH_PATHS = (("POST", "/events"),)
+
 COLLISIONS = (
     ("POST", "/api/auth/logout"),
     ("POST", "/api/auth/verify-email"),
@@ -782,8 +784,9 @@ def test_the_legacy_auth_surface_is_gone(identity_app: Any, monkeypatch: pytest.
 def test_the_mount_adds_exactly_the_package_routes_and_nothing_else(
     identity_app: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The mount adds exactly the new package routes plus the two extension routes,
-    pinned as a difference so unrelated additions elsewhere do not fail it.
+    """The mount adds exactly the new package routes plus the two extension routes and
+    the stream pass-through route, pinned as a difference so unrelated additions
+    elsewhere do not fail it.
     """
     from app.core.config import settings as app_settings
 
@@ -796,7 +799,24 @@ def test_the_mount_adds_exactly_the_package_routes_and_nothing_else(
 
     added = with_package - _pairs(build_app())
 
-    assert added == set(PACKAGE_PATHS) | set(EXTENSION_PATHS)
+    assert added == set(PACKAGE_PATHS) | set(EXTENSION_PATHS) | set(PASS_THROUGH_PATHS)
+
+
+def test_the_stream_pass_through_route_is_mounted_outside_the_issuer_prefix(
+    identity_app: Any,
+) -> None:
+    """The purge route the users table stream reaches sits at the adapter's pass-through
+    path, which is absolute and deliberately outside the issuer prefix.
+
+    Terraform sets `AWS_LWA_PASS_THROUGH_PATH` and `IDENTITY_EVENTS_PATH` to the same
+    value, so a route under `/api/auth` here would be one the adapter never posts to and
+    the purge would silently never run.
+    """
+    served = _pairs(identity_app)
+
+    for pair in PASS_THROUGH_PATHS:
+        assert pair in served
+        assert not pair[1].startswith("/api/auth")
 
 
 def test_the_settings_are_read_from_the_environment_and_not_passed_in(

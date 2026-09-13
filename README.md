@@ -24,6 +24,10 @@ docs/             Runbooks and reference notes
 
 **Prerequisites:** Python 3.13, Node 22+, Docker (DynamoDB Local and MinIO), and an AWS login that can mint a CodeArtifact token. Both the backend and the frontend depend on private `@webbpulse` packages, so see the CodeArtifact login steps in [CLAUDE.md](CLAUDE.md) before installing.
 
+### Shared package versions
+
+The shared `webbpulse` and `@webbpulse/*` packages float to the newest release at build time rather than sitting on an exact pin. The version recorded here is a floor, the minimum the code needs, and the range admits every later release below the next major. An exact pin is the explicit exception, used when a specific release has to be held, and it should say why. Every build log prints the versions that actually resolved, so the image and the bundle can always be traced back to a release.
+
 ### Backend
 
 ```bash
