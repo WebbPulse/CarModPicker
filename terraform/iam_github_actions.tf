@@ -93,24 +93,28 @@ locals {
 }
 
 locals {
-  gate_policy_statements = local.staging_gate_enabled ? [
-    {
-      sid       = "GateParameterRead"
-      actions   = ["ssm:GetParameter"]
-      resources = [module.staging_access_gate[0].origin_verify_ssm_parameter_arn]
-      condition = null
-    },
-    {
-      sid       = "E2EDecryptGateParameter"
-      actions   = ["kms:Decrypt"]
-      resources = ["*"]
-      condition = {
-        StringEquals = {
-          "kms:ViaService" = ["ssm.${var.aws_region}.amazonaws.com"]
+  gate_policy_statements = concat(
+    local.staging_gate_enabled ? [
+      {
+        sid       = "GateParameterRead"
+        actions   = ["ssm:GetParameter"]
+        resources = [module.staging_access_gate[0].origin_verify_ssm_parameter_arn]
+        condition = null
+      },
+    ] : [],
+    local.staging_gate_enabled ? [
+      {
+        sid       = "E2EDecryptGateParameter"
+        actions   = ["kms:Decrypt"]
+        resources = ["*"]
+        condition = {
+          StringEquals = {
+            "kms:ViaService" = ["ssm.${var.aws_region}.amazonaws.com"]
+          }
         }
-      }
-    },
-  ] : []
+      },
+    ] : [],
+  )
 
   e2e_signing_policy_statements = var.environment == "staging" ? [
     {
