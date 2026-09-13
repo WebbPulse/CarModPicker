@@ -123,7 +123,7 @@ cleanup. Steps needing the owner present are marked.
 | 10 | Second apply, `identity_jwt_mode = native` | **yes, apply** |
 | 11 | Verify the gateway authorizer | no |
 | 12 | Third apply, `domain_jwt_enforced = true` | **yes, apply** |
-| 13 | Soak, a full working day | no |
+| 13 | Removed by owner decision, 2026-09-13 | n/a |
 | 14 | Chrome extension, then clear the plaintext TOTP seed | **yes, one-way door** |
 | 15 | Dry run `clear_legacy_credentials.py` | **yes, gate** |
 | 16 | Apply `clear_legacy_credentials.py` | **yes, one-way door** |
@@ -700,27 +700,30 @@ decode of it fails and presents as a 401.
 move back and stay pointed at the same integrations throughout, so a request
 reaches the same function by the same route either way.
 
-## Step 13. Soak
+## Step 13. Removed
 
-A full working day, before anything irreversible.
+**Removed by owner decision on 2026-09-13.** This step was a full working day
+soak whose gate was a meaningful number of the 30 password users signing in.
+The owner is effectively the only active user, so that sign in count could never
+be met and the step would have blocked the rollout indefinitely. The owner
+accepted the UX risk in order to finish the promotion.
 
-    aws cloudwatch describe-alarms --state-value ALARM \
-      --query 'MetricAlarms[].AlarmName' --output text
-
-Expect empty. Watch the identity function's error rate and the gateway 4xx rate.
-
-Give the 174 users time to sign in on their own schedule. **A user who has not
-signed in since the cutover has not tested anything**, and the 30 password users
-are the ones whose migration this soak is really testing. Query the access log
-for distinct successful `/api/auth/login` callers over the day rather than
-inferring from the absence of complaints.
-
-**Gate:** no alarms, and a meaningful number of the 30 have signed in.
-**Owner:** not required, but the decision to end the soak is the owner's.
+The alarm check this step carried now runs as a one off precondition at the top
+of step 14. The heading stays so the later step numbers and every cross
+reference to them keep working.
 
 ## Step 14. Chrome extension, then clear the plaintext TOTP seed
 
 Owner decision.
+
+**Precondition, checked once rather than watched.** Step 12 has landed, the
+owner has signed in through the identity path in a browser, one authenticated
+write has succeeded, and the alarms are quiet:
+
+    aws cloudwatch describe-alarms --state-value ALARM \
+      --query 'MetricAlarms[].AlarmName' --output text
+
+Expect empty.
 
 The release is held behind a `production` environment variable. The gate in
 `.github/workflows/chrome-extension-deploy.yml` releases on a push only when
@@ -761,7 +764,8 @@ lever for installs on an older build.
 
 Owner present. **This is a one-way door.**
 
-Only after the soak, and only if step 5's `--verify` exited zero.
+Only after step 12 has landed and the owner's own sign in and one
+authenticated write succeed, and only if step 5's `--verify` exited zero.
 
     cd backend
     export AWS_PROFILE=CarModPicker-Production/AdministratorAccess AWS_REGION=us-west-2
@@ -810,9 +814,9 @@ Two gates, and both must hold before step 16 is even considered:
       to work.
 
 A `mismatch` is usually benign and has a known remedy: the identity login path
-opportunistically rehashes a credential, so a user who signed in during the soak
-can hold a credential whose bytes no longer match the legacy column. The fix is
-`migrate_credentials_to_identity.py --replace`, which rewrites only the
+opportunistically rehashes a credential, so a user who has signed in since the
+cutover can hold a credential whose bytes no longer match the legacy column.
+The fix is `migrate_credentials_to_identity.py --replace`, which rewrites only the
 credential rows it is pointed at. The script has no force or overwrite flag.
 
 **Owner:** yes, gate.
@@ -822,9 +826,10 @@ credential rows it is pointed at. The script has no force or overwrite flag.
 Owner present. **This is a one-way door**, on the same footing as the TOTP seed
 clear in step 14.
 
-Only after the soak, and only if step 5's `--verify` exited zero. Neither this
-repository nor Portfolio has run this script against production, so treat it as
-a first application and read the dry run output rather than skimming it.
+Only after step 12 has landed and the owner's own sign in and one
+authenticated write succeed, and only if step 5's `--verify` exited zero.
+Neither this repository nor Portfolio has run this script against production, so
+treat it as a first application and read the dry run output rather than skimming it.
 
     cd backend
     export AWS_PROFILE=CarModPicker-Production/AdministratorAccess AWS_REGION=us-west-2
@@ -833,7 +838,7 @@ a first application and read the dry run output rather than skimming it.
     python scripts/clear_legacy_credentials.py $P --apply
 
 The dry run is repeated immediately before the apply on purpose. Rows can change
-classification during a soak, for the rehash reason above, so the run that gates
+classification between runs, for the rehash reason above, so the run that gates
 the write should be the one taken minutes before it.
 
 If the apply refuses, nothing was written. Resolve the named rows, with

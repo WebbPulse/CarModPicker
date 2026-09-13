@@ -4,10 +4,10 @@
  * tests mount them unchanged over the real store to hold that.
  */
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { AuthStatus } from '@webbpulse/auth';
 import EmailVerifiedRoute from './EmailVerifiedRoute';
 import GuestRoute from './GuestRoute';
@@ -20,19 +20,37 @@ vi.mock('../ui/spinner', () => ({
   default: () => <div data-testid="spinner">loading</div>,
 }));
 
+/**
+ * A child that stamps a fresh number into state on every mount, so a test can
+ * tell a surviving element from a remounted replacement.
+ */
+function MountCounter({ label }: { label: string }) {
+  const [instance] = useState(() => {
+    mountCount += 1;
+    return mountCount;
+  });
+  return (
+    <div data-testid="counted" data-instance={instance}>
+      {label}
+    </div>
+  );
+}
+
+let mountCount = 0;
+
 function mountGuard(
   guard: ReactNode,
   session: { status: AuthStatus; user?: UserRead | null },
   initialPath = '/private'
 ) {
-  const { Wrapper } = authHarness(session);
-  return render(
+  const { Wrapper, stub } = authHarness(session);
+  const view = render(
     <Wrapper>
       <MemoryRouter initialEntries={[initialPath]}>
         <Routes>
           <Route element={guard}>
-            <Route path="/private" element={<div>private</div>} />
-            <Route path="/guest" element={<div>guest</div>} />
+            <Route path="/private" element={<MountCounter label="private" />} />
+            <Route path="/guest" element={<MountCounter label="guest" />} />
           </Route>
           <Route path="/login" element={<div>login page</div>} />
           <Route path="/verify-email" element={<div>verify page</div>} />
@@ -41,6 +59,7 @@ function mountGuard(
       </MemoryRouter>
     </Wrapper>
   );
+  return { ...view, stub };
 }
 
 describe('ProtectedRoute', () => {
@@ -57,6 +76,19 @@ describe('ProtectedRoute', () => {
   it('redirects a signed out user to login', () => {
     mountGuard(<ProtectedRoute />, { status: 'anonymous' });
     expect(screen.getByText('login page')).toBeInTheDocument();
+  });
+
+  it('keeps the page mounted when a later call goes back to loading', () => {
+    const { stub } = mountGuard(<ProtectedRoute />, {
+      status: 'authenticated',
+      user: mockUser,
+    });
+    const before = screen.getByTestId('counted');
+
+    act(() => stub.setState({ status: 'loading' }));
+
+    expect(screen.queryByTestId('spinner')).toBeNull();
+    expect(screen.getByTestId('counted')).toBe(before);
   });
 });
 
@@ -75,9 +107,43 @@ describe('GuestRoute', () => {
     expect(screen.getByText('home')).toBeInTheDocument();
   });
 
-  it('renders a spinner while a session call is in flight', () => {
+  it('renders a spinner while the first session call is in flight', () => {
     mountGuard(<GuestRoute />, { status: 'loading' }, '/guest');
     expect(screen.getByTestId('spinner')).toBeInTheDocument();
+  });
+
+  it('keeps the page mounted when a later call goes back to loading', () => {
+    const { stub } = mountGuard(
+      <GuestRoute />,
+      { status: 'anonymous' },
+      '/guest'
+    );
+    const before = screen.getByTestId('counted');
+    const instance = before.getAttribute('data-instance');
+
+    act(() => stub.setState({ status: 'loading' }));
+
+    expect(screen.queryByTestId('spinner')).toBeNull();
+    const after = screen.getByTestId('counted');
+    expect(after).toBe(before);
+    expect(after.getAttribute('data-instance')).toBe(instance);
+  });
+
+  it('still redirects a signed in user once the call settles', () => {
+    const { stub } = mountGuard(
+      <GuestRoute />,
+      { status: 'anonymous' },
+      '/guest'
+    );
+    act(() => stub.setState({ status: 'loading' }));
+    act(() =>
+      stub.setState({
+        status: 'authenticated',
+        user: mockUser,
+        hasAccessToken: true,
+      })
+    );
+    expect(screen.getByText('home')).toBeInTheDocument();
   });
 });
 
@@ -101,5 +167,18 @@ describe('EmailVerifiedRoute', () => {
   it('redirects a signed out user to login', () => {
     mountGuard(<EmailVerifiedRoute />, { status: 'anonymous' });
     expect(screen.getByText('login page')).toBeInTheDocument();
+  });
+
+  it('keeps the page mounted when a later call goes back to loading', () => {
+    const { stub } = mountGuard(<EmailVerifiedRoute />, {
+      status: 'authenticated',
+      user: mockUser,
+    });
+    const before = screen.getByTestId('counted');
+
+    act(() => stub.setState({ status: 'loading' }));
+
+    expect(screen.queryByTestId('spinner')).toBeNull();
+    expect(screen.getByTestId('counted')).toBe(before);
   });
 });
