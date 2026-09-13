@@ -1,0 +1,184 @@
+name: End-to-end
+
+on:
+  workflow_run:
+    workflows: ["Deploy Backend", "Frontend Deploy"]
+    types: [completed]
+    branches: [main, staging]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to run against"
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Decide whether this run owns the suite
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      sha: ${{ steps.decide.outputs.sha }}
+      environment: ${{ steps.decide.outputs.environment }}
+    steps:
+      - name: Wait for the sibling deploy on this commit, then claim the run
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          THIS_WORKFLOW: ${{ github.event.workflow_run.name }}
+          DISPATCH_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            echo "environment=${DISPATCH_ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$HEAD_BRANCH" = "main" ]; then
+            ENVIRONMENT=production
+          else
+            ENVIRONMENT=staging
+          fi
+          echo "sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+          echo "environment=${ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+
+          if [ "$THIS_WORKFLOW" = "Deploy Backend" ]; then
+            SIBLING="Frontend Deploy"
+          else
+            SIBLING="Deploy Backend"
+          fi
+
+          for ATTEMPT in $(seq 1 60); do
+            RUNS=$(gh api "repos/${REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&per_page=100" \
+              --jq "[.workflow_runs[] | select(.name == \"${SIBLING}\")]")
+            COUNT=$(echo "$RUNS" | jq 'length')
+
+            if [ "$COUNT" -eq 0 ]; then
+              echo "No ${SIBLING} run exists for ${HEAD_SHA}; this commit did not touch it."
+              echo "run=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            PENDING=$(echo "$RUNS" | jq '[.[] | select(.status != "completed")] | length')
+            if [ "$PENDING" -gt 0 ]; then
+              echo "Waiting for ${SIBLING} on ${HEAD_SHA} (attempt ${ATTEMPT}/60)."
+              sleep 30
+              continue
+            fi
+
+            SUCCEEDED=$(echo "$RUNS" | jq '[.[] | select(.conclusion == "success")] | length')
+            if [ "$SUCCEEDED" -eq 0 ]; then
+              echo "${SIBLING} did not succeed on ${HEAD_SHA}; the suite has nothing sound to run against."
+              echo "run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            if [ "$THIS_WORKFLOW" = "Deploy Backend" ]; then
+              echo "Both deploys are green and this is the backend run, which owns the suite."
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Both deploys are green and the backend run owns the suite, so this one yields."
+              echo "run=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          done
+
+          echo "${SIBLING} did not finish within 30 minutes."
+          echo "run=false" >> "$GITHUB_OUTPUT"
+
+  resolve-env:
+    name: Resolve the environment values
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.gate.outputs.environment }}
+    permissions: {}
+    outputs:
+      api-base-url: ${{ vars.E2E_API_BASE_URL }}
+      web-base-url: ${{ vars.E2E_WEB_BASE_URL }}
+      api-id: ${{ vars.E2E_API_ID }}
+      access-log-group: ${{ vars.E2E_ACCESS_LOG_GROUP }}
+      gate-ssm-parameter: ${{ vars.E2E_GATE_SSM_PARAMETER }}
+      user-email: ${{ vars.E2E_USER_EMAIL }}
+      kms-key-id: ${{ vars.E2E_KMS_KEY_ID }}
+      issuer: ${{ vars.E2E_ISSUER }}
+      audience: ${{ vars.E2E_AUDIENCE }}
+      role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      codeartifact-domain-owner: ${{ vars.CODEARTIFACT_DOMAIN_OWNER }}
+    steps:
+      - name: Check the required environment variables are set
+        env:
+          API_BASE_URL: ${{ vars.E2E_API_BASE_URL }}
+          WEB_BASE_URL: ${{ vars.E2E_WEB_BASE_URL }}
+          API_ID: ${{ vars.E2E_API_ID }}
+          ACCESS_LOG_GROUP: ${{ vars.E2E_ACCESS_LOG_GROUP }}
+          USER_EMAIL: ${{ vars.E2E_USER_EMAIL }}
+          ROLE_TO_ASSUME: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          ENVIRONMENT: ${{ needs.gate.outputs.environment }}
+        run: |
+          set -euo pipefail
+          MISSING=""
+          for NAME in API_BASE_URL WEB_BASE_URL API_ID ACCESS_LOG_GROUP USER_EMAIL ROLE_TO_ASSUME; do
+            if [ -z "${!NAME}" ]; then
+              MISSING="${MISSING} ${NAME}"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "These values are unset on the ${ENVIRONMENT} environment:${MISSING}"
+            exit 1
+          fi
+          echo "Every required value is set on the ${ENVIRONMENT} environment."
+
+  e2e:
+    name: Suite
+    needs: [gate, resolve-env]
+    permissions:
+      contents: read
+      id-token: write
+      checks: write
+    uses: WebbPulse/.github/.github/workflows/e2e.yml@v3
+    with:
+      environment: ${{ needs.gate.outputs.environment }}
+      sha: ${{ needs.gate.outputs.sha }}
+      api-base-url: ${{ needs.resolve-env.outputs.api-base-url }}
+      web-base-url: ${{ needs.resolve-env.outputs.web-base-url }}
+      aws-region: us-west-2
+      api-id: ${{ needs.resolve-env.outputs.api-id }}
+      access-log-group: ${{ needs.resolve-env.outputs.access-log-group }}
+      gate-ssm-parameter: ${{ needs.gate.outputs.environment == 'production' && '' || needs.resolve-env.outputs.gate-ssm-parameter }}
+      user-email: ${{ needs.resolve-env.outputs.user-email }}
+      working-directory: backend
+      install-command: uv sync --locked --group e2e
+      pytest-args: "--no-cov"
+      legacy-route-names: "/api/auth/token,/api/auth/webauthn,/api/auth/2fa,/api/auth/reset-password,/auth/token,/auth/webauthn,/auth/2fa,/auth/reset-password"
+      mint-enabled: ${{ needs.gate.outputs.environment == 'staging' }}
+      kms-key-id: ${{ needs.gate.outputs.environment == 'staging' && needs.resolve-env.outputs.kms-key-id || '' }}
+      issuer: ${{ needs.resolve-env.outputs.issuer }}
+      audience: ${{ needs.resolve-env.outputs.audience }}
+      codeartifact-domain: webbpulse
+      codeartifact-index: codeartifact
+    secrets:
+      role-to-assume: ${{ needs.resolve-env.outputs.role-to-assume }}
+      e2e-user-password: ${{ secrets.E2E_USER_PASSWORD }}
+      codeartifact-domain-owner: ${{ needs.resolve-env.outputs.codeartifact-domain-owner }}

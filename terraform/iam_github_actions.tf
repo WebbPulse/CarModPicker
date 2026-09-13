@@ -92,6 +92,36 @@ locals {
   ])
 }
 
+locals {
+  gate_policy_statements = local.staging_gate_enabled ? [
+    {
+      sid       = "GateParameterRead"
+      actions   = ["ssm:GetParameter"]
+      resources = [module.staging_access_gate[0].origin_verify_ssm_parameter_arn]
+      condition = null
+    },
+    {
+      sid       = "E2EDecryptGateParameter"
+      actions   = ["kms:Decrypt"]
+      resources = ["*"]
+      condition = {
+        StringEquals = {
+          "kms:ViaService" = ["ssm.${var.aws_region}.amazonaws.com"]
+        }
+      }
+    },
+  ] : []
+
+  e2e_signing_policy_statements = var.environment == "staging" ? [
+    {
+      sid       = "E2EMintStagingIdentityToken"
+      actions   = ["kms:Sign", "kms:GetPublicKey"]
+      resources = local.identity_signing_key_arns
+      condition = null
+    },
+  ] : []
+}
+
 module "github_actions_role" {
   source  = "app.terraform.io/WebbPulse/platform-modules/aws//modules/github-actions-role"
   version = "~> 1.1"
@@ -123,6 +153,14 @@ module "github_actions_role" {
         resources = ["arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/apigateway/${local.prefix}-api:*"]
       },
       {
+        sid     = "E2EReadGatewayRoutes"
+        actions = ["apigateway:GET"]
+        resources = [
+          "arn:aws:apigateway:${var.aws_region}::/apis/${module.api.api_id}",
+          "arn:aws:apigateway:${var.aws_region}::/apis/${module.api.api_id}/*",
+        ]
+      },
+      {
         actions = [
           "s3:PutObject",
           "s3:GetObject",
@@ -142,12 +180,8 @@ module "github_actions_role" {
         resources = [module.frontend.distribution_arn]
       },
     ],
-    local.staging_gate_enabled ? [
-      {
-        actions   = ["ssm:GetParameter"]
-        resources = [module.staging_access_gate[0].origin_verify_ssm_parameter_arn]
-      },
-    ] : [],
+    local.gate_policy_statements,
+    local.e2e_signing_policy_statements,
     local.shared_registry_policy_statements,
   )
 }
