@@ -21,7 +21,10 @@ import type { UserRead } from '../../types/Api';
 export interface StubAuthClient {
   /** Passed to the package provider in place of a real client. */
   client: AnyAuthClient;
-  /** Replaces the state and notifies every subscriber, as the real store does. */
+  /**
+   * Replaces the state and notifies every subscriber, as the real store does,
+   * latching `settled` on the first settled status the way `AuthClient` does.
+   */
   setState: (patch: Partial<AuthState<UserRead>>) => void;
   /** Moves the store to `anonymous`, as a failed refresh or a logout does. */
   endSession: () => void;
@@ -35,19 +38,26 @@ export interface StubAuthClient {
 export function createStubAuthClient(
   initial: Partial<AuthState<UserRead>> = {}
 ): StubAuthClient {
-  let state: AuthState<UserRead> = {
+  const latch = (next: AuthState<UserRead>): AuthState<UserRead> =>
+    next.settled ||
+    !(next.status === 'authenticated' || next.status === 'anonymous')
+      ? next
+      : { ...next, settled: true };
+
+  let state: AuthState<UserRead> = latch({
     status: 'unknown',
     user: null,
     hasAccessToken: false,
     error: null,
     sessionEnded: null,
     pendingMfa: null,
+    settled: false,
     ...initial,
-  };
+  });
   const listeners = new Set<(next: AuthState<UserRead>) => void>();
 
   const setState = (patch: Partial<AuthState<UserRead>>): void => {
-    state = { ...state, ...patch };
+    state = latch({ ...state, ...patch });
     for (const listener of [...listeners]) listener(state);
   };
 

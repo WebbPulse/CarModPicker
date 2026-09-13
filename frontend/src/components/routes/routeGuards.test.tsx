@@ -1,7 +1,10 @@
 /**
- * The three session guards read `{ isAuthenticated, isLoading }` (and `user`),
- * so adopting the `@webbpulse/auth` provider should leave them untouched. These
- * tests mount them unchanged over the real store to hold that.
+ * The three session guards read `{ isAuthenticated, isLoading }` (and `user`,
+ * and `isBusy` in GuestRoute) from the `@webbpulse/auth` store. `isLoading` is
+ * true only until the session first settles, so it gates the spinner, and
+ * `isAuthenticated` holds through an in-flight call on a live session, so the
+ * redirect does not fire on the loading status a token call passes through.
+ * These tests mount the guards over the real store to hold both halves.
  */
 
 import { act, render, screen } from '@testing-library/react';
@@ -89,6 +92,18 @@ describe('ProtectedRoute', () => {
 
     expect(screen.queryByTestId('spinner')).toBeNull();
     expect(screen.getByTestId('counted')).toBe(before);
+  });
+
+  it('does not redirect on the anonymous status a token call passes through', () => {
+    const { stub } = mountGuard(<ProtectedRoute />, {
+      status: 'authenticated',
+      user: mockUser,
+    });
+
+    act(() => stub.setState({ status: 'loading' }));
+
+    expect(screen.queryByText('login page')).toBeNull();
+    expect(screen.getByTestId('counted')).toBeInTheDocument();
   });
 });
 
