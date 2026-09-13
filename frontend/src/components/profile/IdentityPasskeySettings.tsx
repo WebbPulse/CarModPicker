@@ -10,6 +10,12 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import Spinner from '../ui/spinner';
 import {
+  PASSKEY_AVAILABILITY_PATH,
+  identityUrl,
+  passkeyEnrolmentAvailability,
+  type Availability,
+} from '../../api/identityClient';
+import {
   deletePasskey,
   enrolPasskey,
   listPasskeys,
@@ -30,6 +36,7 @@ const formatDate = (value: string | undefined): string => {
 
 function IdentityPasskeySettings() {
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
+  const [availability, setAvailability] = useState<Availability>('unknown');
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState('');
@@ -51,7 +58,23 @@ function IdentityPasskeySettings() {
   }, []);
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    const start = async () => {
+      const enabled = await passkeyEnrolmentAvailability(
+        identityUrl(PASSKEY_AVAILABILITY_PATH)
+      );
+      if (cancelled) return;
+      setAvailability(enabled);
+      if (enabled === 'unavailable') {
+        setIsLoading(false);
+        return;
+      }
+      await load();
+    };
+    void start();
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   const handleAdd = async () => {
@@ -125,6 +148,19 @@ function IdentityPasskeySettings() {
     return (
       <div className="flex justify-center py-8">
         <Spinner />
+      </div>
+    );
+  }
+
+  if (availability === 'unavailable') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-white">Passkeys</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Passkeys are not available in this deployment.
+        </p>
       </div>
     );
   }
