@@ -250,14 +250,19 @@ describe('the TOTP step', () => {
       challenge: { kind: 'identity-ticket', ticket: 'tick-1', factors: [] },
     };
     await renderLogin();
-    fireEvent.change(screen.getByPlaceholderText(/enter your username/i), {
-      target: { value: 'me' },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your username or email/i),
+      {
+        target: { value: 'me' },
+      }
+    );
     fireEvent.change(screen.getByPlaceholderText(/enter your password/i), {
       target: { value: 'pw' },
     });
     fireEvent.submit(
-      screen.getByPlaceholderText(/enter your username/i).closest('form')!
+      screen
+        .getByPlaceholderText(/enter your username or email/i)
+        .closest('form')!
     );
 
     await waitFor(() => {
@@ -282,14 +287,19 @@ describe('the TOTP step', () => {
       challenge: { kind: 'identity-ticket', ticket: 'tick-1', factors: [] },
     };
     await renderLogin();
-    fireEvent.change(screen.getByPlaceholderText(/enter your username/i), {
-      target: { value: 'me' },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your username or email/i),
+      {
+        target: { value: 'me' },
+      }
+    );
     fireEvent.change(screen.getByPlaceholderText(/enter your password/i), {
       target: { value: 'pw' },
     });
     fireEvent.submit(
-      screen.getByPlaceholderText(/enter your username/i).closest('form')!
+      screen
+        .getByPlaceholderText(/enter your username or email/i)
+        .closest('form')!
     );
     await waitFor(() => {
       expect(screen.getByText(/two-factor authentication/i)).toBeTruthy();

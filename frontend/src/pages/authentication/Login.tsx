@@ -192,7 +192,7 @@ function Login() {
                     htmlFor="username"
                     className="block text-sm font-medium text-foreground mb-2"
                   >
-                    Username
+                    Username or email
                   </label>
                   <div className="relative">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -206,7 +206,7 @@ function Login() {
                       required
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter your username"
+                      placeholder="Enter your username or email"
                       disabled={isLoading}
                       className="pl-10"
                     />
