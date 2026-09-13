@@ -125,7 +125,7 @@ Browser / Chrome Extension
 - **`api/utils/`** — Shared patterns: `BaseDynamoEndpointRouter` (generic CRUD router over `BaseDynamoCRUDService`), `EndpointRegistry` (standardized router registration), pagination, authorization, subscription checks.
 - **`core/`** — Config, logging, email templates (React Email HTML, sent via SES), car/category seed data.
 
-**Auth:** JWT (HS256, configurable expiry 15 min–7 days per user preference) + bcrypt passwords + optional TOTP 2FA. Requires email verification before login is allowed. Email sent via AWS SES with IAM role auth.
+**Auth:** `/api/auth` is served entirely by the `webbpulse.identity` package on the `identity` function, which signs RS256 in KMS and so carries no `SECRET_KEY`. The HS256 path in `api/dependencies/auth.py` (`JWT_ALGORITHM`, default `HS256`, signed with `SECRET_KEY`) is what the other domains still verify with; expiry is configurable 15 min to 7 days per user preference. bcrypt passwords, optional TOTP 2FA and WebAuthn. Requires email verification before login is allowed. Email sent via AWS SES with IAM role auth.
 
 **Images:** Uploaded to S3 (`carmodpicker-prod-user-images`, private) via boto3; presigned URLs used for serving. Pillow used for processing.
 
