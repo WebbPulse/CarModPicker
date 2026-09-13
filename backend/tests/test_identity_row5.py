@@ -366,6 +366,58 @@ def test_load_user_by_email_answers_none_for_an_unknown_username(
     assert hooks.load_user_by_email("nobody") is None
 
 
+def test_load_user_by_email_falls_back_to_the_username_index_for_a_value_with_an_at(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """Two production accounts have a username that is itself an address.
+
+    A value containing `@` that matches no row on the email index is still a
+    real username, so the lookup has to try the username index as well rather
+    than treating the `@` as proof the value was an address.
+    """
+    created = hooks.create_user(
+        email="mailbox@example.com",
+        attributes={"username": "someone@elsewhere.test"},
+    )
+
+    loaded = hooks.load_user_by_email("someone@elsewhere.test")
+
+    assert loaded is not None
+    assert loaded["id"] == created["id"]
+
+
+def test_load_user_by_email_prefers_the_email_index_for_a_value_with_an_at(
+    hooks: CarModPickerIdentityHooks,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An address that matches on the email index never reaches the username index.
+
+    The fallback is a second query, so this pins it as a fallback rather than a
+    pair of lookups every login pays for.
+    """
+    from app.db.dynamo.users import UserRepository
+
+    created = hooks.create_user(email="preferred@example.com", attributes={"username": "preferred"})
+
+    def refuse(self: UserRepository, username: str) -> None:
+        """Fail the test if the username index is consulted."""
+        raise AssertionError(f"the username index was queried for {username!r}")
+
+    monkeypatch.setattr(UserRepository, "get_by_username", refuse)
+
+    loaded = hooks.load_user_by_email("preferred@example.com")
+
+    assert loaded is not None
+    assert loaded["id"] == created["id"]
+
+
+def test_load_user_by_email_answers_none_for_an_unknown_value_with_an_at(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A value with an `@` that matches neither index answers None."""
+    assert hooks.load_user_by_email("nobody@nowhere.test") is None
+
+
 def test_create_user_derives_a_username_from_the_address(
     hooks: CarModPickerIdentityHooks,
 ) -> None:

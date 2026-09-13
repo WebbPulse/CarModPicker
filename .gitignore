@@ -69,6 +69,10 @@ ENV/
 .venv/
 .venv
 
+# uv lockfile. The backend installs from requirements.txt, so a uv.lock left
+# behind by `uv run` is a local artifact and not the lockfile authority.
+backend/uv.lock
+
 # Testing and coverage
 coverage.xml
 .coverage
