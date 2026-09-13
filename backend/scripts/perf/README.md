@@ -1,6 +1,6 @@
 # Price-history perf gate
 
-Falsifiable check that says **"query-time aggregation is fast enough — don't open R036 (materialized `part_price_summary`)."** If the gate misses, R036 opens per [D004](../../../.gsd/DECISIONS.md). This is the perf bar promised by [R019](../../../.gsd/REQUIREMENTS.md).
+Falsifiable check that says **"query-time aggregation is fast enough, don't open R036 (materialized `part_price_summary`)."** If the gate misses, R036 opens per [D004](../../../.gsd/DECISIONS.md). This is the perf bar promised by [R019](../../../.gsd/REQUIREMENTS.md).
 
 ## What it tests
 
@@ -9,7 +9,7 @@ Two read endpoints landed in M002/S05:
 | Endpoint | Method | p95 budget | Notes |
 | --- | --- | --- | --- |
 | `/api/parts/{id}/price-history?window=90d` | GET | < 200 ms | Single-part aggregate; sparkline render path |
-| `/api/parts/price-history` | POST | < 500 ms | Batch (1–100 IDs); page-load summary. Requires an API key or an admin token — set `PERF_API_KEY` or `PERF_BEARER_TOKEN` |
+| `/api/parts/price-history` | POST | < 500 ms | Batch (1–100 IDs); page-load summary. Requires an API key or an admin token: set `PERF_API_KEY` or `PERF_BEARER_TOKEN` |
 
 Plus: error rate must equal **0** across both endpoints.
 
@@ -29,7 +29,7 @@ secret's key of that name; locally, whatever you set in `backend/.env`):
 export PERF_API_KEY='<the environment EXTENSION_API_KEY>'
 ```
 
-Failing that, mint a token for an **admin** user — an ordinary user's token is
+Failing that, mint a token for an **admin** user. An ordinary user's token is
 403 on this route:
 
 ```bash
@@ -70,7 +70,7 @@ Open R036 in `.gsd/REQUIREMENTS.md`, file the follow-up slice, and reference the
 
 ## Where evidence lives
 
-`backend/.perf-runs/` is the single canonical location for perf-gate output. The directory is gitignored — files are transient and regenerated each run. The most recent file (`ls -lt backend/.perf-runs/`) is what S13 milestone verification re-reads.
+`backend/.perf-runs/` is the single canonical location for perf-gate output. The directory is gitignored: files are transient and regenerated each run. The most recent file (`ls -lt backend/.perf-runs/`) is what S13 milestone verification re-reads.
 
 ```bash
 ls -lt backend/.perf-runs/                                    # most recent first
@@ -98,8 +98,8 @@ PERF_GATE_TEST=true TESTING=true pytest backend/tests/test_perf_gate_script.py
 
 | Code | Meaning |
 | --- | --- |
-| 0 | PASS — all p95 budgets met, zero failures |
-| 1 | FAIL — assertion missed (FAILED.json written; open R036) |
+| 0 | PASS, all p95 budgets met, zero failures |
+| 1 | FAIL, assertion missed (FAILED.json written; open R036) |
 | 2 | locust process exited non-zero |
 | 3 | CSV malformed |
 | 4 | CSV file missing |
@@ -108,7 +108,7 @@ PERF_GATE_TEST=true TESTING=true pytest backend/tests/test_perf_gate_script.py
 
 ## Cross-references
 
-- [D004 — query-time aggregation with explicit perf gate](../../../.gsd/DECISIONS.md)
-- [R019 — perf gate requirement](../../../.gsd/REQUIREMENTS.md)
-- [R036 — materialized `part_price_summary` follow-up (opens on FAIL)](../../../.gsd/REQUIREMENTS.md)
+- [D004, query-time aggregation with explicit perf gate](../../../.gsd/DECISIONS.md)
+- [R019, perf gate requirement](../../../.gsd/REQUIREMENTS.md)
+- [R036, materialized `part_price_summary` follow-up (opens on FAIL)](../../../.gsd/REQUIREMENTS.md)
 - Slice plan: `.gsd/milestones/M002/slices/S05/S05-PLAN.md`

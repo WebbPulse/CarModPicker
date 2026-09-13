@@ -120,22 +120,18 @@ async function apiRequest<T>(
     const data = (await response.json().catch(() => ({}))) as unknown;
 
     if (!response.ok) {
-      const errorBody = (data ?? {}) as { detail?: unknown };
-      const rawDetail = errorBody.detail;
-      let errorMessage: string;
-      let errorData: Record<string, unknown> | undefined;
-      if (typeof rawDetail === "string") {
-        errorMessage = rawDetail;
-      } else if (rawDetail && typeof rawDetail === "object") {
-        errorData = rawDetail as Record<string, unknown>;
-        errorMessage =
-          (typeof errorData["message"] === "string"
-            ? (errorData["message"] as string)
-            : undefined) ??
-          `HTTP ${response.status}: ${response.statusText}`;
-      } else {
-        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-      }
+      const errorBody = (data ?? {}) as {
+        message?: unknown;
+        details?: unknown;
+      };
+      const errorMessage =
+        typeof errorBody.message === "string" && errorBody.message !== ""
+          ? errorBody.message
+          : `HTTP ${response.status}: ${response.statusText}`;
+      const errorData =
+        errorBody.details && typeof errorBody.details === "object"
+          ? (errorBody.details as Record<string, unknown>)
+          : undefined;
       const failure: ApiResponse<T> = {
         success: false,
         error: errorMessage,

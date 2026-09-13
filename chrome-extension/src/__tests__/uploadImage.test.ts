@@ -82,7 +82,13 @@ describe("uploadImage", () => {
     globalThis.fetch = vi.fn(async (url: any, init?: any) => {
       calls.push({ url: String(url), init });
       if (String(url).includes("/images/by-source-url")) {
-        return new Response(JSON.stringify({ detail: "not cached" }), {
+        return new Response(JSON.stringify({
+            success: false,
+            status: 404,
+            message: "not cached",
+            request_id: "test-request-id",
+            error_code: "NOT_FOUND",
+          }), {
           status: 404,
           headers: { "Content-Type": "application/json" },
         });
@@ -141,7 +147,13 @@ describe("uploadImage", () => {
   it("surfaces a server side rejection as a failed response", async () => {
     globalThis.fetch = vi.fn(async (url: any) => {
       if (String(url).includes("/images/by-source-url")) {
-        return new Response(JSON.stringify({ detail: "not cached" }), { status: 404 });
+        return new Response(JSON.stringify({
+            success: false,
+            status: 404,
+            message: "not cached",
+            request_id: "test-request-id",
+            error_code: "NOT_FOUND",
+          }), { status: 404 });
       }
       return new Response(
         JSON.stringify({ message: "Image URL resolves to a disallowed address" }),
@@ -161,7 +173,13 @@ describe("uploadImage", () => {
     let body: any = null;
     globalThis.fetch = vi.fn(async (url: any, init?: any) => {
       if (String(url).includes("/images/by-source-url")) {
-        return new Response(JSON.stringify({ detail: "not cached" }), { status: 404 });
+        return new Response(JSON.stringify({
+            success: false,
+            status: 404,
+            message: "not cached",
+            request_id: "test-request-id",
+            error_code: "NOT_FOUND",
+          }), { status: 404 });
       }
       body = JSON.parse(String(init?.body));
       return new Response(JSON.stringify({ file_key: "part/x/img.jpg" }), {
