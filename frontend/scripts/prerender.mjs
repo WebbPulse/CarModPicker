@@ -58,13 +58,15 @@ function serveDist(port) {
   return new Promise((resolvePromise) => {
     const server = createServer(async (req, res) => {
       const path = (req.url || '/').split('?')[0];
-      const fileCandidate =
-        path === '/' ? '/index.html' : path;
+      const fileCandidate = path === '/' ? '/index.html' : path;
       const filePath = join(DIST, fileCandidate);
 
       try {
         const body = await readFile(filePath);
-        res.setHeader('Content-Type', MIME[extname(filePath)] ?? 'application/octet-stream');
+        res.setHeader(
+          'Content-Type',
+          MIME[extname(filePath)] ?? 'application/octet-stream'
+        );
         res.end(body);
       } catch {
         // SPA fallback — same behavior as CloudFront 403/404 → /index.html.
@@ -77,6 +79,51 @@ function serveDist(port) {
   });
 }
 
+// Vite's dynamic-import preload helper injects <link rel="modulepreload"> at
+// runtime, resolved against the page origin — which here is the throwaway
+// 127.0.0.1 server. Those elements were never in the built template, so drop
+// them before snapshotting rather than baking localhost URLs into deployed HTML.
+async function stripRuntimePreloads(page) {
+  return page.evaluate(() => {
+    let removed = 0;
+    for (const link of document.querySelectorAll('link[rel="modulepreload"]')) {
+      if (link.dataset.prerenderTemplate === undefined) {
+        link.remove();
+        removed += 1;
+      } else {
+        delete link.dataset.prerenderTemplate;
+      }
+    }
+    return removed;
+  });
+}
+
+// Marks the template's own modulepreload links, before the module graph runs,
+// so the runtime-injected ones can be told apart.
+async function markTemplatePreloads(page) {
+  await page.evaluateOnNewDocument(() => {
+    const mark = () => {
+      for (const link of document.querySelectorAll(
+        'link[rel="modulepreload"]'
+      )) {
+        link.dataset.prerenderTemplate = '';
+      }
+    };
+    mark();
+    document.addEventListener('readystatechange', mark, { once: true });
+  });
+}
+
+// Last line of defence: any surviving absolute reference to the throwaway
+// origin becomes root-relative, which is what the deployed site serves from.
+function rewriteBaseUrl(html, baseUrl) {
+  return html
+    .split(baseUrl + '/')
+    .join('/')
+    .split(baseUrl)
+    .join('/');
+}
+
 async function snapshotRoute(page, baseUrl, route) {
   const url = baseUrl + route;
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -87,7 +134,18 @@ async function snapshotRoute(page, baseUrl, route) {
   // many seconds. 1.5s is plenty for the synchronous content we care about.
   await new Promise((r) => setTimeout(r, 1500));
 
-  const html = await page.evaluate(() => '<!doctype html>\n' + document.documentElement.outerHTML);
+  await stripRuntimePreloads(page);
+
+  const raw = await page.evaluate(
+    () => '<!doctype html>\n' + document.documentElement.outerHTML
+  );
+  const html = rewriteBaseUrl(raw, baseUrl);
+
+  if (html.includes('127.0.0.1') || html.includes('localhost')) {
+    throw new Error(
+      `prerendered ${route} still references a local origin after cleanup`
+    );
+  }
 
   const outPath =
     route === '/'
@@ -117,6 +175,7 @@ async function main() {
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(30_000);
+    await markTemplatePreloads(page);
     // Silence failed API calls so they don't pollute build logs.
     await page.setRequestInterception(true);
     page.on('request', (req) => {
@@ -132,7 +191,9 @@ async function main() {
 
     for (const route of ROUTES) {
       const out = await snapshotRoute(page, baseUrl, route);
-      console.log(`  prerendered ${route.padEnd(22)} → ${out.replace(DIST, 'dist')}`);
+      console.log(
+        `  prerendered ${route.padEnd(22)} → ${out.replace(DIST, 'dist')}`
+      );
     }
   } finally {
     await browser.close();
@@ -140,7 +201,9 @@ async function main() {
   }
 
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-  console.log(`\n✓ prerender complete (${ROUTES.length} routes in ${elapsed}s)`);
+  console.log(
+    `\n✓ prerender complete (${ROUTES.length} routes in ${elapsed}s)`
+  );
 }
 
 main().catch((err) => {
