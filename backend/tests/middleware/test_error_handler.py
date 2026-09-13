@@ -10,9 +10,9 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from webbpulse.dynamodb import ConditionFailed, ItemNotFound, TransactionCanceled
+from webbpulse.http import RequestIdMiddleware
 
 from app.api.middleware.error_handler import register_error_handlers
-from app.api.middleware.request_context import request_context_middleware
 
 ENVELOPE_KEYS = {"success", "status", "message", "request_id"}
 
@@ -28,7 +28,7 @@ class _Payload(BaseModel):
 def envelope_app() -> TestClient:
     """A minimal app carrying the same middleware and handlers the real one does."""
     app = FastAPI()
-    app.middleware("http")(request_context_middleware)
+    app.add_middleware(RequestIdMiddleware)
     register_error_handlers(app)
 
     @app.get("/boom-4xx")

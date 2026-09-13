@@ -3,7 +3,7 @@ name = "carmodpicker-backend"
 version = "0"
 requires-python = ">=3.13"
 dependencies = [
-  "webbpulse[fastapi,otel,dynamodb,aws-otel,security,identity,oauth,passkeys]>=0.28.1,<1",
+  "webbpulse[fastapi,otel,dynamodb,aws-otel,security,identity,oauth,passkeys]>=0.29.0,<1",
   "fastapi>=0.141.1",
   "pydantic[email]>=2.13.5",
   "pydantic-settings>=2.15.0",
@@ -62,11 +62,6 @@ explicit = true
 
 [tool.uv.sources]
 webbpulse = { index = "codeartifact" }
-
-[tool.webbpulse.ci]
-test-root = "tests"
-domains-root = "tests/domains"
-entrypoints = "app/entrypoints"
 
 [tool.ruff]
 line-length = 120

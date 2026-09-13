@@ -120,7 +120,7 @@ def build_oauth_client_secrets(settings: "Settings") -> dict[str, str]:
     """
     import os
 
-    from app.core.secrets import fetch_app_secrets
+    from webbpulse.security import app_secrets
 
     arn = os.environ.get("APP_SECRETS_ARN", "") or settings.APP_SECRETS_ARN
 
@@ -128,7 +128,7 @@ def build_oauth_client_secrets(settings: "Settings") -> dict[str, str]:
     if len(from_env) == len(OAUTH_SECRET_KEYS) or not arn:
         return from_env
 
-    loaded = fetch_app_secrets(arn)
+    loaded = app_secrets(arn)
     return {
         provider: from_env.get(provider) or loaded[key]
         for provider, key in OAUTH_SECRET_KEYS.items()

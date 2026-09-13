@@ -694,10 +694,14 @@ class TestEntrypoint:
 
     def test_the_events_path_matches_the_adapter_contract(self) -> None:
         """The events path is /events and is actually mounted."""
+        from fastapi.testclient import TestClient
+        from webbpulse.events import events_path
+
         from app.entrypoints import catalog_part_purge_consumer as entrypoint
 
-        assert entrypoint.EVENTS_PATH == "/events"
-        assert entrypoint.EVENTS_PATH in {route.path for route in entrypoint.app.routes}
+        assert events_path() == "/events"
+        batch = {"Records": [{"eventSource": "aws:sqs", "messageId": "m1", "body": "{}"}]}
+        assert TestClient(entrypoint.app).post(events_path(), json=batch).status_code == 200
 
     def test_neither_cors_nor_the_rate_limiter_is_mounted(self) -> None:
         """The limiter would write to a table this function has no grant for."""

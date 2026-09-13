@@ -142,7 +142,7 @@ def test_only_the_domains_that_verify_a_legacy_token_need_the_secret(
     a *settings field* that must be present. The `identity` domain reads two
     keys of the same `carmodpicker-<env>/app` secret, the Google and GitHub
     OAuth client secrets, through `build_oauth_client_secrets` in
-    `app/composition/identity.py`, which calls `fetch_app_secrets` directly and
+    `app/composition/identity.py`, which calls `app_secrets` directly and
     deliberately never routes them through `Settings`. They are optional, so
     naming them here would fail a cold start over a supported state. So
     `identity` declares nothing and still needs the grant, and

@@ -666,10 +666,13 @@ class TestEntrypoint:
         """The events path matches the adapter pass through path, since a drift would ack
         every record on a 404.
         """
+        from fastapi.testclient import TestClient
+        from webbpulse.events import events_path
+
         from app.entrypoints import admin_price_alerts_consumer as entrypoint
 
-        assert entrypoint.EVENTS_PATH == "/events"
-        assert entrypoint.EVENTS_PATH in {route.path for route in entrypoint.app.routes}
+        assert events_path() == "/events"
+        assert TestClient(entrypoint.app).post(events_path(), json={"Records": []}).status_code == 200
 
     def test_the_bundle_is_memoised_across_invokes(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """One bundle per execution environment, not one per invoke."""

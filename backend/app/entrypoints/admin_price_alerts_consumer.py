@@ -4,23 +4,16 @@ Sends alert mail through SES and signs the unsubscribe link, so unlike the votes
 consumer it needs `SECRET_KEY`.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 
 from app.composition.domains import DOMAINS
-from app.composition.wiring import (
-    add_root_routes,
-    check_signing_key,
-    configure_logging,
-    configure_tracing,
-)
+from app.composition.wiring import check_signing_key, configure_logging, configure_tracing
 
 DOMAIN = DOMAINS["admin"]
 
 SERVICE_NAME = f"{DOMAIN.service_name}-price-alerts-consumer"
-
-EVENTS_PATH = "/events"
 
 _repos: Any = None
 
@@ -35,39 +28,23 @@ def repositories() -> Any:
     return _repos
 
 
+def handle_batch(event: Mapping[str, Any]) -> Dict[str, List[Dict[str, str]]]:
+    """Evaluate price alerts for every record this batch touched."""
+    from app.consumers.price_alerts import handle
+
+    return handle(event, repositories())
+
+
 def build_app() -> FastAPI:
-    """The consumer's application: the root routes plus `POST /events`.
+    """The consumer's application: shared consumer scaffolding over the batch handler."""
+    from webbpulse.events import stream_consumer_app
 
-    Not `build_domain_app`, whose routes are unreachable here, and not
-    `add_shared_middleware`, whose CORS and rate limiter cannot apply on loopback.
-    """
-    from app.api.middleware import request_context_middleware
-    from app.api.middleware.error_handler import register_error_handlers
-
-    app = FastAPI(
+    return stream_consumer_app(
+        handle_batch,
         title=f"{DOMAIN.title} price alerts stream consumer",
-        openapi_url=None,
+        per_record=False,
+        service_name=SERVICE_NAME,
     )
-
-    app.middleware("http")(request_context_middleware)
-    register_error_handlers(app)
-    add_root_routes(app)
-
-    @app.post(EVENTS_PATH)
-    async def consume_events(
-        request: Request,
-    ) -> Dict[str, List[Dict[str, str]]]:  # pyright: ignore[reportUnusedFunction]
-        """Evaluate price alerts for every record this batch touched.
-
-        The returned `batchItemFailures` is the function result the mapping reads.
-        Errors propagate: a 500 becomes a function error, so the mapping retries.
-        """
-        from app.consumers.price_alerts import handle
-
-        event = await request.json()
-        return handle(event, repositories())
-
-    return app
 
 
 def main() -> None:

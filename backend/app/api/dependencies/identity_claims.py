@@ -1,17 +1,20 @@
-"""Read the identity access token's claims in whichever shape the environment delivers.
+"""Verify a Bearer identity token in process, for routes the gateway put no claims on.
 
-Accepts the gateway JWT authorizer's flat claim map and the staging access gate's
-JSON `jwt.claims` string, normalising both to the same values. Answers None for
-every way the answer can be nobody, and since row 13 it is the only resolver
-`app/api/dependencies/auth.py` calls.
+Reading the authorizer's claims is `webbpulse.identity.claims`, re-exported here so
+`app/api/dependencies/auth.py` keeps one import. What stays is the product's own
+fallback: a real verification against the identity issuer's keys.
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Optional
+
+from webbpulse.identity.claims import (
+    GATE_CLAIMS_KEY,
+    identity_claims,
+    identity_subject,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from fastapi import Request
@@ -24,92 +27,6 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
-
-GATE_CLAIMS_KEY = "jwt.claims"
-
-
-def _gate_claims(request: "Request") -> Optional[dict[str, Any]]:
-    """The gate authorizer's claims for this request, or `None`.
-
-    Reached only when the package's reader found no `authorizer.jwt.claims`,
-    which in staging is every flagged request. The header is parsed a second
-    """
-    from webbpulse.http import REQUEST_CONTEXT_HEADER
-
-    raw = request.headers.get(REQUEST_CONTEXT_HEADER)
-    if raw is None or not raw.strip():
-        return None
-    try:
-        context = json.loads(raw)
-    except ValueError:
-        logger.debug("The %s header is not JSON.", REQUEST_CONTEXT_HEADER)
-        return None
-    if not isinstance(context, Mapping):
-        return None
-
-    authorizer = context.get("authorizer")
-    if not isinstance(authorizer, Mapping):
-        return None
-    lambda_context = authorizer.get("lambda")
-    if not isinstance(lambda_context, Mapping):
-        return None
-    encoded = lambda_context.get(GATE_CLAIMS_KEY)
-    if not isinstance(encoded, str) or not encoded.strip():
-        return None
-    try:
-        claims = json.loads(encoded)
-    except ValueError:
-        logger.warning(
-            "The staging access gate published a %r context value that is not JSON. "
-            "The gate writes it with JSON.stringify, so this means the two sides "
-            "disagree about the encoding rather than that the token was bad.",
-            GATE_CLAIMS_KEY,
-        )
-        return None
-    if not isinstance(claims, Mapping):
-        return None
-    return dict(claims)
-
-
-def identity_claims(request: "Request") -> Optional[Mapping[str, Any]]:
-    """The verified identity claims for this request, or `None` for none.
-
-    Tries the native authorizer's shape through the package's own reader first,
-    then the staging gate's. Both results go through `coerce_claims`, the
-    """
-    from webbpulse.identity.claims import (
-        AuthorizerClaims,
-        ClaimsUnavailable,
-        coerce_claims,
-    )
-
-    try:
-        return AuthorizerClaims(dict(_read_native(request)))
-    except ClaimsUnavailable:
-        pass
-    gate = _gate_claims(request)
-    if gate is None:
-        return None
-    return coerce_claims(gate)
-
-
-def _read_native(request: "Request") -> Mapping[str, Any]:
-    """The package's reader, isolated so `identity_claims` reads as two attempts."""
-    from webbpulse.identity.claims import read_authorizer_claims
-
-    return read_authorizer_claims(request)
-
-
-def identity_subject(request: "Request") -> str:
-    """The verified `sub` the authorizer put on this request, or `""`.
-
-    `sub` is the CarModPicker user id, as a string. `CarModPickerIdentityHooks.
-    claims_for` puts nothing else there and `load_user_by_id` parses it straight
-    """
-    claims = identity_claims(request)
-    if claims is None:
-        return ""
-    return str(claims.get("sub", "") or "")
 
 
 def verify_bearer_subject(request: "Request") -> str:

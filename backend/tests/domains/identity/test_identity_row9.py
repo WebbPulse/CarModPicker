@@ -10,10 +10,11 @@ from typing import Any, Iterator
 from uuid import uuid4
 
 import pytest
+from webbpulse.testing import FakeKms
 
 from app.composition.identity_hooks import CarModPickerIdentityHooks
 from app.db.dynamo.users import User
-from tests.domains.identity.test_identity_row5 import ISSUER, FakeKms
+from tests.domains.identity.test_identity_row5 import ISSUER
 from tests.domains.identity.test_identity_row5 import identity_env as _identity_env
 from tests.domains.identity.test_identity_row5 import private_key as _private_key
 from tests.entrypoints.test_route_split import _pairs
@@ -250,7 +251,7 @@ def test_the_client_secrets_are_read_from_the_app_secret(
     monkeypatch.delenv("OAUTH_GITHUB_CLIENT_SECRET", raising=False)
     monkeypatch.setenv("APP_SECRETS_ARN", "arn:aws:secretsmanager:us-west-2:1:secret:app")
     monkeypatch.setattr(
-        "app.core.secrets.fetch_app_secrets",
+        "webbpulse.security.app_secrets",
         lambda *args, **kwargs: {
             "SECRET_KEY": "unused-here",
             "OAUTH_GOOGLE_CLIENT_SECRET": GOOGLE_CLIENT_SECRET,
@@ -275,7 +276,7 @@ def test_a_missing_key_is_omitted_rather_than_empty(
     monkeypatch.delenv("OAUTH_GITHUB_CLIENT_SECRET", raising=False)
     monkeypatch.setenv("APP_SECRETS_ARN", "arn:aws:secretsmanager:us-west-2:1:secret:app")
     monkeypatch.setattr(
-        "app.core.secrets.fetch_app_secrets",
+        "webbpulse.security.app_secrets",
         lambda *args, **kwargs: {
             "OAUTH_GOOGLE_CLIENT_SECRET": GOOGLE_CLIENT_SECRET,
             "OAUTH_GITHUB_CLIENT_SECRET": "",
