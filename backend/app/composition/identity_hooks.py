@@ -70,12 +70,14 @@ class CarModPickerIdentityHooks:
         return _as_mapping(user) if user is not None else None
 
     def load_user_by_email(self, email: str) -> Mapping[str, Any] | None:
-        """The user with this address, or `None`.
+        """The user with this address or username, or `None`.
 
-        `email` arrives lowercased and stripped, which is exactly what the
-        `email_lower-index` is keyed on, so no second casing is tried.
+        The login form accepts either, so a value containing `@` is looked up on
+        the `email_lower-index` and anything else on the `username_lower-index`.
+        Both repository methods lowercase, so casing never matters.
         """
-        user = self._users.get_by_email(email)
+        identifier = email.strip()
+        user = self._users.get_by_email(identifier) if "@" in identifier else self._users.get_by_username(identifier)
         return _as_mapping(user) if user is not None else None
 
     def may_authenticate(self, user: Mapping[str, Any]) -> None:
