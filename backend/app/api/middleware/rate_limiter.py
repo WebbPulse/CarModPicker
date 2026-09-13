@@ -55,32 +55,31 @@ AUTH_CLASS_EXEMPT_PATHS: frozenset[str] = frozenset(
 def limit_classes() -> list[LimitClass]:
     """The four classes, narrowest first, since `classify` takes the first match.
 
-    Each name doubles as the counter namespace. `RATE#` prefixes it so the rows
-    keep the keys the previous limiter wrote and a deploy does not reset live
-    windows.
+    Each name doubles as the counter namespace and as the policy name on the
+    `RateLimit` headers, so it stays a plain word rather than a storage key.
     """
     return [
         LimitClass(
-            name=f"RATE#{GET_CLASS}",
+            name=GET_CLASS,
             limit=settings.RATE_LIMIT_GET_REQUESTS_PER_MINUTE,
             window_seconds=WINDOW_SECONDS,
             methods=("GET",),
         ),
         LimitClass(
-            name=f"RATE#{AUTH_CLASS}",
+            name=AUTH_CLASS,
             limit=settings.RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE,
             window_seconds=WINDOW_SECONDS,
             path_prefixes=(AUTH_PATH_PREFIX,),
             exempt_paths=tuple(sorted(AUTH_CLASS_EXEMPT_PATHS)),
         ),
         LimitClass(
-            name=f"RATE#{ADMIN_CLASS}",
+            name=ADMIN_CLASS,
             limit=settings.RATE_LIMIT_ADMIN_REQUESTS_PER_MINUTE,
             window_seconds=WINDOW_SECONDS,
             path_prefixes=(ADMIN_PATH_PREFIX,),
         ),
         LimitClass(
-            name=f"RATE#{DEFAULT_CLASS}",
+            name=DEFAULT_CLASS,
             limit=settings.RATE_LIMIT_REQUESTS_PER_MINUTE,
             window_seconds=WINDOW_SECONDS,
         ),

@@ -56,11 +56,6 @@ class StubLimiter:
 _CLASS_NAMES = (GET_CLASS, AUTH_CLASS, ADMIN_CLASS, DEFAULT_CLASS)
 
 
-def _namespaced(limiters: dict[str, Any]) -> dict[str, Any]:
-    """Key a per-class registry by the namespace the middleware looks it up under."""
-    return {f"RATE#{name}": limiter for name, limiter in limiters.items()}
-
-
 def _stub_registry(limiter: object) -> dict[str, Any]:
     """Install one stub limiter for every class, so any class routes to it."""
     return {name: limiter for name in _CLASS_NAMES}
@@ -79,7 +74,7 @@ def _limiters_enabled(limiters: dict[str, Any]) -> Iterator[None]:
         unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_SHARED_RATE_LIMITING", True),
     ):
         _INSTALLED.clear()
-        _INSTALLED.update(_namespaced(limiters))
+        _INSTALLED.update(limiters)
         try:
             yield
         finally:
@@ -133,7 +128,7 @@ def _real_limiters(table: FakeRegistryTable) -> dict[str, Any]:
 
     limiters = {}
     for name in _CLASS_NAMES:
-        limiter = RateLimiter(namespace=f"RATE#{name}", anchor="first_request", count_attribute="requests")
+        limiter = RateLimiter(namespace=name, anchor="first_request", count_attribute="requests")
         limiter._table = table
         limiters[name] = limiter
     return limiters
@@ -275,16 +270,16 @@ class TestRateLimitMiddlewareEnforcement:
 
     def test_the_429_carries_the_rate_limit_headers(self) -> None:
         """The package envelope emits both header styles, naming the class that rejected."""
-        limiter = StubLimiter(allowed=0, request_class=f"RATE#{GET_CLASS}")
+        limiter = StubLimiter(allowed=0, request_class=GET_CLASS)
 
         with _limiter_enabled(limiter):
             response = TestClient(_build_app()).get("/api/parts")
 
         assert response.status_code == 429
-        cap = next(cls.limit for cls in limit_classes() if cls.name == f"RATE#{GET_CLASS}")
+        cap = next(cls.limit for cls in limit_classes() if cls.name == GET_CLASS)
         remaining = cap - 1
-        assert response.headers["RateLimit"] == f'"RATE#{GET_CLASS}";r={remaining};t=42'
-        assert response.headers["RateLimit-Policy"] == f'"RATE#{GET_CLASS}";q={cap};w={WINDOW_SECONDS}'
+        assert response.headers["RateLimit"] == f'"{GET_CLASS}";r={remaining};t=42'
+        assert response.headers["RateLimit-Policy"] == f'"{GET_CLASS}";q={cap};w={WINDOW_SECONDS}'
         assert response.headers["X-RateLimit-Limit"] == str(cap)
         assert response.headers["X-RateLimit-Remaining"] == str(remaining)
         assert response.headers["X-RateLimit-Reset"] == "42"
@@ -320,7 +315,7 @@ class TestRateLimitMiddlewareEnforcement:
         """With limiting off the middleware passes every request straight through."""
         limiter = StubLimiter(allowed=0)
         _INSTALLED.clear()
-        _INSTALLED.update(_namespaced(_stub_registry(limiter)))
+        _INSTALLED.update(_stub_registry(limiter))
         try:
             with unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_RATE_LIMITING", False):
                 client = TestClient(_build_app())

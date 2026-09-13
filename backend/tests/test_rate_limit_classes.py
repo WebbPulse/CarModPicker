@@ -111,7 +111,7 @@ def make_limiter(
 ) -> RateLimiter:
     """Build a limiter over a fake table in one class's namespace."""
     limiter = RateLimiter(
-        namespace=f"RATE#{limiter_class}",
+        namespace=limiter_class,
         anchor="first_request",
         count_attribute=COUNT_ATTRIBUTE,
     )
@@ -121,7 +121,7 @@ def make_limiter(
 
 def row_key(identity: str, limiter_class: str = DEFAULT_CLASS) -> str:
     """The partition key the limiter writes for one caller in one class."""
-    return f"RATE#{limiter_class}#{identity}"
+    return f"{limiter_class}#{identity}"
 
 
 def check(
@@ -137,7 +137,7 @@ def check(
 
 def cap_for(name: str) -> int:
     """The configured cap for one class name."""
-    return next(item.limit for item in limit_classes() if item.name == f"RATE#{name}")
+    return next(item.limit for item in limit_classes() if item.name == name)
 
 
 def test_requests_under_the_limit_are_allowed(frozen_now: list[int]) -> None:
@@ -252,7 +252,7 @@ def test_fail_open_emits_a_top_level_json_boolean(
 
     assert payload["rate_limit_failed_open"] is True
     assert payload["level"] == "WARNING"
-    assert payload["rate_limit_namespace"] == f"RATE#{DEFAULT_CLASS}"
+    assert payload["rate_limit_namespace"] == DEFAULT_CLASS
     assert "1.2.3.4" not in json.dumps(payload)
 
 
@@ -311,8 +311,8 @@ class TestRequestClass:
 
     @staticmethod
     def _class_of(method: str, path: str) -> str:
-        """The class name, with the row-key prefix stripped."""
-        return classify(method, path, limit_classes()).name.replace("RATE#", "")
+        """The name of the class this request falls into."""
+        return classify(method, path, limit_classes()).name
 
     def test_every_get_is_the_get_class(self) -> None:
         """A GET is a GET whatever it targets, including auth and admin paths."""
@@ -395,7 +395,7 @@ class TestConfiguredClasses:
     def test_every_class_has_a_configured_limit(self) -> None:
         """Classification can never look up a class the configuration lacks."""
         names = {item.name for item in limit_classes()}
-        assert names == {f"RATE#{name}" for name in (GET_CLASS, AUTH_CLASS, ADMIN_CLASS, DEFAULT_CLASS)}
+        assert names == {GET_CLASS, AUTH_CLASS, ADMIN_CLASS, DEFAULT_CLASS}
 
     def test_the_caps_match_the_settings_defaults(self) -> None:
         """The GET cap is well above the default, which is what the incident needed."""
