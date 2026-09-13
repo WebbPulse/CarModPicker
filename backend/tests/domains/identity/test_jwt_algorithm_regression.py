@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-APP_DIR = Path(__file__).resolve().parent.parent / "app"
+APP_DIR = Path(__file__).resolve().parents[3] / "app"
 
 _DECODE_PATTERN = re.compile(r"\bjwt\.decode\(")
 _ALG_PATTERN = re.compile(r"algorithms\s*=\s*\[")

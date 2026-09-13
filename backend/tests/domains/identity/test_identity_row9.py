@@ -13,11 +13,10 @@ import pytest
 
 from app.composition.identity_hooks import CarModPickerIdentityHooks
 from app.db.dynamo.users import User
-
-from .entrypoints.test_route_split import _pairs
-from .test_identity_row5 import ISSUER, FakeKms
-from .test_identity_row5 import identity_env as _identity_env
-from .test_identity_row5 import private_key as _private_key
+from tests.domains.identity.test_identity_row5 import ISSUER, FakeKms
+from tests.domains.identity.test_identity_row5 import identity_env as _identity_env
+from tests.domains.identity.test_identity_row5 import private_key as _private_key
+from tests.entrypoints.test_route_split import _pairs
 
 identity_env = _identity_env
 private_key = _private_key

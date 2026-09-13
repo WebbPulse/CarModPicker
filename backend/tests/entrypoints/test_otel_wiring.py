@@ -128,9 +128,7 @@ def test_the_module_level_app_is_not_the_one_main_serves(domain: str) -> None:
 def test_the_runtime_dependency_carries_the_aws_otel_extra() -> None:
     """The webbpulse runtime dependency carries the aws-otel extra that signs the OTLP export."""
     project = tomllib.loads((BACKEND / "pyproject.toml").read_text())
-    line = next(
-        raw for raw in project["project"]["dependencies"] if raw.startswith("webbpulse[")
-    )
+    line = next(raw for raw in project["project"]["dependencies"] if raw.startswith("webbpulse["))
     extras = line.split("[", 1)[1].split("]", 1)[0].split(",")
     assert "otel" in extras, "pyproject.toml: the otel extra is what provides configure_tracing"
     assert "aws-otel" in extras, (

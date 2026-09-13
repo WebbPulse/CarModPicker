@@ -15,8 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa, utils
 
 from app.composition.identity_hooks import CarModPickerIdentityHooks
 from app.db.dynamo.users import User
-
-from .entrypoints.test_route_split import _effective_routes, _pairs
+from tests.entrypoints.test_route_split import _effective_routes, _pairs
 
 ISSUER = "https://api.staging.carmodpicker.com/api/auth"
 AUDIENCE = "carmodpicker-staging-api"
@@ -732,7 +731,7 @@ def test_no_route_under_the_identity_prefix_is_this_repositorys_own(identity_app
     gateway already routes, and `tests/test_identity_row10.py` owns them. Every
     other path under the prefix must come from the package.
     """
-    from .test_identity_row10 import EXTENSION_PATHS
+    from tests.domains.identity.test_identity_row10 import EXTENSION_PATHS
 
     extension_paths = {path for _, path in EXTENSION_PATHS}
 
@@ -765,8 +764,7 @@ def test_the_legacy_auth_surface_is_gone(identity_app: Any, monkeypatch: pytest.
     application is where a resurrected legacy router would be easiest to miss.
     """
     from app.core.config import settings as app_settings
-
-    from .test_identity_row10 import EXTENSION_PATHS
+    from tests.domains.identity.test_identity_row10 import EXTENSION_PATHS
 
     extension_paths = {path for _, path in EXTENSION_PATHS}
 
@@ -789,8 +787,7 @@ def test_the_mount_adds_exactly_the_package_routes_and_nothing_else(
     elsewhere do not fail it.
     """
     from app.core.config import settings as app_settings
-
-    from .test_identity_row10 import EXTENSION_PATHS
+    from tests.domains.identity.test_identity_row10 import EXTENSION_PATHS
 
     with_package = _pairs(identity_app)
 
