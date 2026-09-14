@@ -4,7 +4,11 @@
     /* Project references need a build info file; the shared base leaves the
        location to the consumer because it differs per project. */
     "incremental": true,
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo"
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    /* TypeScript 6 no longer auto-includes every @types package. The guard
+       tests under src/ use Node built-ins and __dirname, so node must be named
+       explicitly. */
+    "types": ["node"]
   },
   "include": ["src"]
 }
