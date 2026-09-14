@@ -71,6 +71,7 @@ jobs:
       python-version: "3.13"
       working-directory: backend
       install-command: >-
+        uv lock --check &&
         uv lock --upgrade-package webbpulse &&
         uv sync --locked &&
         uv run --no-sync python -c
