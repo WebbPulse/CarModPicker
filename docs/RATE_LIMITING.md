@@ -42,6 +42,9 @@ outage degrades the limit rather than the API.
 The environment variable `ENABLE_RATE_LIMITING=false` also disables the middleware
 independently of the setting, which is how the test suite turns it off.
 
+Staging is never rate limited, by the shared `webbpulse` convention that
+`settings.rate_limiting_enabled` carries, whatever the switches above are set to.
+
 ## Exempted paths
 
 Matched exactly:
