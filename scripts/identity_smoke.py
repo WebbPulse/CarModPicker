@@ -57,8 +57,8 @@ token is exactly the finding row 13 must not ship over. The summary separates
 the two.
 
 Staging answers only a request carrying the origin-verify header. Supply it in
-`CARMODPICKER_ORIGIN_VERIFY`, the same variable `verify_route_cut.sh` and the
-`smoke-domains` CI job read, sourced from SSM:
+`CARMODPICKER_ORIGIN_VERIFY`, the same variable the `smoke-domains` CI job
+reads, sourced from SSM:
 
     export CARMODPICKER_ORIGIN_VERIFY=$(aws ssm get-parameter --with-decryption \
       --name /carmodpicker-staging/access-gate/origin-verify \

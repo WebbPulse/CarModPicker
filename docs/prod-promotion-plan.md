@@ -457,8 +457,7 @@ CarModPicker uses squash merges, so the merge commit sha is what
 
 Let Deploy Backend finish. It will partly fail and that is expected:
 `deploy-images` calls `UpdateFunctionCode` on `build-lists`, `catalog` and
-`users`, which do not exist yet, and `verify-route-cuts` probes prefixes that
-are not cut. **Only `build-images` must be green**, because the images are what
+`users`, which do not exist yet. **Only `build-images` must be green**, because the images are what
 the first apply creates the functions from.
 
     gh run list --branch main --workflow deploy-backend.yml --limit 3 --repo WebbPulse/CarModPicker

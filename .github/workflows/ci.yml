@@ -53,9 +53,6 @@ jobs:
           version: "0.12.10"
           python-version: "3.13"
 
-      - name: Check shell syntax
-        run: bash -n scripts/verify_route_cut.sh
-
       - name: Test the route key resolver
         run: uv run --no-project --with pytest python -m pytest scripts/test_expected_route_key.py -q
 
