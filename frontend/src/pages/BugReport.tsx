@@ -49,7 +49,7 @@ const detectBrowserInfo = (): string => {
 const detectDeviceInfo = (): string => {
   const userAgent = navigator.userAgent;
   let os = 'Unknown';
-  let deviceType = '';
+  let deviceType: string;
 
   if (userAgent.indexOf('Win') > -1) {
     if (userAgent.indexOf('Windows NT 10.0') > -1) os = 'Windows 10/11';
