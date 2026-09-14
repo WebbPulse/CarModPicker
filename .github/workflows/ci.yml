@@ -107,7 +107,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: WebbPulse/.github/.github/workflows/typescript-ci.yml@v2
+    uses: WebbPulse/.github/.github/workflows/typescript-ci.yml@v3
     with:
       node-version: "22"
       working-directory: frontend
