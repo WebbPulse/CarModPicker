@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -321,6 +327,39 @@ describe('AuthContext provider', () => {
 
     expect(mockIdentityClient.logout).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledWith('/');
+  });
+
+  it('waits for the logout call to settle before navigating home', async () => {
+    let releaseLogout: (() => void) | undefined;
+    mockIdentityClient.logout.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseLogout = () => {
+            mockIdentityClient.setState({
+              status: 'anonymous',
+              user: null,
+              hasAccessToken: false,
+            });
+            resolve();
+          };
+        })
+    );
+
+    renderWithProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
+    );
+
+    fireEvent.click(screen.getByText('logout'));
+
+    await waitFor(() => expect(mockIdentityClient.logout).toHaveBeenCalled());
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    act(() => releaseLogout?.());
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
+    expect(screen.getByTestId('state').textContent).toBe('anon');
   });
 
   it('still clears the session and navigates home when logout rejects', async () => {

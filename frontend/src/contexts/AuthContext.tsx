@@ -22,7 +22,11 @@ const AuthExtrasProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const navigate = useNavigate();
-  const { setUser, reloadUser } = usePackageAuth<UserRead>();
+  const {
+    setUser,
+    reloadUser,
+    logout: packageLogout,
+  } = usePackageAuth<UserRead>();
 
   const login = useCallback(
     (userData: UserRead) => {
@@ -40,15 +44,13 @@ const AuthExtrasProvider: React.FC<{ children: ReactNode }> = ({
   }, [reloadUser]);
 
   const logout = useCallback(async () => {
-    const client = getIdentityClient();
     try {
-      await client?.logout();
+      await packageLogout();
     } catch {
       void 0;
-    } finally {
-      void navigate('/');
     }
-  }, [navigate]);
+    void navigate('/');
+  }, [navigate, packageLogout]);
 
   const value = useMemo<AuthExtrasContextType>(
     () => ({ login, logout, checkAuthStatus }),
