@@ -42,7 +42,7 @@ async def count_categories(repos: Repositories = Depends(get_repositories)) -> D
     return {"count": repos.categories.count()}
 
 
-@router.get("/", response_model=List[CategoryResponse])
+@router.get("", response_model=List[CategoryResponse])
 async def get_categories(repos: Repositories = Depends(get_repositories)) -> List[CategoryResponse]:
     """Get all active categories (seeded from backend source code)."""
     return [CategoryResponse.model_validate(c) for c in repos.categories.list_active()]

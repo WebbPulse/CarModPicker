@@ -212,7 +212,7 @@ async def get_user(
 
 
 @router.get(
-    "/",
+    "",
     response_model=CursorPage[Union[UserRead, PublicUserRead]],
     responses={
         200: {"description": "List of users retrieved successfully"},

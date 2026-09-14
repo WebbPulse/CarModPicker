@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from tests.route_enumeration import schema_routes
 
 PUBLIC_ROUTES: set[tuple[str, str]] = {
-    ("GET", "/api/users/"),
+    ("GET", "/api/users"),
     ("GET", "/api/users/count"),
     ("GET", "/api/users/{user_id}"),
     ("GET", "/api/car-generations"),
@@ -55,7 +55,7 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("GET", "/api/parts/{part_id}/listings"),
     ("GET", "/api/parts/{part_id}/price-history"),
     ("GET", "/api/parts/{part_id}/with-listings"),
-    ("GET", "/api/categories/"),
+    ("GET", "/api/categories"),
     ("GET", "/api/categories/count"),
     ("GET", "/api/categories/{category_id}"),
     ("GET", "/api/categories/{category_id}/parts"),
@@ -74,8 +74,8 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("GET", "/api/votes/{entity_type}/{entity_id}/summary"),
     ("GET", "/api/reports/count"),
     ("GET", "/api/bug-reports/count"),
-    ("POST", "/api/bug-reports/"),
-    ("GET", "/api/search/"),
+    ("POST", "/api/bug-reports"),
+    ("GET", "/api/search"),
     ("GET", "/api/part-price-alerts/unsubscribe"),
     ("GET", "/api/images/presigned-url"),
     ("GET", "/api/app-settings"),
