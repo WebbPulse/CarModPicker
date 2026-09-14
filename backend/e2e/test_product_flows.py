@@ -98,7 +98,15 @@ class TestCatalogDomain:
     """The catalog domain: a manufacturer and a part, each created by the e2e user."""
 
     def test_part_manufacturer_round_trips(self, api: Any, e2e_env: Any, track: Any) -> None:
-        """A user created manufacturer reads back and its creator may delete it."""
+        """A manufacturer any signed in user may create reads back, and deleting it is admin only.
+
+        Manufacturers are one global deduped namespace rather than a per user resource:
+        the create route is get-or-create by name and the row carries no creator, so
+        `can_delete_part_manufacturer` is admin or superuser only. The durable e2e user is
+        deliberately not an admin, so the delete asserts the 403 the rule gives rather than
+        a success the product never offers. The row stays tracked, so the cleanup hook
+        still carries its delete path.
+        """
         body = {"name": _name(e2e_env, "manufacturer")}
         created = _created(api.post("/api/part-manufacturers", json=body), "part manufacturer")
         path = track(f"/api/part-manufacturers/{created['id']}")
@@ -107,8 +115,8 @@ class TestCatalogDomain:
         assert readback.status_code == 200, readback.text[:400]
         assert readback.json()["name"] == body["name"]
 
-        deleted = api.delete(path)
-        assert deleted.status_code in (200, 204), deleted.text[:400]
+        refused = api.delete(path)
+        assert refused.status_code == 403, refused.text[:400]
 
     def test_part_round_trips(self, api: Any, e2e_env: Any, track: Any) -> None:
         """A user created part reads back and its creator may delete it."""
@@ -140,7 +148,7 @@ class TestBuildLogsDomain:
 
         readback = api.get(f"/api/build-logs/build-list/{list_id}")
         assert readback.status_code == 200, readback.text[:400]
-        contents = [str(post.get("content", "")) for post in readback.json().get("items", [])]
+        contents = [str(post.get("content", "")) for post in readback.json().get("posts", [])]
         assert body["content"] in contents
 
         deleted = api.delete(post_path)
@@ -151,21 +159,34 @@ class TestModerationDomain:
     """The moderation domain: a vote on this run's own build list."""
 
     def test_vote_round_trips(self, api: Any, build_list: dict[str, Any]) -> None:
-        """An upvote shows in the summary as this user's vote and then withdraws.
+        """An upvote is recorded against the entity, shows in the tallies and then withdraws.
 
         A vote carries no name of its own, so it is not tracked for the sweep: it is
         deleted here, and deleting the build list the fixture tracked removes the rest.
+
+        The summary's `user_vote` is deliberately not asserted. It is the one field that
+        needs the caller's identity, and on a stage running the access gate no optional
+        auth route ever learns who the caller is: the gate publishes its `jwt.claims`
+        context only for the route keys it enforces a token on, and an optional auth route
+        is never one of those. So `user_vote` reads null there for a signed in caller even
+        though the vote was written, which the tallies below do prove. The write path,
+        which the gate does enforce, carries the vote itself and is asserted in full.
         """
         target = f"/api/votes/build_list/{build_list['id']}"
         cast = api.post(target, json={"vote_type": "upvote"})
         assert cast.status_code in (200, 201), cast.text[:400]
+        assert cast.json()["vote"]["vote_type"] == "upvote", cast.text[:400]
 
         summary = api.get(f"{target}/summary")
         assert summary.status_code == 200, summary.text[:400]
-        assert summary.json()["user_vote"] == "upvote"
+        assert summary.json()["upvotes"] == 1, summary.text[:400]
 
         withdrawn = api.delete(target)
         assert withdrawn.status_code in (200, 204), withdrawn.text[:400]
+
+        cleared = api.get(f"{target}/summary")
+        assert cleared.status_code == 200, cleared.text[:400]
+        assert cleared.json()["upvotes"] == 0, cleared.text[:400]
 
 
 class TestMediaDomain:

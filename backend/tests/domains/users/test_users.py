@@ -112,6 +112,50 @@ def test_update_own_user_success(client: TestClient, db_session: Any) -> None:
     assert updated_user["username"] == user_info["username"]
 
 
+def test_update_clears_a_nullable_field_with_an_explicit_null(client: TestClient, db_session: Any) -> None:
+    """An explicitly sent null clears a nullable field rather than being dropped.
+
+    The frontend clears a social link by sending that key as null, so a null the
+    client actually sent has to reach the row. An omitted key is a separate case
+    and is covered by `test_update_omitted_field_is_left_alone`.
+    """
+    user_info, token = create_and_login_user(client, "update_clear_null")
+    user_id = user_info["id"]
+    headers = get_auth_headers(token)
+
+    marker = "https://youtube.com/@e2e-clear-null"
+    seeded = client.put(f"{settings.API_STR}/users/{user_id}", json={"youtube_url": marker}, headers=headers)
+    assert seeded.status_code == 200, seeded.text
+    assert seeded.json()["youtube_url"] == marker
+
+    cleared = client.put(f"{settings.API_STR}/users/{user_id}", json={"youtube_url": None}, headers=headers)
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["youtube_url"] is None
+
+    readback = client.get(f"{settings.API_STR}/users/me", headers=headers)
+    assert readback.status_code == 200, readback.text
+    assert readback.json()["youtube_url"] is None
+
+
+def test_update_omitted_field_is_left_alone(client: TestClient, db_session: Any) -> None:
+    """A field the client did not send keeps its stored value."""
+    user_info, token = create_and_login_user(client, "update_omitted_field")
+    user_id = user_info["id"]
+    headers = get_auth_headers(token)
+
+    marker = "https://youtube.com/@e2e-kept"
+    seeded = client.put(f"{settings.API_STR}/users/{user_id}", json={"youtube_url": marker}, headers=headers)
+    assert seeded.status_code == 200, seeded.text
+
+    untouched = client.put(
+        f"{settings.API_STR}/users/{user_id}",
+        json={"instagram_url": "https://instagram.com/e2ekept"},
+        headers=headers,
+    )
+    assert untouched.status_code == 200, untouched.text
+    assert untouched.json()["youtube_url"] == marker
+
+
 def test_update_other_user_forbidden(client: TestClient, db_session: Any) -> None:
     """Updating another user's record is forbidden."""
     user_a_info, _ = create_and_login_user(client, "user_a_update_target")
