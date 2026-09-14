@@ -87,6 +87,7 @@ function Header() {
                 <div className="flex items-center space-x-3">
                   <Link
                     to="/login"
+                    data-testid="signed-out"
                     className="border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 px-4 py-2 rounded-xl text-sm font-medium text-white hover:text-primary transition-all duration-300"
                   >
                     Login
