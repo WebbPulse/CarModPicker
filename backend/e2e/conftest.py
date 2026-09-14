@@ -360,17 +360,17 @@ PROTECTED_ROUTES = (
 def pytest_e2e_login_form(env: Any) -> LoginForm:
     """Where CarModPicker's login form lives and which elements prove the state changed.
 
-    Every locator is the plugin's own default, because `Login.tsx` and `Header.tsx` now
-    carry exactly the four conventional `data-testid` attributes. `signed_in_marker` is
-    the header's account link, which renders on every authenticated page rather than only
-    on the one the sign-in landed on, and `signed_out_marker` is the login submit button,
-    which is what a signed-out visitor bounced back to `/login` sees.
+    Every locator but one is the plugin's own default, because `Login.tsx` and `Header.tsx`
+    carry the conventional `data-testid` attributes. `signed_in_marker` is the header's
+    account link, which renders on every authenticated page rather than only on the one
+    the sign-in landed on. `signed_out_marker` is the header's login link rather than the
+    login submit button, because signing out lands on `/`, where no login form renders.
 
     `protected_redirect` is left empty so it defaults to `/login`, which is where
     `ProtectedRoute` and `EmailVerifiedRoute` both send an anonymous visitor, and
     `guest_redirect` stays `/`, which is where `GuestRoute` sends a signed-in one.
     """
-    return LoginForm(path="/login")
+    return LoginForm(path="/login", signed_out_marker="[data-testid=signed-out]")
 
 
 def pytest_e2e_routes(env: Any) -> list[RouteSpec]:
