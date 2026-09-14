@@ -420,6 +420,64 @@ def test_create_user_writes_the_address_it_was_given(
     assert created["email"] == "actual@example.com"
 
 
+def test_create_user_accepts_the_verified_attribute(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """The ephemeral e2e flow always passes `email_verified` true, so the row is
+    created already verified and no mail has to be collected for a run to sign in.
+    """
+    created = hooks.create_user(
+        email="verified@example.com",
+        attributes={"username": "verified", "email_verified": True},
+    )
+
+    assert created["email_verified"] is True
+
+
+def test_delete_user_removes_the_row_and_reports_it(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """The hook the ephemeral e2e teardown calls: the users row goes, and True says
+    one was there.
+    """
+    created = hooks.create_user(email="ephemeral@example.com", attributes={"username": "ephemeral"})
+
+    assert hooks.delete_user(created["id"]) is True
+    assert hooks.load_user_by_id(created["id"]) is None
+
+
+def test_delete_user_releases_the_username_and_email_reservations(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """A deleted address can be claimed again, which is what lets successive runs
+    reuse a worker's address without colliding on a leftover reservation.
+    """
+    created = hooks.create_user(email="reused@example.com", attributes={"username": "reused"})
+    hooks.delete_user(created["id"])
+
+    recreated = hooks.create_user(email="reused@example.com", attributes={"username": "reused"})
+
+    assert recreated["id"] != created["id"]
+
+
+def test_delete_user_answers_false_for_an_unknown_id(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """An already-cleaned run retries its teardown, so a missing row is False rather
+    than an error.
+    """
+    assert hooks.delete_user(str(uuid4())) is False
+
+
+def test_delete_user_answers_false_for_a_value_that_is_not_an_id(
+    hooks: CarModPickerIdentityHooks,
+) -> None:
+    """An unparseable id answers False rather than raising, matching how the other
+    lookups treat a subject this service never minted.
+    """
+    assert hooks.delete_user("not-a-uuid") is False
+
+
 def test_create_user_refuses_to_carry_a_password_across_the_seam(
     hooks: CarModPickerIdentityHooks,
 ) -> None:

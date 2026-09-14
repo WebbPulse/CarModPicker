@@ -164,6 +164,23 @@ class CarModPickerIdentityHooks:
                 "so the address is not verified and the user needs a new one."
             ) from exc
 
+    def delete_user(self, user_id: str) -> bool:
+        """Hard-delete this product's users row, returning whether one was there.
+
+        Only the users row and its username and email reservations. The identity
+        rows are the users-table stream purge's to remove, so an ephemeral e2e
+        user's teardown exercises the same deletion path a real account does. An
+        unparseable id answers `False`, as a missing row does.
+        """
+        parsed = _as_uuid(user_id)
+        if parsed is None:
+            return False
+        user = self._users.get(parsed)
+        if user is None:
+            return False
+        self._users.delete_user(user)
+        return True
+
     def on_user_created(self, user: Mapping[str, Any], via: str) -> None:
         """No side effects to run.
 
