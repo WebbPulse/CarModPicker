@@ -41,11 +41,12 @@ resolver and that a user id comes out.
 and the staging access gate module's own tests. This file starts from the event
 those produce.
 
-**Not in-process verification on a domain function.** `verify_bearer_subject`
-answers `""` without `IDENTITY_SIGNING_KEY_ARNS` and a `kms:GetPublicKey` grant,
-which no domain but `identity` has. That is asserted as the deployment fact it
-is, rather than mocked into passing, because mocking it would test a
-configuration this estate does not have.
+**Not the JWKS fetch.** In-process verification on a domain function now runs
+through `webbpulse.identity.JwksVerifier`, which fetches the issuer's published
+key set over HTTPS. Whether that verifier accepts or refuses a given token is
+the package's own test. What is tested here is the branch this application
+makes: which verifier it picks from the environment, and that every way
+verification can fail is an anonymous caller rather than an error.
 """
 
 from __future__ import annotations
@@ -58,6 +59,7 @@ import pytest
 from fastapi import Depends, FastAPI, Request
 from fastapi.testclient import TestClient
 from webbpulse.http import REQUEST_CONTEXT_HEADER
+from webbpulse.identity import InvalidToken
 
 from app.api.dependencies.auth import (
     create_access_token,
@@ -73,6 +75,7 @@ from app.api.dependencies.identity_claims import (
     verify_bearer_subject,
 )
 from app.api.dependencies.repositories import get_repositories
+from app.core.config import settings as app_settings
 from app.db.dynamo.users import User, UserRepository
 
 ISSUER = "https://api.staging.carmodpicker.com/api/auth"
@@ -140,6 +143,32 @@ def identity_user(db_session: Any, dynamo_tables: Any) -> User:
     )
 
 
+class _StubVerifier:
+    """Stands in for `JwksVerifier`, returning the claims it was built with or raising."""
+
+    def __init__(self, outcome: Any) -> None:
+        """Hold the claim set to return, or the exception to raise."""
+        self._outcome = outcome
+
+    def verify(self, token: str, **kwargs: Any) -> dict[str, Any]:
+        """Return the held claims, or raise the held exception."""
+        if isinstance(self._outcome, Exception):
+            raise self._outcome
+        return dict(self._outcome)
+
+
+class _StubService:
+    """Stands in for `TokenService`, which verifies through KMS on the identity function."""
+
+    def __init__(self, claims: dict[str, Any]) -> None:
+        """Hold the claim set `verify_access_token` returns."""
+        self._claims = claims
+
+    def verify_access_token(self, token: str, **kwargs: Any) -> dict[str, Any]:
+        """Return the held claims."""
+        return dict(self._claims)
+
+
 def _request(header_value: str | None = None, authorization: str | None = None) -> Request:
     """Build a bare ASGI request carrying the headers this resolver reads."""
     headers: list[tuple[bytes, bytes]] = []
@@ -188,6 +217,82 @@ def test_an_unparseable_gate_payload_is_refused_rather_than_guessed() -> None:
 def test_in_process_verification_is_off_without_the_identity_environment() -> None:
     """Without the identity environment in-process verification answers nobody."""
     assert verify_bearer_subject(_request(authorization="Bearer whatever")) == ""
+
+
+def test_a_domain_function_verifies_through_the_jwks_verifier(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With an issuer and audience and no signing keys, the JWKS verifier resolves the subject."""
+    subject = str(uuid4())
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", ISSUER)
+    monkeypatch.setattr(app_settings, "IDENTITY_AUDIENCE", AUDIENCE)
+    monkeypatch.delenv("IDENTITY_SIGNING_KEY_ARNS", raising=False)
+    monkeypatch.setattr(
+        "webbpulse.identity.JwksVerifier",
+        lambda **kwargs: _StubVerifier({"sub": subject}),
+    )
+
+    assert verify_bearer_subject(_request(authorization="Bearer good-token")) == subject
+
+
+def test_a_bad_token_on_a_domain_function_is_anonymous_rather_than_an_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A token the verifier refuses resolves to nobody, and never raises."""
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", ISSUER)
+    monkeypatch.setattr(app_settings, "IDENTITY_AUDIENCE", AUDIENCE)
+    monkeypatch.delenv("IDENTITY_SIGNING_KEY_ARNS", raising=False)
+    monkeypatch.setattr(
+        "webbpulse.identity.JwksVerifier",
+        lambda **kwargs: _StubVerifier(InvalidToken("expired")),
+    )
+
+    assert verify_bearer_subject(_request(authorization="Bearer expired-token")) == ""
+
+
+def test_a_request_with_no_bearer_header_never_builds_a_verifier(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With no Authorization header the verifier is not built and the caller is anonymous."""
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", ISSUER)
+    monkeypatch.setattr(app_settings, "IDENTITY_AUDIENCE", AUDIENCE)
+
+    def explode(**kwargs: Any) -> Any:
+        raise AssertionError("a verifier was built for a request carrying no bearer token")
+
+    monkeypatch.setattr("webbpulse.identity.JwksVerifier", explode)
+
+    assert verify_bearer_subject(_request()) == ""
+    assert verify_bearer_subject(_request(authorization="Basic bm90LWEtYmVhcmVy")) == ""
+
+
+def test_a_missing_audience_leaves_verification_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An issuer with no audience cannot verify, so the caller is anonymous rather than 500."""
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", ISSUER)
+    monkeypatch.setattr(app_settings, "IDENTITY_AUDIENCE", "")
+    monkeypatch.delenv("IDENTITY_SIGNING_KEY_ARNS", raising=False)
+
+    assert verify_bearer_subject(_request(authorization="Bearer whatever")) == ""
+
+
+def test_the_identity_function_verifies_through_the_token_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With signing key ARNs present the KMS backed TokenService is what verifies."""
+    subject = str(uuid4())
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", ISSUER)
+    monkeypatch.setattr(app_settings, "IDENTITY_AUDIENCE", AUDIENCE)
+    monkeypatch.setenv("IDENTITY_SIGNING_KEY_ARNS", json.dumps(["arn:aws:kms:us-west-2:1:key/abc"]))
+    monkeypatch.setattr("boto3.client", lambda *args, **kwargs: object())
+    monkeypatch.setattr(
+        "app.composition.identity.build_identity_settings",
+        lambda settings: object(),
+    )
+    monkeypatch.setattr(
+        "webbpulse.identity.TokenService",
+        lambda settings, client: _StubService({"sub": subject}),
+    )
+
+    def explode(**kwargs: Any) -> Any:
+        raise AssertionError("the JWKS verifier was built on a function holding signing keys")
+
+    monkeypatch.setattr("webbpulse.identity.JwksVerifier", explode)
+
+    assert verify_bearer_subject(_request(authorization="Bearer good-token")) == subject
 
 
 def test_sub_resolves_to_the_user_row_by_id(identity_user: User) -> None:
@@ -366,6 +471,93 @@ def test_the_optional_resolver_reads_an_identity_token(identity_user: User, dyna
     )
     assert response.status_code == 200
     assert response.json()["id"] == str(identity_user.id)
+
+
+@pytest.fixture
+def domain_function(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The environment of a deployed domain function: issuer and audience, no signing keys."""
+    monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", ISSUER)
+    monkeypatch.setattr(app_settings, "IDENTITY_AUDIENCE", AUDIENCE)
+    monkeypatch.delenv("IDENTITY_SIGNING_KEY_ARNS", raising=False)
+
+
+def test_an_optional_route_resolves_the_user_from_a_bearer_token_alone(
+    identity_user: User,
+    dynamo_tables: Any,
+    domain_function: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The defect this change fixes.
+
+    An optional auth route key is on no authorizer's enforced list, so no claims
+    reach the function and the only evidence of a caller is the header. Before
+    this change every signed in caller on those routes read as anonymous.
+    """
+    monkeypatch.setattr(
+        "webbpulse.identity.JwksVerifier",
+        lambda **kwargs: _StubVerifier({"sub": str(identity_user.id)}),
+    )
+    client = TestClient(_dual_mode_app())
+    response = client.get("/maybe", headers={"Authorization": "Bearer a-valid-access-token"})
+    assert response.status_code == 200
+    assert response.json()["id"] == str(identity_user.id)
+
+
+def test_an_optional_route_with_a_bad_token_is_anonymous_rather_than_an_error(
+    dynamo_tables: Any,
+    domain_function: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A token that does not verify leaves the caller anonymous with a 200, never a 401 or 500."""
+    monkeypatch.setattr(
+        "webbpulse.identity.JwksVerifier",
+        lambda **kwargs: _StubVerifier(InvalidToken("signature verification failed")),
+    )
+    client = TestClient(_dual_mode_app())
+    response = client.get("/maybe", headers={"Authorization": "Bearer not-a-real-token"})
+    assert response.status_code == 200
+    assert response.json()["id"] == ""
+
+
+def test_an_optional_route_with_no_token_stays_anonymous_on_a_domain_function(
+    dynamo_tables: Any,
+    domain_function: None,
+) -> None:
+    """A public read on a function that can verify is still a public read."""
+    client = TestClient(_dual_mode_app())
+    response = client.get("/maybe")
+    assert response.status_code == 200
+    assert response.json()["id"] == ""
+
+
+def test_a_required_auth_route_still_takes_only_the_authorizer_claims(
+    identity_user: User,
+    dynamo_tables: Any,
+    domain_function: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A required auth route is unchanged: the gateway's claims are what resolve it.
+
+    The in process fallback is reached on any route, since the resolver is shared,
+    but a required auth route key always carries claims in production, so the
+    header is never what admits a caller there. Asserted both ways: the claims
+    alone resolve, and a bearer token the verifier refuses is still a 401.
+    """
+    monkeypatch.setattr(
+        "webbpulse.identity.JwksVerifier",
+        lambda **kwargs: _StubVerifier(InvalidToken("signature verification failed")),
+    )
+    client = TestClient(_dual_mode_app())
+
+    with_claims = client.get(
+        "/whoami",
+        headers={REQUEST_CONTEXT_HEADER: native_context(str(identity_user.id))},
+    )
+    assert with_claims.status_code == 200
+    assert with_claims.json()["id"] == str(identity_user.id)
+
+    refused = client.get("/whoami", headers={"Authorization": "Bearer not-a-real-token"})
+    assert refused.status_code == 401
 
 
 def test_a_bare_request_still_gets_the_unchanged_401_body(dynamo_tables: Any) -> None:

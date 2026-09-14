@@ -68,6 +68,7 @@ a lookback window.
 | 12a | Terraform: 80 explicit domain route keys behind `domain_jwt_enforced` | landed |
 | 12 | Cutover: flip the frontend, run migrations, verify, then `domain_jwt_enforced = true` | staging landed 2026-09-11, verified at the gateway |
 | 13 | Retire legacy: 24 routes, `hashed_password`, `totp_secret` | staging landed 2026-09-12 (`bd9c9bc3`, PR 421) |
+| 14 | Optional auth routes verify the bearer token in process, since no authorizer publishes claims on a route key it does not enforce | staging |
 
 Production is mid-promotion and tracked in `docs/prod-promotion-plan.md`, not
 here. That plan's Steps 0 to 11 are applied; Step 12 and Steps 14 to 17 are

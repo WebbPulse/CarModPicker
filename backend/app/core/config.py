@@ -251,7 +251,29 @@ class Settings(BaseServiceSettings):
         description=(
             "The identity issuer, as terraform/identity.tf renders it. Empty means the "
             "webbpulse.identity router does not mount, which is the state of a local run "
-            "and of the test suite. Set on the deployed identity function only."
+            "and of the test suite. Set on every deployed function: the identity function "
+            "mounts the router with it, and a domain function verifies a bearer token "
+            "against this issuer's JWKS on its optional auth routes."
+        ),
+    )
+
+    IDENTITY_AUDIENCE: str = Field(
+        default="",
+        description=(
+            "The aud claim every access token carries, as terraform/identity.tf renders it. "
+            "Read with IDENTITY_ISSUER by the in-process JWKS verifier on a domain function. "
+            "Empty disables that verification, which is the state of a local run and of the "
+            "test suite."
+        ),
+    )
+
+    IDENTITY_JWKS_URL: str = Field(
+        default="",
+        description=(
+            "Override for the JWKS URL the in-process verifier fetches. Empty derives it "
+            "from IDENTITY_ISSUER as <issuer>/.well-known/jwks.json, which is where the "
+            "identity function serves it, so this is only for an estate that serves the "
+            "key set somewhere else."
         ),
     )
 

@@ -222,6 +222,10 @@ locals {
 
         WEBBPULSE_OTEL_SAMPLE_RATIO        = var.environment == "production" ? "0.1" : "1.0"
         OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "https://xray.${var.aws_region}.amazonaws.com/v1/traces"
+
+        IDENTITY_ISSUER   = local.identity_issuer
+        IDENTITY_AUDIENCE = local.identity_audience
+        IDENTITY_JWKS_URL = "${local.identity_issuer}/.well-known/jwks.json"
       },
       domain.secrets ? { APP_SECRETS_ARN = module.app_secrets.arns["app"] } : {},
       domain.ses ? {
