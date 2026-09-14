@@ -201,6 +201,7 @@ function Login() {
                     <Input
                       id="username"
                       name="username"
+                      data-testid="login-email"
                       type="text"
                       autoComplete="username"
                       required
@@ -227,6 +228,7 @@ function Login() {
                     <Input
                       id="password"
                       name="password"
+                      data-testid="login-password"
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       required
@@ -331,6 +333,7 @@ function Login() {
 
             <Button
               type="submit"
+              data-testid="login-submit"
               loading={isLoading}
               disabled={isLoading}
               className="w-full"
