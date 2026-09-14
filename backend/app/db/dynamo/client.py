@@ -22,7 +22,7 @@ def _region_name() -> str | None:
     return region
 
 
-def _resource_kwargs() -> dict[str, Any]:
+def resource_kwargs() -> dict[str, Any]:
     """Region and endpoint overrides for the boto3 resource, omitting unset ones."""
     kwargs: dict[str, Any] = {}
     region = _region_name()
@@ -37,7 +37,7 @@ def get_resource() -> "DynamoDBServiceResource":
     """The process-wide DynamoDB resource, built on first use."""
     global _resource
     if _resource is None:
-        _resource = boto3.resource("dynamodb", **_resource_kwargs())
+        _resource = boto3.resource("dynamodb", **resource_kwargs())
     return _resource
 
 
@@ -47,9 +47,12 @@ def get_client() -> "DynamoDBClient":
 
 
 def reset_clients() -> None:
-    """Drop the memoised resource so the next call rebuilds it."""
+    """Drop every memoised resource, this module's and the package's, so the next call rebuilds it."""
+    from webbpulse.dynamodb import reset_resource_cache
+
     global _resource
     _resource = None
+    reset_resource_cache()
 
 
 def table_name(spec: TableSpec) -> str:

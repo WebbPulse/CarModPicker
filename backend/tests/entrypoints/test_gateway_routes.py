@@ -262,6 +262,25 @@ def test_no_flagged_route_is_declared_with_a_trailing_slash() -> None:
     )
 
 
+def test_no_application_route_is_declared_with_a_trailing_slash() -> None:
+    """No route the app serves ends in a slash, flagged or not.
+
+    The case above catches only a route apigateway.tf flags. An unflagged one is just as
+    broken: the gateway will not match a route key ending in a slash and does not
+    normalise an inbound one, so the request falls through to the catch-all and the app
+    answers a 307 the post-deploy suite reads as an operation its own spec does not
+    declare. `POST /api/bug-reports/`, `GET /api/categories/`, `GET /api/search/` and
+    `GET /api/users/` all reached staging that way. Declare the path as "" rather than "/".
+    """
+    offenders = sorted(
+        f"{method} {path}" for method, path, _ in _application_routes() if path != "/" and path.endswith("/")
+    )
+    assert not offenders, (
+        f"{offenders} are declared with a trailing slash, which no gateway route key can "
+        'match. Declare the path as "" rather than "/".'
+    )
+
+
 def test_no_base_path_mixes_the_slashed_and_bare_spellings() -> None:
     """Every root path must use one spelling across all its methods.
 

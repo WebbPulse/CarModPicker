@@ -1,28 +1,25 @@
 /**
- * The passkeys panel for identity mode: enrol, rename, delete. The identity
- * service holds the challenge server side, so one call runs both ceremony legs.
- * Server refusals are surfaced verbatim because they name the user's next step.
+ * The passkeys panel for identity mode: enrol, rename, delete. The state
+ * machine is `usePasskeyPanel` from `@webbpulse/auth/panels`; this file is the
+ * markup and the deployment availability gate. Server refusals are surfaced
+ * verbatim because they name the user's next step.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FaKey, FaPencilAlt, FaPlus, FaTrash } from 'react-icons/fa';
+import { usePasskeyPanel } from '@webbpulse/auth/panels';
+import type { Passkey } from '@webbpulse/auth';
 import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import Spinner from '../ui/spinner';
 import {
   PASSKEY_AVAILABILITY_PATH,
+  getIdentityClient,
   identityUrl,
   passkeyEnrolmentAvailability,
   type Availability,
+  type IdentityClient,
 } from '../../api/identityClient';
-import {
-  deletePasskey,
-  enrolPasskey,
-  listPasskeys,
-  passkeysSupported,
-  renamePasskey,
-  type Passkey,
-} from '../../api/identityPasskeys';
 
 /** A date for display, falling back to the raw value rather than throwing. */
 const formatDate = (value: string | undefined): string => {
@@ -34,117 +31,31 @@ const formatDate = (value: string | undefined): string => {
   }
 };
 
-function IdentityPasskeySettings() {
-  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
-  const [availability, setAvailability] = useState<Availability>('unknown');
-  const [isLoading, setIsLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const supported = passkeysSupported();
+/** The sentence shown when the identity client is not the running mechanism. */
+const UNAVAILABLE = 'Passkeys are not available in this deployment.';
 
-  const load = useCallback(async () => {
-    const result = await listPasskeys();
-    if (result.status === 'ok') {
-      setPasskeys(result.value);
-    } else if (result.status === 'failed') {
-      setError(result.error);
-    }
-    setIsLoading(false);
-  }, []);
+/** The heading and one sentence, for the two states with no list to show. */
+const PasskeyNotice: React.FC<{ message: string }> = ({ message }) => (
+  <div className="space-y-4">
+    <div>
+      <h3 className="text-lg font-semibold text-white">Passkeys</h3>
+    </div>
+    <p className="text-sm text-muted-foreground">{message}</p>
+  </div>
+);
 
-  useEffect(() => {
-    let cancelled = false;
-    const start = async () => {
-      const enabled = await passkeyEnrolmentAvailability(
-        identityUrl(PASSKEY_AVAILABILITY_PATH)
-      );
-      if (cancelled) return;
-      setAvailability(enabled);
-      if (enabled === 'unavailable') {
-        setIsLoading(false);
-        return;
-      }
-      await load();
-    };
-    void start();
-    return () => {
-      cancelled = true;
-    };
-  }, [load]);
+/** The panel body, mounted only once the deployment said passkeys are on. */
+const PasskeyPanelBody: React.FC<{ client: IdentityClient }> = ({ client }) => {
+  const panel = usePasskeyPanel({
+    client,
+    messages: {
+      created: (passkey: Passkey) => `Passkey "${passkey.name}" added.`,
+      renamed: 'Passkey renamed.',
+      removed: 'Passkey removed.',
+    },
+  });
 
-  const handleAdd = async () => {
-    setError(null);
-    setSuccess(null);
-    setBusy(true);
-    try {
-      const result = await enrolPasskey(newName);
-      if (result.status === 'ok') {
-        setSuccess(`Passkey "${result.value.name}" added.`);
-        setShowAddForm(false);
-        setNewName('');
-        await load();
-      } else if (result.status === 'failed') {
-        setError(result.error);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRename = async (credentialId: string) => {
-    const name = editName.trim();
-    if (name === '') {
-      setError('Give your passkey a name.');
-      return;
-    }
-    setError(null);
-    setSuccess(null);
-    setBusy(true);
-    try {
-      const result = await renamePasskey(credentialId, name);
-      if (result.status === 'ok') {
-        setSuccess('Passkey renamed.');
-        setEditing(null);
-        setEditName('');
-        await load();
-      } else if (result.status === 'failed') {
-        setError(result.error);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleDelete = async (passkey: Passkey) => {
-    if (
-      !window.confirm(
-        `Remove "${passkey.name}"? You will not be able to sign in with it again.`
-      )
-    ) {
-      return;
-    }
-    setError(null);
-    setSuccess(null);
-    setBusy(true);
-    try {
-      const result = await deletePasskey(passkey.credentialId);
-      if (result.status === 'ok') {
-        setSuccess('Passkey removed.');
-        await load();
-      } else if (result.status === 'failed') {
-        setError(result.error);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (isLoading) {
+  if (panel.loading) {
     return (
       <div className="flex justify-center py-8">
         <Spinner />
@@ -152,18 +63,7 @@ function IdentityPasskeySettings() {
     );
   }
 
-  if (availability === 'unavailable') {
-    return (
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold text-white">Passkeys</h3>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Passkeys are not available in this deployment.
-        </p>
-      </div>
-    );
-  }
+  const passkeys = panel.items ?? [];
 
   return (
     <div className="space-y-4">
@@ -175,10 +75,10 @@ function IdentityPasskeySettings() {
         </p>
       </div>
 
-      {error && <ErrorAlert message={error} />}
-      {success && <ConfirmationAlert message={success} />}
+      {panel.error && <ErrorAlert message={panel.error} />}
+      {panel.notice && <ConfirmationAlert message={panel.notice} />}
 
-      {!supported && (
+      {!panel.supported && (
         <p className="text-sm text-muted-foreground">
           This browser cannot use passkeys. Your existing passkeys are listed
           below and still work in a browser that can.
@@ -196,20 +96,20 @@ function IdentityPasskeySettings() {
               key={passkey.credentialId}
               className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 p-3"
             >
-              {editing === passkey.credentialId ? (
+              {panel.renaming === passkey.credentialId ? (
                 <>
                   <Input
                     aria-label="Passkey name"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    disabled={busy}
+                    value={panel.draftRename}
+                    onChange={(e) => panel.setDraftRename(e.target.value)}
+                    disabled={panel.busy}
                     className="flex-1"
                   />
                   <Button
                     type="button"
                     size="sm"
-                    onClick={() => void handleRename(passkey.credentialId)}
-                    disabled={busy}
+                    onClick={() => void panel.commitRename()}
+                    disabled={panel.busy}
                   >
                     Save
                   </Button>
@@ -217,11 +117,8 @@ function IdentityPasskeySettings() {
                     type="button"
                     size="sm"
                     variant="secondary"
-                    onClick={() => {
-                      setEditing(null);
-                      setEditName('');
-                    }}
-                    disabled={busy}
+                    onClick={panel.cancelRename}
+                    disabled={panel.busy}
                   >
                     Cancel
                   </Button>
@@ -249,12 +146,10 @@ function IdentityPasskeySettings() {
                       variant="secondary"
                       aria-label={`Rename ${passkey.name}`}
                       onClick={() => {
-                        setEditing(passkey.credentialId);
-                        setEditName(passkey.name);
-                        setError(null);
-                        setSuccess(null);
+                        panel.dismiss();
+                        panel.startRename(passkey);
                       }}
-                      disabled={busy}
+                      disabled={panel.busy}
                     >
                       <FaPencilAlt />
                     </Button>
@@ -263,8 +158,17 @@ function IdentityPasskeySettings() {
                       size="sm"
                       variant="destructive"
                       aria-label={`Remove ${passkey.name}`}
-                      onClick={() => void handleDelete(passkey)}
-                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `Remove "${passkey.name}"? You will not be able to sign in with it again.`
+                          )
+                        ) {
+                          return;
+                        }
+                        void panel.remove(passkey.credentialId);
+                      }}
+                      disabled={panel.busy}
                     >
                       <FaTrash />
                     </Button>
@@ -276,7 +180,7 @@ function IdentityPasskeySettings() {
         </ul>
       )}
 
-      {showAddForm ? (
+      {panel.adding ? (
         <div className="space-y-3 rounded-lg border border-white/10 bg-white/5 p-4">
           <label
             htmlFor="passkey-name"
@@ -286,43 +190,39 @@ function IdentityPasskeySettings() {
           </label>
           <Input
             id="passkey-name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
+            value={panel.draftName}
+            onChange={(e) => panel.setDraftName(e.target.value)}
             placeholder="Laptop, phone, security key"
-            disabled={busy}
+            disabled={panel.busy}
           />
           <div className="flex gap-2">
             <Button
               type="button"
-              onClick={() => void handleAdd()}
-              disabled={busy}
-              loading={busy}
+              onClick={() => void panel.commitCreate()}
+              disabled={panel.busy}
+              loading={panel.busy}
             >
-              {busy ? 'Waiting for your device…' : 'Add passkey'}
+              {panel.busy ? 'Waiting for your device…' : 'Add passkey'}
             </Button>
             <Button
               type="button"
               variant="secondary"
-              onClick={() => {
-                setShowAddForm(false);
-                setNewName('');
-              }}
-              disabled={busy}
+              onClick={panel.cancelCreate}
+              disabled={panel.busy}
             >
               Cancel
             </Button>
           </div>
         </div>
       ) : (
-        supported && (
+        panel.supported && (
           <Button
             type="button"
             onClick={() => {
-              setShowAddForm(true);
-              setError(null);
-              setSuccess(null);
+              panel.dismiss();
+              panel.startCreate();
             }}
-            disabled={busy}
+            disabled={panel.busy}
           >
             <FaPlus />
             <span>Add a passkey</span>
@@ -331,6 +231,45 @@ function IdentityPasskeySettings() {
       )}
     </div>
   );
+};
+
+/**
+ * The passkeys panel, gated on the deployment's enrolment availability so a
+ * deployment with passkeys off renders the notice rather than an empty list.
+ */
+function IdentityPasskeySettings() {
+  const [availability, setAvailability] = useState<Availability | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void passkeyEnrolmentAvailability(
+      identityUrl(PASSKEY_AVAILABILITY_PATH)
+    ).then((answer) => {
+      if (!cancelled) setAvailability(answer);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (availability === null) {
+    return (
+      <div className="flex justify-center py-8">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (availability === 'unavailable') {
+    return <PasskeyNotice message={UNAVAILABLE} />;
+  }
+
+  const client = getIdentityClient();
+  if (client === null) {
+    return <PasskeyNotice message={UNAVAILABLE} />;
+  }
+
+  return <PasskeyPanelBody client={client} />;
 }
 
 export default IdentityPasskeySettings;

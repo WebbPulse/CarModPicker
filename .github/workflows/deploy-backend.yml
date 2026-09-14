@@ -59,7 +59,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: WebbPulse/.github/.github/workflows/container-image.yml@v1.3.0
+    uses: WebbPulse/.github/.github/workflows/container-image.yml@v3
     with:
       environment: ${{ needs.resolve-env.outputs.name }}
       ecr-repository: carmodpicker-${{ needs.resolve-env.outputs.name }}/${{ matrix.domain }}
@@ -261,7 +261,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: WebbPulse/.github/.github/workflows/lambda-image-deploy.yml@v1.3.0
+    uses: WebbPulse/.github/.github/workflows/lambda-image-deploy.yml@v3
     with:
       environment: ${{ needs.resolve-env.outputs.name }}
       aws-region: us-west-2
@@ -374,67 +374,3 @@ jobs:
           fi
           echo "Every deployed domain function answered GET /health with 200."
           echo "Stream consumers are excluded: no API Gateway route to probe."
-
-  verify-route-cuts:
-    needs: [resolve-env, deploy-images, smoke-domains]
-    if: >-
-      always()
-      && needs.resolve-env.result == 'success'
-      && needs.deploy-images.result == 'success'
-      && needs.smoke-domains.result == 'success'
-    runs-on: ubuntu-latest
-    environment: ${{ needs.resolve-env.outputs.name }}
-    permissions:
-      contents: read
-      id-token: write
-
-    env:
-      AWS_REGION: us-west-2
-      ORIGIN_VERIFY_PARAMETER: ${{ github.ref_name == 'main' && '' || '/carmodpicker-staging/access-gate/origin-verify' }}
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
-        with:
-          role-to-assume: ${{ needs.resolve-env.outputs.role-arn }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Read the staging access gate origin-verify value
-        if: env.ORIGIN_VERIFY_PARAMETER != ''
-        run: |
-          set -uo pipefail
-          if VALUE=$(aws ssm get-parameter --with-decryption --name "$ORIGIN_VERIFY_PARAMETER" \
-              --query Parameter.Value --output text 2>/dev/null) && [ -n "$VALUE" ]; then
-            echo "::add-mask::$VALUE"
-            echo "CARMODPICKER_ORIGIN_VERIFY=$VALUE" >> "$GITHUB_ENV"
-            echo "Using the staging access gate origin-verify header."
-          else
-            echo "No origin-verify parameter found; the script will fall back to a direct invoke."
-          fi
-
-      - name: Verify each cut domain
-        env:
-          ENVIRONMENT: ${{ needs.resolve-env.outputs.name }}
-          DOMAINS: "media build-logs moderation vehicles admin build-lists identity catalog users"
-        run: |
-          set -uo pipefail
-
-          FAILED=0
-          for DOMAIN in $DOMAINS; do
-            echo "::group::${ENVIRONMENT} ${DOMAIN}"
-            if bash scripts/verify_route_cut.sh "$ENVIRONMENT" "$DOMAIN"; then
-              echo "The '${DOMAIN}' cut verified."
-            else
-              echo "The '${DOMAIN}' cut did not verify."
-              FAILED=1
-            fi
-            echo "::endgroup::"
-          done
-
-          if [ "$FAILED" -ne 0 ]; then
-            echo "One or more route cuts did not verify."
-            exit 1
-          fi
-          echo "Every cut domain is served by its own function."

@@ -46,11 +46,11 @@ describe('VerifyEmailToken', () => {
     expect(confirmEmailVerification).toHaveBeenCalledTimes(1);
   });
 
-  it('names the next step when the link is spent or expired', async () => {
+  it('renders the refusal sentence the server sent', async () => {
     confirmEmailVerification.mockResolvedValue({
       ok: false,
       reason: 'invalid-link',
-      message: '',
+      message: 'This link is no longer valid. Sign in and request a new one.',
     });
     render(<VerifyEmailToken />);
     expect(
@@ -58,7 +58,7 @@ describe('VerifyEmailToken', () => {
     ).toBeInTheDocument();
   });
 
-  it('prefers the server own message over the fallback', async () => {
+  it('renders a refusal naming a different account', async () => {
     confirmEmailVerification.mockResolvedValue({
       ok: false,
       reason: 'invalid-link',
@@ -70,11 +70,11 @@ describe('VerifyEmailToken', () => {
     ).toBeInTheDocument();
   });
 
-  it('explains a rate limited refusal', async () => {
+  it('renders a rate limited refusal', async () => {
     confirmEmailVerification.mockResolvedValue({
       ok: false,
       reason: 'rate-limited',
-      message: '',
+      message: 'Too many attempts. Wait a few minutes, then try again.',
     });
     render(<VerifyEmailToken />);
     expect(await screen.findByText(/too many attempts/i)).toBeInTheDocument();

@@ -196,7 +196,7 @@ function buildSortComparator(
   };
 
   return (a, b) => {
-    let cmp = 0;
+    let cmp: number;
     if (sort.key === 'qty' || sort.key === 'price') {
       const av = numericValue(a);
       const bv = numericValue(b);

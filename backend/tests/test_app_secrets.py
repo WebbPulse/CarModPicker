@@ -18,11 +18,20 @@ import pytest
 from botocore.exceptions import ClientError
 from moto import mock_aws
 from webbpulse.config import SecretNotJsonObjectError
+from webbpulse.security import (
+    app_secrets as fetch_app_secrets,
+)
+from webbpulse.security import (
+    apply_app_secrets,
+    load_app_secrets,
+)
+from webbpulse.security import (
+    reset_secret_cache as reset_cache,
+)
 
 from app.composition.domains import ENTRYPOINT_MODULES
 from app.core import config as config_module
 from app.core.config import Settings
-from app.core.secrets import apply_app_secrets, fetch_app_secrets, load_app_secrets, reset_cache
 
 MISSING_SECRET_ARN = "arn:aws:secretsmanager:us-west-2:123456789012:secret:carmodpicker-test/missing-AbCdEf"
 
@@ -86,11 +95,11 @@ def test_load_app_secrets_logs_and_raises_when_secret_unreadable(
     """An unreadable secret is logged and re-raised rather than swallowed."""
     monkeypatch.setenv("APP_SECRETS_ARN", MISSING_SECRET_ARN)
 
-    with caplog.at_level(logging.ERROR, logger="app.core.secrets"):
+    with caplog.at_level(logging.ERROR, logger="webbpulse.security"):
         with pytest.raises(ClientError):
             load_app_secrets()
 
-    assert "Failed to load application secrets" in caplog.text
+    assert "Failed to read application secrets" in caplog.text
     assert "SECRET_KEY" not in os.environ
 
 
@@ -147,11 +156,11 @@ def test_reading_a_secret_fails_loudly_when_the_secret_is_unreadable(
     monkeypatch.setenv("APP_SECRETS_ARN", MISSING_SECRET_ARN)
     fresh = import_fresh_config()
 
-    with caplog.at_level(logging.ERROR, logger="app.core.secrets"):
+    with caplog.at_level(logging.ERROR, logger="webbpulse.security"):
         with pytest.raises(ClientError):
             _ = fresh.settings.SECRET_KEY
 
-    assert "Failed to load application secrets" in caplog.text
+    assert "Failed to read application secrets" in caplog.text
 
 
 @mock_aws

@@ -34,7 +34,7 @@ export const usersApi = {
     apiClient.delete<UserRead>('/users/me/profile-picture'),
 
   listUsers: (params?: { skip?: number; limit?: number; search?: string }) =>
-    apiClient.get<Array<UserRead | PublicUserRead>>('/users/', { params }),
+    apiClient.get<Array<UserRead | PublicUserRead>>('/users', { params }),
   countUsers: () => apiClient.get<{ count: number }>('/users/count'),
 
   getAllUsers: (params?: { skip?: number; limit?: number; search?: string }) =>

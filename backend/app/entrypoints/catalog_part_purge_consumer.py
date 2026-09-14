@@ -4,24 +4,18 @@ One function behind two event source mappings: the `parts` stream fans a tombsto
 onto the `part-purge` queue, and the queue drains the related rows.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 
 from app.composition.domains import DOMAINS
-from app.composition.wiring import (
-    add_root_routes,
-    configure_logging,
-    configure_tracing,
-)
+from app.composition.wiring import configure_logging, configure_tracing
 
 DOMAIN = DOMAINS["catalog"]
 
 REPOSITORIES = ("build_list_parts", "votes", "reports", "part_price_alerts")
 
 SERVICE_NAME = f"{DOMAIN.service_name}-part-purge-consumer"
-
-EVENTS_PATH = "/events"
 
 _repos: Any = None
 
@@ -58,41 +52,28 @@ def sqs_client() -> Any:
     return _sqs
 
 
-def build_app() -> FastAPI:
-    """The consumer's application: the root routes plus `POST /events`.
+def handle_batch(event: Mapping[str, Any]) -> Dict[str, List[Dict[str, str]]]:
+    """Fan a tombstone onto the work queue, or drain a cascade off it.
 
-    Not `build_domain_app`, whose routes are unreachable here, and not
-    `add_shared_middleware`, whose CORS and rate limiter cannot apply on loopback.
+    `is_queue_event` decides which by `eventSource`, so both mappings share one path.
     """
-    from app.api.middleware import request_context_middleware
-    from app.api.middleware.error_handler import register_error_handlers
+    from app.consumers.part_purge import handle_queue, handle_stream, is_queue_event
 
-    app = FastAPI(
+    if is_queue_event(event):
+        return handle_queue(event, repositories())
+    return handle_stream(event, sqs_client())
+
+
+def build_app() -> FastAPI:
+    """The consumer's application: shared consumer scaffolding over the batch handler."""
+    from webbpulse.events import stream_consumer_app
+
+    return stream_consumer_app(
+        handle_batch,
         title=f"{DOMAIN.title} part purge consumer",
-        openapi_url=None,
+        per_record=False,
+        service_name=SERVICE_NAME,
     )
-
-    app.middleware("http")(request_context_middleware)
-    register_error_handlers(app)
-    add_root_routes(app)
-
-    @app.post(EVENTS_PATH)
-    async def consume_events(
-        request: Request,
-    ) -> Dict[str, List[Dict[str, str]]]:  # pyright: ignore[reportUnusedFunction]
-        """Fan a tombstone onto the work queue, or drain a cascade off it.
-
-        `is_queue_event` decides which by `eventSource`, so both mappings can share
-        one path. Errors propagate: a 500 becomes a function error and a retry.
-        """
-        from app.consumers.part_purge import handle_queue, handle_stream, is_queue_event
-
-        event = await request.json()
-        if is_queue_event(event):
-            return handle_queue(event, repositories())
-        return handle_stream(event, sqs_client())
-
-    return app
 
 
 def main() -> None:

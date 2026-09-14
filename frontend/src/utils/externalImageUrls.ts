@@ -75,7 +75,7 @@ export function buildExternalImageUrl(
   if (originalUrl == null || !String(originalUrl).trim()) return null;
   const url = String(originalUrl).trim();
 
-  let wix: string | null = null;
+  let wix: string | null;
   if (variant === 'thumbnail') {
     wix = wixTransformedUrl(url, 'fill', THUMB_FILL, THUMB_FILL, 'webp');
   } else if (variant === 'carouselTile') {

@@ -1,6 +1,6 @@
 """Resolve the API Gateway route key a probe path is expected to match.
 
-`verify_route_cut.sh` asserts that a probe request landed on its domain's own
+`identity_smoke.py` asserts that a probe request landed on its domain's own
 route key rather than falling through. Predicting that key with a string rule
 is what kept breaking: every row that promotes a path to its own explicit key
 changes which key a probe below a prefix resolves to, and the script's

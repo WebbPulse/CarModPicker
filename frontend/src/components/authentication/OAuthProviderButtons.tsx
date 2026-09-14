@@ -1,17 +1,13 @@
 /**
- * The "Continue with X" buttons for identity mode, one per provider reported by
- * the providers route. Rendered as anchors because the start route redirects to
- * a host that sends no CORS headers, so it must be a real navigation.
+ * The "Continue with X" buttons for identity mode, one per provider
+ * `useOAuthProviders` reports. Rendered as anchors because the start route
+ * redirects to a host that sends no CORS headers, so it must be a real
+ * navigation.
  */
-import { useEffect, useState } from 'react';
 import { FaGithub, FaGoogle, FaSignInAlt } from 'react-icons/fa';
 import { GITHUB_PROVIDER, GOOGLE_PROVIDER } from '@webbpulse/auth';
-import {
-  OAUTH_PROVIDERS_PATH,
-  identityUrl,
-  oauthProviders,
-  type OAuthProviderInfo,
-} from '../../api/identityClient';
+import { useOAuthProviders } from '@webbpulse/discovery/react';
+import { identityOrigin } from '../../api/identityClient';
 import { oauthStartUrl } from '../../api/identityOAuth';
 
 /** Props for OAuthProviderButtons: where to land after the callback. */
@@ -32,17 +28,7 @@ function OAuthProviderButtons({
   returnTo,
   disabled,
 }: OAuthProviderButtonsProps) {
-  const [providers, setProviders] = useState<OAuthProviderInfo[]>([]);
-
-  useEffect(() => {
-    let live = true;
-    void oauthProviders(identityUrl(OAUTH_PROVIDERS_PATH)).then((list) => {
-      if (live) setProviders(list);
-    });
-    return () => {
-      live = false;
-    };
-  }, []);
+  const providers = useOAuthProviders({ identityOrigin: identityOrigin() });
 
   if (providers.length === 0) return null;
 

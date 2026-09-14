@@ -21,7 +21,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   vi.mocked(apiClient.get).mockImplementation((url: string) => {
-    if (url === '/categories/') {
+    if (url === '/categories') {
       return Promise.resolve({ data: [mockCategory] });
     }
     if (url === '/part-manufacturers/') {

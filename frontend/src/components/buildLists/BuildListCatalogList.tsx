@@ -147,7 +147,7 @@ function BuildListCatalogList({
     }
   }, [fetchRequestKey]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally only refetch when request key changes; fetchBuildLists/params/carIds are used inside
 
-  let filteredBuildLists: (BuildListRead | BuildListReadWithVotes)[] = [];
+  let filteredBuildLists: (BuildListRead | BuildListReadWithVotes)[];
   if (carIds && carIds.length > 0) {
     filteredBuildLists = buildListsWithVotes;
   } else {

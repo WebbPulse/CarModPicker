@@ -1,43 +1,23 @@
 /**
  * The TOTP panel for identity mode: enrol, disable, and replace recovery codes.
- * Recovery codes are issued once on activation and sit behind a confirmation,
- * since the server keeps only hashes and cannot show them again.
+ * The state machine is `useTotpPanel` from `@webbpulse/auth/panels`; this file
+ * is the markup. Recovery codes are issued once on activation and sit behind a
+ * confirmation, since the server keeps only hashes and cannot show them again.
  */
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { FaShieldAlt } from 'react-icons/fa';
+import { useTotpPanel, type TotpPanel } from '@webbpulse/auth/panels';
+import { qrCodeSvgPath } from '@webbpulse/qrcode';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
-import { getIdentityClient } from '../../api/identityClient';
-import { qrCodeSvgPath } from '@webbpulse/qrcode';
+import {
+  getIdentityClient,
+  type IdentityClient,
+} from '../../api/identityClient';
 
-/** Where the panel is in the enrolment flow. */
-type Step =
-  | { kind: 'idle' }
-  | { kind: 'enrolling'; secret: string; provisioningUri: string }
-  | { kind: 'codes'; codes: string[] };
-
-/**
- * The sentence shown for each refusal the package models, so a mistyped code
- * gets a usable message instead of a generic failure. Server text wins.
- */
-const REFUSAL_FALLBACKS: Record<string, string> = {
-  'invalid-code':
-    'That code was not accepted. Check your authenticator app and try the current code.',
-  'already-enabled':
-    'Two factor authentication is already on for this account.',
-  'no-pending-enrolment':
-    'That enrolment expired. Start again to get a fresh QR code.',
-  'rate-limited': 'Too many attempts. Wait a few minutes and try again.',
-  unavailable:
-    'Two factor authentication is not configured for this deployment.',
-};
-
-/** Reads the message off any refusal the package returns. */
-const refusalMessage = (outcome: { reason: string; message: string }): string =>
-  outcome.message ||
-  REFUSAL_FALLBACKS[outcome.reason] ||
-  'That request could not be completed.';
+/** The sentence shown when the request never reached the server. */
+const UNREACHABLE = 'Could not reach the server. Check your connection.';
 
 /** The provisioning URI as a scannable QR code. */
 const ProvisioningQr: React.FC<{ uri: string }> = ({ uri }) => {
@@ -98,6 +78,35 @@ const RecoveryCodes: React.FC<{ codes: string[]; onDone: () => void }> = ({
   );
 };
 
+/** The one-time code field, shared by the activate, disable and replace legs. */
+const CodeField: React.FC<{
+  panel: TotpPanel;
+  label: string;
+  id: string;
+  hint: string;
+}> = ({ panel, label, id, hint }) => (
+  <div>
+    <label
+      htmlFor={id}
+      className="block text-sm font-medium text-foreground mb-2"
+    >
+      {label}
+    </label>
+    <Input
+      id={id}
+      name={id}
+      type="text"
+      autoComplete="one-time-code"
+      inputMode="text"
+      value={panel.code}
+      onChange={(e) => panel.setCode(e.target.value.slice(0, 32))}
+      placeholder="Code"
+      disabled={panel.busy}
+    />
+    <p className="mt-1 text-xs text-gray-400">{hint}</p>
+  </div>
+);
+
 interface Props {
   /** True when the account already has a factor, from `UserRead.totp_enabled`. */
   enabled: boolean;
@@ -105,152 +114,44 @@ interface Props {
   onChanged: () => void;
 }
 
-/** The TOTP panel body: enrol, disable, and replace recovery codes. */
-const IdentityTotpSettings: React.FC<Props> = ({ enabled, onChanged }) => {
-  const [step, setStep] = useState<Step>({ kind: 'idle' });
-  const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+/** The TOTP panel body, mounted only once the identity client could be built. */
+const TotpPanelBody: React.FC<Props & { client: IdentityClient }> = ({
+  client,
+  enabled,
+  onChanged,
+}) => {
+  const [unreachable, setUnreachable] = useState(false);
+  const panel = useTotpPanel({
+    client,
+    factor: enabled ? 'enabled' : 'disabled',
+    onChanged,
+    messages: {
+      disabled: 'Two factor authentication is off.',
+      saved: 'Recovery codes saved.',
+    },
+  });
 
-  const identity = getIdentityClient();
-  if (identity === null) {
+  const attempt = useCallback((call: () => Promise<void>): void => {
+    setUnreachable(false);
+    call().catch(() => {
+      setUnreachable(true);
+    });
+  }, []);
+
+  if (panel.step.kind === 'codes') {
     return (
-      <ErrorAlert message="Two factor authentication is not available in this deployment." />
+      <RecoveryCodes codes={panel.step.codes} onDone={panel.acknowledgeCodes} />
     );
   }
 
-  const reset = () => {
-    setStep({ kind: 'idle' });
-    setCode('');
-    setError(null);
-  };
-
-  const handleEnrol = async () => {
-    setBusy(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const outcome = await identity.enrolTotp();
-      if (outcome.ok) {
-        setStep({
-          kind: 'enrolling',
-          secret: outcome.secret,
-          provisioningUri: outcome.provisioningUri,
-        });
-      } else {
-        setError(refusalMessage(outcome));
-      }
-    } catch {
-      setError('Could not reach the server. Check your connection.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleActivate = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const outcome = await identity.activateTotp({ code: code.trim() });
-      if (outcome.ok) {
-        setStep({ kind: 'codes', codes: outcome.recoveryCodes });
-        setCode('');
-        onChanged();
-      } else {
-        setError(refusalMessage(outcome));
-      }
-    } catch {
-      setError('Could not reach the server. Check your connection.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleDisable = async () => {
-    setBusy(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const outcome = await identity.disableTotp({ code: code.trim() });
-      if (outcome.ok) {
-        setSuccess('Two factor authentication is off.');
-        setCode('');
-        onChanged();
-      } else {
-        setError(refusalMessage(outcome));
-      }
-    } catch {
-      setError('Could not reach the server. Check your connection.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRegenerate = async () => {
-    setBusy(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const outcome = await identity.regenerateRecoveryCodes({
-        code: code.trim(),
-      });
-      if (outcome.ok) {
-        setStep({ kind: 'codes', codes: outcome.recoveryCodes });
-        setCode('');
-      } else {
-        setError(refusalMessage(outcome));
-      }
-    } catch {
-      setError('Could not reach the server. Check your connection.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (step.kind === 'codes') {
-    return (
-      <RecoveryCodes
-        codes={step.codes}
-        onDone={() => {
-          setStep({ kind: 'idle' });
-          setSuccess('Recovery codes saved.');
-        }}
-      />
-    );
-  }
-
-  const codeField = (
-    label: string,
-    id: string,
-    hint: string
-  ): React.ReactElement => (
-    <div>
-      <label
-        htmlFor={id}
-        className="block text-sm font-medium text-foreground mb-2"
-      >
-        {label}
-      </label>
-      <Input
-        id={id}
-        name={id}
-        type="text"
-        autoComplete="one-time-code"
-        inputMode="text"
-        value={code}
-        onChange={(e) => setCode(e.target.value.slice(0, 32))}
-        placeholder="Code"
-        disabled={busy}
-      />
-      <p className="mt-1 text-xs text-gray-400">{hint}</p>
-    </div>
-  );
+  const scanning = panel.step.kind === 'scanning' ? panel.step : null;
+  const on = panel.factor === 'enabled';
 
   return (
     <div className="space-y-6">
-      {success !== null && <ConfirmationAlert message={success} />}
-      {error !== null && <ErrorAlert message={error} />}
+      {panel.notice !== null && <ConfirmationAlert message={panel.notice} />}
+      {panel.error !== null && <ErrorAlert message={panel.error} />}
+      {unreachable && <ErrorAlert message={UNREACHABLE} />}
 
       <div className="flex items-center space-x-3 text-gray-300">
         <FaShieldAlt className="text-primary text-2xl" />
@@ -264,35 +165,36 @@ const IdentityTotpSettings: React.FC<Props> = ({ enabled, onChanged }) => {
         </div>
       </div>
 
-      {step.kind === 'enrolling' && (
+      {scanning !== null && (
         <div className="space-y-4">
           <p className="text-sm text-gray-300">
             Scan this with your authenticator app, then enter the code it shows
             to finish turning it on.
           </p>
           <div className="flex justify-center">
-            <ProvisioningQr uri={step.provisioningUri} />
+            <ProvisioningQr uri={scanning.provisioningUri} />
           </div>
           <div className="bg-gray-800/50 rounded-lg p-3">
             <p className="text-xs text-gray-400 mb-1">
               Cannot scan? Enter this key by hand instead.
             </p>
             <code className="font-mono text-sm text-gray-200 break-all">
-              {step.secret}
+              {scanning.secret}
             </code>
           </div>
-          {codeField(
-            'Code from your app',
-            'totp-activate',
-            'Six digits, from the app you just scanned into.'
-          )}
+          <CodeField
+            panel={panel}
+            label="Code from your app"
+            id="totp-activate"
+            hint="Six digits, from the app you just scanned into."
+          />
           <div className="flex gap-3">
             <Button
               type="button"
               className="flex-1"
-              onClick={() => void handleActivate()}
-              disabled={busy || code.trim() === ''}
-              loading={busy}
+              onClick={() => attempt(() => panel.activate())}
+              disabled={panel.busy || panel.code.trim() === ''}
+              loading={panel.busy}
             >
               Turn on
             </Button>
@@ -300,8 +202,8 @@ const IdentityTotpSettings: React.FC<Props> = ({ enabled, onChanged }) => {
               type="button"
               variant="secondary"
               className="flex-1"
-              onClick={reset}
-              disabled={busy}
+              onClick={panel.reset}
+              disabled={panel.busy}
             >
               Cancel
             </Button>
@@ -309,39 +211,40 @@ const IdentityTotpSettings: React.FC<Props> = ({ enabled, onChanged }) => {
         </div>
       )}
 
-      {step.kind === 'idle' && !enabled && (
+      {scanning === null && !on && (
         <Button
           type="button"
           className="w-full"
-          onClick={() => void handleEnrol()}
-          disabled={busy}
-          loading={busy}
+          onClick={() => attempt(() => panel.enrol())}
+          disabled={panel.busy}
+          loading={panel.busy}
         >
           Set up two-factor authentication
         </Button>
       )}
 
-      {step.kind === 'idle' && enabled && (
+      {scanning === null && on && (
         <div className="space-y-4">
-          {codeField(
-            'Current code',
-            'totp-verify',
-            'A code from your authenticator app, or one of your recovery codes. The current code is the proof, so no password is needed.'
-          )}
+          <CodeField
+            panel={panel}
+            label="Current code"
+            id="totp-verify"
+            hint="A code from your authenticator app, or one of your recovery codes. The current code is the proof, so no password is needed."
+          />
           <div className="flex flex-col gap-3">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => void handleRegenerate()}
-              disabled={busy || code.trim() === ''}
+              onClick={() => attempt(() => panel.regenerate())}
+              disabled={panel.busy || panel.code.trim() === ''}
             >
               Replace recovery codes
             </Button>
             <Button
               type="button"
               variant="destructive"
-              onClick={() => void handleDisable()}
-              disabled={busy || code.trim() === ''}
+              onClick={() => attempt(() => panel.disable())}
+              disabled={panel.busy || panel.code.trim() === ''}
             >
               Turn off two-factor authentication
             </Button>
@@ -353,6 +256,19 @@ const IdentityTotpSettings: React.FC<Props> = ({ enabled, onChanged }) => {
         </div>
       )}
     </div>
+  );
+};
+
+/** The TOTP panel, or the unavailable notice in bearer mode. */
+const IdentityTotpSettings: React.FC<Props> = ({ enabled, onChanged }) => {
+  const client = getIdentityClient();
+  if (client === null) {
+    return (
+      <ErrorAlert message="Two factor authentication is not available in this deployment." />
+    );
+  }
+  return (
+    <TotpPanelBody client={client} enabled={enabled} onChanged={onChanged} />
   );
 };
 

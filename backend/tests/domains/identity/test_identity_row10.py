@@ -9,8 +9,9 @@ import time
 from typing import Any, Iterator
 
 import pytest
+from webbpulse.testing import FakeKms
 
-from tests.domains.identity.test_identity_row5 import AUDIENCE, ISSUER, KEY_ARN, FakeKms
+from tests.domains.identity.test_identity_row5 import AUDIENCE, ISSUER, KEY_ARN
 from tests.domains.identity.test_identity_row5 import identity_env as _identity_env
 from tests.domains.identity.test_identity_row5 import private_key as _private_key
 from tests.entrypoints.test_route_split import _pairs

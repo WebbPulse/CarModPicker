@@ -53,9 +53,6 @@ jobs:
           version: "0.12.10"
           python-version: "3.13"
 
-      - name: Check shell syntax
-        run: bash -n scripts/verify_route_cut.sh
-
       - name: Test the route key resolver
         run: uv run --no-project --with pytest python -m pytest scripts/test_expected_route_key.py -q
 
@@ -74,6 +71,7 @@ jobs:
       python-version: "3.13"
       working-directory: backend
       install-command: >-
+        uv lock --check &&
         uv lock --upgrade-package webbpulse &&
         uv sync --locked &&
         uv run --no-sync python -c
@@ -109,7 +107,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: WebbPulse/.github/.github/workflows/typescript-ci.yml@v2
+    uses: WebbPulse/.github/.github/workflows/typescript-ci.yml@v3
     with:
       node-version: "22"
       working-directory: frontend

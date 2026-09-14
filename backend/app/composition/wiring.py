@@ -176,16 +176,19 @@ def add_shared_middleware(app: FastAPI) -> None:
 
 _SITEMAP_CACHE = "public, max-age=3600"
 
-_UNPUBLISHED = " "
-"""Passed as a route `description` to keep a handler's docstring out of the OpenAPI schema."""
-
 
 def add_root_routes(app: FastAPI) -> None:
-    """`/`, `/health`, `/ready` and the two sitemap routes."""
+    """`/`, `/health`, `/ready` and the two sitemap routes.
+
+    None of the five is published in the OpenAPI document. The gateway declares a route
+    key for the sitemaps only, so the other three are reachable by direct Lambda invoke
+    alone, which is how the deploy's smoke step probes `/health`. Declaring them would
+    describe three operations the gateway answers its own 404 for.
+    """
     from app.api.services import sitemap_service
     from app.db.dynamo.client import check_db_ready
 
-    @app.get("/", description=_UNPUBLISHED)
+    @app.get("/", include_in_schema=False)
     def read_root() -> Dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         """Name, version and the two probe paths, for a bare hit on the root."""
         return {
@@ -196,7 +199,7 @@ def add_root_routes(app: FastAPI) -> None:
             "health": "/health",
         }
 
-    @app.get("/health")
+    @app.get("/health", include_in_schema=False)
     def health_check() -> Dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
         """Health check endpoint for monitoring (liveness: app is running)."""
         return {"status": "healthy", "service": "CarModPicker API", "version": "1.0.0"}
@@ -204,6 +207,7 @@ def add_root_routes(app: FastAPI) -> None:
     @app.get(
         "/ready",
         response_model=None,
+        include_in_schema=False,
         description=(
             "Readiness check: returns 200 when DynamoDB is reachable, 503 otherwise.\n\n"
             "Use this so load balancers or the frontend can wait until the backend\n"

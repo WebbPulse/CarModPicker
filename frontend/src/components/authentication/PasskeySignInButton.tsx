@@ -1,21 +1,20 @@
 /**
  * The "Sign in with a passkey" button for identity mode, hidden unless the
  * browser supports WebAuthn and the deployment enables passwordless sign in.
- * Also arms conditional mediation so the chooser appears in username autofill.
+ * `usePasskeySignInSupport` answers both questions and reports whether the
+ * browser can also put a passkey in its username autofill dropdown.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FaKey } from 'react-icons/fa';
+import { usePasskeySignInSupport } from '@webbpulse/auth/react';
 import { Button } from '../ui/button';
 import {
   PASSKEY_AVAILABILITY_PATH,
   identityUrl,
   passkeyLoginAvailability,
 } from '../../api/identityClient';
-import {
-  passkeysSupported,
-  signInWithPasskey,
-  type PasskeySignInResult,
-} from '../../api/identityPasskeys';
+import { signInWithPasskey } from '../../api/identityPasskeys';
+import type { PasskeySignInResult } from '../../api/identityPasskeys';
 
 /**
  * Props for PasskeySignInButton: the username hint, outcome callback, and autofill flag.
@@ -36,31 +35,19 @@ function PasskeySignInButton({
   disabled,
   conditional = true,
 }: PasskeySignInButtonProps) {
-  const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-  const supported = passkeysSupported();
   const handler = useRef(onResult);
   handler.current = onResult;
 
-  useEffect(() => {
-    if (!supported) {
-      setAvailable(false);
-      return;
-    }
-    let live = true;
-    void passkeyLoginAvailability(identityUrl(PASSKEY_AVAILABILITY_PATH)).then(
-      (answer) => {
-        if (!live) return;
-        setAvailable(answer === 'available');
-      }
-    );
-    return () => {
-      live = false;
-    };
-  }, [supported]);
+  const probe = useCallback(
+    () => passkeyLoginAvailability(identityUrl(PASSKEY_AVAILABILITY_PATH)),
+    []
+  );
+  const support = usePasskeySignInSupport({ probe });
+  const armed = conditional && support.offered;
 
   useEffect(() => {
-    if (!conditional || available !== true) return;
+    if (!armed) return;
     const controller = new AbortController();
     void signInWithPasskey({
       mediation: 'conditional',
@@ -73,9 +60,9 @@ function PasskeySignInButton({
     return () => {
       controller.abort();
     };
-  }, [conditional, available]);
+  }, [armed]);
 
-  if (available !== true) return null;
+  if (!support.offered) return null;
 
   const handleClick = async () => {
     setBusy(true);

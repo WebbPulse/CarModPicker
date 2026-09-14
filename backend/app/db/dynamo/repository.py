@@ -9,9 +9,11 @@ from typing import TYPE_CHECKING, Any, Generic, Iterable, TypeVar, cast
 
 from boto3.dynamodb.conditions import Attr, ConditionBase, Key
 from botocore.exceptions import ClientError
-from webbpulse.dynamodb import ConditionFailed, ItemNotFound, TransactionCanceled
+from webbpulse.dynamodb import ConditionFailed, ItemNotFound
+from webbpulse.dynamodb import Repository as SharedRepository
+from webbpulse.dynamodb import transact_write as shared_transact_write
 
-from app.db.dynamo.client import get_client, get_table, table_name
+from app.db.dynamo.client import get_client, get_table, resource_kwargs, table_name
 from app.db.dynamo.models import DynamoModel, utc_now
 from app.db.dynamo.serialization import (
     UNIQUE_KEY_PREFIX,
@@ -28,13 +30,10 @@ if TYPE_CHECKING:
 TModel = TypeVar("TModel", bound=DynamoModel)
 
 BATCH_WRITE_LIMIT = 25
-BATCH_GET_LIMIT = 100
-TRANSACT_WRITE_LIMIT = 100
 UNPROCESSED_RETRY_ATTEMPTS = 5
 UNPROCESSED_RETRY_BASE_DELAY_SEC = 0.05
 
 CONDITIONAL_CHECK_FAILED = "ConditionalCheckFailedException"
-TRANSACTION_CANCELED = "TransactionCanceledException"
 
 
 @dataclass(frozen=True)
@@ -149,6 +148,22 @@ class DynamoRepository(Generic[TModel]):
         """Bind this repository to a model class and the table spec it is stored in."""
         self.model_cls = model_cls
         self.spec = spec
+
+    @property
+    def shared(self) -> SharedRepository:
+        """A package repository over this same table, for the mechanics it already owns.
+
+        Built per call, carrying this environment's region, endpoint and resolved table
+        name, so DynamoDB Local and moto both reach the right service.
+        """
+        kwargs = resource_kwargs()
+        delegate = SharedRepository(
+            self.spec.suffix,
+            region_name=kwargs.get("region_name"),
+            endpoint_url=kwargs.get("endpoint_url"),
+        )
+        delegate.table_name = self.table_name
+        return delegate
 
     @property
     def table_name(self) -> str:
@@ -402,35 +417,31 @@ class DynamoRepository(Generic[TModel]):
         return Page(items=items, next_cursor=encode_cursor(response.get("LastEvaluatedKey")))
 
     def scan_all(self, *, filter_expression: ConditionBase | None = None, page_size: int | None = None) -> list[TModel]:
-        """The whole table, following the cursor until it is exhausted."""
-        items: list[TModel] = []
-        cursor: str | None = None
-        while True:
-            page = self.scan(filter_expression=filter_expression, limit=page_size, cursor=cursor)
-            items.extend(page.items)
-            cursor = page.next_cursor
-            if cursor is None:
-                return items
+        """The whole table, following the cursor until it is exhausted.
+
+        `iter_scan` owns the paging: an empty page that still carries a cursor is normal
+        after a filter, and is the bug a hand-rolled loop reliably has.
+        """
+        exclude_lookups: ConditionBase = ~Attr(self.spec.partition_key.name).begins_with(UNIQUE_KEY_PREFIX)
+        combined = exclude_lookups if filter_expression is None else exclude_lookups & filter_expression
+        kwargs: dict[str, Any] = {"filter_expression": combined}
+        if page_size is not None:
+            kwargs["page_size"] = page_size
+        return [self.from_item(dict(item)) for item in self.shared.iter_scan(**kwargs)]
 
     def batch_get(self, keys: list[Any], *, consistent: bool = False) -> list[TModel]:
-        """Fetch many items by key, chunked and retried while DynamoDB leaves keys unprocessed."""
-        found: list[TModel] = []
+        """Fetch many items by key, chunked and retried while DynamoDB leaves keys unprocessed.
+
+        The chunking, the backoff and the cap on retries are the package's. An uncapped
+        retry of `UnprocessedKeys` is a hang rather than a retry, so it raises instead.
+        """
         key_dicts = [self._coerce_key(key) for key in keys]
-        for chunk in _chunks(key_dicts, BATCH_GET_LIMIT):
-            request: dict[str, Any] = {self.table_name: {"Keys": chunk, "ConsistentRead": consistent}}
-            for attempt in range(UNPROCESSED_RETRY_ATTEMPTS + 1):
-                response = get_client().batch_get_item(RequestItems=cast(Any, request))
-                found.extend(
-                    self.from_item(dict(item)) for item in response.get("Responses", {}).get(self.table_name, [])
-                )
-                unprocessed = response.get("UnprocessedKeys", {})
-                if not unprocessed.get(self.table_name, {}).get("Keys"):
-                    break
-                if attempt == UNPROCESSED_RETRY_ATTEMPTS:
-                    raise RuntimeError(f"{self.table_name}: batch_get left keys unprocessed after retries")
-                time.sleep(UNPROCESSED_RETRY_BASE_DELAY_SEC * (2**attempt))
-                request = dict(unprocessed)
-        return found
+        items = self.shared.batch_get(
+            key_dicts,
+            consistent=consistent,
+            max_attempts=UNPROCESSED_RETRY_ATTEMPTS,
+        )
+        return [self.from_item(dict(item)) for item in items]
 
     def _coerce_key(self, key: Any) -> dict[str, Any]:
         """Normalise a key given as a dict, a tuple, or a bare partition value."""
@@ -576,15 +587,14 @@ class DynamoRepository(Generic[TModel]):
 
 
 def transact_write(actions: list[dict[str, Any]]) -> None:
-    """Run `actions` as one transaction, raising TransactionCanceled if it is rejected."""
-    if not actions:
-        return
-    if len(actions) > TRANSACT_WRITE_LIMIT:
-        raise ValueError(f"transact_write accepts at most {TRANSACT_WRITE_LIMIT} actions, got {len(actions)}")
-    try:
-        get_client().transact_write_items(TransactItems=cast(Any, actions))
-    except ClientError as exc:
-        if _error_code(exc) == TRANSACTION_CANCELED:
-            reasons = cast(list[dict[str, Any]], exc.response.get("CancellationReasons", []))
-            raise TransactionCanceled(reasons) from exc
-        raise
+    """Run `actions` as one transaction, raising TransactionCanceled if it is rejected.
+
+    The limit check, the call and the cancellation reasons are the package's. Region and
+    endpoint come from this environment's settings so DynamoDB Local and moto both work.
+    """
+    kwargs = resource_kwargs()
+    shared_transact_write(
+        actions,
+        region_name=kwargs.get("region_name"),
+        endpoint_url=kwargs.get("endpoint_url"),
+    )

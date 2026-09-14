@@ -26,7 +26,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/",
+    "",
     response_model=Dict[str, Any],
     responses=search_responses("entities", allow_public_read=True),
 )

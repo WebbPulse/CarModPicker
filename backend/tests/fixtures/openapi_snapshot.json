@@ -5313,38 +5313,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/": {
-      "get": {
-        "operationId": "read_root__get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Read Root  Get",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Request validation failed."
-          }
-        },
-        "summary": "Read Root"
-      }
-    },
     "/api/admin/db-ops/cars/delete-all": {
       "post": {
         "description": "Delete all cars / car generations (admin only).\n\nUnlinks build lists from cars (sets car_id to null), removes car votes and\npart_cars links, then deletes all Car, CarModel, and Make rows so",
@@ -5671,10 +5639,10 @@
         ]
       }
     },
-    "/api/bug-reports/": {
+    "/api/bug-reports": {
       "post": {
         "description": "Create a new bug report. Can be created by authenticated or anonymous users.",
-        "operationId": "create_bug_report_api_bug_reports__post",
+        "operationId": "create_bug_report_api_bug_reports_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -9170,10 +9138,10 @@
         ]
       }
     },
-    "/api/categories/": {
+    "/api/categories": {
       "get": {
         "description": "Get all active categories (seeded from backend source code).",
-        "operationId": "get_categories_api_categories__get",
+        "operationId": "get_categories_api_categories_get",
         "responses": {
           "200": {
             "content": {
@@ -9182,7 +9150,7 @@
                   "items": {
                     "$ref": "#/components/schemas/CategoryResponse"
                   },
-                  "title": "Response Get Categories Api Categories  Get",
+                  "title": "Response Get Categories Api Categories Get",
                   "type": "array"
                 }
               }
@@ -13286,10 +13254,10 @@
         ]
       }
     },
-    "/api/search/": {
+    "/api/search": {
       "get": {
         "description": "Search across build lists, user profiles, and global parts.\nReturns results separated by entity type, each as a cursor page.",
-        "operationId": "search_all_api_search__get",
+        "operationId": "search_all_api_search_get",
         "parameters": [
           {
             "description": "Search term to search across all entities",
@@ -13377,7 +13345,7 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": true,
-                  "title": "Response Search All Api Search  Get",
+                  "title": "Response Search All Api Search Get",
                   "type": "object"
                 }
               }
@@ -13404,10 +13372,10 @@
         ]
       }
     },
-    "/api/users/": {
+    "/api/users": {
       "get": {
         "description": "List all users with pagination and search.\n\nReturns full UserRead (with email_verified and totp_enabled) for each user if:",
-        "operationId": "list_users_api_users__get",
+        "operationId": "list_users_api_users_get",
         "parameters": [
           {
             "description": "Search in usernames and emails",
@@ -14336,64 +14304,6 @@
         "tags": [
           "votes"
         ]
-      }
-    },
-    "/health": {
-      "get": {
-        "description": "Health check endpoint for monitoring (liveness: app is running).",
-        "operationId": "health_check_health_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Health Check Health Get",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Request validation failed."
-          }
-        },
-        "summary": "Health Check"
-      }
-    },
-    "/ready": {
-      "get": {
-        "description": "Readiness check: returns 200 when DynamoDB is reachable, 503 otherwise.\n\nUse this so load balancers or the frontend can wait until the backend\ncan reach its tables before sending traffic. During a cold start, poll\n/ready until 200, then call other endpoints.",
-        "operationId": "readiness_check_ready_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Request validation failed."
-          }
-        },
-        "summary": "Readiness Check"
       }
     }
   }

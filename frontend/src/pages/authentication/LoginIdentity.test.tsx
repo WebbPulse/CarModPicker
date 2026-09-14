@@ -66,11 +66,14 @@ vi.mock('../../api/identityPasskeys', async (importOriginal) => {
     await importOriginal<typeof import('../../api/identityPasskeys')>();
   return {
     ...actual,
-    passkeysSupported: () => true,
     signInWithPasskey: (options?: { mediation?: string }) =>
       signInWithPasskey(options),
   };
 });
+
+vi.mock('@webbpulse/discovery/react', () => ({
+  useOAuthProviders: () => providerList,
+}));
 
 vi.mock('../../api/identityClient', async (importOriginal) => {
   const actual =
@@ -111,6 +114,14 @@ const setUrl = (search: string) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal(
+    'PublicKeyCredential',
+    class {
+      static isConditionalMediationAvailable() {
+        return Promise.resolve(true);
+      }
+    }
+  );
   passkeyAnswer = 'unavailable';
   providerList = [];
   passkeyResult = { status: 'cancelled' };
@@ -121,6 +132,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   setUrl('');
 });
 

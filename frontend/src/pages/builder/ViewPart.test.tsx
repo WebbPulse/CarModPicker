@@ -55,7 +55,7 @@ function installDefaultGetRouting(): void {
     if (url === `/votes/part/${mockPart.id}/summary`) {
       return Promise.resolve({ data: mockVoteSummary });
     }
-    if (url === '/categories/') {
+    if (url === '/categories') {
       return Promise.resolve({ data: [mockCategory] });
     }
     if (url === `/users/${mockUser.id}`) {
@@ -137,7 +137,7 @@ describe('ViewPart page', () => {
       if (url === `/votes/part/${mockPart.id}/summary`) {
         return Promise.resolve({ data: mockVoteSummary });
       }
-      if (url === '/categories/') {
+      if (url === '/categories') {
         return Promise.resolve({ data: [mockCategory] });
       }
       if (url === `/users/${mockUser.id}`) {

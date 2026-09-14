@@ -251,7 +251,7 @@ TESTING=true ENABLE_RATE_LIMITING=false python scripts/generate_ext_api_contract
 
 ---
 
-## `GET /api/categories/`
+## `GET /api/categories`
 
 **Summary:** Get Categories
 
@@ -266,7 +266,7 @@ TESTING=true ENABLE_RATE_LIMITING=false python scripts/generate_ext_api_contract
   "items": {
     "$ref": "#/components/schemas/CategoryResponse"
   },
-  "title": "Response Get Categories Api Categories  Get",
+  "title": "Response Get Categories Api Categories Get",
   "type": "array"
 }
 ```

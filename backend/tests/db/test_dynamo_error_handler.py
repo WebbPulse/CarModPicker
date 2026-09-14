@@ -8,10 +8,9 @@ from typing import Any, Dict
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from webbpulse.dynamodb import ConditionFailed, ItemNotFound, TransactionCanceled
-from webbpulse.http import ErrorSpec
+from webbpulse.http import ErrorSpec, RequestIdMiddleware
 
 from app.api.middleware.error_handler import register_error_handlers
-from app.api.middleware.request_context import request_context_middleware
 from app.db.dynamo.users import UniqueAttributeTaken
 
 NOT_FOUND_BODY = {
@@ -51,7 +50,7 @@ def assert_body(body: Dict[str, Any], expected: Dict[str, Any]) -> None:
 def build_app() -> FastAPI:
     """An application with the error handlers and one route per repository exception."""
     app = FastAPI()
-    app.middleware("http")(request_context_middleware)
+    app.add_middleware(RequestIdMiddleware)
     register_error_handlers(app)
 
     @app.get("/missing")

@@ -212,7 +212,7 @@ async def get_user(
 
 
 @router.get(
-    "/",
+    "",
     response_model=CursorPage[Union[UserRead, PublicUserRead]],
     responses={
         200: {"description": "List of users retrieved successfully"},
@@ -293,8 +293,9 @@ async def update_user(
         del update_data["session_expire_minutes"]
 
     for field, value in update_data.items():
-        if value is not None:
-            changes[field] = value
+        if field in ("username", "email") and value is None:
+            continue
+        changes[field] = value
 
     try:
         db_user = repos.users.update_user(user_id, **changes) if changes else db_user

@@ -58,6 +58,16 @@ output "api_invoke_url" {
   value       = module.api.api_endpoint
 }
 
+output "api_id" {
+  description = "HTTP API id. Value for E2E_API_ID on the matching GitHub Environment, which the post deploy suite reads the live routes with."
+  value       = module.api.api_id
+}
+
+output "api_access_log_group" {
+  description = "Gateway access log group. Value for E2E_ACCESS_LOG_GROUP on the matching GitHub Environment, which the route cut assertions correlate against."
+  value       = module.api.access_log_group_name
+}
+
 output "api_url" {
   description = "Public API origin (custom domain, or the execute-api endpoint without one). Use frontend_api_base_url for VITE_API_URL."
   value       = local.api_url
@@ -76,6 +86,26 @@ output "staging_access_gate_hosted_ui" {
 output "staging_access_gate_user_pool_id" {
   description = "Cognito user pool id of the staging access gate (null when the gate is off)"
   value       = one(module.staging_access_gate[*].user_pool_id)
+}
+
+output "staging_access_gate_ssm_parameter_name" {
+  description = "SSM SecureString holding the x-origin-verify value (null when the gate is off). Value for E2E_GATE_SSM_PARAMETER on the staging GitHub Environment; the suite reads it with decryption and never prints it."
+  value       = one(module.staging_access_gate[*].origin_verify_ssm_parameter_name)
+}
+
+output "e2e_gate_signing_key_ssm_parameter_name" {
+  description = "SSM SecureString holding the RSA private key the staging gate signs CloudFront cookies with (null when the gate is off). Value for E2E_GATE_SIGNING_KEY_SSM_PARAMETER on the staging GitHub Environment; the suite reads the key with decryption to mint its own session cookies and never prints it."
+  value       = one(module.staging_access_gate[*].signing_key_ssm_parameter_name)
+}
+
+output "e2e_gate_key_pair_id" {
+  description = "CloudFront public key id the staging gate trusts (null when the gate is off). Value for E2E_GATE_KEY_PAIR_ID on the staging GitHub Environment; it rides in the CloudFront-Key-Pair-Id cookie alongside the policy and the signature."
+  value       = one(module.staging_access_gate[*].signing_key_pair_id)
+}
+
+output "e2e_gate_cookie_domain" {
+  description = "Domain the staging gate scopes its signed session cookies to (null when the gate is off). Value for E2E_GATE_COOKIE_DOMAIN on the staging GitHub Environment, so the suite scopes the cookies it mints exactly as the login Lambda does."
+  value       = one(module.staging_access_gate[*].cookie_domain)
 }
 
 output "dynamodb_table_names" {

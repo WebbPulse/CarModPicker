@@ -108,7 +108,7 @@ describe('usersApi — list + count', () => {
 
     await usersApi.listUsers(params);
 
-    expect(getMock).toHaveBeenCalledWith('/users/', { params });
+    expect(getMock).toHaveBeenCalledWith('/users', { params });
   });
 
   it('listUsers GETs /users/ with undefined params when none provided', async () => {
@@ -116,7 +116,7 @@ describe('usersApi — list + count', () => {
 
     await usersApi.listUsers();
 
-    expect(getMock).toHaveBeenCalledWith('/users/', { params: undefined });
+    expect(getMock).toHaveBeenCalledWith('/users', { params: undefined });
   });
 
   it('countUsers GETs /users/count', async () => {
