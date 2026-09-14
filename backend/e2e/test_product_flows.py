@@ -164,13 +164,10 @@ class TestModerationDomain:
         A vote carries no name of its own, so it is not tracked for the sweep: it is
         deleted here, and deleting the build list the fixture tracked removes the rest.
 
-        The summary's `user_vote` is deliberately not asserted. It is the one field that
-        needs the caller's identity, and on a stage running the access gate no optional
-        auth route ever learns who the caller is: the gate publishes its `jwt.claims`
-        context only for the route keys it enforces a token on, and an optional auth route
-        is never one of those. So `user_vote` reads null there for a signed in caller even
-        though the vote was written, which the tallies below do prove. The write path,
-        which the gate does enforce, carries the vote itself and is asserted in full.
+        The summary's `user_vote` is the field that needs the caller's identity on an
+        optional auth route, where no authorizer publishes claims. It is what the in
+        process bearer verification exists to make work, so it is asserted here in both
+        directions: the caller's own vote after the cast, and null after the withdrawal.
         """
         target = f"/api/votes/build_list/{build_list['id']}"
         cast = api.post(target, json={"vote_type": "upvote"})
@@ -180,6 +177,7 @@ class TestModerationDomain:
         summary = api.get(f"{target}/summary")
         assert summary.status_code == 200, summary.text[:400]
         assert summary.json()["upvotes"] == 1, summary.text[:400]
+        assert summary.json()["user_vote"] == "upvote", summary.text[:400]
 
         withdrawn = api.delete(target)
         assert withdrawn.status_code in (200, 204), withdrawn.text[:400]
@@ -187,6 +185,7 @@ class TestModerationDomain:
         cleared = api.get(f"{target}/summary")
         assert cleared.status_code == 200, cleared.text[:400]
         assert cleared.json()["upvotes"] == 0, cleared.text[:400]
+        assert cleared.json()["user_vote"] is None, cleared.text[:400]
 
 
 class TestMediaDomain:
