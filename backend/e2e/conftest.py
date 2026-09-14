@@ -79,6 +79,7 @@ def _identity_environment() -> dict[str, str]:
         "IDENTITY_AUDIENCE": audience,
         "IDENTITY_SIGNING_KEY_ARNS": '["arn:aws:kms:us-west-2:000000000000:key/openapi-build-only"]',
         "IDENTITY_REGISTRATION_ENABLED": "true",
+        "IDENTITY_EPHEMERAL_USERS_ENABLED": "true",
         "IDENTITY_PASSKEYS_ENABLED": "true",
         "IDENTITY_GOOGLE_CLIENT_ID": "openapi-build-only",
         "IDENTITY_GITHUB_CLIENT_ID": "openapi-build-only",

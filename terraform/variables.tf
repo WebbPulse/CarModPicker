@@ -232,3 +232,22 @@ variable "domain_jwt_enforced" {
   type    = bool
   default = false
 }
+
+variable "ephemeral_users_enabled" {
+  description = <<-EOT
+    Whether the identity function mounts the admin-only ephemeral e2e user routes,
+    POST /api/auth/e2e/users and DELETE /api/auth/e2e/users/{user_id}.
+
+    The e2e suite creates one throwaway login user per xdist worker and deletes it at
+    session teardown, so runs no longer share the durable account and no longer need a
+    concurrency group. The caller must present a KMS-minted token carrying the admin
+    role, which only the e2e workflow can produce.
+
+    Off by default and set true only on the staging workspace. The package additionally
+    refuses to mount the routes when IDENTITY_ENVIRONMENT is a production one whatever
+    this flag says, so a misconfigured production deployment has no route to reach.
+  EOT
+
+  type    = bool
+  default = false
+}
