@@ -91,7 +91,7 @@ describe('Search page', () => {
 
     await waitFor(() =>
       expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
-        '/search/',
+        '/search',
         expect.objectContaining({
           params: expect.objectContaining({ q: 'honda' }),
         })

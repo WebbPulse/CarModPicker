@@ -485,7 +485,7 @@ async function getCurrentUser(): Promise<ApiResponse<User>> {
 
 /** List part categories. */
 async function getCategories(): Promise<ApiResponse<Category[]>> {
-  return apiRequest<Category[]>("/categories/", { method: "GET" });
+  return apiRequest<Category[]>("/categories", { method: "GET" });
 }
 
 /** List car generations. */

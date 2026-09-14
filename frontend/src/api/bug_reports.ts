@@ -14,7 +14,7 @@ import type {
 /** Bug report submission and the admin triage endpoints. */
 export const bugReportsApi = {
   createBugReport: (data: BugReportCreate) =>
-    apiClient.post<BugReportRead>('/bug-reports/', data),
+    apiClient.post<BugReportRead>('/bug-reports', data),
   getBugReports: (params?: {
     status?: string;
     priority?: string;

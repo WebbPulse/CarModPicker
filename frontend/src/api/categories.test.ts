@@ -18,7 +18,7 @@ describe('categoriesApi', () => {
 
     const result = await categoriesApi.getCategories();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/categories/');
+    expect(apiClient.get).toHaveBeenCalledWith('/categories');
     expect(result.data).toEqual([mockCategory]);
   });
 

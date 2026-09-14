@@ -63,7 +63,7 @@ describe('searchApi', () => {
       limit: 10,
     });
 
-    expect(getMock).toHaveBeenCalledWith('/search/', {
+    expect(getMock).toHaveBeenCalledWith('/search', {
       params: { q: 'honda civic', skip: 0, limit: 10 },
     });
     expect(result.data).toEqual(payload);
@@ -77,7 +77,7 @@ describe('searchApi', () => {
 
     await searchApi.search({ q: 'civic' });
 
-    expect(getMock).toHaveBeenCalledWith('/search/', {
+    expect(getMock).toHaveBeenCalledWith('/search', {
       params: { q: 'civic' },
     });
     expect(getMock).toHaveBeenCalledTimes(1);
