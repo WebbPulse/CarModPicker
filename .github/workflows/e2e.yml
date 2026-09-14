@@ -28,7 +28,7 @@ jobs:
     with:
       deploy-workflows: "Deploy Backend, Frontend Deploy"
       working-directory: backend
-      install-command: uv sync --locked --group e2e
+      install-command: uv lock --upgrade-package webbpulse && uv sync --locked --group e2e
       pytest-args: "--no-cov"
       codeartifact-domain: webbpulse
     secrets:
