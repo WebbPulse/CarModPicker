@@ -7,6 +7,9 @@ own count. Every backend failure fails open, so an outage costs availability not
 Requests are classified first, so a page's read fanout counts against a generous
 GET allowance instead of the cap that guards credential endpoints. CORS
 preflights carry no data and are never counted at all.
+
+Staging is never rate limited, by the shared `webbpulse` convention that
+`settings.rate_limiting_enabled` carries.
 """
 
 from __future__ import annotations
@@ -109,7 +112,15 @@ def is_rate_limit_exempt_method(method: str) -> bool:
 
 
 def rate_limiting_enabled() -> bool:
-    """Whether the middleware should count this process's requests at all."""
+    """Whether the middleware should count this process's requests at all.
+
+    Staging is never rate limited: `settings.rate_limiting_enabled` carries the shared
+    `webbpulse` convention, so every deployment named staging turns the limiter off
+    without a per-product variable. The explicit switches remain the local and test
+    off switch and are still honoured everywhere else.
+    """
+    if not settings.rate_limiting_enabled:
+        return False
     if not settings.ENABLE_RATE_LIMITING:
         return False
     if os.getenv("ENABLE_RATE_LIMITING", "true").lower() == "false":

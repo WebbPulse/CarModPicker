@@ -182,6 +182,37 @@ def _build_app() -> FastAPI:
     return test_app
 
 
+@contextmanager
+def _environment(name: str) -> Iterator[None]:
+    """Run the block with `settings.environment` mirrored from `APP_ENVIRONMENT`.
+
+    The base class derives `rate_limiting_enabled` from `environment`, and CMP fills
+    that field in `_mirror_base_fields`, so the mapping is exercised rather than
+    stubbed.
+    """
+    settings = rate_limiter_module.settings
+    previous_app = settings.APP_ENVIRONMENT
+    previous_env = settings.environment
+    object.__setattr__(settings, "APP_ENVIRONMENT", name)
+    settings._mirror_base_fields()
+    try:
+        yield
+    finally:
+        object.__setattr__(settings, "APP_ENVIRONMENT", previous_app)
+        object.__setattr__(settings, "environment", previous_env)
+
+
+@contextmanager
+def _switches_on() -> Iterator[None]:
+    """Turn every explicit rate limiting switch on, settings and environment alike."""
+    with (
+        unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_RATE_LIMITING", True),
+        unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_SHARED_RATE_LIMITING", True),
+        unittest.mock.patch.dict(os.environ, {"ENABLE_RATE_LIMITING": "true"}),
+    ):
+        yield
+
+
 class TestRateLimitExemptPaths:
     """The middleware skip list, exact and prefix entries alike.
 
@@ -246,6 +277,16 @@ class TestRateLimitingEnabled:
             unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_SHARED_RATE_LIMITING", True),
             unittest.mock.patch.dict(os.environ, {"ENABLE_RATE_LIMITING": "true"}),
         ):
+            assert rate_limiting_enabled()
+
+    def test_disabled_in_staging_despite_every_switch_being_on(self) -> None:
+        """Staging is never rate limited, whatever the explicit switches say."""
+        with _environment("staging"), _switches_on():
+            assert not rate_limiting_enabled()
+
+    def test_enabled_in_production(self) -> None:
+        """Production keeps its limits under the same shared convention."""
+        with _environment("production"), _switches_on():
             assert rate_limiting_enabled()
 
 
@@ -325,6 +366,36 @@ class TestRateLimitMiddlewareEnforcement:
             _INSTALLED.clear()
 
         assert limiter.identities == []
+
+    def test_staging_passes_every_request_through_untouched(self) -> None:
+        """In staging the middleware never consults the limiter, switches on or not."""
+        limiter = StubLimiter(allowed=0)
+        _INSTALLED.clear()
+        _INSTALLED.update(_stub_registry(limiter))
+        try:
+            with _environment("staging"), _switches_on():
+                client = TestClient(_build_app())
+                for _ in range(5):
+                    assert client.get("/api/parts").status_code == 200
+        finally:
+            _INSTALLED.clear()
+
+        assert limiter.identities == []
+
+    def test_production_still_limits(self) -> None:
+        """The same request in production is counted and rejected once the cap is spent."""
+        limiter = StubLimiter(allowed=1)
+        _INSTALLED.clear()
+        _INSTALLED.update(_stub_registry(limiter))
+        try:
+            with _environment("production"), _switches_on():
+                client = TestClient(_build_app())
+                assert client.get("/api/parts").status_code == 200
+                assert client.get("/api/parts").status_code == 429
+        finally:
+            _INSTALLED.clear()
+
+        assert len(limiter.identities) == 2
 
 
 class TestRateLimitExemptMethods:
