@@ -108,7 +108,7 @@ def require_part_manufacturer_edit_permission(user: DBUser, pm: DBPartManufactur
             status_code=403,
             detail=(
                 "Not authorized to edit this part manufacturer. "
-                "Only the original creator (for user-created entries) or an admin can edit it."
+                "Manufacturers are a shared catalogue entry, so only an admin can edit one."
             ),
         )
 
@@ -120,6 +120,6 @@ def require_part_manufacturer_delete_permission(user: DBUser, pm: DBPartManufact
             status_code=403,
             detail=(
                 "Not authorized to delete this part manufacturer. "
-                "Only the original creator (for user-created entries) or an admin can delete it."
+                "Manufacturers are a shared catalogue entry, so only an admin can delete one."
             ),
         )
