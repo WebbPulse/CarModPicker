@@ -26,5 +26,5 @@ export interface SearchResults {
 /** Cross entity search in a single request. */
 export const searchApi = {
   search: (params: { q: string; skip?: number; limit?: number }) =>
-    apiClient.get<SearchResults>('/search/', { params }),
+    apiClient.get<SearchResults>('/search', { params }),
 };

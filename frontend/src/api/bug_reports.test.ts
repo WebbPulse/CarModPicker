@@ -78,7 +78,7 @@ describe('bugReportsApi', () => {
 
     await bugReportsApi.createBugReport(body);
 
-    expect(apiClient.post).toHaveBeenCalledWith('/bug-reports/', body);
+    expect(apiClient.post).toHaveBeenCalledWith('/bug-reports', body);
     const postCalls = vi.mocked(apiClient.post).mock.calls;
     expect(postCalls.length).toBeGreaterThan(0);
     const firstCall = postCalls[0];

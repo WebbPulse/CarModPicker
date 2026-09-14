@@ -63,7 +63,7 @@ describe('BugReport page', () => {
 
     await waitFor(() =>
       expect(vi.mocked(apiClient.post)).toHaveBeenCalledWith(
-        '/bug-reports/',
+        '/bug-reports',
         expect.objectContaining({
           title: 'Test bug',
           description: 'Description text',

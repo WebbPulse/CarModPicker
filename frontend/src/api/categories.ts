@@ -7,7 +7,7 @@ import type { CategoryResponse, PartRead } from '../types/Api';
 
 /** Part category lookup and the parts under each category. */
 export const categoriesApi = {
-  getCategories: () => apiClient.get<CategoryResponse[]>('/categories/'),
+  getCategories: () => apiClient.get<CategoryResponse[]>('/categories'),
   getCategory: (categoryId: string) =>
     apiClient.get<CategoryResponse>(`/categories/${categoryId}`),
   getPartsByCategory: (
