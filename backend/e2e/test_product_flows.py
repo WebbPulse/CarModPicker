@@ -45,9 +45,9 @@ def _seed_car_id(api: Any) -> str:
 
 def _seed_category_id(api: Any) -> str:
     """A real category id, which a part requires as its `category_id`."""
-    response = api.get("/api/categories/")
+    response = api.get("/api/categories")
     if response.status_code != 200:
-        pytest.skip(f"GET /api/categories/ answered {response.status_code}, so no seed category is available")
+        pytest.skip(f"GET /api/categories answered {response.status_code}, so no seed category is available")
     items = response.json()
     if not items:
         pytest.skip("this stage has no seeded categories, so no part can be created")
@@ -68,7 +68,7 @@ class TestUsersDomain:
 
     def test_profile_update_round_trips(self, api: Any, e2e_user_id: str) -> None:
         """A PUT on the user's own record is visible on the next GET /api/users/me."""
-        marker = f"https://example.invalid/e2e/{uuid.uuid4().hex}"
+        marker = f"https://youtube.com/@e2e-{uuid.uuid4().hex}"
         response = api.put(f"/api/users/{e2e_user_id}", json={"youtube_url": marker})
         assert response.status_code == 200, response.text[:400]
 
