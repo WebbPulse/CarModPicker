@@ -177,6 +177,11 @@ def test_root_a_openapi_paths_match_the_contract() -> None:
     """The published document describes the same surface the routing table serves.
 
     The routes excluded from the schema are named, so a new one is deliberate.
+
+    All five root routes are excluded. The gateway declares a route key for the two
+    sitemaps only, so `/`, `/health` and `/ready` are reachable by direct Lambda invoke
+    alone and a document that declared them would promise three operations the gateway
+    answers its own 404 for.
     """
     from app.main import app
 
@@ -187,12 +192,9 @@ def test_root_a_openapi_paths_match_the_contract() -> None:
         if method.upper() in {"GET", "POST", "PUT", "PATCH", "DELETE", "TRACE"}
     }
     in_table = _root_a()
-    undocumented = {
-        ("GET", "/sitemap.xml"),
-        ("GET", "/sitemap-{name}.xml"),
-    } | DOCS_ROUTES
+    undocumented = ROOT_ROUTES | DOCS_ROUTES
     assert documented == in_table - undocumented
-    assert len(documented) == DOMAIN_ROUTE_COUNT + ROOT_ROUTE_COUNT - 2
+    assert len(documented) == DOMAIN_ROUTE_COUNT
 
 
 def test_no_route_is_registered_twice() -> None:

@@ -36,7 +36,7 @@ OUTPUT_PATH = REPO_ROOT / "chrome-extension" / "API_CONTRACT.md"
 
 EXTENSION_ENDPOINTS: list[tuple[str, str]] = [
     ("GET", "/api/users/me"),
-    ("GET", "/api/categories/"),
+    ("GET", "/api/categories"),
     ("GET", "/api/retailers"),
     ("POST", "/api/retailers/get-or-create"),
     ("GET", "/api/parts/check-url"),

@@ -213,7 +213,7 @@
   ],
   [
     "GET",
-    "/api/categories/"
+    "/api/categories"
   ],
   [
     "GET",
@@ -377,11 +377,11 @@
   ],
   [
     "GET",
-    "/api/search/"
+    "/api/search"
   ],
   [
     "GET",
-    "/api/users/"
+    "/api/users"
   ],
   [
     "GET",
@@ -473,7 +473,7 @@
   ],
   [
     "POST",
-    "/api/bug-reports/"
+    "/api/bug-reports"
   ],
   [
     "POST",

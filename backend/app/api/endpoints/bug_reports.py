@@ -52,7 +52,7 @@ async def count_bug_reports(repos: Repositories = Depends(get_repositories)) -> 
 
 
 @router.post(
-    "/",
+    "",
     response_model=BugReportRead,
     responses=standard_responses(
         success_description="Bug report created successfully",
