@@ -93,6 +93,21 @@ output "staging_access_gate_ssm_parameter_name" {
   value       = one(module.staging_access_gate[*].origin_verify_ssm_parameter_name)
 }
 
+output "e2e_gate_signing_key_ssm_parameter_name" {
+  description = "SSM SecureString holding the RSA private key the staging gate signs CloudFront cookies with (null when the gate is off). Value for E2E_GATE_SIGNING_KEY_SSM_PARAMETER on the staging GitHub Environment; the suite reads the key with decryption to mint its own session cookies and never prints it."
+  value       = one(module.staging_access_gate[*].signing_key_ssm_parameter_name)
+}
+
+output "e2e_gate_key_pair_id" {
+  description = "CloudFront public key id the staging gate trusts (null when the gate is off). Value for E2E_GATE_KEY_PAIR_ID on the staging GitHub Environment; it rides in the CloudFront-Key-Pair-Id cookie alongside the policy and the signature."
+  value       = one(module.staging_access_gate[*].signing_key_pair_id)
+}
+
+output "e2e_gate_cookie_domain" {
+  description = "Domain the staging gate scopes its signed session cookies to (null when the gate is off). Value for E2E_GATE_COOKIE_DOMAIN on the staging GitHub Environment, so the suite scopes the cookies it mints exactly as the login Lambda does."
+  value       = one(module.staging_access_gate[*].cookie_domain)
+}
+
 output "dynamodb_table_names" {
   description = "DynamoDB table names keyed by table suffix"
   value       = module.dynamodb.table_names
