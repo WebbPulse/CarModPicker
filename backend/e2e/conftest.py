@@ -1,8 +1,9 @@
 """Product wiring for the `webbpulse.e2e` post-deploy suite.
 
-Supplies the three things the plugin cannot know: the merged OpenAPI document the deployed
-gateway routes against, the header names `@webbpulse/api-client` sends on a cross origin
-request, and the cleanup that deletes what an e2e run leaves behind.
+Supplies what the plugin cannot know: the merged OpenAPI document the deployed gateway
+routes against, the header names `@webbpulse/api-client` sends on a cross origin request,
+the cleanup that deletes what an e2e run leaves behind, and the browser contract naming
+the login form, every frontend route and the product journeys the shared suite drives.
 
 This directory sits outside `tests/` so the unit CI, whose `testpaths` is `tests`, never
 collects it. It installs as the `e2e` dependency group alone.
@@ -15,6 +16,18 @@ from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
 import pytest
+from webbpulse.e2e import (
+    Click,
+    ExpectText,
+    ExpectUrl,
+    ExpectVisible,
+    Fill,
+    Goto,
+    Journey,
+    LoginForm,
+    Record,
+    RouteSpec,
+)
 
 pytest_plugins = ["webbpulse.e2e"]
 
@@ -26,6 +39,10 @@ CORS_REQUEST_HEADERS = (
     "x-request-id",
     "x-retry-attempt",
 )
+
+SOCIAL_LINKS_RESET = "reset-social-links"
+
+SOCIAL_LINKS_BASELINE_URL = "https://youtube.com/@carmodpicker-e2e-baseline"
 
 SWEEPABLE_COLLECTIONS = (
     ("/api/build-lists", "/api/build-lists/{id}", "name"),
@@ -196,12 +213,44 @@ def _created_after(item: Mapping[str, Any], cutoff: float) -> bool:
     return stamp.timestamp() > cutoff
 
 
-def pytest_e2e_cleanup(env: Any, phase: str, created: Sequence[Any]) -> Any:
-    """Delete the e2e user's `e2e-` resources: stale ones at the start, this run's at the end.
+def _reset_social_links(client: Any) -> str:
+    """Put the e2e user's YouTube URL back to its baseline, returning a problem or "".
 
-    `created` carries `(method_path, identifier)` pairs the product flows appended to
-    `created_resources`, each already a deletable path. Returns a description of what could
-    not be deleted, which the plugin surfaces as a warning rather than a failure.
+    The social links journey writes a per run marker into the user's own record rather
+    than creating a resource, so the sweep restores the field instead of deleting a row.
+
+    It overwrites rather than clears on purpose. `PUT /api/users/{id}` drops every None
+    from the update before applying it, so sending null leaves the old value in place and
+    still answers 200. A constant baseline URL is therefore the only way back to a known
+    state, and it keeps the journey re-runnable because each run overwrites the last.
+    """
+    try:
+        me = client.get("/api/users/me")
+    except Exception as error:
+        return f"GET /api/users/me raised {type(error).__name__}"
+    if me.status_code != 200:
+        return f"GET /api/users/me answered {me.status_code}, so the social links were not reset"
+    try:
+        response = client.put(f"/api/users/{me.json()['id']}", json={"youtube_url": SOCIAL_LINKS_BASELINE_URL})
+    except Exception as error:
+        return f"resetting the social links raised {type(error).__name__}"
+    return "" if response.status_code == 200 else f"resetting the social links answered {response.status_code}"
+
+
+def _sweep_one(client: Any, resource: Any) -> str:
+    """Undo one recorded resource, by marker or by delete path."""
+    if resource == SOCIAL_LINKS_RESET:
+        return _reset_social_links(client)
+    return _delete_quietly(client, str(resource))
+
+
+def pytest_e2e_cleanup(env: Any, phase: str, created: Sequence[Any]) -> Any:
+    """Undo the e2e user's `e2e-` resources: stale ones at the start, this run's at the end.
+
+    `created` carries the delete paths the product flows appended to `created_resources`,
+    plus the `SOCIAL_LINKS_RESET` marker the browser journey records, which is a field to
+    restore rather than a row to delete. Returns a description of what could not be undone,
+    which the plugin surfaces as a warning rather than a failure.
     """
     client = _cleanup_client(env)
     if client is None:
@@ -209,8 +258,9 @@ def pytest_e2e_cleanup(env: Any, phase: str, created: Sequence[Any]) -> Any:
     try:
         if phase == "start":
             leftovers = _sweep_stale(client, "e2e-")
+            leftovers.extend(problem for problem in (_reset_social_links(client),) if problem)
         else:
-            leftovers = [problem for path in created if (problem := _delete_quietly(client, str(path)))]
+            leftovers = [problem for item in created if (problem := _sweep_one(client, item))]
     finally:
         client.close()
     return "; ".join(leftovers)
@@ -276,3 +326,122 @@ def track(created_resources: list[Any]) -> Iterator[Any]:
         return path
 
     yield _track
+
+
+PUBLIC_ROUTES = (
+    ("/", "public"),
+    ("/about", "public"),
+    ("/privacy-policy", "public"),
+    ("/terms-of-service", "public"),
+    ("/contact-us", "public"),
+    ("/support", "public"),
+    ("/pricing", "public"),
+    ("/bug-report", "public"),
+    ("/search", "public"),
+    ("/build-lists", "public"),
+    ("/verify-email/confirm", "public"),
+    ("/extension-auth", "public"),
+    ("/nonexistent-route-for-404-test", "public"),
+)
+
+GUEST_ONLY_ROUTES = (
+    ("/login", "guest-only"),
+    ("/register", "guest-only"),
+    ("/forgot-password", "guest-only"),
+)
+
+PROTECTED_ROUTES = (
+    ("/profile", "protected"),
+    ("/builder", "protected"),
+    ("/my-parts", "protected"),
+)
+
+
+def pytest_e2e_login_form(env: Any) -> LoginForm:
+    """Where CarModPicker's login form lives and which elements prove the state changed.
+
+    Every locator is the plugin's own default, because `Login.tsx` and `Header.tsx` now
+    carry exactly the four conventional `data-testid` attributes. `signed_in_marker` is
+    the header's account link, which renders on every authenticated page rather than only
+    on the one the sign-in landed on, and `signed_out_marker` is the login submit button,
+    which is what a signed-out visitor bounced back to `/login` sees.
+
+    `protected_redirect` is left empty so it defaults to `/login`, which is where
+    `ProtectedRoute` and `EmailVerifiedRoute` both send an anonymous visitor, and
+    `guest_redirect` stays `/`, which is where `GuestRoute` sends a signed-in one.
+    """
+    return LoginForm(path="/login")
+
+
+def pytest_e2e_routes(env: Any) -> list[RouteSpec]:
+    """Every frontend route the app serves, and who is allowed to see it.
+
+    Mirrors the `ALL_ROUTES` table in `frontend/src/test/route-coverage-list.ts`, which is
+    the enumeration the frontend's own drift guard holds against `App.tsx`, minus three
+    kinds of entry the deployed browser suite cannot assert on:
+
+    - the admin routes, which `App.tsx` wraps in no guard at all and whose pages bounce a
+      non-admin to `/` from inside an effect. The durable e2e user is deliberately not an
+      admin, so declaring them `protected` would assert a redirect the router never makes
+      and declaring them `public` would assert a page the user may not see.
+    - the parameterised routes, whose ids the coverage list fills with all-zero UUIDs that
+      resolve to nothing on a real stage, so the page renders its own not-found state.
+    - `/_kitchen-sink`, which is mounted only under `import.meta.env.DEV` and does not
+      exist in a deployed bundle.
+
+    `/checkout` and `/verify-email` are left out for the same reason as the admin pages:
+    the first redirects to `/` whenever the premium system is disabled, and the second is
+    behind `VerifyEmailRoute`, which bounces the e2e user because their address is already
+    verified.
+
+    No route overrides the root locator. The app mounts on `#root`, the first of the
+    plugin's own candidates, and the render check asks only whether that mount point has
+    children, which is what separates a painted page from the shipped blank one a 200
+    cannot see. Naming a heading instead would assert content the check is not for and
+    would fail on the auth pages, which render their title as an `h2` through `AuthCard`.
+    """
+    declared = PUBLIC_ROUTES + GUEST_ONLY_ROUTES + PROTECTED_ROUTES
+    return [RouteSpec(path=path, access=access) for path, access in declared]
+
+
+def pytest_e2e_journeys(env: Any) -> list[Journey]:
+    """Short flows through the real CarModPicker UI, one read only and one mutating.
+
+    The catalog journey is the read path a signed-out visitor takes: the header's own
+    navigation to the build lists catalog, which has to fetch and paint a list from the
+    deployed API rather than only serve the shell.
+
+    The social links journey is the write path, and it writes the one thing the durable
+    e2e user owns outright: a URL on their own profile. Creating a build list through the
+    UI would need the three cascading make, model and generation selects, whose options
+    come from whatever the stage's catalog happens to hold, so it would fail on the data
+    rather than on the app. The marker carries `{run_id}`, so a value left behind by a run
+    that died mid-way is recognisable, and the `Record` step hands the cleanup hook the
+    reset that puts the field back.
+    """
+    return [
+        Journey(
+            name="browse the build lists catalog",
+            signed_in=False,
+            steps=[
+                Goto("/"),
+                Click("header a[href='/build-lists']"),
+                ExpectUrl("/build-lists"),
+                ExpectText("main h1", "Build Lists Catalog"),
+                ExpectVisible("main h1"),
+            ],
+        ),
+        Journey(
+            name="update the profile social links",
+            signed_in=True,
+            mutates=True,
+            steps=[
+                Goto("/profile"),
+                ExpectVisible("#youtube_url"),
+                Fill("#youtube_url", "https://youtube.com/@e2e-{run_id}"),
+                Click("form:has(#youtube_url) button[type=submit]"),
+                ExpectText("main", "Social links updated successfully!"),
+                Record(SOCIAL_LINKS_RESET),
+            ],
+        ),
+    ]
