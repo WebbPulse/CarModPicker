@@ -13,9 +13,11 @@ export interface AuthExtrasContextType {
   /** Seeds the user a login response already returned, with no extra request. */
   login: (userData: UserRead) => void;
   /**
-   * Ends the session and returns to the home page. Resolves even when the
-   * server call fails, since the package clears its own state either way and a
-   * signed-out user has nothing to act on.
+   * Ends the session through the package store, then returns to the home page.
+   * The navigation waits for the logout call to settle, because navigating
+   * first aborts the in-flight request and leaves the refresh cookie alive.
+   * Resolves even when the server call fails, since the package clears its own
+   * state either way and a signed-out user has nothing to act on.
    */
   logout: () => Promise<void>;
   /**
