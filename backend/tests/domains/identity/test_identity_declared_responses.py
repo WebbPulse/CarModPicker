@@ -1,10 +1,10 @@
 """The identity router's OpenAPI responses describe the statuses the routes really answer.
 
-The `webbpulse.identity` package declares every route with the FastAPI default alone, so
-the published document promised 200 and 422 for routes that answer 303, 400 and 401. The
-post-deploy suite holds each operation to its own `responses` table, which is how
-`POST /api/auth/register` and `GET /api/auth/oauth/callback` failed on the first full
-staging run.
+The `webbpulse.identity` package declares them from its own route tables, so the document
+CarModPicker publishes carries the 303, 400 and 401 the routes answer rather than the
+FastAPI default alone. The post-deploy suite holds each operation to its own `responses`
+table, which is how `POST /api/auth/register` and `GET /api/auth/oauth/callback` failed on
+the first full staging run.
 """
 
 from __future__ import annotations
@@ -14,11 +14,8 @@ from typing import Any, Iterator
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import APIRouter
-from fastapi.routing import APIRoute
 from webbpulse.testing import FakeKms
 
-from app.composition.identity import IDENTITY_EXTRA_RESPONSES, declare_identity_responses
 from tests.domains.identity.test_identity_row5 import AUDIENCE, DATA_KEY_ARN, ISSUER, KEY_ARN
 from tests.domains.identity.test_identity_row5 import private_key as _private_key
 from tests.entrypoints.test_route_split import _effective_routes
@@ -101,36 +98,6 @@ def _declared(app: Any) -> dict[tuple[str, str], set[int]]:
     }
 
 
-def _router_with(path: str, method: str, responses: dict[Any, Any] | None = None) -> APIRouter:
-    """A router carrying one route at `path`, for the amendment to act on."""
-    router = APIRouter()
-
-    async def handler() -> dict[str, str]:
-        """Answer nothing in particular; only the declaration is under test."""
-        return {}
-
-    router.add_api_route(path, handler, methods=[method], responses=responses or {})
-    return router
-
-
-def test_an_existing_declaration_is_left_alone() -> None:
-    """A status the package already describes keeps the package's own description."""
-    router = _router_with("/api/auth/register", "POST", {400: {"description": "the package's own"}})
-    declare_identity_responses(router)
-
-    route = next(r for r in router.routes if isinstance(r, APIRoute))
-    assert route.responses[400]["description"] == "the package's own"
-
-
-def test_an_unlisted_route_is_untouched() -> None:
-    """A route the table does not name gains nothing."""
-    router = _router_with("/api/auth/not-a-real-route", "GET")
-    declare_identity_responses(router)
-
-    route = next(r for r in router.routes if isinstance(r, APIRoute))
-    assert route.responses == {}
-
-
 def test_register_declares_the_statuses_it_answers(every_route_app: Any) -> None:
     """`POST /api/auth/register` declares the 400 an empty body gets and the 201 a new account gets."""
     statuses = _declared(every_route_app)[("POST", "/api/auth/register")]
@@ -147,22 +114,11 @@ def test_oauth_start_declares_its_redirect(every_route_app: Any) -> None:
     assert 302 in _declared(every_route_app)[("GET", "/api/auth/oauth/{provider}/start")]
 
 
-def test_every_declared_path_is_mounted_by_the_identity_domain(every_route_app: Any) -> None:
-    """Every entry in the table names a route the identity domain actually serves.
-
-    A stale entry would be dead weight the document never gains, hiding the real path
-    behind a typo rather than failing.
-    """
-    served = _declared(every_route_app)
-    stale = sorted(f"{method} {path}" for method, path in IDENTITY_EXTRA_RESPONSES if (method, path) not in served)
-    assert not stale, f"{stale} are declared in IDENTITY_EXTRA_RESPONSES but the identity domain serves no such route"
-
-
 def test_no_identity_route_declares_only_the_fastapi_default(every_route_app: Any) -> None:
     """No `/api/auth` route is left with 200 and 422 alone.
 
-    That pair is what the package declares when it declares nothing, and it is the shape
-    the post-deploy suite reads as a route whose real statuses are undeclared.
+    That pair is what FastAPI declares on its own, and it is the shape the post-deploy
+    suite reads as a route whose real statuses are undeclared.
     """
     bare = sorted(
         f"{method} {path}"

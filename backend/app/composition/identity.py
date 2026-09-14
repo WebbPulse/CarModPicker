@@ -32,8 +32,8 @@ def build_router(settings: "Settings") -> "APIRouter":
     Which route groups mount depends on what is supplied: credentials mount the
     flow routes, an email sender and token store the email routes, and so on.
 
-    The router's OpenAPI responses are amended on the way out, because the package
-    declares every route with the FastAPI default alone.
+    The package declares the statuses every mounted route answers, so the document
+    this router publishes needs no amendment here.
     """
     import boto3
     from webbpulse.dynamodb import Repository
@@ -104,7 +104,6 @@ def build_router(settings: "Settings") -> "APIRouter":
         email_sender=build_email_sender(identity_settings),
         oauth_client_secrets=build_oauth_client_secrets(settings),
     )
-    declare_identity_responses(router)
     return router
 
 
@@ -157,89 +156,3 @@ def build_email_sender(identity_settings: Any) -> Any:
     from webbpulse.identity.email import SesV2EmailSender
 
     return SesV2EmailSender.from_settings(identity_settings, boto3.client("sesv2"))
-
-
-IDENTITY_EXTRA_RESPONSES: dict[tuple[str, str], dict[int, str]] = {
-    ("POST", "/api/auth/register"): {
-        201: "Account created and signed in",
-        400: "The request carried no email address",
-        403: "Registration or password sign up is closed on this deployment",
-        429: "Too many registration attempts from this address",
-    },
-    ("POST", "/api/auth/login"): {
-        400: "The request carried no email address",
-        401: "The credentials were refused",
-        403: "The account is locked or password sign in is closed",
-        429: "Too many sign in attempts from this address",
-    },
-    ("POST", "/api/auth/refresh"): {401: "The refresh material was refused"},
-    ("POST", "/api/auth/login/totp"): {401: "The code was refused", 403: "The challenge is no longer open"},
-    ("POST", "/api/auth/login/passkey/options"): {400: "The request named no account"},
-    ("POST", "/api/auth/login/passkey/verify"): {401: "The assertion was refused"},
-    ("GET", "/api/auth/oauth/callback"): {
-        303: "The browser leg is redirected back to the frontend, on success and on failure alike",
-        400: "The state was spent, unknown or malformed",
-    },
-    ("GET", "/api/auth/oauth/{provider}/start"): {
-        302: "The browser is redirected to the provider's authorization endpoint",
-        400: "The provider is unknown or the redirect target is not allowed",
-        401: "A link start was made without a bearer token",
-    },
-    ("POST", "/api/auth/oauth/{provider}/link"): {400: "The provider is unknown", 401: "No bearer token was presented"},
-    ("DELETE", "/api/auth/oauth/{provider}/link"): {
-        400: "The provider is unknown",
-        401: "No bearer token was presented",
-    },
-    ("GET", "/api/auth/oauth/links"): {401: "No bearer token was presented"},
-    ("POST", "/api/auth/password"): {401: "The current password was refused"},
-    ("POST", "/api/auth/step-up"): {401: "The factor was refused"},
-    ("POST", "/api/auth/logout-all"): {401: "No bearer token was presented"},
-    ("POST", "/api/auth/recovery-codes"): {401: "No bearer token was presented"},
-    ("POST", "/api/auth/totp/enrol"): {401: "No bearer token was presented"},
-    ("POST", "/api/auth/totp/activate"): {401: "No bearer token was presented", 403: "The code was refused"},
-    ("POST", "/api/auth/totp/disable"): {401: "No bearer token was presented", 403: "The code was refused"},
-    ("GET", "/api/auth/passkeys"): {401: "No bearer token was presented"},
-    ("POST", "/api/auth/passkeys/register/options"): {401: "No bearer token was presented"},
-    ("POST", "/api/auth/passkeys/register/verify"): {
-        201: "Passkey registered",
-        401: "No bearer token was presented",
-    },
-    ("PATCH", "/api/auth/passkeys/{credential_id}"): {
-        401: "No bearer token was presented",
-        404: "No such passkey for this account",
-    },
-    ("DELETE", "/api/auth/passkeys/{credential_id}"): {
-        401: "No bearer token was presented",
-        404: "No such passkey for this account",
-    },
-}
-"""The statuses the `webbpulse.identity` routes really answer, keyed by method and path.
-
-The package declares each of its routes with the FastAPI default of 200 plus 422, so the
-published document promised statuses the routes do not keep: `POST /api/auth/register`
-answers 400 to a body with no email and `GET /api/auth/oauth/callback` answers 303 on
-every browser leg. An undeclared status is not cosmetic. The post-deploy suite holds each
-operation to its own `responses` table, so the document is the contract that gets checked.
-
-Amended here rather than in the package because CarModPicker mounts the router and owns
-the document it publishes.
-"""
-
-
-def declare_identity_responses(router: "APIRouter") -> None:
-    """Add the statuses the identity routes answer to their OpenAPI responses.
-
-    Existing entries are left alone, so a status the package already describes keeps the
-    package's own description.
-    """
-    from fastapi.routing import APIRoute
-
-    for route in router.routes:
-        if not isinstance(route, APIRoute):
-            continue
-        for method in route.methods or ():
-            extra = IDENTITY_EXTRA_RESPONSES.get((method, route.path))
-            if not extra:
-                continue
-            for status_code, description in extra.items():
-                route.responses.setdefault(status_code, {"description": description})

@@ -433,7 +433,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.16.0" },
     { name = "uuid6", specifier = ">=2025.0.1" },
     { name = "webauthn", specifier = ">=3.0.0" },
-    { name = "webbpulse", extras = ["fastapi", "otel", "dynamodb", "aws-otel", "security", "identity", "oauth", "passkeys"], specifier = ">=0.34.0,<1", index = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/" },
+    { name = "webbpulse", extras = ["fastapi", "otel", "dynamodb", "aws-otel", "security", "identity", "oauth", "passkeys"], specifier = ">=0.35.0,<1", index = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/" },
 ]
 
 [package.metadata.requires-dev]
@@ -458,7 +458,7 @@ e2e = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "webbpulse", extras = ["e2e"], specifier = ">=0.34.0,<1", index = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/" },
+    { name = "webbpulse", extras = ["e2e"], specifier = ">=0.35.0,<1", index = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/" },
 ]
 
 [[package]]
@@ -3429,15 +3429,15 @@ wheels = [
 
 [[package]]
 name = "webbpulse"
-version = "0.34.0"
+version = "0.35.0"
 source = { registry = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
-sdist = { url = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/webbpulse/0.34.0/webbpulse-0.34.0.tar.gz", hash = "sha512:8923d5573c8642b6530afee2305b19c21785841266d8aa38187f9227f2e3148b8195e4b8f7559fc8763932316cea656d7cdf8ae8b73d10c027090d0437bf4f5c", size = 211519, upload-time = "2026-09-14T03:26:39.851Z" }
+sdist = { url = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/webbpulse/0.35.0/webbpulse-0.35.0.tar.gz", hash = "sha512:f83f3c3c8378b2fdcaa6187c5bda010818268b07aa976819929298de98865cbf339192ef66593ec6896a7a125f8ce6750320049b155467386901578b6289bd23", size = 215711, upload-time = "2026-09-14T03:45:33.749Z" }
 wheels = [
-    { url = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/webbpulse/0.34.0/webbpulse-0.34.0-py3-none-any.whl", hash = "sha512:2bdea377ecc86027a1335d5158ac23273398a53ca85e0ecd41d40775068617d12499ef805d86224176268422aee13718813e33f86e3da2d23d9863d9c3535b3b", size = 246164, upload-time = "2026-09-14T03:26:39.623Z" },
+    { url = "https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/webbpulse/0.35.0/webbpulse-0.35.0-py3-none-any.whl", hash = "sha512:64af4081be48f3a3a0c2139a34573c50c9114491b702ab4977a34569542992ffd5d6e55bf726f957e46bbea5211c038db8943fade89b3f79acb83ddefedfbb83", size = 250438, upload-time = "2026-09-14T03:45:33.447Z" },
 ]
 
 [package.optional-dependencies]
