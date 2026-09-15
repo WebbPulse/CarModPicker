@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.api.services.part_listing_service import (
+from app.common.api.services.part_listing_service import (
     get_or_create_part_manufacturer_by_name,
     manufacturer_name_canonical,
 )
-from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from app.common.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 from tests.conftest import save_catalog
 
 

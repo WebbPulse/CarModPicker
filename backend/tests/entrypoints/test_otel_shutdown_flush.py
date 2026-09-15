@@ -15,8 +15,8 @@ from typing import Any, Iterator
 
 import pytest
 
-from app.composition import wiring
-from app.composition.domains import DOMAINS
+from app.common.composition import wiring
+from app.common.composition.domains import DOMAINS
 
 OTLP_ENDPOINT = "http://localhost:4318/v1/traces"
 

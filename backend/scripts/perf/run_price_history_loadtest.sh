@@ -85,7 +85,7 @@ from pathlib import Path
 from collections import Counter
 
 # Local import — runs only when the user invokes the live load test.
-from app.api.dependencies.repositories import get_repositories
+from app.common.api.dependencies.repositories import get_repositories
 
 pool_path = Path("${POOL_PATH}")
 repos = get_repositories()

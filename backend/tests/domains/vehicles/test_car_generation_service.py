@@ -3,9 +3,9 @@
 import os
 from typing import Any
 
-from app.api.services.car_generation_service import CarGenerationService
-from app.db.dynamo.catalog import CarGenerationRepository
-from app.db.dynamo.users import User
+from app.common.api.services.car_generation_service import CarGenerationService
+from app.common.db.dynamo.catalog import CarGenerationRepository
+from app.common.db.dynamo.users import User
 from tests.conftest import create_car_orm_in_db
 
 

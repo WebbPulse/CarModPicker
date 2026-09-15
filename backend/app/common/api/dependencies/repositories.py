@@ -1,0 +1,211 @@
+"""The repository bundle a process serves its routes from.
+
+Each bundle declares the repositories its domain carries and builds them lazily,
+so a process imports only the data layer its own routes touch. Access to an
+"""
+
+from __future__ import annotations
+
+import threading
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple
+
+from app.common.db.dynamo.registry import ALL_REPOSITORY_NAMES, REPOSITORY_SPECS
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from app.common.db.dynamo.app_settings import AppSettingsRepository
+    from app.common.db.dynamo.bug_reports import BugReportRepository
+    from app.common.db.dynamo.build_lists import (
+        BuildListLaborEstimateRepository,
+        BuildListPartRepository,
+        BuildListPhaseRepository,
+        BuildListRepository,
+    )
+    from app.common.db.dynamo.build_logs import BuildLogPostRepository, BuildLogRepository
+    from app.common.db.dynamo.catalog import (
+        CarGenerationRepository,
+        CarMakeRepository,
+        CarModelRepository,
+        CategoryRepository,
+        PartCarRepository,
+        PartListingRepository,
+        PartManufacturerRepository,
+        PartPriceHistoryRepository,
+        PartRepository,
+        RetailerRepository,
+    )
+    from app.common.db.dynamo.image_source_mappings import ImageSourceMappingRepository
+    from app.common.db.dynamo.moderation import ReportRepository, VoteRepository
+    from app.common.db.dynamo.part_price_alerts import PartPriceAlertRepository
+    from app.common.db.dynamo.users import (
+        OAuthAccountRepository,
+        UserRepository,
+        WebAuthnCredentialRepository,
+    )
+
+
+class RepositoryNotInBundle(AttributeError):
+    """A route asked for a repository its own domain does not carry.
+
+    Subclasses AttributeError so getattr and hasattr keep their usual behaviour.
+    """
+
+    def __init__(self, bundle_name: str, repository: str) -> None:
+        """Build the message naming the bundle, repository and table."""
+        spec = REPOSITORY_SPECS.get(repository)
+        if spec is None:
+            message = f"{bundle_name!r} has no repository {repository!r}, and neither does any domain"
+        else:
+            message = (
+                f"{bundle_name!r} does not carry the {repository!r} repository, "
+                f"which owns the {spec.table!r} table. Either the route belongs to "
+                f"another domain, or {bundle_name!r} needs {repository!r} added to "
+                f"its `repositories` tuple in app/composition/domains.py and the "
+                f"matching IAM grant in Terraform."
+            )
+        super().__init__(message)
+        self.bundle_name = bundle_name
+        self.repository = repository
+        self.table = spec.table if spec is not None else None
+
+
+class RepositoryBundle:
+    """The repositories one process may use, built on first access.
+
+    Attribute access is the whole interface: `repos.users.get(...)`.
+    """
+
+    __slots__ = ("_name", "_names", "_built", "_lock")
+
+    def __init__(self, names: Iterable[str], *, name: str = "all") -> None:
+        """Record the declared repository names, rejecting unknown ones."""
+        declared = tuple(dict.fromkeys(names))
+        unknown = sorted(set(declared) - set(REPOSITORY_SPECS))
+        if unknown:
+            raise ValueError(f"{name!r} declares unknown repositories: {', '.join(unknown)}")
+        self._name = name
+        self._names = declared
+        self._built: Dict[str, Any] = {}
+        self._lock = threading.Lock()
+
+    @property
+    def bundle_name(self) -> str:
+        """The name of this bundle, used in error messages."""
+        return self._name
+
+    @property
+    def repository_names(self) -> Tuple[str, ...]:
+        """The repositories this bundle carries, in declaration order."""
+        return self._names
+
+    @property
+    def tables(self) -> Tuple[str, ...]:
+        """The DynamoDB table suffixes this bundle can reach, sorted.
+
+        This is the function's data surface, and it is what a Terraform IAM
+        policy for the domain has to cover.
+        """
+        return tuple(sorted({REPOSITORY_SPECS[name].table for name in self._names}))
+
+    def __getattr__(self, item: str) -> Any:
+        """Return a declared repository, building it on first access."""
+        if item not in self._names:
+            raise RepositoryNotInBundle(self._name, item)
+        try:
+            return self._built[item]
+        except KeyError:
+            pass
+        with self._lock:
+            if item not in self._built:
+                self._built[item] = REPOSITORY_SPECS[item].build()
+            return self._built[item]
+
+    def __dir__(self) -> "list[str]":
+        """List the declared repositories alongside the normal attributes."""
+        return sorted(set(super().__dir__()) | set(self._names))
+
+    def __repr__(self) -> str:
+        """Summarise the bundle's name and how many repositories are built."""
+        built = sorted(self._built)
+        return f"<RepositoryBundle {self._name!r} carries={len(self._names)} built={built}>"
+
+    if TYPE_CHECKING:  # pragma: no cover - typing only
+        users: "UserRepository"
+        oauth_accounts: "OAuthAccountRepository"
+        webauthn_credentials: "WebAuthnCredentialRepository"
+        car_makes: "CarMakeRepository"
+        car_models: "CarModelRepository"
+        car_generations: "CarGenerationRepository"
+        categories: "CategoryRepository"
+        part_manufacturers: "PartManufacturerRepository"
+        retailers: "RetailerRepository"
+        parts: "PartRepository"
+        part_cars: "PartCarRepository"
+        part_listings: "PartListingRepository"
+        part_price_history: "PartPriceHistoryRepository"
+        build_lists: "BuildListRepository"
+        build_list_parts: "BuildListPartRepository"
+        build_list_phases: "BuildListPhaseRepository"
+        build_list_labor_estimates: "BuildListLaborEstimateRepository"
+        build_logs: "BuildLogRepository"
+        build_log_posts: "BuildLogPostRepository"
+        votes: "VoteRepository"
+        reports: "ReportRepository"
+        bug_reports: "BugReportRepository"
+        app_settings: "AppSettingsRepository"
+        part_price_alerts: "PartPriceAlertRepository"
+        image_source_mappings: "ImageSourceMappingRepository"
+
+
+Repositories = RepositoryBundle
+
+
+_default: Optional[RepositoryBundle] = None
+_default_lock = threading.Lock()
+
+
+def build_bundle(names: Iterable[str], *, name: str = "all") -> RepositoryBundle:
+    """A bundle carrying exactly `names`, building nothing yet."""
+    return RepositoryBundle(names, name=name)
+
+
+def get_repositories() -> RepositoryBundle:
+    """The process default bundle: all twenty-five, built on first access.
+
+    This is the dependency two hundred routes name, but a route serving a
+    request almost never reaches this body. `bind_repositories` puts the
+    """
+    global _default
+    if _default is None:
+        with _default_lock:
+            if _default is None:
+                _default = RepositoryBundle(ALL_REPOSITORY_NAMES, name="all")
+    return _default
+
+
+def bind_repositories(app: "Any", bundle: RepositoryBundle) -> RepositoryBundle:
+    """Make `app` resolve `Depends(get_repositories)` to `bundle`.
+
+    Per application rather than per process, and that distinction is the whole
+    reason this is an override rather than a module-level global. The route
+    """
+    app.dependency_overrides[get_repositories] = lambda: bundle
+    return bundle
+
+
+def reset_default_repositories() -> None:
+    """Drop the memoised process default. For tests that assert laziness."""
+    global _default
+    with _default_lock:
+        _default = None
+
+
+__all__ = [
+    "ALL_REPOSITORY_NAMES",
+    "RepositoryBundle",
+    "RepositoryNotInBundle",
+    "Repositories",
+    "bind_repositories",
+    "build_bundle",
+    "get_repositories",
+    "reset_default_repositories",
+]

@@ -11,12 +11,12 @@ from typing import Any, Dict, Tuple
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import create_access_token
-from app.core.config import settings
-from app.db.dynamo.catalog import Part as DBPart
-from app.db.dynamo.part_price_alerts import PartPriceAlertRepository
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.api.dependencies.auth import create_access_token
+from app.common.core.config import settings
+from app.common.db.dynamo.catalog import Part as DBPart
+from app.common.db.dynamo.part_price_alerts import PartPriceAlertRepository
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, get_default_category_id, save_catalog
 from tests.domains.users.test_users import create_and_login_user, get_auth_headers
 
@@ -488,7 +488,7 @@ def test_unsubscribe_unknown_alert_id_redirects_to_error(client: TestClient, db_
 
 def test_unsubscribe_is_registered_before_parameterised_routes() -> None:
     """The unsubscribe literal is registered ahead of every parameterised sibling route."""
-    from app.api.endpoints.part_price_alerts import router
+    from app.domains.admin.endpoints.part_price_alerts import router
 
     paths = [route.path for route in router.routes if getattr(route, "path", None)]
 

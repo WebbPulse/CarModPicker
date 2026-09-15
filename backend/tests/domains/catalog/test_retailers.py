@@ -6,12 +6,12 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.catalog import PartListing
-from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
-from app.db.dynamo.catalog import Retailer as DBRetailer
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.catalog import PartListing
+from app.common.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from app.common.db.dynamo.catalog import Retailer as DBRetailer
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, get_default_category_id, login_user, save_catalog
 
 

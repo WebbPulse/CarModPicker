@@ -9,9 +9,9 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.core.config import settings
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user
 
 
@@ -686,9 +686,9 @@ class TestImages:
         img_bytes = create_test_image()
 
         with (
-            patch("app.api.endpoints.images.storage_service.upload_image") as mock_upload,
-            patch("app.api.endpoints.images.storage_service.get_presigned_url") as mock_presigned,
-            patch("app.api.endpoints.images.storage_service.delete_image"),
+            patch("app.domains.media.endpoints.images.storage_service.upload_image") as mock_upload,
+            patch("app.domains.media.endpoints.images.storage_service.get_presigned_url") as mock_presigned,
+            patch("app.domains.media.endpoints.images.storage_service.delete_image"),
         ):
             mock_upload.return_value = "user/test_hash/test-image.png"
             mock_presigned.return_value = "https://example.com/presigned-url"
@@ -778,12 +778,12 @@ class TestFetchImageFromUrl:
 
     def test_wrong_content_type_rejected(self, client: TestClient, test_user: DBUser) -> None:
         """A source URL serving HTML is refused on content type."""
-        from app.api.utils.remote_image_fetch import RemoteImageError
+        from app.domains.media.utils.remote_image_fetch import RemoteImageError
 
         headers = get_auth_headers(get_auth_token(client, test_user.username))
         with (
-            patch("app.api.endpoints.images.assert_url_is_fetchable"),
-            patch("app.api.endpoints.images.fetch_remote_image") as mock_fetch,
+            patch("app.domains.media.endpoints.images.assert_url_is_fetchable"),
+            patch("app.domains.media.endpoints.images.fetch_remote_image") as mock_fetch,
         ):
             mock_fetch.side_effect = RemoteImageError("Unsupported image content type: text/html")
             response = client.post(
@@ -799,12 +799,12 @@ class TestFetchImageFromUrl:
 
     def test_oversize_image_rejected(self, client: TestClient, test_user: DBUser) -> None:
         """An oversize source image surfaces as a 413."""
-        from app.api.utils.remote_image_fetch import RemoteImageError
+        from app.domains.media.utils.remote_image_fetch import RemoteImageError
 
         headers = get_auth_headers(get_auth_token(client, test_user.username))
         with (
-            patch("app.api.endpoints.images.assert_url_is_fetchable"),
-            patch("app.api.endpoints.images.fetch_remote_image") as mock_fetch,
+            patch("app.domains.media.endpoints.images.assert_url_is_fetchable"),
+            patch("app.domains.media.endpoints.images.fetch_remote_image") as mock_fetch,
         ):
             mock_fetch.side_effect = RemoteImageError(
                 f"Image exceeds maximum size of {settings.MAX_IMAGE_SIZE_MB}MB", status_code=413
@@ -824,14 +824,14 @@ class TestFetchImageFromUrl:
         """A public https image is fetched server side and stored through the normal pipeline."""
         headers = get_auth_headers(get_auth_token(client, test_user.username))
         with (
-            patch("app.api.endpoints.images.assert_url_is_fetchable"),
-            patch("app.api.endpoints.images.fetch_remote_image", return_value=(png_bytes(), "png")),
+            patch("app.domains.media.endpoints.images.assert_url_is_fetchable"),
+            patch("app.domains.media.endpoints.images.fetch_remote_image", return_value=(png_bytes(), "png")),
             patch(
-                "app.api.endpoints.images.storage_service.upload_image",
+                "app.domains.media.endpoints.images.storage_service.upload_image",
                 return_value="user/abcdef0123456789/img.png",
             ),
             patch(
-                "app.api.endpoints.images.storage_service.get_presigned_url",
+                "app.domains.media.endpoints.images.storage_service.get_presigned_url",
                 return_value="https://example.com/presigned",
             ),
         ):

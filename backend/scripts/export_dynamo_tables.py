@@ -17,7 +17,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from app.db.dynamo.tables import export_table_definitions  # noqa: E402
+from app.common.db.dynamo.tables import export_table_definitions  # noqa: E402
 
 TARGET = BACKEND_DIR.parent / "terraform" / "dynamodb_tables.json"
 

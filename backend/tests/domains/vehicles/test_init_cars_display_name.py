@@ -8,9 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.core.car_generations_data import slugify
-from app.core.init_cars import init_car_generations
-from app.db.dynamo.catalog import (
+from app.common.db.dynamo.catalog import (
     CarGeneration,
     CarGenerationRepository,
     CarMake,
@@ -18,6 +16,8 @@ from app.db.dynamo.catalog import (
     CarModel,
     CarModelRepository,
 )
+from app.domains.vehicles.car_generations_data import slugify
+from app.domains.vehicles.init_cars import init_car_generations
 
 
 def _fake_flattened(
@@ -89,7 +89,7 @@ class TestInitCarsDisplayName:
     def test_create_writes_generation_display_name(self, clean_db: _Catalog) -> None:
         """A generation display name in the source is written on create."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name="Mk4 Supra"),
         ):
             init_car_generations()
@@ -100,7 +100,7 @@ class TestInitCarsDisplayName:
     def test_create_writes_model_display_name(self, clean_db: _Catalog) -> None:
         """A model display name in the source is written on create."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model_display_name="Supra (friendly)"),
         ):
             init_car_generations()
@@ -111,13 +111,13 @@ class TestInitCarsDisplayName:
     def test_update_changes_generation_display_name(self, clean_db: _Catalog) -> None:
         """A changed generation display name is written on update."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name="OldName"),
         ):
             init_car_generations()
 
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name="Mk4 Supra"),
         ):
             init_car_generations()
@@ -128,13 +128,13 @@ class TestInitCarsDisplayName:
     def test_removing_generation_display_name_clears_db_value(self, clean_db: _Catalog) -> None:
         """Tri-state: source dropping display_name must clear the stale DB value."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name="Mk4 Supra"),
         ):
             init_car_generations()
 
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(display_name=None),
         ):
             init_car_generations()
@@ -145,13 +145,13 @@ class TestInitCarsDisplayName:
     def test_removing_model_display_name_clears_db_value(self, clean_db: _Catalog) -> None:
         """Removing a model display name from the source clears the stored one."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model_display_name="Supra (friendly)"),
         ):
             init_car_generations()
 
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model_display_name=None),
         ):
             init_car_generations()
@@ -162,13 +162,13 @@ class TestInitCarsDisplayName:
     def test_model_display_name_updated_when_changed(self, clean_db: _Catalog) -> None:
         """A changed model display name is written on update."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model_display_name="Original"),
         ):
             init_car_generations()
 
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model_display_name="Updated"),
         ):
             init_car_generations()
@@ -179,7 +179,7 @@ class TestInitCarsDisplayName:
     def test_display_name_defaults_to_null_when_not_in_source(self, clean_db: _Catalog) -> None:
         """A source row with no display_name field creates a row with NULL display_name."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(),
         ):
             init_car_generations()
@@ -196,7 +196,7 @@ class TestInitCarsSlugLookup:
     def test_model_slug_defaults_to_slugify_name(self, clean_db: _Catalog) -> None:
         """A model slug defaults to the slugified model name."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model="GR Supra"),
         ):
             init_car_generations()
@@ -208,7 +208,7 @@ class TestInitCarsSlugLookup:
     def test_generation_slug_defaults_to_slugify_generation_name(self, clean_db: _Catalog) -> None:
         """A generation slug defaults to the slugified generation name."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(generation_name="RX-7 FD"),
         ):
             init_car_generations()
@@ -219,7 +219,7 @@ class TestInitCarsSlugLookup:
     def test_renaming_model_name_with_pinned_slug_updates_in_place(self, clean_db: _Catalog) -> None:
         """Pinning slug lets seed renames mutate the existing row's `name` instead of creating a duplicate."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model="Supra"),
         ):
             init_car_generations()
@@ -230,7 +230,7 @@ class TestInitCarsSlugLookup:
         assert original.name == "Supra"
 
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model="GR Supra", model_slug="supra"),
         ):
             init_car_generations()
@@ -244,7 +244,7 @@ class TestInitCarsSlugLookup:
     def test_renaming_generation_name_with_pinned_slug_updates_in_place(self, clean_db: _Catalog) -> None:
         """Renaming a generation with a pinned slug updates the row in place."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(generation_name="A80"),
         ):
             init_car_generations()
@@ -253,7 +253,7 @@ class TestInitCarsSlugLookup:
         original_id = original.id
 
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(generation_name="A80 (JZA80)", generation_slug="a80"),
         ):
             init_car_generations()
@@ -267,13 +267,13 @@ class TestInitCarsSlugLookup:
     def test_renaming_without_pinned_slug_creates_new_row(self, clean_db: _Catalog) -> None:
         """Documents the invariant: without a pinned slug, a rename is treated as a new entity."""
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model="Supra"),
         ):
             init_car_generations()
 
         with patch(
-            "app.core.init_cars.get_all_car_generations",
+            "app.domains.vehicles.init_cars.get_all_car_generations",
             return_value=_fake_flattened(model="GR Supra"),
         ):
             init_car_generations()
@@ -285,7 +285,7 @@ class TestInitCarsSlugLookup:
     def test_double_init_is_idempotent(self, clean_db: _Catalog) -> None:
         """Running init twice leaves row ids and counts unchanged."""
         source = _fake_flattened(display_name="Mk4 Supra", model_display_name="Supra (friendly)")
-        with patch("app.core.init_cars.get_all_car_generations", return_value=source):
+        with patch("app.domains.vehicles.init_cars.get_all_car_generations", return_value=source):
             init_car_generations()
             first_model_id = clean_db.query(CarModel).one().id
             first_gen_id = clean_db.query(CarGeneration).one().id

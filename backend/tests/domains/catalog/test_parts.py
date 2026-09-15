@@ -6,9 +6,9 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.catalog import Category, PartManufacturer, Retailer
-from app.db.dynamo.users import User, UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.catalog import Category, PartManufacturer, Retailer
+from app.common.db.dynamo.users import User, UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, login_user, save_catalog
 
 
@@ -501,7 +501,7 @@ class TestParts:
 
     def test_count_parts_by_user_zero(self, client: TestClient, db_session: Any) -> None:
         """Test counting global parts for a user with no parts."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         new_user = UserRepository().create_user(
             DBUser(

@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from app.api.utils.image_utils import get_presigned_url_from_file_key, is_file_key
+from app.common.api.utils.image_utils import get_presigned_url_from_file_key, is_file_key
 
 
 class TestImageUtils:
@@ -36,7 +36,7 @@ class TestImageUtils:
         file_key = "parts/user_hash/123-abc.jpg"
         expected_url = "https://storage.example.com/presigned-url"
 
-        with patch("app.api.utils.image_utils.storage_service") as mock_storage:
+        with patch("app.common.api.utils.image_utils.storage_service") as mock_storage:
             mock_storage.get_presigned_url.return_value = expected_url
             result = get_presigned_url_from_file_key(file_key)
             assert result == expected_url
@@ -57,7 +57,7 @@ class TestImageUtils:
         """Test error handling when presigned URL generation fails."""
         file_key = "parts/user_hash/123-abc.jpg"
 
-        with patch("app.api.utils.image_utils.storage_service") as mock_storage:
+        with patch("app.common.api.utils.image_utils.storage_service") as mock_storage:
             mock_storage.get_presigned_url.side_effect = Exception("Storage error")
             result = get_presigned_url_from_file_key(file_key)
             assert result == file_key

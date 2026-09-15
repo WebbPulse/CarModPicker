@@ -4,10 +4,10 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.catalog import Category as DBCategory
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.catalog import Category as DBCategory
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 from tests.conftest import auth_headers, login_user, save_catalog
 
 
@@ -223,7 +223,7 @@ class TestCategoriesAdminAuthentication:
 
     def test_delete_category_with_parts_fails(self, client: TestClient, db_session: Any) -> None:
         """Categories are seeded from backend; delete endpoint is removed (404/405)."""
-        from app.db.dynamo.catalog import Part as DBPart
+        from app.common.db.dynamo.catalog import Part as DBPart
 
         user = UserRepository().create_user(
             DBUser(

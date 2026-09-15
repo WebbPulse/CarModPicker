@@ -14,8 +14,8 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from app.composition import wiring
-from app.composition.domains import DOMAIN_NAMES, ENTRYPOINT_MODULES
+from app.common.composition import wiring
+from app.common.composition.domains import DOMAIN_NAMES, ENTRYPOINT_MODULES
 
 BACKEND = Path(__file__).resolve().parents[2]
 
@@ -23,13 +23,13 @@ UNREADABLE_SECRET_ARN = "arn:aws:secretsmanager:us-west-2:000000000000:secret:ca
 
 PROBE = """
 import json, sys
-from app.entrypoints import {module} as entrypoint
+import app.domains.{module}.entrypoint as entrypoint
 
 app = entrypoint.build_app()
 endpoints = sorted(
     name
     for name in sys.modules
-    if name.startswith("app.api.endpoints.") and name.count(".") == 3
+    if name.startswith("app.domains.") and ".endpoints." in name and name.count(".") == 4
 )
 print(json.dumps({{
     "endpoints": endpoints,
@@ -86,15 +86,16 @@ def test_an_entrypoint_builds_with_no_credentials(domain: str, probes: Dict[str,
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
 def test_an_entrypoint_imports_only_its_own_endpoint_modules(domain: str, probes: Dict[str, Dict[str, Any]]) -> None:
     """The claim that makes nine images smaller than nine copies of one image."""
-    from app.composition.domains import DOMAINS
+    from app.common.composition.domains import DOMAINS
 
     expected = sorted(
         {
-            ".".join(route.endpoint.__module__.split(".")[:4])
+            ".".join(route.endpoint.__module__.split(".")[:5])
             for router, _, _ in DOMAINS[domain].load_routers()
             for route in router.routes
             if getattr(route, "endpoint", None) is not None
-            and route.endpoint.__module__.startswith("app.api.endpoints.")
+            and route.endpoint.__module__.startswith("app.domains.")
+            and ".endpoints." in route.endpoint.__module__
         }
     )
     imported = probes[domain]["endpoints"]
@@ -166,8 +167,9 @@ def test_importing_the_descriptors_imports_no_endpoint_module() -> None:
     """
     result = _run(
         "import json, sys\n"
-        "import app.composition.domains\n"
-        "print(json.dumps(sorted(m for m in sys.modules if m.startswith('app.api.endpoints'))))\n"
+        "import app.common.composition.domains\n"
+        "print(json.dumps(sorted(m for m in sys.modules "
+"if m.startswith('app.domains.') and '.endpoints.' in m)))\n"
     )
     assert result == []
 
@@ -175,7 +177,7 @@ def test_importing_the_descriptors_imports_no_endpoint_module() -> None:
 def test_no_entrypoint_imports_the_monolith_composition_root() -> None:
     """No entrypoint imports app.main, which would build every domain at import."""
     for domain in DOMAIN_NAMES:
-        source = (BACKEND / "app" / "entrypoints" / f"{ENTRYPOINT_MODULES[domain]}.py").read_text()
+        source = (BACKEND / "app" / "domains" / ENTRYPOINT_MODULES[domain] / "entrypoint.py").read_text()
         assert "app.main" not in source
         assert "from ..main" not in source
 
@@ -190,7 +192,7 @@ def _main_calls(domain: str) -> List[str]:
     than matched as text so a mention in a docstring or a comment cannot
     satisfy the assertion.
     """
-    tree = ast.parse((BACKEND / "app" / "entrypoints" / f"{ENTRYPOINT_MODULES[domain]}.py").read_text())
+    tree = ast.parse((BACKEND / "app" / "domains" / ENTRYPOINT_MODULES[domain] / "entrypoint.py").read_text())
     main = next(
         (node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"),
         None,
@@ -212,12 +214,12 @@ def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:
     """Every entrypoint exposes a build_app and the main the process runs.
 
     The wiring helpers are asserted to be called by main and to be the ones
-    app.composition.wiring defines, which is the module that owns process-wide
+    app.common.composition.wiring defines, which is the module that owns process-wide
     logging, tracing and the signing key check. Sentry initialisation is
     asserted absent by test_otel_wiring.py, since these functions report
     through OpenTelemetry.
     """
-    module = __import__(f"app.entrypoints.{ENTRYPOINT_MODULES[domain]}", fromlist=["main"])
+    module = __import__(f"app.domains.{ENTRYPOINT_MODULES[domain]}.entrypoint", fromlist=["main"])
     assert callable(module.build_app)
     assert callable(module.main)
 
@@ -227,6 +229,6 @@ def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:
         bound = getattr(module, helper, None)
         assert bound is not None, f"{domain} entrypoint does not import {helper}"
         assert bound is getattr(wiring, helper), (
-            f"{domain} entrypoint's {helper} is not the one app.composition.wiring defines, "
+            f"{domain} entrypoint's {helper} is not the one app.common.composition.wiring defines, "
             "so the wiring it configures process-wide is not the wiring the app builds with"
         )

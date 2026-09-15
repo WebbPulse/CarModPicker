@@ -61,22 +61,22 @@ from fastapi.testclient import TestClient
 from webbpulse.http import REQUEST_CONTEXT_HEADER
 from webbpulse.identity import InvalidToken
 
-from app.api.dependencies.auth import (
+from app.common.api.dependencies.auth import (
     create_access_token,
     get_current_user,
     get_optional_current_user,
     resolve_identity_user,
 )
-from app.api.dependencies.identity_claims import (
+from app.common.api.dependencies.identity_claims import (
     GATE_CLAIMS_KEY,
     identity_claims,
     identity_subject,
     reset_token_service,
     verify_bearer_subject,
 )
-from app.api.dependencies.repositories import get_repositories
-from app.core.config import settings as app_settings
-from app.db.dynamo.users import User, UserRepository
+from app.common.api.dependencies.repositories import get_repositories
+from app.common.core.config import settings as app_settings
+from app.common.db.dynamo.users import User, UserRepository
 
 ISSUER = "https://api.staging.carmodpicker.com/api/auth"
 AUDIENCE = "carmodpicker-staging-api"
@@ -279,7 +279,7 @@ def test_the_identity_function_verifies_through_the_token_service(monkeypatch: p
     monkeypatch.setenv("IDENTITY_SIGNING_KEY_ARNS", json.dumps(["arn:aws:kms:us-west-2:1:key/abc"]))
     monkeypatch.setattr("boto3.client", lambda *args, **kwargs: object())
     monkeypatch.setattr(
-        "app.composition.identity.build_identity_settings",
+        "app.domains.identity.package_glue.build_identity_settings",
         lambda settings: object(),
     )
     monkeypatch.setattr(
@@ -362,7 +362,7 @@ def legacy_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     through the secrets loader, so the backing field is what is patched. Same
     approach as `tests/consumers/test_price_alerts_consumer.py`.
     """
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
 
     monkeypatch.setattr(app_settings, "SECRET_KEY_SETTING", "test-signing-key-not-a-real-one")
 
