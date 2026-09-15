@@ -248,6 +248,8 @@ locals {
 
         IDENTITY_REGISTRATION_ENABLED = "true"
 
+        IDENTITY_TOTP_CIPHER = "secret"
+
         IDENTITY_EPHEMERAL_USERS_ENABLED = tostring(var.ephemeral_users_enabled)
 
         IDENTITY_PASSKEYS_ENABLED      = tostring(var.passkeys_enabled)
