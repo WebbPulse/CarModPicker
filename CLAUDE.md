@@ -99,33 +99,37 @@ Browser / Chrome Extension
   -> DynamoDB (DynamoDB Local in Docker locally)
 ```
 
+`backend/app/` splits in two: `app/common/` is everything no single domain owns, and `app/domains/<name>/` is one deployed Lambda image each. A domain imports `app/common` and itself, never another domain, so one tree ships as nine single-domain images.
+
 Two composition roots sit over one set of routers.
 
-- **Root A, `app/composition/`**: every domain in one process. `wiring.py` holds the `Domain` descriptor and the shared app building (CORS, rate limiting, error handlers, the root routes); `domains.py` names the nine domains and, for each, the routers it owns, its prefixes and tags, and whether it needs `SECRET_KEY`; `app.py` composes all nine.
-- **Root B, `app/entrypoints/`**: one module per deployed function. The nine domains (`identity`, `users`, `catalog`, `vehicles`, `build_lists`, `build_logs`, `moderation`, `media`, `admin`) plus four stream consumers (`catalog_votes_consumer`, `catalog_part_purge_consumer`, `admin_price_alerts_consumer`, `users_delete_consumer`), which reuse their domain's image. Each builds an application carrying one domain plus the root routes.
-- **`main.py`**: a thin wrapper over `composition/app.py`, the import path used by local dev, the test suite and Root A in the route-contract tests. It is not a deployment path.
+- **Root A, `app/common/composition/`**: every domain in one process. `wiring.py` holds the `Domain` descriptor and the shared app building (CORS, rate limiting, error handlers, the root routes); `domains.py` names the nine domains and, for each, the routers it owns, its prefixes and tags, and whether it needs `SECRET_KEY`; `app.py` composes all nine.
+- **Root B, `app/domains/<name>/entrypoint.py`**: one module per deployed function. The nine domains (`identity`, `users`, `catalog`, `vehicles`, `build_lists`, `build_logs`, `moderation`, `media`, `admin`) plus four stream consumers, which live in the domain they belong to (`catalog/consumers/votes_entrypoint.py`, `catalog/consumers/part_purge_entrypoint.py`, `admin/consumers/price_alerts_entrypoint.py`, `users/consumers/delete_entrypoint.py`) and reuse their domain's image. Each builds an application carrying one domain plus the root routes.
+- **`main.py`**: a thin wrapper over `common/composition/app.py`, the import path used by local dev, the test suite and Root A in the route-contract tests. It is not a deployment path.
+- **`app/entrypoints/`**: four compat shims re-exporting the consumer entrypoints, because `terraform/lambda_stream_consumers.tf` pins the container command to `python -m app.entrypoints.<name>`.
 
-`domains.py` loads routers through a callable, so importing a descriptor imports no endpoint module. That keeps a domain image to one domain; `backend/tests/entrypoints/` asserts it in a fresh interpreter with no AWS credentials.
+`domains.py` loads routers through a callable, so importing a descriptor imports no endpoint module. That keeps a domain image to one domain; `backend/tests/entrypoints/` asserts it in a fresh interpreter with no AWS credentials, and `backend/tests/common/test_domain_boundaries.py` and `test_reachability.py` assert it statically.
 
-Layers under `backend/app/`:
+Layers under `backend/app/common/`:
 
-- **`api/endpoints/`**: one module per router (`users`, `app_settings`, `car_generations`, `parts`, `part_manufacturers`, `part_price_alerts`, `categories`, `retailers`, `build_lists`, `build_list_parts`, `build_list_phases`, `build_list_labor_estimates`, `build_logs`, `votes`, `reports`, `images`, `search`, `crawled_pages`, `bug_reports`, plus the `admin/` package). There is no `auth.py`: all of `/api/auth` is the `webbpulse` package's router, which is why `identity` declares no routers of its own.
-- **`api/schemas/`** Pydantic v2 request and response schemas; **`api/services/`** business logic called by endpoints; **`api/middleware/`** rate limiting, content-length guard, error handlers; **`core/`** config, logging, email templates (React Email HTML via SES), seed data.
+- **`api/schemas/`** shared Pydantic v2 schemas; **`api/services/`** shared business logic; **`api/middleware/`** rate limiting, content-length guard, error handlers; **`core/`** config, logging, email templates (React Email HTML via SES); **`seeds/`** the car generation seed data and its reconciler, shared by the vehicles startup, the admin db-ops endpoint and the composed app's wiring.
 - **`api/dependencies/`**: `auth.py` holds `get_current_user`, `get_optional_current_user`, `get_current_admin_user`, `get_current_superuser`; `repositories.py` cuts per-domain `RepositoryBundle`s.
 - **`api/utils/`**: `BaseDynamoEndpointRouter` (generic CRUD over `BaseDynamoCRUDService`), pagination, authorization, subscription checks.
-- **`db/dynamo/`**: `tables.py` (every table and GSI, one `TableSpec` each), `repository.py` (generic `DynamoRepository[TModel]`), one module per domain holding Pydantic item models and repositories, and `registry.py` cataloguing every repository as module, class and table name.
+- **`db/dynamo/`**: `tables.py` (every table and GSI, one `TableSpec` each), `repository.py` (generic `DynamoRepository[TModel]`), one module per domain holding Pydantic item models and repositories, and `registry.py` cataloguing every repository as module, class and table name. The registry imports those modules by name, which `[tool.webbpulse.reachability]` in `backend/pyproject.toml` declares.
 
-**RepositoryBundle:** a bundle carries only the repositories its domain declares in `app/composition/domains.py`, builds each on first access, and raises `RepositoryNotInBundle` for anything outside the set, so a `media` process never constructs a `users` repository. `Repositories` remains the annotation every route uses; `bind_repositories` binds the right bundle per application.
+A domain package holds `entrypoint.py`, `endpoints/` (its routers), and where it needs them `schemas/`, `services/`, `utils/` and `consumers/`. There is no auth endpoint module: all of `/api/auth` is the `webbpulse` package's router, which is why `identity` declares no routers of its own and carries only its package glue (`package_glue.py`, `extension.py`, `identity_hooks.py`).
+
+**RepositoryBundle:** a bundle carries only the repositories its domain declares in `app/common/composition/domains.py`, builds each on first access, and raises `RepositoryNotInBundle` for anything outside the set, so a `media` process never constructs a `users` repository. `Repositories` remains the annotation every route uses; `bind_repositories` binds the right bundle per application.
 
 Endpoints read and write through repositories injected via `get_repositories()`; simple domains use `BaseDynamoEndpointRouter` rather than hand-rolled routes. Votes and reports are polymorphic over `entity_type` / `entity_id`.
 
-**Auth:** `/api/auth` is served entirely by the `webbpulse.identity` package on the `identity` function, which signs RS256 in KMS and carries no `SECRET_KEY`. The other domains verify the HS256 path in `api/dependencies/auth.py`; expiry is configurable 15 minutes to 7 days per user. bcrypt passwords, optional TOTP 2FA and WebAuthn; email verification is required before login. Email goes via SES with IAM role auth.
+**Auth:** `/api/auth` is served entirely by the `webbpulse.identity` package on the `identity` function, which signs RS256 in KMS and carries no `SECRET_KEY`. The other domains verify the HS256 path in `common/api/dependencies/auth.py`; expiry is configurable 15 minutes to 7 days per user. bcrypt passwords, optional TOTP 2FA and WebAuthn; email verification is required before login. Email goes via SES with IAM role auth.
 
 **Images:** uploaded to a private S3 bucket via boto3 and served through presigned URLs; Pillow does the processing.
 
 **Root routes:** `GET /health` is liveness and always 200. `GET /ready` returns 503 until DynamoDB answers a `DescribeTable` on the users table.
 
-**Secrets:** each function reads the `<prefix>/app` JSON secret, resolved lazily by `app/core/config.py` when `APP_SECRETS_ARN` is set. An environment variable of the same name wins, so local dev and tests never call AWS. Importing the app makes no Secrets Manager call; `Settings.require_secrets(...)` is the point-of-use check and `check_signing_key` runs in the lifespan.
+**Secrets:** each function reads the `<prefix>/app` JSON secret, resolved lazily by `app/common/core/config.py` when `APP_SECRETS_ARN` is set. An environment variable of the same name wins, so local dev and tests never call AWS. Importing the app makes no Secrets Manager call; `Settings.require_secrets(...)` is the point-of-use check and `check_signing_key` runs in the lifespan.
 
 ### Frontend (`frontend/src/`)
 
@@ -206,11 +210,11 @@ Lambda code is not Terraform's. Each of the nine domain functions and four strea
 
 ## Key Conventions
 
-- **Tables:** declare every table and index in `backend/app/db/dynamo/tables.py`, then run `python scripts/export_dynamo_tables.py` so `terraform/dynamodb_tables.json` matches. `tests/db/test_dynamo_tables_json_up_to_date.py` fails on drift. There are no migrations; schema changes are additive attributes on Pydantic item models.
-- **pytest:** always `-n auto`. Tests use moto's in-memory DynamoDB, so no services are required.
-- **New CRUD endpoints:** extend `BaseDynamoEndpointRouter` plus `BaseDynamoCRUDService`, then add the router to its domain's loader in `backend/app/composition/domains.py` with its prefix and tags. Both composition roots pick it up from there.
+- **Tables:** declare every table and index in `backend/app/common/db/dynamo/tables.py`, then run `python scripts/export_dynamo_tables.py` so `terraform/dynamodb_tables.json` matches. `tests/common/db/test_dynamo_tables_json_up_to_date.py` fails on drift. There are no migrations; schema changes are additive attributes on Pydantic item models.
+- **pytest:** always `-n auto`. Tests use moto's in-memory DynamoDB, so no services are required. `backend/tests/domains/<name>/` mirrors each domain, `backend/tests/common/` covers `app/common`, and `backend/tests/entrypoints/` covers the deployed functions.
+- **New CRUD endpoints:** extend `BaseDynamoEndpointRouter` plus `BaseDynamoCRUDService`, then add the router to its domain's loader in `backend/app/common/composition/domains.py` with its prefix and tags. Both composition roots pick it up from there.
 - **Route changes:** a new route changes the routing table, so regenerate `backend/tests/fixtures/route_contract.json` and bump the count for that domain in `backend/tests/entrypoints/test_route_split.py`. The diff on the fixture is the review artifact.
-- **CORS:** the allow list is built in one place, `Settings.allowed_origins_list`, and applied by `add_shared_middleware` in `backend/app/composition/wiring.py`, so both roots and all nine entrypoints share it. Chrome extension access is by explicit id: `CHROME_EXTENSION_IDS` becomes `chrome-extension://<id>` origins. There is no `chrome-extension://.*` regex and no `null` origin.
+- **CORS:** the allow list is built in one place, `Settings.allowed_origins_list`, and applied by `add_shared_middleware` in `backend/app/common/composition/wiring.py`, so both roots and all nine entrypoints share it. Chrome extension access is by explicit id: `CHROME_EXTENSION_IDS` becomes `chrome-extension://<id>` origins. There is no `chrome-extension://.*` regex and no `null` origin.
 - **Absolute URLs in emails and sitemaps:** never hardcode a host. `settings.frontend_base_url` is the SPA origin and `settings.api_base_url` is this API's origin; both derive from `APP_ENVIRONMENT` and are overridable with `FRONTEND_URL` / `API_URL`. Hardcoding is how staging came to mail production verification links.
 
 ## Gotchas

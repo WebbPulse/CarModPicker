@@ -16,7 +16,7 @@ every environment.
 
 ## How the shared limiter works
 
-`app/api/middleware/shared_rate_limiter.py` keeps one item per caller in the
+`app/common/api/middleware/rate_limiter.py` keeps one item per caller in the
 `rate-limits` table, keyed `RATE#<identity>`. The item carries a request count and a
 DynamoDB TTL, so the window is a fixed window anchored on the caller's first request
 rather than on the wall clock, and expired rows are reclaimed by DynamoDB itself.

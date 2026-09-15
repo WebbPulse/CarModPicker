@@ -98,7 +98,7 @@ if not history:
     )
     sys.exit(1)
 # Part → PartListing → PartPriceHistory (price history hangs off listings,
-# not parts directly — see app/db/dynamo/catalog.py).
+# not parts directly — see app/common/db/dynamo/catalog.py).
 listing_counts = Counter(row.part_listing_id for row in history)
 listings = repos.part_listings.get_many(listing_counts)
 part_counts = Counter()

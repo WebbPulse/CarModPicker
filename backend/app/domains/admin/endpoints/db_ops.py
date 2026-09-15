@@ -14,8 +14,8 @@ from app.common.api.services.part_service import PartService, purge_related_rows
 from app.common.api.utils.endpoint_decorators import standard_responses
 from app.common.db.dynamo.catalog import Part
 from app.common.db.dynamo.users import User as DBUser
-from app.domains.admin.init_categories import init_part_categories
 from app.common.seeds.init_cars import init_car_generations
+from app.domains.admin.init_categories import init_part_categories
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
