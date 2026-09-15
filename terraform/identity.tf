@@ -26,6 +26,8 @@ module "identity" {
   identity_role_name = module.lambda_domain["identity"].role_id
   identity_role_arn  = module.lambda_domain["identity"].role_arn
 
+  enable_mfa_encryption_key = false
+
   attach_role_policies = true
 
   users_stream_enabled   = true
