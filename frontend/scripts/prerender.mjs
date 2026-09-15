@@ -124,7 +124,16 @@ function rewriteBaseUrl(html, baseUrl) {
     .join('/');
 }
 
-async function snapshotRoute(page, baseUrl, route) {
+/**
+ * Snapshot one route, failing if the throwaway server's own origin survives.
+ *
+ * Only that origin must not survive: a snapshot still pointing at it would send
+ * the deployed site to a port nothing serves. The configured API origin is a
+ * different matter, and on a local stack it is itself a 127.0.0.1 URL, so
+ * matching every local origin would fail a build whose only fault is that the
+ * backend it was pointed at runs on this machine.
+ */
+async function snapshotRoute(page, baseUrl, port, route) {
   const url = baseUrl + route;
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
@@ -141,9 +150,9 @@ async function snapshotRoute(page, baseUrl, route) {
   );
   const html = rewriteBaseUrl(raw, baseUrl);
 
-  if (html.includes('127.0.0.1') || html.includes('localhost')) {
+  if (html.includes(baseUrl) || html.includes(`localhost:${port}`)) {
     throw new Error(
-      `prerendered ${route} still references a local origin after cleanup`
+      `prerendered ${route} still references the prerender server ${baseUrl} after cleanup`
     );
   }
 
@@ -190,7 +199,7 @@ async function main() {
     });
 
     for (const route of ROUTES) {
-      const out = await snapshotRoute(page, baseUrl, route);
+      const out = await snapshotRoute(page, baseUrl, port, route);
       console.log(
         `  prerendered ${route.padEnd(22)} → ${out.replace(DIST, 'dist')}`
       );
