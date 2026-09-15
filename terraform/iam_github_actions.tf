@@ -11,6 +11,11 @@ locals {
     "arn:aws:codeartifact:${var.aws_region}:${local.artifacts_account_id}:repository/${local.codeartifact_domain}/${repository}"
   ]
 
+  codeartifact_package_arns = [
+    for repository in ["npm", "npm-store", "pypi-store", "python", "shared"] :
+    "arn:aws:codeartifact:${var.aws_region}:${local.artifacts_account_id}:package/${local.codeartifact_domain}/${repository}/*"
+  ]
+
   shared_base_image_repository_arn = "arn:aws:ecr:us-west-2:${local.artifacts_account_id}:repository/webbpulse/python-lambda-base"
 
   lambda_domain_function_arns = [
@@ -43,7 +48,7 @@ locals {
         "codeartifact:ListPackages",
         "codeartifact:ReadFromRepository",
       ]
-      resources = local.codeartifact_repository_arns
+      resources = concat(local.codeartifact_repository_arns, local.codeartifact_package_arns)
     },
     {
       sid       = "CodeArtifactBearerToken"
