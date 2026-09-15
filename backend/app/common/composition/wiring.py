@@ -151,7 +151,7 @@ def run_startup_tasks() -> None:
     Only a root serving a domain whose descriptor sets `seeds` wires this, so a
     function with read-only IAM on the car tables never attempts the write.
     """
-    from app.domains.vehicles.init_cars import init_car_generations
+    from app.common.seeds.init_cars import init_car_generations
 
     try:
         init_car_generations()

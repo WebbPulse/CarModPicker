@@ -15,7 +15,7 @@ from app.common.api.utils.endpoint_decorators import standard_responses
 from app.common.db.dynamo.catalog import Part
 from app.common.db.dynamo.users import User as DBUser
 from app.domains.admin.init_categories import init_part_categories
-from app.domains.vehicles.init_cars import init_car_generations
+from app.common.seeds.init_cars import init_car_generations
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

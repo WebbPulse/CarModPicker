@@ -169,7 +169,7 @@ def test_importing_the_descriptors_imports_no_endpoint_module() -> None:
         "import json, sys\n"
         "import app.common.composition.domains\n"
         "print(json.dumps(sorted(m for m in sys.modules "
-"if m.startswith('app.domains.') and '.endpoints.' in m)))\n"
+        "if m.startswith('app.domains.') and '.endpoints.' in m)))\n"
     )
     assert result == []
 

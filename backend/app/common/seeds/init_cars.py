@@ -10,7 +10,7 @@ from uuid import UUID
 from app.common.api.dependencies.repositories import Repositories, get_repositories
 from app.common.db.dynamo.catalog import CarGeneration, CarMake, CarModel
 from app.common.db.dynamo.users import UniqueAttributeTaken
-from app.domains.vehicles.car_generations_data import get_all_car_generations
+from app.common.seeds.car_generations_data import get_all_car_generations
 
 logger = logging.getLogger(__name__)
 

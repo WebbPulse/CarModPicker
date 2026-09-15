@@ -3,7 +3,7 @@
 
 def test_load_returns_dict_with_expected_top_level_makes() -> None:
     """Loader returns a dict containing verified top-level make keys."""
-    from app.domains.vehicles.car_generations import load_car_generations
+    from app.common.seeds.car_generations import load_car_generations
 
     data = load_car_generations()
     assert isinstance(data, dict)
@@ -14,7 +14,7 @@ def test_load_returns_dict_with_expected_top_level_makes() -> None:
 
 def test_lru_cache_single_load() -> None:
     """@lru_cache(maxsize=1) returns the SAME object reference on repeated calls."""
-    from app.domains.vehicles.car_generations import load_car_generations
+    from app.common.seeds.car_generations import load_car_generations
 
     a = load_car_generations()
     assert a is load_car_generations()
@@ -23,8 +23,8 @@ def test_lru_cache_single_load() -> None:
 
 def test_shim_and_loader_agree() -> None:
     """CR-4: car_generations_data.CAR_GENERATIONS IS the loader's cached output."""
-    from app.domains.vehicles.car_generations import load_car_generations
-    from app.domains.vehicles.car_generations_data import CAR_GENERATIONS
+    from app.common.seeds.car_generations import load_car_generations
+    from app.common.seeds.car_generations_data import CAR_GENERATIONS
 
     assert CAR_GENERATIONS is load_car_generations()
 
@@ -34,7 +34,7 @@ def test_seed_directory_exists_and_each_file_parses() -> None:
     import json
     from importlib.resources import files
 
-    seed_dir = files("app.domains.vehicles").joinpath("car_generations_seed")
+    seed_dir = files("app.common.seeds").joinpath("car_generations_seed")
     merged: dict = {}
     file_count = 0
     for entry in seed_dir.iterdir():

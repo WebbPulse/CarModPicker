@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.domains.vehicles.car_generations_data import CAR_GENERATIONS
+from app.common.seeds.car_generations_data import CAR_GENERATIONS
 
 TARGET = Path(__file__).resolve().parent.parent / "app" / "core" / "car_generations_data.json"
 

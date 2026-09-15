@@ -18,7 +18,7 @@ def load_car_generations() -> dict:
     Each file is a single-key object keyed by make, and make keys must be unique
     across files, which an assertion checks.
     """
-    seed_dir = files("app.domains.vehicles").joinpath("car_generations_seed")
+    seed_dir = files("app.common.seeds").joinpath("car_generations_seed")
     merged: dict = {}
     for entry in sorted(seed_dir.iterdir(), key=lambda p: p.name):
         if not entry.name.endswith(".json"):

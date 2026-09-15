@@ -6,14 +6,17 @@ next boot. `CAR_GENERATIONS` is `lru_cache`d, so callers must not mutate it.
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from typing_extensions import NotRequired
 
 from app.common.core.slugify import slugify
-from app.domains.vehicles.car_generations import load_car_generations
+from app.common.seeds.car_generations import load_car_generations
 
-__all__ = ["CAR_GENERATIONS", "CarGenerationData", "get_all_car_generations", "slugify"]  # noqa: F822
+if TYPE_CHECKING:  # pragma: no cover
+    CAR_GENERATIONS: dict[str, Any]
+
+__all__ = ["CAR_GENERATIONS", "CarGenerationData", "get_all_car_generations", "slugify"]
 
 
 class CarGenerationData(TypedDict):
