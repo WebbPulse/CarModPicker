@@ -65,9 +65,6 @@ jobs:
       codeartifact-domain: webbpulse
       codeartifact-repository: npm
       codeartifact-namespace: "@webbpulse"
-      tfc-organization: WebbPulse
-      tfc-workspace: ${{ github.ref_name == 'main' && 'CarModPicker' || 'CarModPicker-staging' }}
     secrets:
       role-to-assume: ${{ needs.resolve-env.outputs.role-to-assume }}
       codeartifact-domain-owner: ${{ vars.CODEARTIFACT_DOMAIN_OWNER }}
-      tfc-api-token: ${{ secrets.TFC_API_TOKEN }}

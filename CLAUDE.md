@@ -181,7 +181,7 @@ The deploy workflows are fully independent: a backend merge never rebuilds the f
 
 **`deploy-backend.yml`** is the only path to changing Lambda code: `resolve-env`, `build-images`, `image-map`, `existing-functions`, `deploy-images`, `smoke-domains`. It builds the nine domain images from `backend/Dockerfile` for `linux/arm64` and points each function at a digest; there is no zip in the chain, and the four consumers share their domain's image. `existing-functions` filters to functions that actually exist, so a partial estate skips what is missing instead of failing on `ResourceNotFoundException`. `smoke-domains` requires a 200 from a synthetic `GET /health` per domain; routing is verified by the e2e suite, not the deploy.
 
-**`frontend-deploy.yml`** calls the org reusable `spa-deploy.yml@v2.3.0`, which polls HCP Terraform with `TFC_API_TOKEN` and waits for the workspace to be terminal before touching S3, so a deploy cannot race an in-flight apply. `main` polls `CarModPicker`, `staging` polls `CarModPicker-staging`.
+**`frontend-deploy.yml`** calls the org reusable `spa-deploy.yml@v3`, which builds the SPA, syncs it to S3 and invalidates CloudFront. It does not wait on HCP Terraform: applies are confirmed by hand and never auto-run, so a deploy cannot race one.
 
 **`chrome-extension-deploy.yml`** stays `main`-only: it publishes to the Chrome Web Store and there is no staging listing. It patch-bumps `manifest.json`, tags `chrome-extension-vX.Y.Z`, cuts a Release and uploads via the CWS API. A `gate` job releases only on `workflow_dispatch` or when `CHROME_EXTENSION_AUTO_RELEASE` is `true`, and it is unset today, so a push holds. It then pushes the tag to `main` directly, the one sanctioned exception to "never commit directly to `main`", and opens a bookkeeping PR back to `staging`.
 
@@ -193,12 +193,12 @@ Deploy variables live on the `production` and `staging` GitHub Environments, not
 |---|---|---|
 | `ci.yml` | `CI_AWS_ROLE_ARN`, `CODEARTIFACT_DOMAIN_OWNER` (both repository) | none |
 | `deploy-backend.yml` | `AWS_DEPLOY_ROLE_ARN` (environment); `CODEARTIFACT_DOMAIN_OWNER`, `BACKEND_IMAGE_BUILD_ENABLED`, `BACKEND_IMAGE_DEPLOY_ENABLED` (repository) | none |
-| `frontend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `FRONTEND_S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_URL`, `CWS_EXTENSION_ID` (environment); `CODEARTIFACT_DOMAIN_OWNER` (repository) | `TFC_API_TOKEN` |
+| `frontend-deploy.yml` | `AWS_DEPLOY_ROLE_ARN`, `FRONTEND_S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_URL`, `CWS_EXTENSION_ID` (environment); `CODEARTIFACT_DOMAIN_OWNER` (repository) | none |
 | `chrome-extension-deploy.yml` | `CWS_CLIENT_ID`, `CWS_EXTENSION_ID`, `CHROME_EXTENSION_AUTO_RELEASE` (all on `production`) | `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` (on `production`) |
 
 `CI_AWS_ROLE_ARN` is the one AWS role a pull request can reach, since `AWS_DEPLOY_ROLE_ARN` sits on Environments whose branch policies admit only `staging` and `main`. CI needs it only to mint a CodeArtifact token for `webbpulse` and `@webbpulse/*`; it holds those reads and `sts:GetServiceBearerToken` and nothing else, deliberately not the deploy role.
 
-Both deploy chains open with a `resolve-env` job because a job calling a reusable workflow with `uses:` may not carry an `environment:` key, so the environment-scoped values are read there and passed through job outputs. `deploy-backend.yml` needs no `TFC_API_TOKEN`: its Terraform wait is `aws lambda wait function-updated-v2` around each `update-function-code`.
+Both deploy chains open with a `resolve-env` job because a job calling a reusable workflow with `uses:` may not carry an `environment:` key, so the environment-scoped values are read there and passed through job outputs.
 
 ### Terraform
 
