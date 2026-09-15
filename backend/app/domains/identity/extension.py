@@ -89,17 +89,20 @@ def build_router(settings: "Settings") -> "APIRouter":
     """The two extension routes, mounted by the caller with no prefix of its own.
 
     Paths come from `identity_prefix(settings)`, the one source of truth for where
-    these live. The KMS client and `TokenService` are built once per router.
+    these live. The signing client and `TokenService` are built once per router.
+
+    The client follows the package's `IDENTITY_SIGNER` switch, so a local stack signs
+    handoff codes with the same in process key the identity router signs access tokens
+    with and the two verify each other's output.
     """
-    import boto3
     from fastapi import APIRouter
     from fastapi.responses import JSONResponse
-    from webbpulse.identity import KmsSigner, TokenService, identity_prefix
+    from webbpulse.identity import KmsSigner, TokenService, identity_prefix, signing_client
 
     from app.domains.identity.package_glue import build_identity_settings
 
     identity_settings = build_identity_settings(settings)
-    kms_client = boto3.client("kms")
+    kms_client = signing_client(identity_settings)
     tokens = TokenService(identity_settings, kms_client)
     signer = KmsSigner(kms_client, identity_settings.signing_key_arns[0])
     prefix = identity_prefix(identity_settings)

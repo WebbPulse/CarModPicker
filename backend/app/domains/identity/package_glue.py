@@ -2,6 +2,11 @@
 
 The router carries the issuer's own path, so it is mounted with no prefix; a
 prefix would double every path to `/api/auth/api/auth/...`.
+
+The signing client follows the package's own `IDENTITY_SIGNER` switch rather than
+being a `boto3.client("kms")` this module names, so a local stack signs in process
+with no AWS credential at all. The package refuses the local signer in production
+in two places, so the switch cannot put a seed derived key in front of real users.
 """
 
 from __future__ import annotations
@@ -35,7 +40,6 @@ def build_router(settings: "Settings") -> "APIRouter":
     The package declares the statuses every mounted route answers, so the document
     this router publishes needs no amendment here.
     """
-    import boto3
     from webbpulse.dynamodb import Repository
     from webbpulse.identity import (
         CREDENTIALS_TABLE,
@@ -60,6 +64,7 @@ def build_router(settings: "Settings") -> "APIRouter":
         DynamoWebAuthnChallengeStore,
         IdentityStores,
         build_identity_router,
+        signing_client,
     )
 
     from app.domains.identity.identity_hooks import CarModPickerIdentityHooks
@@ -97,7 +102,7 @@ def build_router(settings: "Settings") -> "APIRouter":
             package_oauth_links=stores.oauth_links,
         ),
         stores,
-        kms_client=boto3.client("kms"),
+        kms_client=signing_client(identity_settings),
         service="carmodpicker-identity",
         version=IDENTITY_ROUTER_VERSION,
         attempts=DynamoLoginAttemptStore(repository(LOGIN_ATTEMPTS_TABLE)),

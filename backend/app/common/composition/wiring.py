@@ -178,6 +178,39 @@ def add_shared_middleware(app: FastAPI) -> None:
     app.middleware("http")(rate_limit_middleware)
 
 
+def add_local_authorizer(app: FastAPI) -> bool:
+    """Stand in for the gateway's JWT authorizer, but only on a local stack.
+
+    Deployed, API Gateway verifies the access token and the Lambda Web Adapter hands
+    the function its claims in `x-amzn-request-context`, which is what every authorized
+    route reads. A local e2e stack has no gateway, so a valid token arrives carrying no
+    claims and each of those routes answers 401. The package's middleware verifies the
+    bearer token in process against the local signer's own key set and publishes the
+    result in that same shape.
+
+    Returns whether it was added. Nothing happens without an issuer, since with no
+    issuer no identity route is mounted and there is no token to verify. The gate reads
+    the identity settings' own environment rather than the application's, because that is
+    the one the package's constructor refuses on, and the two are separate variables that
+    a deployed identity function running beside a local app would set differently.
+    """
+    from webbpulse.identity import LOCAL_ENVIRONMENT, LocalAuthorizerMiddleware
+
+    from app.domains.identity.package_glue import build_identity_settings
+
+    if not settings.IDENTITY_ISSUER:
+        return False
+
+    identity_settings = build_identity_settings(settings)
+    if identity_settings.environment.strip().lower() != LOCAL_ENVIRONMENT:
+        return False
+    if settings.environment.strip().lower() != LOCAL_ENVIRONMENT:
+        return False
+
+    app.add_middleware(LocalAuthorizerMiddleware, settings=identity_settings)
+    return True
+
+
 _SITEMAP_CACHE = "public, max-age=3600"
 
 
@@ -315,6 +348,7 @@ def build_domain_app(
     )
 
     add_shared_middleware(app)
+    add_local_authorizer(app)
 
     bind_repositories(app, bundle_for(resolved))
 
