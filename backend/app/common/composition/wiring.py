@@ -188,23 +188,26 @@ def add_local_authorizer(app: FastAPI) -> bool:
     bearer token in process against the local signer's own key set and publishes the
     result in that same shape.
 
-    Returns whether it was added. Nothing happens without an issuer, since with no
-    issuer no identity route is mounted and there is no token to verify. The gate reads
-    the identity settings' own environment rather than the application's, because that is
-    the one the package's constructor refuses on, and the two are separate variables that
-    a deployed identity function running beside a local app would set differently.
+    Returns whether it was added. The application's own environment is checked before
+    anything else is built, because the package settings validate their signing keys on
+    construction and only the identity function carries any: every other deployed
+    function would fail to start if those settings were built first. Nothing happens
+    without an issuer either, since with no issuer no identity route is mounted and
+    there is no token to verify. The identity settings' environment is then checked as
+    well, because that is the one the package's constructor refuses on and the two are
+    separate variables.
     """
     from webbpulse.identity import LOCAL_ENVIRONMENT, LocalAuthorizerMiddleware
 
     from app.domains.identity.package_glue import build_identity_settings
 
+    if settings.environment.strip().lower() != LOCAL_ENVIRONMENT:
+        return False
     if not settings.IDENTITY_ISSUER:
         return False
 
     identity_settings = build_identity_settings(settings)
     if identity_settings.environment.strip().lower() != LOCAL_ENVIRONMENT:
-        return False
-    if settings.environment.strip().lower() != LOCAL_ENVIRONMENT:
         return False
 
     app.add_middleware(LocalAuthorizerMiddleware, settings=identity_settings)
