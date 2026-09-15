@@ -167,5 +167,5 @@ Every claim in this document has to survive a reviewer re-reading it next to you
 - `chrome-extension/src/pages/popup.tsx`: the `handleScrape` flow and what data leaves the browser.
 - `chrome-extension/src/content.ts`: what runs on which domains.
 - `backend/app/crawlers/sanitize.py`: what gets stripped before storage.
-- `backend/app/api/endpoints/crawled_pages.py`: the `/scrape` and `/html` endpoints.
+- `backend/app/domains/admin/endpoints/crawled_pages.py`: the `/scrape` and `/html` endpoints.
 - `frontend/src/pages/PrivacyPolicy.tsx`: sections 1, 4, and 5 in particular.

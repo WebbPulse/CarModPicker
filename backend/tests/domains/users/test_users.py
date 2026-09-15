@@ -8,9 +8,9 @@ from uuid import UUID
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, login_user
 
 
@@ -419,7 +419,7 @@ def test_upload_profile_picture_max_file_size(client: TestClient, db_session: An
     """Test profile picture upload with maximum file size (boundary testing)."""
     from PIL import Image
 
-    from app.core.config import settings
+    from app.common.core.config import settings
 
     user_info, token = create_and_login_user(client, "profile_max_size")
     headers = get_auth_headers(token)
@@ -535,7 +535,8 @@ def test_upload_profile_picture_storage_failure_rollback(client: TestClient, db_
 
     files = {"file": ("test_image.png", img_bytes, "image/png")}
 
-    with patch("app.api.endpoints.users.storage_service.upload_image", side_effect=Exception("Storage failure")):
+    target = "app.domains.users.endpoints.users.storage_service.upload_image"
+    with patch(target, side_effect=Exception("Storage failure")):
         response = client.post(f"{settings.API_STR}/users/me/profile-picture", files=files, headers=headers)
 
         assert response.status_code == 500, f"Expected 500 on storage failure, got {response.status_code}"
@@ -565,7 +566,7 @@ def test_delete_profile_picture_storage_failure_graceful(client: TestClient, db_
         assert user_before is not None
         old_image_urls = user_before.image_urls
 
-        with patch("app.api.endpoints.users.storage_service.delete_image", return_value=False):
+        with patch("app.domains.users.endpoints.users.storage_service.delete_image", return_value=False):
             response = client.delete(f"{settings.API_STR}/users/me/profile-picture", headers=headers)
 
             assert response.status_code in [200, 500, 503], f"Unexpected status: {response.text}"

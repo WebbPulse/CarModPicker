@@ -17,9 +17,9 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-not-a-real-one")
 INVALID_UUID: UUID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 INVALID_UUID_STR: str = str(INVALID_UUID)
 
-from app.api.schemas.car_generation import CarGenerationRead  # noqa: E402
-from app.api.services.car_generation_service import CarGenerationService  # noqa: E402
-from app.db.dynamo.catalog import (  # noqa: E402
+from app.common.api.schemas.car_generation import CarGenerationRead  # noqa: E402
+from app.common.api.services.car_generation_service import CarGenerationService  # noqa: E402
+from app.common.db.dynamo.catalog import (  # noqa: E402
     CarGeneration,
     CarGenerationRepository,
     CarMake,
@@ -41,7 +41,7 @@ from app.db.dynamo.catalog import (  # noqa: E402
     Retailer,
     RetailerRepository,
 )
-from app.db.dynamo.users import User, UserRepository  # noqa: E402
+from app.common.db.dynamo.users import User, UserRepository  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 
 
@@ -411,8 +411,8 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
     with mock_aws():
         import boto3
 
-        import app.api.services.storage_service as ss_module
-        from app.core.config import settings as app_settings
+        import app.common.api.services.storage_service as ss_module
+        from app.common.core.config import settings as app_settings
 
         s3 = boto3.client("s3", region_name="us-east-1")
         s3.create_bucket(Bucket="test-user-images")
@@ -457,9 +457,9 @@ def dynamo_tables(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]
     """Create every DynamoDB table under moto for one test and reset the clients around it."""
     from moto import mock_aws
 
-    from app.core.config import settings as app_settings
-    from app.db.dynamo import client as dynamo_client
-    from app.db.dynamo.tables import TABLES
+    from app.common.core.config import settings as app_settings
+    from app.common.db.dynamo import client as dynamo_client
+    from app.common.db.dynamo.tables import TABLES
 
     monkeypatch.setattr(app_settings, "AWS_REGION", "us-east-1")
     monkeypatch.setattr(app_settings, "DYNAMODB_TABLE_PREFIX", "test")
@@ -502,7 +502,7 @@ def vcr_config() -> dict:
 
 def create_and_login_admin_user(client: TestClient, username: str) -> User:
     """Create an admin user and log them in."""
-    from app.core.config import settings
+    from app.common.core.config import settings
 
     user_data = {
         "username": username,

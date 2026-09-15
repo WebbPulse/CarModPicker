@@ -24,7 +24,7 @@ Flat root module; file names say what they own. The ones worth knowing before yo
 
 - `lambda_domains.tf`: the nine domain functions, `media`, `build-logs`, `moderation`, `vehicles`, `admin`, `build-lists`, `identity`, `catalog` and `users`, plus `var.bootstrap_image_tag` and a runtime IAM policy each. `lambda_stream_consumers.tf` adds the stream and work-queue consumers, each running its domain's image with a different `command`, so one deploy call updates both.
 - `apigateway.tf`: `module "api"`, explicit per-domain proxy route keys with `default_integration = null`, so an unmatched path is a gateway 404 rather than falling through.
-- `dynamodb_tables.json`: generated from `backend/app/db/dynamo/tables.py` by `backend/scripts/export_dynamo_tables.py`. Edit the Python, not the JSON; a backend test fails when the two drift. Four tables carry `NEW_AND_OLD_IMAGES` streams: `users`, `parts`, `votes`, `part_listings`.
+- `dynamodb_tables.json`: generated from `backend/app/common/db/dynamo/tables.py` by `backend/scripts/export_dynamo_tables.py`. Edit the Python, not the JSON; a backend test fails when the two drift. Four tables carry `NEW_AND_OLD_IMAGES` streams: `users`, `parts`, `votes`, `part_listings`.
 - `outputs.tf`: everything the deploy workflows read, mapped below.
 
 ## Staging profiles

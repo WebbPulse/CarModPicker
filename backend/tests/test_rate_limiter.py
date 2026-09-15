@@ -13,8 +13,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from webbpulse.ratelimit import RateLimitDecision
 
-import app.api.middleware.rate_limiter as rate_limiter_module
-from app.api.middleware.rate_limiter import (
+import app.common.api.middleware.rate_limiter as rate_limiter_module
+from app.common.api.middleware.rate_limiter import (
     ADMIN_CLASS,
     AUTH_CLASS,
     DEFAULT_CLASS,

@@ -12,14 +12,14 @@ from typing import Any
 
 import pytest
 
-from app.api.services.part_listing_service import create_or_update_listing_and_price
-from app.api.services.part_price_alert_service import evaluate_alerts_for_listing
-from app.db.dynamo.catalog import Part as DBPart
-from app.db.dynamo.catalog import PartListingRepository
-from app.db.dynamo.catalog import Retailer as DBRetailer
-from app.db.dynamo.part_price_alerts import PartPriceAlert as DBPartPriceAlert
-from app.db.dynamo.part_price_alerts import PartPriceAlertRepository
-from app.db.dynamo.users import User, UserRepository
+from app.common.api.services.part_listing_service import create_or_update_listing_and_price
+from app.common.db.dynamo.catalog import Part as DBPart
+from app.common.db.dynamo.catalog import PartListingRepository
+from app.common.db.dynamo.catalog import Retailer as DBRetailer
+from app.common.db.dynamo.part_price_alerts import PartPriceAlert as DBPartPriceAlert
+from app.common.db.dynamo.part_price_alerts import PartPriceAlertRepository
+from app.common.db.dynamo.users import User, UserRepository
+from app.domains.admin.services.part_price_alert_service import evaluate_alerts_for_listing
 from tests.conftest import get_default_category_id, save_catalog
 
 
@@ -114,7 +114,7 @@ def test_below_threshold_fires_email_and_updates_last_fired_at(
     alert = _make_alert(db_session, user, part, threshold_cents=10_000)
 
     stub, calls = _stub_email_send(return_value=True)
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", stub)
 
     observed_at = datetime.now(UTC)
     evaluate_alerts_for_listing(
@@ -141,7 +141,7 @@ def test_above_threshold_skips(db_session: Any, monkeypatch: pytest.MonkeyPatch)
     alert = _make_alert(db_session, user, part, threshold_cents=5_000)
 
     stub, calls = _stub_email_send(return_value=True)
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
         part_id=part.id,
@@ -163,7 +163,7 @@ def test_at_threshold_fires(db_session: Any, monkeypatch: pytest.MonkeyPatch) ->
     _make_alert(db_session, user, part, threshold_cents=7_500)
 
     stub, calls = _stub_email_send(return_value=True)
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
         part_id=part.id,
@@ -183,7 +183,7 @@ def test_24h_cooldown_suppresses_second_fire(db_session: Any, monkeypatch: pytes
     _make_alert(db_session, user, part, threshold_cents=10_000, last_fired_at=fired_at)
 
     stub, calls = _stub_email_send(return_value=True)
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
         part_id=part.id,
@@ -204,7 +204,7 @@ def test_cooldown_reset_after_25h_fires_again(db_session: Any, monkeypatch: pyte
     alert = _make_alert(db_session, user, part, threshold_cents=10_000, last_fired_at=fired_at)
 
     stub, calls = _stub_email_send(return_value=True)
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", stub)
 
     new_observed = datetime.now(UTC)
     evaluate_alerts_for_listing(
@@ -231,7 +231,7 @@ def test_alert_on_one_part_does_not_fire_on_another_part(db_session: Any, monkey
     _make_alert(db_session, alice, part_a, threshold_cents=10_000)
 
     stub, calls = _stub_email_send(return_value=True)
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
         part_id=part_b.id,
@@ -252,7 +252,7 @@ def test_send_failure_leaves_last_fired_at_unchanged(db_session: Any, monkeypatc
     assert alert.last_fired_at is None
 
     stub, calls = _stub_email_send(return_value=False)
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
         part_id=part.id,
@@ -285,7 +285,7 @@ def test_exception_in_one_alert_does_not_block_another(db_session: Any, monkeypa
         calls.append({"alert_id": alert.id})
         return True
 
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", flaky_send)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", flaky_send)
 
     evaluate_alerts_for_listing(
         part_id=part.id,
@@ -311,7 +311,7 @@ def test_inactive_alert_is_skipped(db_session: Any, monkeypatch: pytest.MonkeyPa
     _make_alert(db_session, user, part, threshold_cents=10_000, active=False)
 
     stub, calls = _stub_email_send(return_value=True)
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", stub)
 
     evaluate_alerts_for_listing(
         part_id=part.id,
@@ -332,7 +332,7 @@ def test_create_or_update_listing_and_price_does_not_invoke_evaluator(
     _make_alert(db_session, user, part, threshold_cents=12_000)
 
     stub, calls = _stub_email_send(return_value=True)
-    monkeypatch.setattr("app.core.email.send_price_drop_alert_email", stub)
+    monkeypatch.setattr("app.common.core.email.send_price_drop_alert_email", stub)
 
     create_or_update_listing_and_price(
         part_id=part.id,

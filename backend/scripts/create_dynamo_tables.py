@@ -15,9 +15,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.core.config import settings  # noqa: E402
-from app.db.dynamo.client import get_client, table_name  # noqa: E402
-from app.db.dynamo.tables import TABLES  # noqa: E402
+from app.common.core.config import settings  # noqa: E402
+from app.common.db.dynamo.client import get_client, table_name  # noqa: E402
+from app.common.db.dynamo.tables import TABLES  # noqa: E402
 
 
 def main() -> int:

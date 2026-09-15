@@ -136,8 +136,8 @@ from webbpulse.identity import (  # noqa: E402
     TOTP_FACTORS_TABLE,
 )
 
-from app.db.dynamo.serialization import UNIQUE_KEY_PREFIX  # noqa: E402
-from app.db.dynamo.tables import USERS  # noqa: E402
+from app.common.db.dynamo.serialization import UNIQUE_KEY_PREFIX  # noqa: E402
+from app.common.db.dynamo.tables import USERS  # noqa: E402
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from webbpulse.identity import CredentialStore, TotpFactorStore

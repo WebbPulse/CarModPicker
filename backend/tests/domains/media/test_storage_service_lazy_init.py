@@ -14,9 +14,9 @@ from botocore.exceptions import ClientError
 from fastapi import HTTPException
 from moto import mock_aws
 
-import app.api.services.storage_service as ss_module
-from app.api.services.storage_service import StorageService
-from app.core.config import settings
+import app.common.api.services.storage_service as ss_module
+from app.common.api.services.storage_service import StorageService
+from app.common.core.config import settings
 
 BUCKET = "lazy-init-bucket"
 
@@ -95,7 +95,7 @@ def test_probe_failure_is_deferred_until_storage_is_used(
         service = StorageService()
         assert service.s3_client is None
 
-        with caplog.at_level(logging.ERROR, logger="app.api.services.storage_service"):
+        with caplog.at_level(logging.ERROR, logger="app.common.api.services.storage_service"):
             with pytest.raises(HTTPException) as upload_error:
                 service.upload_image(MagicMock(), entity_type="user", user_id=uuid4())
             with pytest.raises(HTTPException) as presign_error:

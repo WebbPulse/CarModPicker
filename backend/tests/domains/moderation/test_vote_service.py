@@ -4,12 +4,12 @@ import logging
 import os
 from typing import Any
 
-from app.api.schemas.vote import EntityType, VoteCreate, VoteType
-from app.api.services.vote_service import VoteService
-from app.db.dynamo.build_lists import BuildList, BuildListRepository
-from app.db.dynamo.catalog import Part, PartRepository
-from app.db.dynamo.moderation import VoteRepository
-from app.db.dynamo.users import User, UserRepository
+from app.common.api.schemas.vote import EntityType, VoteCreate, VoteType
+from app.common.api.services.vote_service import VoteService
+from app.common.db.dynamo.build_lists import BuildList, BuildListRepository
+from app.common.db.dynamo.catalog import Part, PartRepository
+from app.common.db.dynamo.moderation import VoteRepository
+from app.common.db.dynamo.users import User, UserRepository
 from tests.conftest import save_catalog
 
 
@@ -74,7 +74,7 @@ class TestVoteService:
 
     def test_vote_on_part(self, db_session: Any, test_user: User) -> None:
         """Test voting on a global part."""
-        from app.db.dynamo.catalog import Category, CategoryRepository
+        from app.common.db.dynamo.catalog import Category, CategoryRepository
 
         category = next(iter(CategoryRepository().list_all()), None)
         if not category:

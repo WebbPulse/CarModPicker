@@ -88,3 +88,11 @@ exclude_dirs = [
 
 skips = ["B404", "B603", "B607"]
 
+
+[tool.webbpulse.ci]
+test-root = "tests"
+domains-root = "tests/domains"
+
+[tool.webbpulse.reachability]
+anchor = "app.common.db.dynamo.registry"
+loaded-by-name = ["app.common.db.dynamo.*"]

@@ -31,7 +31,7 @@ def every_route_env(monkeypatch: pytest.MonkeyPatch) -> None:
     passkeys on and both OAuth client ids present, so the passkey and OAuth routes mount
     and the table below is checked against the full surface rather than a subset.
     """
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
 
     for name, value in {
         "IDENTITY_ENVIRONMENT": "staging",
@@ -76,7 +76,7 @@ def every_route_app(
 
     monkeypatch.setattr(boto3, "client", fake_client)
 
-    from app.entrypoints.identity import build_app
+    from app.domains.identity.entrypoint import build_app
 
     yield build_app()
 

@@ -39,14 +39,14 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from app.api.dependencies.repositories import Repositories, get_repositories  # noqa: E402
-from app.db.dynamo.build_logs import BuildLog  # noqa: E402
-from app.db.dynamo.catalog import PartCar, UniqueCatalogRepository  # noqa: E402
-from app.db.dynamo.models import DynamoModel  # noqa: E402
-from app.db.dynamo.moderation import DOWNVOTE, UPVOTE  # noqa: E402
-from app.db.dynamo.repository import DynamoRepository  # noqa: E402
-from app.db.dynamo.serialization import composite_key, encode_bytes  # noqa: E402
-from app.db.dynamo.users import (  # noqa: E402
+from app.common.api.dependencies.repositories import Repositories, get_repositories  # noqa: E402
+from app.common.db.dynamo.build_logs import BuildLog  # noqa: E402
+from app.common.db.dynamo.catalog import PartCar, UniqueCatalogRepository  # noqa: E402
+from app.common.db.dynamo.models import DynamoModel  # noqa: E402
+from app.common.db.dynamo.moderation import DOWNVOTE, UPVOTE  # noqa: E402
+from app.common.db.dynamo.repository import DynamoRepository  # noqa: E402
+from app.common.db.dynamo.serialization import composite_key, encode_bytes  # noqa: E402
+from app.common.db.dynamo.users import (  # noqa: E402
     CREDENTIAL_ID,
     EMAIL,
     PROVIDER_ACCOUNT,

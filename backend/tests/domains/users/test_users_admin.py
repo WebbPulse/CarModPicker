@@ -4,9 +4,9 @@ from typing import Any, List
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, login_user
 
 

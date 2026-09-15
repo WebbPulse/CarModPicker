@@ -13,14 +13,14 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 import jwt
 
-from app.api.dependencies.auth import (
+from app.common.api.dependencies.auth import (
     ALGORITHM,
     create_access_token,
     decode_access_token,
     get_password_hash,
     verify_password,
 )
-from app.core.config import settings
+from app.common.core.config import settings
 
 PASSWORD = "a-perfectly-ordinary-password"
 

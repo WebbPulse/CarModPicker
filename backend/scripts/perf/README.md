@@ -42,7 +42,7 @@ export PERF_BEARER_TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/token 
 cd backend && uvicorn app.main:app --port 8000
 
 # 2. Seed sample data (idempotent; skip if already done)
-# seed data through the API or the repositories in app/db/dynamo/ (there is no SQL sample-data script any more)
+# seed data through the API or the repositories in app/common/db/dynamo/ (there is no SQL sample-data script any more)
 
 # 3. Run the gate
 bash backend/scripts/perf/run_price_history_loadtest.sh

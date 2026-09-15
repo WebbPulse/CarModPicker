@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.composition.domains import DOMAINS
-from app.composition.wiring import OTLP_ENDPOINT_ENV, configure_tracing
+from app.common.composition.domains import DOMAINS
+from app.common.composition.wiring import OTLP_ENDPOINT_ENV, configure_tracing
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -23,7 +23,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 @pytest.fixture(scope="module")
 def media_client() -> TestClient:
     """A Root B application, which is the shape a deployed function serves."""
-    from app.entrypoints.media import build_app
+    from app.domains.media.entrypoint import build_app
 
     return TestClient(build_app(), raise_server_exceptions=False)
 
@@ -60,7 +60,7 @@ def test_validation_error_returns_the_envelope_with_details() -> None:
     The legacy `errors` list is gone: `details` is the only carrier of the per
     field reasons, and no shape carries Starlette's `detail`.
     """
-    from app.composition.app import app
+    from app.common.composition.app import app
 
     client = TestClient(app, raise_server_exceptions=False)
     response = client.get("/api/parts/not-a-uuid")
@@ -103,8 +103,8 @@ def test_configure_tracing_does_not_import_the_otel_sdk_when_off(monkeypatch: py
     """With tracing off the SDK is never imported, so a cold start pays nothing."""
     code = (
         "import sys\n"
-        "from app.composition.wiring import configure_tracing\n"
-        "from app.composition.domains import DOMAINS\n"
+        "from app.common.composition.wiring import configure_tracing\n"
+        "from app.common.composition.domains import DOMAINS\n"
         "assert configure_tracing(DOMAINS['media']) is False\n"
         "assert 'opentelemetry.sdk' not in sys.modules, sorted(m for m in sys.modules if 'opentelemetry' in m)\n"
         "print('OK')\n"
@@ -149,7 +149,7 @@ def test_json_logging_carries_the_keys_lambda_and_the_alarms_need() -> None:
 
 def test_app_logging_writes_to_stderr_not_stdout() -> None:
     """Application logs go to stderr, keeping stdout free for generated output."""
-    from app.core.logging import configure_app_logging
+    from app.common.core.logging import configure_app_logging
 
     configure_app_logging(level="INFO", service="CarModPicker", environment="test")
     streams = [
@@ -165,7 +165,7 @@ def test_settings_inherit_the_package_base_and_keep_lazy_secrets() -> None:
     """Settings inherit the package base while keeping this product's lazy secret reads."""
     from webbpulse.config import BaseServiceSettings
 
-    from app.core.config import Settings, settings
+    from app.common.core.config import Settings, settings
 
     assert issubclass(Settings, BaseServiceSettings)
     assert callable(settings._resolve_secret)
@@ -175,7 +175,7 @@ def test_settings_inherit_the_package_base_and_keep_lazy_secrets() -> None:
 
 def test_settings_mirror_the_base_lower_case_fields() -> None:
     """The base's lower case fields are filled from this product's own spellings."""
-    from app.core.config import Settings
+    from app.common.core.config import Settings
 
     resolved = Settings(APP_ENVIRONMENT="staging")
     assert resolved.environment == "staging"
@@ -187,7 +187,7 @@ def test_settings_mirror_the_base_lower_case_fields() -> None:
 
 def test_case_sensitivity_override_keeps_the_secret_alias_intact() -> None:
     """Case sensitivity stays on, so the secret alias and its shadow field do not collide."""
-    from app.core.config import Settings
+    from app.common.core.config import Settings
 
     assert Settings.model_config["case_sensitive"] is True
     assert Settings.model_config["populate_by_name"] is True

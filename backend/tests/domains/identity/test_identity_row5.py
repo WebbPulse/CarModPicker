@@ -13,8 +13,8 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from webbpulse.testing import FakeKms
 
-from app.composition.identity_hooks import CarModPickerIdentityHooks
-from app.db.dynamo.users import User
+from app.common.db.dynamo.users import User
+from app.domains.identity.identity_hooks import CarModPickerIdentityHooks
 from tests.entrypoints.test_route_split import _effective_routes, _pairs
 
 ISSUER = "https://api.staging.carmodpicker.com/api/auth"
@@ -65,7 +65,7 @@ def identity_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """The IDENTITY_ environment the deployed identity function receives, with the
     signing key arns as JSON because that is what Terraform renders.
     """
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
 
     monkeypatch.setenv("IDENTITY_ENVIRONMENT", "staging")
     monkeypatch.setenv("IDENTITY_ISSUER", ISSUER)
@@ -103,7 +103,7 @@ def identity_app(identity_env: None, private_key: rsa.RSAPrivateKey, monkeypatch
 
     monkeypatch.setattr(boto3, "client", fake_client)
 
-    from app.entrypoints.identity import build_app
+    from app.domains.identity.entrypoint import build_app
 
     yield build_app()
 
@@ -141,7 +141,7 @@ def _put_raw_attribute(user_id: str, name: str, value: Any) -> None:
     `extra="ignore"` on `DynamoModel` is what lets such a row load at all. This
     reproduces that state so the tests that care can assert on it.
     """
-    from app.db.dynamo.users import UserRepository
+    from app.common.db.dynamo.users import UserRepository
 
     repo = UserRepository()
     repo.table.update_item(
@@ -363,7 +363,7 @@ def test_load_user_by_email_prefers_the_email_index_for_a_value_with_an_at(
     The fallback is a second query, so this pins it as a fallback rather than a
     pair of lookups every login pays for.
     """
-    from app.db.dynamo.users import UserRepository
+    from app.common.db.dynamo.users import UserRepository
 
     created = hooks.create_user(email="preferred@example.com", attributes={"username": "preferred"})
 
@@ -508,7 +508,7 @@ def test_create_user_is_transactional_on_the_unique_attributes(
     """A duplicate username rolls the whole registration back, so a collision cannot
     leave a half created account.
     """
-    from app.db.dynamo.users import UniqueAttributeTaken
+    from app.common.db.dynamo.users import UniqueAttributeTaken
 
     hooks.create_user(email="first@example.com", attributes={"username": "taken"})
 
@@ -591,7 +591,7 @@ def test_a_legacy_password_no_longer_counts(hooks: CarModPickerIdentityHooks) ->
 
 def test_a_passkey_counts(hooks: CarModPickerIdentityHooks, dynamo_tables: Any) -> None:
     """Any row in `webauthn_credentials` is a way in that does not need a password."""
-    from app.db.dynamo.users import WebAuthnCredential, WebAuthnCredentialRepository
+    from app.common.db.dynamo.users import WebAuthnCredential, WebAuthnCredentialRepository
 
     user = hooks.user_repository().create_user(_user())
     WebAuthnCredentialRepository().create(
@@ -608,7 +608,7 @@ def test_a_passkey_counts(hooks: CarModPickerIdentityHooks, dynamo_tables: Any) 
 
 def test_a_legacy_google_link_counts(hooks: CarModPickerIdentityHooks, dynamo_tables: Any) -> None:
     """CarModPicker's own Google flow is still mounted and still signs people in."""
-    from app.db.dynamo.users import OAuthAccount, OAuthAccountRepository
+    from app.common.db.dynamo.users import OAuthAccount, OAuthAccountRepository
 
     user = hooks.user_repository().create_user(_user())
     OAuthAccountRepository().create(OAuthAccount(user_id=user.id, provider="google", provider_account_id="12345"))
@@ -654,7 +654,7 @@ def test_user_repository_hands_back_this_products_users_table(
     """The hook hands back this product's own users repository, which is where the
     ownership convention is stated.
     """
-    from app.db.dynamo.users import UserRepository
+    from app.common.db.dynamo.users import UserRepository
 
     assert isinstance(hooks.user_repository(), UserRepository)
 
@@ -665,11 +665,11 @@ def test_without_an_issuer_the_identity_app_is_exactly_what_row_four_left(
     """With no issuer set the identity application is unchanged, which keeps the route
     contract, the per domain counts and the OpenAPI snapshot valid.
     """
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
 
     monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", "")
 
-    from app.entrypoints.identity import build_app
+    from app.domains.identity.entrypoint import build_app
 
     paths = {path for _, path in _pairs(build_app())}
 
@@ -697,8 +697,8 @@ def test_the_router_is_mounted_with_no_prefix_of_this_repositorys_own(
     """
     from webbpulse.identity import identity_prefix
 
-    from app.composition.identity import build_identity_settings
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_identity_settings
 
     assert identity_prefix(build_identity_settings(app_settings)) == "/api/auth"
 
@@ -788,7 +788,7 @@ def test_the_legacy_auth_surface_is_gone(identity_app: Any, monkeypatch: pytest.
     Asserted with the issuer unset as well as set, because an unmounted identity
     application is where a resurrected legacy router would be easiest to miss.
     """
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
     from tests.domains.identity.test_identity_row10 import EXTENSION_PATHS
 
     extension_paths = {path for _, path in EXTENSION_PATHS}
@@ -797,7 +797,7 @@ def test_the_legacy_auth_surface_is_gone(identity_app: Any, monkeypatch: pytest.
     assert all(pair in PACKAGE_PATHS or pair[1] in extension_paths for pair in with_package)
 
     monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", "")
-    from app.entrypoints.identity import build_app
+    from app.domains.identity.entrypoint import build_app
 
     without_package = {pair for pair in _pairs(build_app()) if pair[1].startswith("/api/auth")}
 
@@ -811,13 +811,13 @@ def test_the_mount_adds_exactly_the_package_routes_and_nothing_else(
     the stream pass-through route, pinned as a difference so unrelated additions
     elsewhere do not fail it.
     """
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
     from tests.domains.identity.test_identity_row10 import EXTENSION_PATHS
 
     with_package = _pairs(identity_app)
 
     monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", "")
-    from app.entrypoints.identity import build_app
+    from app.domains.identity.entrypoint import build_app
 
     added = with_package - _pairs(build_app())
 
@@ -847,8 +847,8 @@ def test_the_settings_are_read_from_the_environment_and_not_passed_in(
     """The package reads its settings from the environment itself, so a Terraform
     rename surfaces as a wrong value rather than a missing argument.
     """
-    from app.composition.identity import build_identity_settings
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_identity_settings
 
     identity_settings = build_identity_settings(app_settings)
 

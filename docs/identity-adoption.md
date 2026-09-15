@@ -122,8 +122,8 @@ in the application takes a password any more, which is what unblocks
 
 **`SECRET_KEY` survives, for exactly one route.**
 `GET /api/part-price-alerts/unsubscribe` reads a 30 day HS256 token that
-`app/core/email.py` mints into every price-drop alert email and
-`app/api/endpoints/part_price_alerts.py` verifies. The recipient of that email
+`app/common/core/email.py` mints into every price-drop alert email and
+`app/domains/admin/endpoints/part_price_alerts.py` verifies. The recipient of that email
 is by construction not signed in, so there is no identity access token to swap
 it for. Links already in inboxes stay valid for 30 days after the last send.
 

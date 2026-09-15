@@ -4,12 +4,12 @@ import logging
 import os
 from typing import Any
 
-from app.api.schemas.report import EntityType, ReportCreate, ReportReason
-from app.api.services.report_service import ReportService
-from app.db.dynamo.build_lists import BuildList, BuildListRepository
-from app.db.dynamo.catalog import Part
-from app.db.dynamo.moderation import ReportRepository
-from app.db.dynamo.users import User, UserRepository
+from app.common.api.schemas.report import EntityType, ReportCreate, ReportReason
+from app.common.api.services.report_service import ReportService
+from app.common.db.dynamo.build_lists import BuildList, BuildListRepository
+from app.common.db.dynamo.catalog import Part
+from app.common.db.dynamo.moderation import ReportRepository
+from app.common.db.dynamo.users import User, UserRepository
 from tests.conftest import save_catalog
 
 
@@ -56,7 +56,7 @@ class TestReportService:
 
     def test_create_report_part(self, db_session: Any, test_user: User) -> None:
         """Test creating a report for a global part."""
-        from app.db.dynamo.catalog import Category, CategoryRepository
+        from app.common.db.dynamo.catalog import Category, CategoryRepository
 
         other_user = UserRepository().create_user(
             User(
@@ -78,7 +78,7 @@ class TestReportService:
             )
             category = save_catalog(category)
 
-        from app.db.dynamo.catalog import PartManufacturer, PartManufacturerRepository
+        from app.common.db.dynamo.catalog import PartManufacturer, PartManufacturerRepository
 
         part_manufacturer = next(iter(PartManufacturerRepository().list_all()), None)
         if not part_manufacturer:
@@ -207,7 +207,7 @@ class TestReportService:
 
     def test_get_reports_with_filters(self, db_session: Any, test_user: User) -> None:
         """Test getting reports with filters."""
-        from app.db.dynamo.catalog import Category, CategoryRepository
+        from app.common.db.dynamo.catalog import Category, CategoryRepository
 
         other_user = UserRepository().create_user(
             User(
@@ -237,7 +237,7 @@ class TestReportService:
             )
             category = save_catalog(category)
 
-        from app.db.dynamo.catalog import PartManufacturer, PartManufacturerRepository
+        from app.common.db.dynamo.catalog import PartManufacturer, PartManufacturerRepository
 
         part_manufacturer = next(iter(PartManufacturerRepository().list_all()), None)
         if not part_manufacturer:

@@ -39,6 +39,6 @@ def test_the_app_decodes_only_through_decode_access_token() -> None:
                 offenders.append(f"  {pyfile.relative_to(APP_DIR)}:{lineno} -> {stripped}")
     assert not offenders, (
         "PyJWT is imported directly in app/ again. Decoding belongs in "
-        "app.api.dependencies.auth.decode_access_token, which is the one place "
+        "app.common.api.dependencies.auth.decode_access_token, which is the one place "
         "the algorithm list is set:\n" + "\n".join(offenders)
     )
