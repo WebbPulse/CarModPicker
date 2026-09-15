@@ -1,66 +1,19 @@
-"""The admin domain's `part_listings` stream consumer for price drop alerts.
+"""Terraform-pinned module path for the admin domain's price alerts consumer.
 
-Sends alert mail through SES and signs the unsubscribe link, so unlike the votes
-consumer it needs `SECRET_KEY`.
+The implementation is `app.domains.admin.consumers.price_alerts_entrypoint`. This shim exists because
+`terraform/lambda_stream_consumers.tf` pins the container command to
+`python -m app.entrypoints.admin_price_alerts_consumer`, and Terraform is out of scope here.
 """
 
-from typing import Any, Dict, List, Mapping
+from app.domains.admin.consumers.price_alerts_entrypoint import (
+    app,
+    build_app,
+    handle_batch,
+    main,
+    repositories,
+)
 
-from fastapi import FastAPI
-
-from app.composition.domains import DOMAINS
-from app.composition.wiring import check_signing_key, configure_logging, configure_tracing
-
-DOMAIN = DOMAINS["admin"]
-
-SERVICE_NAME = f"{DOMAIN.service_name}-price-alerts-consumer"
-
-_repos: Any = None
-
-
-def repositories() -> Any:
-    """The `admin` bundle, memoised for the life of the execution environment."""
-    global _repos
-    if _repos is None:
-        from app.composition.wiring import bundle_for
-
-        _repos = bundle_for([DOMAIN])
-    return _repos
-
-
-def handle_batch(event: Mapping[str, Any]) -> Dict[str, List[Dict[str, str]]]:
-    """Evaluate price alerts for every record this batch touched."""
-    from app.consumers.price_alerts import handle
-
-    return handle(event, repositories())
-
-
-def build_app() -> FastAPI:
-    """The consumer's application: shared consumer scaffolding over the batch handler."""
-    from webbpulse.events import stream_consumer_app
-
-    return stream_consumer_app(
-        handle_batch,
-        title=f"{DOMAIN.title} price alerts stream consumer",
-        per_record=False,
-        service_name=SERVICE_NAME,
-    )
-
-
-def main() -> None:
-    """Process-wide setup, then serve. Not run by importing this module."""
-    from webbpulse.lambda_entry import run_uvicorn
-
-    configure_logging(service=SERVICE_NAME)
-
-    check_signing_key([DOMAIN])
-
-    configure_tracing(DOMAIN)
-
-    run_uvicorn(build_app())
-
-
-app = build_app()
+__all__ = ["app", "build_app", "handle_batch", "main", "repositories"]
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """Tests for category inference from part name and description."""
 
-from app.core.category_inference import infer_category
+from app.domains.admin.category_inference import infer_category
 
 
 class TestInferCategory:

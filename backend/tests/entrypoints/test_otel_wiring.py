@@ -11,15 +11,15 @@ from pathlib import Path
 
 import pytest
 
-from app.composition.domains import DOMAIN_NAMES, ENTRYPOINT_MODULES
+from app.common.composition.domains import DOMAIN_NAMES, ENTRYPOINT_MODULES
 
 BACKEND = Path(__file__).resolve().parents[2]
-ENTRYPOINTS = BACKEND / "app" / "entrypoints"
+DOMAINS_ROOT = BACKEND / "app" / "domains"
 
 
 def _source(domain: str) -> str:
     """The source text of one domain's entrypoint module."""
-    return (ENTRYPOINTS / f"{ENTRYPOINT_MODULES[domain]}.py").read_text()
+    return (DOMAINS_ROOT / ENTRYPOINT_MODULES[domain] / "entrypoint.py").read_text()
 
 
 def _main_body(domain: str) -> list[ast.stmt]:
@@ -69,7 +69,7 @@ def test_an_entrypoint_does_not_initialise_sentry(domain: str) -> None:
 
 def test_the_monolith_does_not_initialise_sentry() -> None:
     """The monolith no longer initialises Sentry, since OpenTelemetry is the only instrumentation."""
-    source = (BACKEND / "app" / "composition" / "app.py").read_text()
+    source = (BACKEND / "app" / "common" / "composition" / "app.py").read_text()
     assert "sentry" not in source.lower()
 
 

@@ -260,8 +260,12 @@ class TestVehiclesDomain:
 class TestIdentityDomain:
     """The identity domain's authenticated reads, beyond the login the suite already covers."""
 
-    def test_signed_in_user_is_the_e2e_user(self, api: Any, e2e_env: Any) -> None:
-        """The token the real login route issued resolves to the configured e2e user."""
+    def test_signed_in_user_is_the_session_user(self, api: Any, credentials: Any) -> None:
+        """The token the real login route issued resolves to the user this run signed in as.
+
+        That is the run's own ephemeral user where it has one and the durable e2e user
+        otherwise, so the case reads the plugin's credentials rather than the environment.
+        """
         response = api.get("/api/users/me")
         assert response.status_code == 200, response.text[:400]
-        assert response.json()["email"].lower() == e2e_env.user_email.lower()
+        assert response.json()["email"].lower() == credentials.email.lower()

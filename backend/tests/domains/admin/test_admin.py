@@ -4,11 +4,11 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.catalog import Part as DBPart
-from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.catalog import Part as DBPart
+from app.common.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 from tests.conftest import auth_headers, catalog_repository, login_user, save_catalog
 
 

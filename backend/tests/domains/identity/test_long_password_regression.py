@@ -27,7 +27,7 @@ the identity package's, and the package's own tests cover them.
 
 from __future__ import annotations
 
-from app.api.dependencies.auth import get_password_hash, verify_password
+from app.common.api.dependencies.auth import get_password_hash, verify_password
 
 BCRYPT_BYTE_LIMIT = 72
 

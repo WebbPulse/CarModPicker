@@ -12,8 +12,8 @@ from uuid import uuid4
 import pytest
 from webbpulse.testing import FakeKms
 
-from app.composition.identity_hooks import CarModPickerIdentityHooks
-from app.db.dynamo.users import User
+from app.common.db.dynamo.users import User
+from app.domains.identity.identity_hooks import CarModPickerIdentityHooks
 from tests.domains.identity.test_identity_row5 import ISSUER
 from tests.domains.identity.test_identity_row5 import identity_env as _identity_env
 from tests.domains.identity.test_identity_row5 import private_key as _private_key
@@ -83,7 +83,7 @@ def _build_identity_app(private_key: Any, monkeypatch: pytest.MonkeyPatch) -> It
 
     monkeypatch.setattr(boto3, "client", fake_client)
 
-    from app.entrypoints.identity import build_app
+    from app.domains.identity.entrypoint import build_app
 
     yield build_app()
 
@@ -149,8 +149,8 @@ def test_passwordless_off_keeps_the_five_management_routes(
 
 def test_the_webauthn_origin_is_the_frontend_and_not_the_api(passkeys_on: None) -> None:
     """The WebAuthn origin is the SPA origin, which is what makes a passkey phishing resistant."""
-    from app.composition.identity import build_identity_settings
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_identity_settings
 
     identity_settings = build_identity_settings(app_settings)
 
@@ -232,7 +232,7 @@ def test_a_provider_with_no_secret_is_not_advertised(
 
 def test_the_secret_keys_are_the_ones_terraform_writes() -> None:
     """The provider to secret key map matches the keys Terraform writes into the app secret."""
-    from app.composition.identity import OAUTH_SECRET_KEYS
+    from app.domains.identity.package_glue import OAUTH_SECRET_KEYS
 
     assert OAUTH_SECRET_KEYS == {
         "google": "OAUTH_GOOGLE_CLIENT_SECRET",
@@ -244,8 +244,8 @@ def test_the_client_secrets_are_read_from_the_app_secret(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Both client secrets resolve from the app secret blob when the environment is unset."""
-    from app.composition.identity import build_oauth_client_secrets
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_oauth_client_secrets
 
     monkeypatch.delenv("OAUTH_GOOGLE_CLIENT_SECRET", raising=False)
     monkeypatch.delenv("OAUTH_GITHUB_CLIENT_SECRET", raising=False)
@@ -269,8 +269,8 @@ def test_a_missing_key_is_omitted_rather_than_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A missing key is omitted, since an empty string would advertise a provider that cannot exchange."""
-    from app.composition.identity import build_oauth_client_secrets
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_oauth_client_secrets
 
     monkeypatch.delenv("OAUTH_GOOGLE_CLIENT_SECRET", raising=False)
     monkeypatch.delenv("OAUTH_GITHUB_CLIENT_SECRET", raising=False)
@@ -290,8 +290,8 @@ def test_no_app_secret_is_an_empty_mapping_and_not_a_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No app secret yields an empty mapping rather than a cold start failure."""
-    from app.composition.identity import build_oauth_client_secrets
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_oauth_client_secrets
 
     monkeypatch.delenv("OAUTH_GOOGLE_CLIENT_SECRET", raising=False)
     monkeypatch.delenv("OAUTH_GITHUB_CLIENT_SECRET", raising=False)
@@ -303,8 +303,8 @@ def test_no_app_secret_is_an_empty_mapping_and_not_a_failure(
 
 def test_the_client_secrets_are_not_settings_fields(oauth_on: None) -> None:
     """Neither client secret is a settings field, so neither appears in a repr or a validation error."""
-    from app.composition.identity import build_identity_settings
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_identity_settings
 
     identity_settings = build_identity_settings(app_settings)
 
@@ -319,8 +319,8 @@ def test_the_client_secrets_are_not_settings_fields(oauth_on: None) -> None:
 
 def test_the_redirect_uri_is_the_issuer_callback(oauth_on: None) -> None:
     """The single allowed redirect URI is the issuer callback, compared by exact equality."""
-    from app.composition.identity import build_identity_settings
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_identity_settings
 
     identity_settings = build_identity_settings(app_settings)
 
@@ -331,8 +331,8 @@ def test_the_refresh_window_is_thirty_days_rolling(identity_env: None) -> None:
     """The refresh window is thirty days rolling with a ninety day absolute cap."""
     from datetime import timedelta
 
-    from app.composition.identity import build_identity_settings
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_identity_settings
 
     identity_settings = build_identity_settings(app_settings)
 
@@ -481,8 +481,8 @@ def test_the_hooks_receive_the_same_store_objects_the_package_does(
     everything_app: Any,
 ) -> None:
     """The hooks and the package share one construction of each store, by identity."""
-    from app.composition.identity import build_router
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_router
 
     captured: dict[str, Any] = {}
 
@@ -516,8 +516,8 @@ def test_the_four_new_stores_are_supplied_unconditionally(
     monkeypatch.setenv("IDENTITY_PASSKEYS_ENABLED", "false")
     monkeypatch.setenv("IDENTITY_PASSKEYS_PASSWORDLESS", "false")
 
-    from app.composition.identity import build_router
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_router
 
     captured: dict[str, Any] = {}
 

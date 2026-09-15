@@ -3,8 +3,8 @@
 import os
 from typing import Any
 
-from app.api.services.user_service import UserService
-from app.db.dynamo.users import User
+from app.common.db.dynamo.users import User
+from app.domains.users.services.user_service import UserService
 
 
 def get_unique_username(base_name: str) -> str:

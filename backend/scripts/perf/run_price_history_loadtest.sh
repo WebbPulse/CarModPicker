@@ -85,7 +85,7 @@ from pathlib import Path
 from collections import Counter
 
 # Local import — runs only when the user invokes the live load test.
-from app.api.dependencies.repositories import get_repositories
+from app.common.api.dependencies.repositories import get_repositories
 
 pool_path = Path("${POOL_PATH}")
 repos = get_repositories()
@@ -98,7 +98,7 @@ if not history:
     )
     sys.exit(1)
 # Part → PartListing → PartPriceHistory (price history hangs off listings,
-# not parts directly — see app/db/dynamo/catalog.py).
+# not parts directly — see app/common/db/dynamo/catalog.py).
 listing_counts = Counter(row.part_listing_id for row in history)
 listings = repos.part_listings.get_many(listing_counts)
 part_counts = Counter()

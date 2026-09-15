@@ -12,14 +12,14 @@ from typing import Any, Iterator
 import httpx
 import pytest
 
-from app.api.utils.remote_image_fetch import (
+from app.common.core.config import settings
+from app.domains.media.utils.remote_image_fetch import (
     ALLOWED_CONTENT_TYPES,
     MAX_REDIRECTS,
     RemoteImageError,
     assert_url_is_fetchable,
     fetch_remote_image,
 )
-from app.core.config import settings
 
 PUBLIC_IP = "93.184.216.34"
 
@@ -28,7 +28,7 @@ PUBLIC_IP = "93.184.216.34"
 def resolve_public(monkeypatch: pytest.MonkeyPatch) -> None:
     """Resolve every hostname to a public address unless a test overrides it."""
     monkeypatch.setattr(
-        "app.api.utils.remote_image_fetch.socket.getaddrinfo",
+        "app.domains.media.utils.remote_image_fetch.socket.getaddrinfo",
         lambda host, *a, **k: [(2, 1, 6, "", (PUBLIC_IP, 0))],
     )
 
@@ -39,7 +39,7 @@ def resolve_to(monkeypatch: pytest.MonkeyPatch, mapping: dict[str, str]) -> None
     def fake(host: str, *args: Any, **kwargs: Any) -> list[tuple[int, int, int, str, tuple[str, int]]]:
         return [(2, 1, 6, "", (mapping.get(host, PUBLIC_IP), 0))]
 
-    monkeypatch.setattr("app.api.utils.remote_image_fetch.socket.getaddrinfo", fake)
+    monkeypatch.setattr("app.domains.media.utils.remote_image_fetch.socket.getaddrinfo", fake)
 
 
 class TestUrlGuards:
@@ -101,7 +101,7 @@ class TestUrlGuards:
         def boom(*args: Any, **kwargs: Any) -> None:
             raise __import__("socket").gaierror("nope")
 
-        monkeypatch.setattr("app.api.utils.remote_image_fetch.socket.getaddrinfo", boom)
+        monkeypatch.setattr("app.domains.media.utils.remote_image_fetch.socket.getaddrinfo", boom)
         with pytest.raises(RemoteImageError) as exc:
             assert_url_is_fetchable("https://nowhere.example.com/a.jpg")
         assert "resolved" in str(exc.value.detail)
@@ -115,7 +115,7 @@ def mount_transport(monkeypatch: pytest.MonkeyPatch, handler: Any) -> None:
         kwargs["transport"] = httpx.MockTransport(handler)
         real_init(self, *args, **kwargs)
 
-    monkeypatch.setattr("app.api.utils.remote_image_fetch.httpx.Client.__init__", patched)
+    monkeypatch.setattr("app.domains.media.utils.remote_image_fetch.httpx.Client.__init__", patched)
 
 
 def image_response(content: bytes = b"\xff\xd8\xff\xe0fake", content_type: str = "image/jpeg") -> httpx.Response:

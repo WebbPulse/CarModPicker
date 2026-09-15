@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
+from app.common.core.config import settings
 from tests.conftest import auth_headers, create_and_login_user, login_user
 
 SCRAPE_URL = f"{settings.API_STR}/crawled-pages/scrape"

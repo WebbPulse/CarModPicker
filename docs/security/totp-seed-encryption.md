@@ -8,7 +8,7 @@ created this file.
 
 TOTP shared secrets are stored in DynamoDB as plaintext base32.
 
-`app/db/dynamo/users.py` declares the field on the user item:
+`app/common/db/dynamo/users.py` declares the field on the user item:
 
 ```python
 totp_secret: str | None = None

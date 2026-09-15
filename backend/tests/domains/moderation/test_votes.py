@@ -5,9 +5,9 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.users import User, UserRepository
-from app.db.dynamo.users import User as DBUser
+from app.common.core.config import settings
+from app.common.db.dynamo.users import User, UserRepository
+from app.common.db.dynamo.users import User as DBUser
 from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user, save_catalog
 
 
@@ -77,7 +77,7 @@ class TestUnifiedVotes:
 
     def test_downvote_build_list_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully downvoting a build list."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         build_list_owner = UserRepository().create_user(
             DBUser(
@@ -128,7 +128,7 @@ class TestUnifiedVotes:
 
     def test_vote_part_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully voting on a global part."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         part_owner = UserRepository().create_user(
             DBUser(
@@ -141,12 +141,12 @@ class TestUnifiedVotes:
             )
         )
 
-        from app.db.dynamo.catalog import Category as DBCategory
+        from app.common.db.dynamo.catalog import Category as DBCategory
 
         category = DBCategory(name=get_unique_name("Test Category"))
         category = save_catalog(category)
 
-        from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+        from app.common.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 
         part_manufacturer = DBPartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True

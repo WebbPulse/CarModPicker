@@ -44,6 +44,19 @@ GUARD_ENTRY = re.compile(
     r'\s*\{\s*integration\s*=\s*"(?P<integration>[^"]+)"\s*\}'
 )
 
+IDENTITY_JWT_ENTRY = re.compile(
+    r'"(?P<key>(?:ANY|GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /[^"]*)"\s*=\s*\{'
+    r'\s*integration\s*=\s*"(?P<integration>[^"]+)"\s*,'
+    r"\s*require_identity_jwt\s*=\s*(?P<flag>[^\s}]+)\s*\}"
+)
+
+EPHEMERAL_GROUP_GUARD = re.compile(r"local\.ephemeral_users_enabled\s*\?\s*\{")
+
+IDENTITY_EPHEMERAL_ROUTE_KEYS = {
+    "POST /api/auth/e2e/users",
+    "DELETE /api/auth/e2e/users/{user_id}",
+}
+
 
 def _terraform_source() -> str:
     """Read the API Gateway Terraform file."""
@@ -85,6 +98,31 @@ def terraform_guard_route_keys() -> Dict[str, str]:
     """Every route key in `local.domain_anonymous_guard_route_keys`, to its domain."""
     block = _block(_strip_comments(_terraform_source()), "domain_anonymous_guard_route_keys")
     return {match.group("key"): match.group("integration") for match in GUARD_ENTRY.finditer(block)}
+
+
+def _conditional_block(source: str, name: str) -> str:
+    """Extract a conditional local's true branch by brace balance, past its `? ` guard."""
+    match = re.search(rf"{re.escape(name)}\s*=\s*[^\n]*?\?\s*\{{", source)
+    assert match, f"local.{name} is not a guarded map in {APIGATEWAY_TF}"
+    start = match.end() - 1
+    depth = 0
+    for index in range(start, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[start : index + 1]
+    raise AssertionError(f"local.{name} is not brace balanced in {APIGATEWAY_TF}")
+
+
+def terraform_ephemeral_route_keys() -> Dict[str, Tuple[str, str]]:
+    """Every route key in `local.ephemeral_users_route_keys`, to its integration and JWT flag."""
+    block = _conditional_block(_strip_comments(_terraform_source()), "ephemeral_users_route_keys")
+    return {
+        match.group("key"): (match.group("integration"), match.group("flag"))
+        for match in IDENTITY_JWT_ENTRY.finditer(block)
+    }
 
 
 def terraform_domain_prefixes() -> Dict[str, str]:
@@ -353,4 +391,61 @@ def test_the_flag_is_gated_on_the_variable_rather_than_hardcoded() -> None:
     assert re.search(r"^\s*default\s*=\s*false\s*$", block, re.MULTILINE), (
         "var.domain_jwt_enforced must default to false: the frontend still sends the legacy "
         "session token and a flagged route rejects it."
+    )
+
+
+def test_the_ephemeral_keys_are_present_and_match_the_paths_the_package_declares() -> None:
+    """The two e2e user keys exist, and their suffixes are the package's own."""
+    from webbpulse.identity.ephemeral_routes import (
+        EPHEMERAL_USER_ITEM_PATH,
+        EPHEMERAL_USERS_PATH,
+    )
+
+    expected = {
+        f"POST {IDENTITY_PREFIX}{EPHEMERAL_USERS_PATH}",
+        f"DELETE {IDENTITY_PREFIX}{EPHEMERAL_USER_ITEM_PATH}",
+    }
+
+    assert IDENTITY_EPHEMERAL_ROUTE_KEYS == expected
+    assert set(terraform_ephemeral_route_keys()) == expected
+
+
+def test_both_ephemeral_keys_require_an_identity_token() -> None:
+    """Both create and delete a verified account, so both read a verified admin subject."""
+    declared = terraform_ephemeral_route_keys()
+
+    unflagged = sorted(key for key, (_, flag) in declared.items() if flag != "true")
+    assert not unflagged, f"these ephemeral routes mint or delete a user but are not flagged: {unflagged}"
+
+
+def test_the_ephemeral_keys_route_to_the_identity_function() -> None:
+    """The package mounts them on the identity application, not on a domain function."""
+    for key, (integration, _) in sorted(terraform_ephemeral_route_keys().items()):
+        assert integration == "identity", f"{key} is routed to {integration!r} rather than the identity function"
+
+
+def test_no_ephemeral_key_is_an_anonymous_guard_key() -> None:
+    """Neither key is held open by a literal anonymous key."""
+    overlap = IDENTITY_EPHEMERAL_ROUTE_KEYS & set(terraform_guard_route_keys())
+    assert overlap == set(), sorted(overlap)
+
+
+def test_the_ephemeral_group_is_gated_on_the_same_flag_as_the_lambda() -> None:
+    """The keys exist only where the routes are mounted, so production has neither."""
+    source = _strip_comments(_terraform_source())
+
+    assert EPHEMERAL_GROUP_GUARD.search(source), (
+        "the ephemeral route group must be guarded by `local.ephemeral_users_enabled ?` so "
+        "production declares no key for a route its identity function does not mount"
+    )
+    assert "ephemeral_users_enabled = var.ephemeral_users_enabled" in source, (
+        "local.ephemeral_users_enabled must come from var.ephemeral_users_enabled, the same "
+        "variable that sets IDENTITY_EPHEMERAL_USERS_ENABLED on the identity function"
+    )
+
+    variables = (BACKEND.parent / "terraform" / "variables.tf").read_text(encoding="utf-8")
+    block = variables[variables.index('variable "ephemeral_users_enabled"') :]
+    block = block[: block.index("\n}\n") + 3]
+    assert re.search(r"^\s*default\s*=\s*false\s*$", block, re.MULTILINE), (
+        "var.ephemeral_users_enabled must default to false: only the staging workspace mounts the ephemeral routes."
     )

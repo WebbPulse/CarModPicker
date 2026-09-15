@@ -5,9 +5,9 @@ from typing import Any, Dict
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 from tests.conftest import auth_headers, create_car_in_db, login_user
 
 
@@ -159,8 +159,8 @@ class TestSearch:
         self, client: TestClient, test_user: DBUser, test_category, db_session: Any
     ) -> None:
         """Search by manufacturer name surfaces parts for that manufacturer."""
-        from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
-        from app.db.dynamo.catalog import PartManufacturerRepository
+        from app.common.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+        from app.common.db.dynamo.catalog import PartManufacturerRepository
 
         car = create_car_in_db(db_session)
 

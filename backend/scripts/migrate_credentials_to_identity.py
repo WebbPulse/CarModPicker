@@ -91,7 +91,7 @@ disagree about the range key.
 
 ## SECRET_KEY and EMAIL_FROM are set to placeholders at import
 
-`app.core.config` builds a `Settings` at import and refuses to construct without
+`app.common.core.config` builds a `Settings` at import and refuses to construct without
 them. This migration reads users, writes credentials and authenticates nobody,
 so the placeholders never reach a hash or a token. They are set with `setdefault`
 so a real environment carrying them is left alone.
@@ -118,8 +118,8 @@ from webbpulse.identity import (  # noqa: E402
     PASSWORD_CREDENTIAL_TYPE,
 )
 
-from app.db.dynamo.serialization import UNIQUE_KEY_PREFIX  # noqa: E402
-from app.db.dynamo.tables import USERS  # noqa: E402
+from app.common.db.dynamo.serialization import UNIQUE_KEY_PREFIX  # noqa: E402
+from app.common.db.dynamo.tables import USERS  # noqa: E402
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from webbpulse.identity import CredentialStore

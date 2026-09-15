@@ -1,12 +1,13 @@
 module "app_secrets" {
   source  = "app.terraform.io/WebbPulse/platform-modules/aws//modules/app-secrets"
-  version = "~> 1.6"
+  version = "~> 2.21"
 
   name_prefix = local.prefix
 
   secrets = {
     "app" = {
       description = "JSON map of runtime secrets read by the Lambda API at cold start"
+      version     = 1
       json = {
         SECRET_KEY        = var.secret_key
         EXTENSION_API_KEY = var.extension_api_key

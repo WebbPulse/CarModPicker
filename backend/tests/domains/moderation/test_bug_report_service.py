@@ -6,10 +6,10 @@ from typing import Any
 
 from uuid6 import uuid7
 
-from app.api.schemas.bug_report import BugReportCreate, BugReportPriority, BugReportStatus, BugReportUpdate
-from app.api.services.bug_report_service import BugReportService
-from app.db.dynamo.bug_reports import BugReportRepository
-from app.db.dynamo.users import User
+from app.common.api.schemas.bug_report import BugReportCreate, BugReportPriority, BugReportStatus, BugReportUpdate
+from app.common.db.dynamo.bug_reports import BugReportRepository
+from app.common.db.dynamo.users import User
+from app.domains.moderation.services.bug_report_service import BugReportService
 
 
 def get_unique_name(base_name: str) -> str:

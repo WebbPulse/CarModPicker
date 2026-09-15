@@ -14,15 +14,15 @@ from typing import Any, Dict, Optional, Set
 
 import pytest
 
-from app.api.dependencies.repositories import (
+from app.common.api.dependencies.repositories import (
     ALL_REPOSITORY_NAMES,
     RepositoryBundle,
     RepositoryNotInBundle,
     build_bundle,
     get_repositories,
 )
-from app.composition.domains import DOMAIN_NAMES, DOMAINS, ENTRYPOINT_MODULES
-from app.db.dynamo.registry import REPOSITORY_SPECS
+from app.common.composition.domains import DOMAIN_NAMES, DOMAINS, ENTRYPOINT_MODULES
+from app.common.db.dynamo.registry import REPOSITORY_SPECS
 
 BACKEND = Path(__file__).resolve().parents[2]
 
@@ -170,7 +170,12 @@ def _reachable_repositories(domain: str) -> Set[str]:
     roots: Set[str] = set()
     source = ast.parse(_read_loader_source(domain))
     for node in ast.walk(source):
-        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("app.api.endpoints"):
+        if (
+            isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.module.startswith("app.domains.")
+            and ".endpoints" in node.module
+        ):
             for alias in node.names:
                 candidate = f"{node.module}.{alias.name}"
                 roots.add(candidate if _module_file(candidate) is not None else node.module)
@@ -310,7 +315,7 @@ def test_the_union_of_the_nine_bundles_is_all_twenty_five() -> None:
 
 def test_root_a_binds_a_bundle_carrying_all_twenty_five() -> None:
     """The monolith binds a bundle carrying every repository."""
-    from app.api.dependencies.repositories import get_repositories as dependency
+    from app.common.api.dependencies.repositories import get_repositories as dependency
     from app.main import app
 
     override = app.dependency_overrides.get(dependency)
@@ -329,10 +334,10 @@ def test_building_one_domain_does_not_disturb_another() -> None:
     """Bundles bind per application, so building one domain does not affect another."""
     import importlib
 
-    media = importlib.import_module("app.entrypoints.media").build_app()
-    users = importlib.import_module("app.entrypoints.users").build_app()
+    media = importlib.import_module("app.domains.media.entrypoint").build_app()
+    users = importlib.import_module("app.domains.users.entrypoint").build_app()
 
-    from app.api.dependencies.repositories import get_repositories as dependency
+    from app.common.api.dependencies.repositories import get_repositories as dependency
 
     media_bundle = media.dependency_overrides[dependency]()
     users_bundle = users.dependency_overrides[dependency]()
@@ -364,8 +369,8 @@ def _run(code: str, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
 
 BUNDLE_PROBE = """
 import json, sys
-from app.entrypoints import {module} as entrypoint
-from app.api.dependencies.repositories import get_repositories
+import app.domains.{module}.entrypoint as entrypoint
+from app.common.api.dependencies.repositories import get_repositories
 
 app = entrypoint.build_app()
 bundle = app.dependency_overrides[get_repositories]()
@@ -375,7 +380,7 @@ print(json.dumps({{
     "built": sorted(bundle._built),
     "dynamo_modules": sorted(
         name for name in sys.modules
-        if name.startswith("app.db.dynamo.") and name.count(".") == 3
+        if name.startswith("app.common.db.dynamo.") and name.count(".") == 3
     ),
 }}))
 """
@@ -412,17 +417,17 @@ def test_media_builds_without_importing_another_domains_data_modules(
     """Building media imports none of the data modules behind repositories it lacks."""
     imported = set(bundle_probes["media"]["dynamo_modules"])
     for module in ("app_settings", "bug_reports", "part_price_alerts", "build_logs"):
-        assert f"app.db.dynamo.{module}" not in imported, f"media imported app.db.dynamo.{module}"
+        assert f"app.common.db.dynamo.{module}" not in imported, f"media imported app.common.db.dynamo.{module}"
 
 
 def test_importing_the_registry_imports_no_repository_module() -> None:
     """Importing the registry pulls in no repository module, only the shared base."""
-    repository_modules = {f"app.db.dynamo.{spec.module}" for spec in REPOSITORY_SPECS.values()}
+    repository_modules = {f"app.common.db.dynamo.{spec.module}" for spec in REPOSITORY_SPECS.values()}
     assert len(repository_modules) == 9
 
     imported = _run(
         "import json, sys\n"
-        "import app.db.dynamo.registry\n"
-        "print(json.dumps(sorted(m for m in sys.modules if m.startswith('app.db.dynamo.'))))\n"
+        "import app.common.db.dynamo.registry\n"
+        "print(json.dumps(sorted(m for m in sys.modules if m.startswith('app.common.db.dynamo.'))))\n"
     )
     assert sorted(repository_modules & set(imported)) == []

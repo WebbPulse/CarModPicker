@@ -5,9 +5,9 @@ from typing import Any
 import pytest
 from fastapi import HTTPException, status
 
-from app.api.dependencies.auth import get_current_admin_user, get_current_superuser
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.api.dependencies.auth import get_current_admin_user, get_current_superuser
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 
 
 class TestAdminAuthentication:

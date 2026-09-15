@@ -5,8 +5,8 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.users import User, UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.users import User, UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user, save_catalog
 
 
@@ -21,7 +21,7 @@ def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
-    from app.db.dynamo.users import User as DBUser
+    from app.common.db.dynamo.users import User as DBUser
 
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
@@ -52,7 +52,7 @@ class TestUnifiedReports:
         db_session: Any,
     ) -> None:
         """Test successfully creating a report for a build list."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         build_list_owner = UserRepository().create_user(
             DBUser(
@@ -110,7 +110,7 @@ class TestUnifiedReports:
         db_session: Any,
     ) -> None:
         """Test successfully creating a report for a global part."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         part_owner = UserRepository().create_user(
             DBUser(
@@ -123,12 +123,12 @@ class TestUnifiedReports:
             )
         )
 
-        from app.db.dynamo.catalog import Category as DBCategory
+        from app.common.db.dynamo.catalog import Category as DBCategory
 
         category = DBCategory(name=get_unique_name("Test Category"))
         category = save_catalog(category)
 
-        from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+        from app.common.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 
         part_manufacturer = DBPartManufacturer(
             name=get_unique_name("Test PartManufacturer"), description="Test part_manufacturer", is_active=True
@@ -223,7 +223,7 @@ class TestUnifiedReports:
 
     def test_create_report_already_reported(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test that users cannot report the same entity twice."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         build_list_owner = UserRepository().create_user(
             DBUser(
@@ -306,7 +306,7 @@ class TestUnifiedReports:
 
     def test_get_report_by_id_success(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test successfully getting a specific report by ID."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         build_list_owner = UserRepository().create_user(
             DBUser(
@@ -375,7 +375,7 @@ class TestUnifiedReports:
 
     def test_update_report_status_success(self, client: TestClient, test_admin_user: User, db_session: Any) -> None:
         """Test successfully updating report status as admin."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         build_list_owner = UserRepository().create_user(
             DBUser(
@@ -450,7 +450,7 @@ class TestUnifiedReports:
 
     def test_delete_report_success(self, client: TestClient, test_admin_user: User, db_session: Any) -> None:
         """Test successfully deleting a report as admin."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         build_list_owner = UserRepository().create_user(
             DBUser(
@@ -528,7 +528,7 @@ class TestUnifiedReports:
 
     def test_report_invalid_reason(self, client: TestClient, test_user: User, db_session: Any) -> None:
         """Test reporting with invalid reason."""
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         build_list_owner = UserRepository().create_user(
             DBUser(
@@ -579,7 +579,7 @@ class TestUnifiedReports:
         assert isinstance(initial_count, int)
         assert initial_count >= 0
 
-        from app.db.dynamo.users import User as DBUser
+        from app.common.db.dynamo.users import User as DBUser
 
         build_list_owner = UserRepository().create_user(
             DBUser(

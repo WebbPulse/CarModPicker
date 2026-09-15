@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
+from app.common.core.config import settings
 from tests.conftest import auth_headers
 from tests.domains.admin.test_admin import create_and_login_admin_user, create_and_login_user
 

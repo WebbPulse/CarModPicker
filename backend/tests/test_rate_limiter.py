@@ -13,8 +13,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from webbpulse.ratelimit import RateLimitDecision
 
-import app.api.middleware.rate_limiter as rate_limiter_module
-from app.api.middleware.rate_limiter import (
+import app.common.api.middleware.rate_limiter as rate_limiter_module
+from app.common.api.middleware.rate_limiter import (
     ADMIN_CLASS,
     AUTH_CLASS,
     DEFAULT_CLASS,
@@ -66,12 +66,16 @@ def _limiters_enabled(limiters: dict[str, Any]) -> Iterator[None]:
     """Enable rate limiting and install the given per-class limiters.
 
     The suite disables limiting through both the environment and settings, so both
-    are overridden.
+    are overridden. `rate_limiting_enabled` is the shared package's own gate, false
+    for every name in `RATE_LIMIT_FREE_ENVIRONMENTS`, which includes the `local`
+    the suite runs as; it is forced on here so these tests pin the middleware rather
+    than that convention, which `TestRateLimitingEnabled` covers directly.
     """
     with (
         unittest.mock.patch.dict(os.environ, {"ENABLE_RATE_LIMITING": "true"}),
         unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_RATE_LIMITING", True),
         unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_SHARED_RATE_LIMITING", True),
+        unittest.mock.patch.object(type(rate_limiter_module.settings), "rate_limiting_enabled", True),
     ):
         _INSTALLED.clear()
         _INSTALLED.update(limiters)
@@ -188,18 +192,18 @@ def _environment(name: str) -> Iterator[None]:
 
     The base class derives `rate_limiting_enabled` from `environment`, and CMP fills
     that field in `_mirror_base_fields`, so the mapping is exercised rather than
-    stubbed.
+    stubbed. Teardown re-mirrors from the restored `APP_ENVIRONMENT` so no derived
+    field is left holding the value this block installed.
     """
     settings = rate_limiter_module.settings
     previous_app = settings.APP_ENVIRONMENT
-    previous_env = settings.environment
     object.__setattr__(settings, "APP_ENVIRONMENT", name)
     settings._mirror_base_fields()
     try:
         yield
     finally:
         object.__setattr__(settings, "APP_ENVIRONMENT", previous_app)
-        object.__setattr__(settings, "environment", previous_env)
+        settings._mirror_base_fields()
 
 
 @contextmanager
@@ -271,8 +275,14 @@ class TestRateLimitingEnabled:
             assert not rate_limiting_enabled()
 
     def test_enabled_when_both_switches_are_on(self) -> None:
-        """Both settings on and no environment override means the limiter runs."""
+        """Both settings on and no environment override means the limiter runs.
+
+        Asserted from production, because the shared `rate_limiting_enabled` gate is
+        false for every name in `RATE_LIMIT_FREE_ENVIRONMENTS`, the suite's own `local`
+        among them, and this pins the two explicit switches rather than that list.
+        """
         with (
+            _environment("production"),
             unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_RATE_LIMITING", True),
             unittest.mock.patch.object(rate_limiter_module.settings, "ENABLE_SHARED_RATE_LIMITING", True),
             unittest.mock.patch.dict(os.environ, {"ENABLE_RATE_LIMITING": "true"}),

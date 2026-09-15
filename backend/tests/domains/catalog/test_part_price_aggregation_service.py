@@ -11,17 +11,17 @@ from typing import Any
 
 import pytest
 
-from app.api.services.part_price_aggregation_service import (
+from app.common.db.dynamo.catalog import Part as DBPart
+from app.common.db.dynamo.catalog import PartListing as DBPartListing
+from app.common.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from app.common.db.dynamo.catalog import PartPriceHistory as DBPartPriceHistory
+from app.common.db.dynamo.catalog import Retailer as DBRetailer
+from app.common.db.dynamo.users import User
+from app.domains.catalog.services.part_price_aggregation_service import (
     aggregate_batch,
     aggregate_single_part,
     parse_window,
 )
-from app.db.dynamo.catalog import Part as DBPart
-from app.db.dynamo.catalog import PartListing as DBPartListing
-from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
-from app.db.dynamo.catalog import PartPriceHistory as DBPartPriceHistory
-from app.db.dynamo.catalog import Retailer as DBRetailer
-from app.db.dynamo.users import User
 from tests.conftest import get_default_category_id, save_catalog
 
 

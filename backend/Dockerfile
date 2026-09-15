@@ -54,18 +54,16 @@ RUN set -eu; \
             echo "catalog, vehicles, build-lists, build-logs, moderation, media, admin." >&2; \
             exit 1 ;; \
     esac; \
-    module="${DOMAIN%%-*}"; \
-    rest="${DOMAIN#"${module}"}"; \
-    case "${rest}" in -*) module="${module}_${rest#-}" ;; esac; \
-    echo "app.entrypoints.${module}" > /etc/carmodpicker-entrypoint
+    package="$(echo "${DOMAIN}" | tr '-' '_')"; \
+    echo "app.domains.${package}.entrypoint" > /etc/carmodpicker-entrypoint
 
 COPY --from=builder /opt/venv /opt/venv
 COPY app/ /var/task/app/
 
 RUN set -eu; \
-    module="$(sed 's/^app\.entrypoints\.//' /etc/carmodpicker-entrypoint)"; \
-    test -f "/var/task/app/entrypoints/${module}.py" || { \
-        echo "DOMAIN=${DOMAIN} maps to app/entrypoints/${module}.py, which is not in the image." >&2; \
+    package="$(echo "${DOMAIN}" | tr '-' '_')"; \
+    test -f "/var/task/app/domains/${package}/entrypoint.py" || { \
+        echo "DOMAIN=${DOMAIN} maps to app/domains/${package}/entrypoint.py, which is not in the image." >&2; \
         exit 1; \
     }
 

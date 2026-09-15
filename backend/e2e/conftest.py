@@ -79,6 +79,7 @@ def _identity_environment() -> dict[str, str]:
         "IDENTITY_AUDIENCE": audience,
         "IDENTITY_SIGNING_KEY_ARNS": '["arn:aws:kms:us-west-2:000000000000:key/openapi-build-only"]',
         "IDENTITY_REGISTRATION_ENABLED": "true",
+        "IDENTITY_EPHEMERAL_USERS_ENABLED": "true",
         "IDENTITY_PASSKEYS_ENABLED": "true",
         "IDENTITY_GOOGLE_CLIENT_ID": "openapi-build-only",
         "IDENTITY_GITHUB_CLIENT_ID": "openapi-build-only",
@@ -100,7 +101,7 @@ def _bind_json_response() -> None:
     from fastapi.responses import JSONResponse
     from webbpulse.identity import oauth_routes, passkey_routes, router
 
-    from app.composition import identity_extension
+    from app.domains.identity import extension as identity_extension
 
     for module in (router, oauth_routes, passkey_routes, identity_extension):
         module.JSONResponse = JSONResponse  # type: ignore[attr-defined]
@@ -111,7 +112,7 @@ def e2e_openapi_document() -> Mapping[str, Any]:
 
     CarModPicker deploys one FastAPI application per domain, and
     `tests/entrypoints/test_route_split.py` pins that the union of the nine equals Root A
-    exactly. So Root A, which `app.composition.app.build_app` returns, is the merged
+    exactly. So Root A, which `app.common.composition.app.build_app` returns, is the merged
     document: one operation per route, each under its own domain's `/api` path, with the
     identity package's `/api/auth` routes included.
 
@@ -121,7 +122,7 @@ def e2e_openapi_document() -> Mapping[str, Any]:
     os.environ.update(_identity_environment())
     _bind_json_response()
 
-    from app.composition.app import build_app
+    from app.common.composition.app import build_app
 
     return build_app().openapi()
 

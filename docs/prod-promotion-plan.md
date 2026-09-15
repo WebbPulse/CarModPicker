@@ -895,8 +895,8 @@ them if there were. Row 13 deleted the legacy routes as code, so a populated
       monolith function and the artifacts bucket, so both variables now name
       things that do not exist. `TFC_WORKSPACE_ID` went with them on
       2026-09-13, deleted from both environments: the shared `spa-deploy`
-      workflow resolves the workspace by name, so nothing reads the id. Only
-      the `TFC_API_TOKEN` secret stays.
+      workflow resolves the workspace by name, so nothing reads the id.
+      `TFC_API_TOKEN` followed on 2026-09-14 when the HCP wait step was dropped.
 - [x] Confirm no `AUTH_MODE` variable was ever set on the `production`
       environment. It is read by nothing and would be a stale value someone
       later reads as a live fact.

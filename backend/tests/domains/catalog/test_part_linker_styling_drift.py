@@ -9,12 +9,12 @@ import os
 import uuid
 from typing import Any
 
-from app.api.services.part_listing_service import (
+from app.common.api.services.part_listing_service import (
     find_part_by_part_manufacturer_and_part_number,
 )
-from app.db.dynamo.catalog import Category as DBCategory
-from app.db.dynamo.catalog import Part as DBPart
-from app.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
+from app.common.db.dynamo.catalog import Category as DBCategory
+from app.common.db.dynamo.catalog import Part as DBPart
+from app.common.db.dynamo.catalog import PartManufacturer as DBPartManufacturer
 from tests.conftest import save_catalog
 
 

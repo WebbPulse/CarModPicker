@@ -50,7 +50,7 @@ def extension_app(extension_env: None, private_key: Any, monkeypatch: pytest.Mon
 
     monkeypatch.setattr(boto3, "client", fake_client)
 
-    from app.entrypoints.identity import build_app
+    from app.domains.identity.entrypoint import build_app
 
     yield build_app()
 
@@ -108,10 +108,10 @@ def test_every_route_is_under_the_existing_proxy_route_key(extension_app: Any) -
 
 def test_the_routes_are_absent_without_an_issuer(monkeypatch: pytest.MonkeyPatch) -> None:
     """Without an issuer configured neither route mounts."""
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
 
     monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", "")
-    from app.entrypoints.identity import build_app
+    from app.domains.identity.entrypoint import build_app
 
     served = {path for _, path in _pairs(build_app())}
     assert "/api/auth/extension/handoff" not in served
@@ -203,7 +203,7 @@ def test_an_explicitly_empty_allowlist_trusts_nothing(
 
 def test_the_allowlist_parses_the_comma_separated_form_terraform_renders() -> None:
     """Several ids, whitespace and empty entries, the way a variable arrives."""
-    from app.composition.identity_extension import allowed_extension_ids
+    from app.domains.identity.extension import allowed_extension_ids
 
     parsed = allowed_extension_ids({"CHROME_EXTENSION_IDS": f" {STAGING_EXTENSION_ID} ,,{OTHER_EXTENSION_ID}"})
     assert parsed == [STAGING_EXTENSION_ID, OTHER_EXTENSION_ID]
@@ -218,8 +218,8 @@ def test_the_allowlist_parses_the_comma_separated_form_terraform_renders() -> No
 
 def test_the_default_matches_the_settings_field_it_shadows() -> None:
     """The module's duplicated default store id matches the settings field."""
-    from app.composition.identity_extension import DEFAULT_EXTENSION_ID
-    from app.core.config import Settings
+    from app.common.core.config import Settings
+    from app.domains.identity.extension import DEFAULT_EXTENSION_ID
 
     field = Settings.model_fields["CHROME_EXTENSION_IDS"]
     assert field.default == DEFAULT_EXTENSION_ID
@@ -246,8 +246,8 @@ def test_a_code_round_trips_to_an_access_token(client: Any, private_key: Any) ->
 
     from webbpulse.identity import TokenService
 
-    from app.composition.identity import build_identity_settings
-    from app.core.config import settings as app_settings
+    from app.common.core.config import settings as app_settings
+    from app.domains.identity.package_glue import build_identity_settings
 
     tokens = TokenService(build_identity_settings(app_settings), FakeKms(private_key))
     claims = tokens.verify_access_token(body["access_token"])
@@ -338,7 +338,7 @@ def test_the_exchange_needs_no_bearer_token(client: Any, private_key: Any) -> No
 
 def test_the_parser_agrees_with_the_frontends_validation() -> None:
     """The redirect parser accepts and refuses the same targets the frontend does."""
-    from app.composition.identity_extension import extension_id_for
+    from app.domains.identity.extension import extension_id_for
 
     allowed = [STAGING_EXTENSION_ID]
     assert extension_id_for(_redirect_uri(), allowed) == STAGING_EXTENSION_ID

@@ -30,6 +30,13 @@ locals {
     }
   ]...)
 
+  ephemeral_users_enabled = var.ephemeral_users_enabled
+
+  ephemeral_users_route_keys = local.ephemeral_users_enabled ? {
+    "POST /api/auth/e2e/users"             = { integration = "identity", require_identity_jwt = true }
+    "DELETE /api/auth/e2e/users/{user_id}" = { integration = "identity", require_identity_jwt = true }
+  } : {}
+
   identity_jwt_route_keys = {
     "POST /api/auth/password"   = { integration = "identity", require_identity_jwt = true }
     "POST /api/auth/logout-all" = { integration = "identity", require_identity_jwt = true }
@@ -182,6 +189,7 @@ locals {
   lambda_domain_route_keys = merge(
     local.lambda_domain_generated_route_keys,
     local.identity_jwt_route_keys,
+    local.ephemeral_users_route_keys,
     local.domain_identity_jwt_route_keys,
     local.domain_anonymous_guard_route_keys,
     local.sitemap_route_keys,

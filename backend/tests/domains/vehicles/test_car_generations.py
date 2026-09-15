@@ -4,9 +4,9 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.users import User as DBUser
-from app.db.dynamo.users import UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.users import User as DBUser
+from app.common.db.dynamo.users import UserRepository
 from tests.conftest import INVALID_UUID_STR, auth_headers, create_car_in_db, login_user
 
 
@@ -283,7 +283,7 @@ def test_count_cars_success(client: TestClient, db_session: Any) -> None:
     assert response.status_code == 200
     assert response.json()["count"] == initial_count + 1
 
-    from app.db.dynamo.catalog import CarGenerationRepository
+    from app.common.db.dynamo.catalog import CarGenerationRepository
 
     generations = CarGenerationRepository()
     generations.delete_unique(generations.get_or_raise(str(car["id"])))

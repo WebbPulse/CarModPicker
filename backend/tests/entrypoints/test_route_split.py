@@ -75,7 +75,7 @@ from typing import Any, Iterator, List, Optional, Set, Tuple
 
 import pytest
 
-from app.composition.domains import DOMAIN_NAMES, ENTRYPOINT_MODULES
+from app.common.composition.domains import DOMAIN_NAMES, ENTRYPOINT_MODULES
 
 CONTRACT_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "route_contract.json"
 
@@ -150,7 +150,7 @@ def _root_a() -> Set[Tuple[str, str]]:
 
 def _root_b(domain: str) -> Set[Tuple[str, str]]:
     """The (method, path) pairs one domain entrypoint serves."""
-    module = importlib.import_module(f"app.entrypoints.{ENTRYPOINT_MODULES[domain]}")
+    module = importlib.import_module(f"app.domains.{ENTRYPOINT_MODULES[domain]}.entrypoint")
     return _pairs(module.build_app())
 
 
@@ -263,7 +263,7 @@ def test_the_admin_users_routes_resolve_ahead_of_the_user_id_route() -> None:
     """The admin users subtree resolves ahead of the single-segment user id route."""
     from starlette.routing import Match
 
-    from app.entrypoints.users import build_app
+    from app.domains.users.entrypoint import build_app
 
     app = build_app()
 

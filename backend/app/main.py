@@ -4,8 +4,8 @@ Nothing deploys this module; it is what `uvicorn app.main:app` serves locally
 and what the route-partition test compares the nine per-domain apps against.
 """
 
-from app.composition.app import app
-from app.composition.wiring import run_startup_tasks as _run_startup_tasks
+from app.common.composition.app import app
+from app.common.composition.wiring import run_startup_tasks as _run_startup_tasks
 
 
 def run_startup_tasks() -> None:

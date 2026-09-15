@@ -5,8 +5,8 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
-from app.db.dynamo.users import User, UserRepository
+from app.common.core.config import settings
+from app.common.db.dynamo.users import User, UserRepository
 from tests.conftest import auth_headers, login_user
 
 
@@ -21,7 +21,7 @@ def create_and_login_admin_user(
     client: TestClient, db_session: Any, username_suffix: str = "admin"
 ) -> tuple[dict[str, Any], str]:
     """Create an admin user and log them in. Returns (user_dict, token)."""
-    from app.db.dynamo.users import User as DBUser
+    from app.common.db.dynamo.users import User as DBUser
 
     username = f"admin_test_{username_suffix}"
     email = f"admin_test_{username_suffix}@example.com"
