@@ -111,3 +111,11 @@ resource "aws_sesv2_account_vdm_attributes" "main" {
     optimized_shared_delivery = "ENABLED"
   }
 }
+
+resource "aws_sesv2_email_identity" "recipient" {
+  for_each = toset(var.ses_verified_recipients)
+
+  email_identity = each.value
+
+  tags = { Name = "${local.prefix}-ses-recipient" }
+}
