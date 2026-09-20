@@ -10,8 +10,12 @@ const checkAuthStatus = vi.fn().mockResolvedValue(undefined);
 let passkeyAnswer: 'available' | 'unavailable' | 'unknown' = 'unavailable';
 /** Whatever the discovery route should answer for one test. */
 let providerList: { id: string; displayName: string }[] = [];
-/** Whatever a passkey sign in should produce for one test. */
-let passkeyResult: unknown = { status: 'cancelled' };
+/** Whatever a passkey ceremony should settle to for one test. */
+let passkeyResult: unknown = {
+  ok: false,
+  reason: 'cancelled',
+  message: 'Cancelled.',
+};
 /** Whatever the password first leg should produce for one test. */
 let signInResult: unknown = { status: 'failed', error: 'nope' };
 /** Whatever the second leg should produce for one test. */
@@ -61,41 +65,30 @@ vi.mock('../../api/identityAuth', async (importOriginal) => {
   };
 });
 
-vi.mock('../../api/identityPasskeys', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../../api/identityPasskeys')>();
-  return {
-    ...actual,
-    signInWithPasskey: (options?: { mediation?: string }) =>
-      signInWithPasskey(options),
-  };
-});
-
 vi.mock('@webbpulse/discovery/react', () => ({
   useOAuthProviders: () => providerList,
 }));
+
+/**
+ * The one identity client the page's hooks run on. Both ceremonies now live in
+ * `@webbpulse/auth`, so this is the seam the old per-module mocks stood in for.
+ */
+const identityClient = {
+  signInWithPasskey: (options?: { mediation?: string }) =>
+    signInWithPasskey(options),
+  oauthStartUrl: (provider: string) =>
+    `https://api.test/api/auth/oauth/${provider}/start`,
+};
 
 vi.mock('../../api/identityClient', async (importOriginal) => {
   const actual =
     await importOriginal<typeof import('../../api/identityClient')>();
   return {
     ...actual,
-    getIdentityClient: () => ({
-      oauthStartUrl: () => 'https://api.test/start',
-    }),
+    getIdentityClient: () => identityClient,
     identityUrl: (path: string) => `https://api.test${path}`,
     passkeyLoginAvailability: () => Promise.resolve(passkeyAnswer),
     oauthProviders: () => Promise.resolve(providerList),
-  };
-});
-
-vi.mock('../../api/identityOAuth', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../../api/identityOAuth')>();
-  return {
-    ...actual,
-    oauthStartUrl: (provider: string) =>
-      `https://api.test/api/auth/oauth/${provider}/start`,
   };
 });
 
@@ -124,7 +117,7 @@ beforeEach(() => {
   );
   passkeyAnswer = 'unavailable';
   providerList = [];
-  passkeyResult = { status: 'cancelled' };
+  passkeyResult = { ok: false, reason: 'cancelled', message: 'Cancelled.' };
   conditionalResult = undefined;
   signInResult = { status: 'failed', error: 'nope' };
   mfaResult = { status: 'authenticated', user: null };
@@ -174,7 +167,7 @@ describe('the passkey button', () => {
 
   it('signs in from the autofill chooser, with no press at all', async () => {
     passkeyAnswer = 'available';
-    conditionalResult = { status: 'authenticated' };
+    conditionalResult = { ok: true, kind: 'signed-in' };
     await renderLogin();
     await waitFor(() => {
       expect(checkAuthStatus).toHaveBeenCalled();
@@ -183,7 +176,7 @@ describe('the passkey button', () => {
 
   it('ignores a cancelled conditional request', async () => {
     passkeyAnswer = 'available';
-    conditionalResult = { status: 'cancelled' };
+    conditionalResult = { ok: false, reason: 'cancelled', message: 'x' };
     await renderLogin();
     await waitFor(() => {
       expect(screen.getByText(/sign in with a passkey/i)).toBeTruthy();
@@ -193,7 +186,7 @@ describe('the passkey button', () => {
 
   it('signs in when the ceremony succeeds', async () => {
     passkeyAnswer = 'available';
-    passkeyResult = { status: 'authenticated' };
+    passkeyResult = { ok: true, kind: 'signed-in' };
     await renderLogin();
     await waitFor(() => {
       expect(screen.getByText(/sign in with a passkey/i)).toBeTruthy();
@@ -207,7 +200,8 @@ describe('the passkey button', () => {
   it('moves to the code step when the account still owes a second factor', async () => {
     passkeyAnswer = 'available';
     passkeyResult = {
-      status: 'mfa-required',
+      ok: true,
+      kind: 'mfa-required',
       ticket: 'tick-1',
       factors: ['totp'],
     };
