@@ -1,14 +1,14 @@
 /**
  * The "Continue with X" buttons for identity mode, one per provider
- * `useOAuthProviders` reports. Rendered as anchors because the start route
- * redirects to a host that sends no CORS headers, so it must be a real
- * navigation.
+ * `useOAuthProviders` reports, with `useOAuthProviderLinks` building each start
+ * URL. Rendered as anchors because the start route redirects to a host that
+ * sends no CORS headers, so it must be a real navigation.
  */
 import { FaGithub, FaGoogle, FaSignInAlt } from 'react-icons/fa';
 import { GITHUB_PROVIDER, GOOGLE_PROVIDER } from '@webbpulse/auth';
+import { useOAuthProviderLinks } from '@webbpulse/auth/react';
 import { useOAuthProviders } from '@webbpulse/discovery/react';
-import { identityOrigin } from '../../api/identityClient';
-import { oauthStartUrl } from '../../api/identityOAuth';
+import { getIdentityClient, identityOrigin } from '../../api/identityClient';
 
 /** Props for OAuthProviderButtons: where to land after the callback. */
 export interface OAuthProviderButtonsProps {
@@ -29,28 +29,29 @@ function OAuthProviderButtons({
   disabled,
 }: OAuthProviderButtonsProps) {
   const providers = useOAuthProviders({ identityOrigin: identityOrigin() });
+  const links = useOAuthProviderLinks({
+    client: getIdentityClient(),
+    providers,
+    ...(returnTo === undefined ? {} : { returnTo }),
+  });
 
-  if (providers.length === 0) return null;
+  if (links.length === 0) return null;
 
   return (
     <div className="space-y-2">
-      {providers.map((provider) => {
-        const href = oauthStartUrl(provider.id, returnTo);
-        if (href === null) return null;
-        return (
-          <a
-            key={provider.id}
-            href={disabled ? undefined : href}
-            aria-disabled={disabled ? 'true' : undefined}
-            className={`inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-white/10 ${
-              disabled ? 'pointer-events-none opacity-50' : ''
-            }`}
-          >
-            <ProviderIcon provider={provider.id} />
-            <span>Continue with {provider.displayName}</span>
-          </a>
-        );
-      })}
+      {links.map((link) => (
+        <a
+          key={link.id}
+          href={disabled ? undefined : link.href}
+          aria-disabled={disabled ? 'true' : undefined}
+          className={`inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-white/10 ${
+            disabled ? 'pointer-events-none opacity-50' : ''
+          }`}
+        >
+          <ProviderIcon provider={link.id} />
+          <span>Continue with {link.displayName}</span>
+        </a>
+      ))}
     </div>
   );
 }

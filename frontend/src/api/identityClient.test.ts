@@ -1,70 +1,55 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  identityOriginFrom,
-  getIdentityClient,
   CURRENT_USER_PATH,
+  getIdentityClient,
+  resetIdentityClientForTests,
 } from './identityClient';
 
-afterEach(() => {
+/** Loads the module with the environment stubbed to `apiUrl`. */
+const loadWithApiUrl = async (apiUrl: string) => {
   vi.resetModules();
+  vi.stubEnv('VITE_API_URL', apiUrl);
+  return import('./identityClient');
+};
+
+afterEach(() => {
+  resetIdentityClientForTests();
   vi.unstubAllEnvs();
-});
-
-describe('identityOriginFrom', () => {
-  it('strips a deployed API base back to its origin', () => {
-    expect(identityOriginFrom('https://api.carmodpicker.com/api')).toBe(
-      'https://api.carmodpicker.com'
-    );
-  });
-
-  it('strips the staging API base back to its origin', () => {
-    expect(identityOriginFrom('https://api.staging.carmodpicker.com/api')).toBe(
-      'https://api.staging.carmodpicker.com'
-    );
-  });
-
-  it('keeps a non default port', () => {
-    expect(identityOriginFrom('http://localhost:8000/api')).toBe(
-      'http://localhost:8000'
-    );
-  });
-
-  it('returns an empty base for a root relative API base', () => {
-    expect(identityOriginFrom('/api')).toBe('');
-  });
-
-  it('returns an empty base for a bare slash', () => {
-    expect(identityOriginFrom('/')).toBe('');
-  });
-
-  it('returns a malformed value unchanged', () => {
-    expect(identityOriginFrom('not a url')).toBe('not a url');
-  });
-
-  it('never produces a base that would double the api prefix', () => {
-    for (const base of [
-      'https://api.carmodpicker.com/api',
-      'http://localhost:8000/api',
-      '/api',
-    ]) {
-      expect(identityOriginFrom(base) + '/api/auth/login').not.toContain(
-        '/api/api/auth'
-      );
-    }
-  });
+  vi.resetModules();
 });
 
 describe('getIdentityClient', () => {
-  it('builds a client and caches it', async () => {
-    vi.resetModules();
-    const { getIdentityClient: fresh } = await import('./identityClient');
-    const first = fresh();
+  it('builds a client and caches it', () => {
+    const first = getIdentityClient();
     expect(first).not.toBeNull();
-    expect(fresh()).toBe(first);
+    expect(getIdentityClient()).toBe(first);
   });
 
-  it('hands out the same instance to the module-level import too', () => {
-    expect(getIdentityClient()).toBe(getIdentityClient());
+  it('builds a fresh client after the test reset', () => {
+    const first = getIdentityClient();
+    resetIdentityClientForTests();
+    expect(getIdentityClient()).not.toBe(first);
+  });
+});
+
+describe('the identity origin', () => {
+  it('is the deployed API base stripped back to its origin', async () => {
+    const fresh = await loadWithApiUrl('https://api.carmodpicker.com/api');
+    expect(fresh.identityOrigin()).toBe('https://api.carmodpicker.com');
+    expect(fresh.identityUrl('/api/auth/passkeys/availability')).toBe(
+      'https://api.carmodpicker.com/api/auth/passkeys/availability'
+    );
+  });
+
+  it('keeps the local backend port', async () => {
+    const fresh = await loadWithApiUrl('http://localhost:8000/api');
+    expect(fresh.identityOrigin()).toBe('http://localhost:8000');
+  });
+
+  it('is empty for the root relative default, so a route resolves on the page origin', async () => {
+    const fresh = await loadWithApiUrl('');
+    expect(fresh.identityOrigin()).toBe('');
+    expect(fresh.identityUrl('/api/auth/login')).toBe('/api/auth/login');
   });
 });
 
@@ -73,77 +58,47 @@ describe('CURRENT_USER_PATH', () => {
     expect(CURRENT_USER_PATH).toBe('/api/users/me');
   });
 
-  it('resolves against a deployed origin to the real gateway route', () => {
-    const origin = identityOriginFrom('https://api.carmodpicker.com/api');
-    expect(origin + CURRENT_USER_PATH).toBe(
-      'https://api.carmodpicker.com/api/users/me'
-    );
-  });
-
-  it('resolves against a root relative base to a same origin path', () => {
-    expect(identityOriginFrom('/api') + CURRENT_USER_PATH).toBe(
-      '/api/users/me'
-    );
-  });
-
-  it('never doubles the api prefix', () => {
-    for (const base of [
-      'https://api.carmodpicker.com/api',
-      'https://api.staging.carmodpicker.com/api',
-      'http://localhost:8000/api',
-      '/api',
-    ]) {
-      expect(identityOriginFrom(base) + CURRENT_USER_PATH).not.toContain(
-        '/api/api/'
-      );
-    }
-  });
-});
-
-describe('loadUser', () => {
-  it('fetches the signed in user from /api/users/me on the configured base', async () => {
+  it('is what the built client reads the signed in user from, on the configured origin', async () => {
     vi.resetModules();
     vi.stubEnv('VITE_API_URL', 'https://api.carmodpicker.com');
-
-    const loadUserOption = vi.fn();
-    vi.doMock('@webbpulse/auth', async () => {
-      const actual =
-        await vi.importActual<typeof import('@webbpulse/auth')>(
-          '@webbpulse/auth'
-        );
+    const built = vi.fn();
+    vi.doMock('@webbpulse/auth/browser', async () => {
+      const actual = await vi.importActual<
+        typeof import('@webbpulse/auth/browser')
+      >('@webbpulse/auth/browser');
       return {
         ...actual,
-        createAuthClient: (options: {
-          loadUser?: unknown;
-          baseUrl?: string;
-        }) => {
-          loadUserOption.mockImplementation(
-            options.loadUser as (...args: unknown[]) => unknown
-          );
-          return { dispose: () => undefined, baseUrl: options.baseUrl };
-        },
+        createIdentityClientSingleton: (
+          options: Parameters<typeof actual.createIdentityClientSingleton>[0]
+        ) =>
+          actual.createIdentityClientSingleton({
+            ...options,
+            createClient: (clientOptions) => {
+              built(clientOptions);
+              return { dispose: () => undefined } as never;
+            },
+          }),
       };
     });
 
     try {
-      const { getIdentityClient: fresh, resetIdentityClientForTests } =
-        await import('./identityClient');
-      const built = fresh() as unknown as { baseUrl: string };
-      expect(built.baseUrl).toBe('https://api.carmodpicker.com');
+      const fresh = await import('./identityClient');
+      fresh.getIdentityClient();
+
+      const options = built.mock.calls.at(0)?.at(0) as {
+        baseUrl: string;
+        loadUser: (api: { get: ReturnType<typeof vi.fn> }) => Promise<unknown>;
+      };
+      expect(options.baseUrl).toBe('https://api.carmodpicker.com');
 
       const get = vi.fn().mockResolvedValue({ data: { id: 1 } });
-      await loadUserOption({ get });
-
+      await expect(options.loadUser({ get })).resolves.toEqual({ id: 1 });
       expect(get).toHaveBeenCalledWith('/api/users/me');
-      const requestedPath = get.mock.calls.at(0)?.at(0) as string | undefined;
-      expect(built.baseUrl + String(requestedPath)).toBe(
+      expect(options.baseUrl + String(get.mock.calls.at(0)?.at(0))).toBe(
         'https://api.carmodpicker.com/api/users/me'
       );
-
-      resetIdentityClientForTests();
     } finally {
-      vi.doUnmock('@webbpulse/auth');
-      vi.resetModules();
+      vi.doUnmock('@webbpulse/auth/browser');
     }
   });
 });
