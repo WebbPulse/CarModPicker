@@ -1,111 +1,71 @@
 /**
- * Tests for identity mode passwordless sign in with a passkey.
+ * Tests for the shape identity mode passwordless sign in hands the login page.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { PasskeySignInOutcome } from '@webbpulse/auth';
+import {
+  passkeySignInFailure,
+  toPasskeySignInResult,
+} from './identityPasskeys';
 
-type Stub = Record<string, ReturnType<typeof vi.fn>>;
+/** An outcome as the client would settle it, with the fields a test cares about. */
+const outcome = (value: Record<string, unknown>): PasskeySignInOutcome =>
+  value as unknown as PasskeySignInOutcome;
 
-/** Loads the module with `getIdentityClient` returning `stub`, or null. */
-const loadWith = async (stub: Stub | null) => {
-  vi.resetModules();
-  vi.doMock('./identityClient', () => ({
-    getIdentityClient: () => stub,
-    identityUrl: (path: string) => `https://api.test${path}`,
-  }));
-  return import('./identityPasskeys');
-};
+describe('toPasskeySignInResult', () => {
+  it('reports a completed sign in', () => {
+    expect(
+      toPasskeySignInResult(outcome({ ok: true, kind: 'signed-in' }))
+    ).toEqual({ status: 'authenticated' });
+  });
 
-beforeEach(() => {
-  vi.clearAllMocks();
+  it('carries an MFA ticket through to the second leg', () => {
+    expect(
+      toPasskeySignInResult(
+        outcome({
+          ok: true,
+          kind: 'mfa-required',
+          ticket: 'tick-1',
+          factors: ['totp'],
+        })
+      )
+    ).toEqual({ status: 'mfa-required', ticket: 'tick-1', factors: ['totp'] });
+  });
+
+  it('reports a cancellation as cancelled', () => {
+    expect(
+      toPasskeySignInResult(
+        outcome({ ok: false, reason: 'cancelled', message: 'x' })
+      )
+    ).toEqual({ status: 'cancelled' });
+  });
+
+  it('reports a refusal with the server sentence', () => {
+    expect(
+      toPasskeySignInResult(
+        outcome({
+          ok: false,
+          reason: 'rejected',
+          message: 'That passkey is not registered.',
+        })
+      )
+    ).toEqual({ status: 'failed', error: 'That passkey is not registered.' });
+  });
 });
 
-afterEach(() => {
-  vi.doUnmock('./identityClient');
-  vi.resetModules();
-});
-
-describe('signInWithPasskey', () => {
-  it('reports a completed sign in', async () => {
-    const signIn = vi.fn().mockResolvedValue({ ok: true, kind: 'signed-in' });
-    const { signInWithPasskey } = await loadWith({
-      signInWithPasskey: signIn,
-    });
-    await expect(signInWithPasskey()).resolves.toEqual({
-      status: 'authenticated',
-    });
-  });
-
-  it('carries an MFA ticket through to the second leg', async () => {
-    const signIn = vi.fn().mockResolvedValue({
-      ok: true,
-      kind: 'mfa-required',
-      ticket: 'tick-1',
-      factors: ['totp'],
-    });
-    const { signInWithPasskey } = await loadWith({
-      signInWithPasskey: signIn,
-    });
-    await expect(signInWithPasskey()).resolves.toEqual({
-      status: 'mfa-required',
-      ticket: 'tick-1',
-      factors: ['totp'],
-    });
-  });
-
-  it('passes the mediation through so the page can ask for conditional', async () => {
-    const signIn = vi.fn().mockResolvedValue({ ok: true, kind: 'signed-in' });
-    const { signInWithPasskey } = await loadWith({
-      signInWithPasskey: signIn,
-    });
-    await signInWithPasskey({ mediation: 'conditional' });
-    expect(signIn).toHaveBeenCalledWith({ mediation: 'conditional' });
-  });
-
-  it('sends a username as an email when one was typed', async () => {
-    const signIn = vi.fn().mockResolvedValue({ ok: true, kind: 'signed-in' });
-    const { signInWithPasskey } = await loadWith({
-      signInWithPasskey: signIn,
-    });
-    await signInWithPasskey({ username: '  me@example.com  ' });
-    expect(signIn).toHaveBeenCalledWith({ email: 'me@example.com' });
-  });
-
-  it('reports a cancellation as cancelled', async () => {
-    const signIn = vi
-      .fn()
-      .mockResolvedValue({ ok: false, reason: 'cancelled', message: 'x' });
-    const { signInWithPasskey } = await loadWith({
-      signInWithPasskey: signIn,
-    });
-    await expect(signInWithPasskey()).resolves.toEqual({
-      status: 'cancelled',
-    });
-  });
-
-  it('reports a refusal with the server sentence', async () => {
-    const signIn = vi.fn().mockResolvedValue({
-      ok: false,
-      reason: 'unknown-credential',
-      message: 'That passkey is not registered.',
-    });
-    const { signInWithPasskey } = await loadWith({
-      signInWithPasskey: signIn,
-    });
-    await expect(signInWithPasskey()).resolves.toEqual({
-      status: 'failed',
-      error: 'That passkey is not registered.',
-    });
-  });
-
-  it('reports a thrown error as a failure', async () => {
-    const signIn = vi.fn().mockRejectedValue(new Error('network down'));
-    const { signInWithPasskey } = await loadWith({
-      signInWithPasskey: signIn,
-    });
-    await expect(signInWithPasskey()).resolves.toEqual({
+describe('passkeySignInFailure', () => {
+  it('reports a thrown error as a failure with its message', () => {
+    expect(passkeySignInFailure(new Error('network down'))).toEqual({
       status: 'failed',
       error: 'network down',
+    });
+  });
+
+  it('falls back to a fixed sentence when the throw was not an Error', () => {
+    expect(passkeySignInFailure('boom')).toEqual({
+      status: 'failed',
+      error: 'Passkey sign in failed.',
     });
   });
 });

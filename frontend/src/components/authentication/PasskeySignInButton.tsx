@@ -1,19 +1,22 @@
 /**
  * The "Sign in with a passkey" button for identity mode, hidden unless the
  * browser supports WebAuthn and the deployment enables passwordless sign in.
- * `usePasskeySignInSupport` answers both questions and reports whether the
- * browser can also put a passkey in its username autofill dropdown.
+ * `usePasskeySignInButton` answers both questions, arms the autofill ceremony
+ * and runs the pressed one; the markup here is CarModPicker's own.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { FaKey } from 'react-icons/fa';
-import { usePasskeySignInSupport } from '@webbpulse/auth/react';
+import { usePasskeySignInButton } from '@webbpulse/auth/react';
 import { Button } from '../ui/button';
 import {
   PASSKEY_AVAILABILITY_PATH,
+  getIdentityClient,
   identityUrl,
   passkeyLoginAvailability,
 } from '../../api/identityClient';
-import { signInWithPasskey } from '../../api/identityPasskeys';
+import {
+  passkeySignInFailure,
+  toPasskeySignInResult,
+} from '../../api/identityPasskeys';
 import type { PasskeySignInResult } from '../../api/identityPasskeys';
 
 /**
@@ -35,49 +38,17 @@ function PasskeySignInButton({
   disabled,
   conditional = true,
 }: PasskeySignInButtonProps) {
-  const [busy, setBusy] = useState(false);
-  const handler = useRef(onResult);
-  handler.current = onResult;
+  const button = usePasskeySignInButton({
+    client: getIdentityClient(),
+    probe: () =>
+      passkeyLoginAvailability(identityUrl(PASSKEY_AVAILABILITY_PATH)),
+    ...(username === undefined ? {} : { email: username }),
+    onResult: (outcome) => onResult(toPasskeySignInResult(outcome)),
+    onError: (error) => void onResult(passkeySignInFailure(error)),
+    conditional,
+  });
 
-  const probe = useCallback(
-    () => passkeyLoginAvailability(identityUrl(PASSKEY_AVAILABILITY_PATH)),
-    []
-  );
-  const support = usePasskeySignInSupport({ probe });
-  const armed = conditional && support.offered;
-
-  useEffect(() => {
-    if (!armed) return;
-    const controller = new AbortController();
-    void signInWithPasskey({
-      mediation: 'conditional',
-      signal: controller.signal,
-    }).then((result) => {
-      if (controller.signal.aborted) return;
-      if (result.status === 'cancelled' || result.status === 'failed') return;
-      void handler.current(result);
-    });
-    return () => {
-      controller.abort();
-    };
-  }, [armed]);
-
-  if (!support.offered) return null;
-
-  const handleClick = async () => {
-    setBusy(true);
-    try {
-      const result = await signInWithPasskey(
-        username !== undefined && username.trim() !== ''
-          ? { username, mediation: 'optional' }
-          : { mediation: 'optional' }
-      );
-      if (result.status === 'cancelled') return;
-      await handler.current(result);
-    } finally {
-      setBusy(false);
-    }
-  };
+  if (!button.offered) return null;
 
   return (
     <Button
@@ -85,12 +56,12 @@ function PasskeySignInButton({
       variant="secondary"
       size="lg"
       className="w-full"
-      onClick={() => void handleClick()}
-      disabled={disabled || busy}
+      onClick={() => void button.signIn()}
+      disabled={disabled || button.busy}
     >
       <FaKey />
       <span>
-        {busy ? 'Waiting for your passkey…' : 'Sign in with a passkey'}
+        {button.busy ? 'Waiting for your passkey…' : 'Sign in with a passkey'}
       </span>
     </Button>
   );

@@ -61,16 +61,6 @@ vi.mock('../../api/identityClient', async (importOriginal) => {
   };
 });
 
-vi.mock('../../api/identityPasskeys', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../../api/identityPasskeys')>();
-  return {
-    ...actual,
-    passkeysSupported: () => false,
-    signInWithPasskey: () => new Promise(() => {}),
-  };
-});
-
 /** Mounts Login behind the real GuestRoute, over the real session store. */
 const renderGuardedLogin = async () => {
   const harness = authHarness({ status: 'anonymous' });
