@@ -244,7 +244,7 @@ locals {
         IDENTITY_FRONTEND_BASE_URL = local.frontend_url
 
         IDENTITY_EMAIL_FROM            = local.email_from
-        IDENTITY_SES_CONFIGURATION_SET = aws_sesv2_configuration_set.transactional.configuration_set_name
+        IDENTITY_SES_CONFIGURATION_SET = module.ses.configuration_set_name
 
         IDENTITY_REGISTRATION_ENABLED = "true"
 
@@ -398,7 +398,7 @@ resource "aws_iam_role_policy" "lambda_domain" {
           Action = ["ses:SendEmail"]
           Resource = [
             "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/*",
-            "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:configuration-set/${aws_sesv2_configuration_set.transactional.configuration_set_name}",
+            "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:configuration-set/${module.ses.configuration_set_name}",
           ]
         },
       ] : [],

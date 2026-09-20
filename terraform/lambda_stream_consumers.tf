@@ -266,7 +266,7 @@ resource "aws_iam_role_policy" "lambda_stream_consumer" {
           Action = ["ses:SendEmail"]
           Resource = [
             "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/*",
-            "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:configuration-set/${aws_sesv2_configuration_set.transactional.configuration_set_name}",
+            "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:configuration-set/${module.ses.configuration_set_name}",
           ]
         },
       ] : [],

@@ -13,7 +13,7 @@ module "staging_access_gate" {
   http_api_id      = module.api.api_id
   invite_login_url = "https://www.${local.domain_name}/"
 
-  viewer_request_handler_js = templatefile("${path.module}/cloudfront_functions/app_handler.js.tftpl", { domain = local.active_domain })
+  viewer_request_handler_js = module.frontend.viewer_request_handler_js
 
   identity_jwt = local.identity_jwt_gate_enforced ? {
     issuer   = local.identity_issuer
