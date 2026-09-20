@@ -22,6 +22,7 @@ from app.common.api.dependencies.repositories import (
     get_repositories,
 )
 from app.common.composition.domains import DOMAIN_NAMES, DOMAINS, ENTRYPOINT_MODULES
+from app.common.composition.wiring import tables_for_domain
 from app.common.db.dynamo.registry import REPOSITORY_SPECS
 
 BACKEND = Path(__file__).resolve().parents[2]
@@ -234,7 +235,7 @@ def test_every_table_has_exactly_one_owner() -> None:
 @pytest.mark.parametrize("table,owner", sorted(TABLE_OWNERS.items()))
 def test_the_owning_domain_carries_the_table_it_owns(table: str, owner: str) -> None:
     """An owner that cannot reach its own table cannot serve its own routes."""
-    assert table in DOMAINS[owner].tables, f"{owner} owns {table} but its bundle does not carry it"
+    assert table in tables_for_domain(DOMAINS[owner]), f"{owner} owns {table} but its bundle does not carry it"
 
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
@@ -252,7 +253,7 @@ def test_no_cross_domain_read_is_undeclared(domain: str) -> None:
 def test_media_is_the_narrowest_bundle() -> None:
     """The media bundle stays the narrowest, since it is the first domain cut over."""
     media = DOMAINS["media"]
-    assert media.tables == (
+    assert tables_for_domain(media) == (
         "build_lists",
         "car_generations",
         "image_source_mappings",
@@ -408,7 +409,7 @@ def test_building_a_domain_constructs_no_repository(domain: str, bundle_probes: 
 def test_a_domain_binds_exactly_its_own_bundle(domain: str, bundle_probes: Dict[str, Dict[str, Any]]) -> None:
     """In a fresh interpreter, with no credentials, as a cold start would."""
     assert bundle_probes[domain]["declared"] == sorted(DOMAINS[domain].repositories)
-    assert bundle_probes[domain]["tables"] == sorted(DOMAINS[domain].tables)
+    assert bundle_probes[domain]["tables"] == sorted(tables_for_domain(DOMAINS[domain]))
 
 
 def test_media_builds_without_importing_another_domains_data_modules(

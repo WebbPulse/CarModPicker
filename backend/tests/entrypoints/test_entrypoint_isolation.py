@@ -5,7 +5,6 @@ Each domain image carries only its own domain and builds with no credentials.
 
 from __future__ import annotations
 
-import ast
 import json
 import subprocess  # nosec B404
 import sys
@@ -182,53 +181,77 @@ def test_no_entrypoint_imports_the_monolith_composition_root() -> None:
         assert "from ..main" not in source
 
 
-RUNTIME_WIRING_HELPERS = ("configure_logging", "configure_tracing", "check_signing_key")
-
-
-def _main_calls(domain: str) -> List[str]:
-    """The names called inside an entrypoint's main, read off the syntax tree.
-
-    Parsed rather than executed because main binds a port, and parsed rather
-    than matched as text so a mention in a docstring or a comment cannot
-    satisfy the assertion.
-    """
-    tree = ast.parse((BACKEND / "app" / "domains" / ENTRYPOINT_MODULES[domain] / "entrypoint.py").read_text())
-    main = next(
-        (node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"),
-        None,
-    )
-    assert main is not None, f"{domain} entrypoint has no main()"
-    called: List[str] = []
-    for node in ast.walk(main):
-        if isinstance(node, ast.Call):
-            function = node.func
-            if isinstance(function, ast.Name):
-                called.append(function.id)
-            elif isinstance(function, ast.Attribute):
-                called.append(function.attr)
-    return called
-
-
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
-def test_an_entrypoint_exposes_the_runtime_wiring(domain: str) -> None:
+def test_an_entrypoint_exposes_the_runtime_wiring(domain: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every entrypoint exposes a build_app and the main the process runs.
 
-    The wiring helpers are asserted to be called by main and to be the ones
-    app.common.composition.wiring defines, which is the module that owns process-wide
-    logging, tracing and the signing key check. Sentry initialisation is
-    asserted absent by test_otel_wiring.py, since these functions report
-    through OpenTelemetry.
+    `main` is the closure `domain_entrypoint` returns, so what it calls cannot be
+    read off the syntax tree the way the hand-written `main` allowed. It is run
+    instead, with the three wiring helpers and the uvicorn runner replaced, which
+    asserts the stronger thing the old parse only approximated: that running the
+    process actually configures logging, then tracing, then checks the secrets,
+    and only then serves. Sentry initialisation is asserted absent by
+    test_otel_wiring.py, since these functions report through OpenTelemetry.
     """
     module = __import__(f"app.domains.{ENTRYPOINT_MODULES[domain]}.entrypoint", fromlist=["main"])
     assert callable(module.build_app)
     assert callable(module.main)
 
-    called = _main_calls(domain)
-    for helper in RUNTIME_WIRING_HELPERS:
-        assert helper in called, f"{domain} entrypoint's main does not call {helper}"
-        bound = getattr(module, helper, None)
-        assert bound is not None, f"{domain} entrypoint does not import {helper}"
-        assert bound is getattr(wiring, helper), (
-            f"{domain} entrypoint's {helper} is not the one app.common.composition.wiring defines, "
-            "so the wiring it configures process-wide is not the wiring the app builds with"
+    called: List[str] = []
+    monkeypatch.setattr(wiring, "configure_logging", lambda **_: called.append("configure_logging"))
+    monkeypatch.setattr(wiring, "configure_tracing", lambda *_: called.append("configure_tracing"))
+    monkeypatch.setattr(wiring, "check_signing_key", lambda *_: called.append("check_signing_key"))
+    monkeypatch.setattr(module, "build_domain_app", lambda *_, **__: called.append("build_domain_app"))
+    monkeypatch.setattr("webbpulse.composition._run_uvicorn", lambda _: called.append("run_uvicorn"))
+
+    module.main()
+
+    assert called == [
+        "configure_logging",
+        "configure_tracing",
+        "check_signing_key",
+        "build_domain_app",
+        "run_uvicorn",
+    ], f"{domain} entrypoint's main ran {called}"
+
+
+SANCTIONED_FOREIGN_IMPORTS = frozenset(
+    {
+        "app.domains.identity",
+        "app.domains.identity.package_glue",
+    }
+)
+"""The one foreign package every non-identity image has always carried.
+
+`add_shared_middleware` imports `build_identity_settings` so the local authorizer
+can stand in for the gateway's JWT authorizer, which every domain needs and only
+the identity domain defines. It is two modules of settings construction that pull
+in no endpoint module and no store, which is why the endpoint-module check above
+has always passed. `assert_entrypoint_isolation` counts whole domain packages, so
+it sees them where this product's own check does not.
+"""
+
+
+def test_each_entrypoint_imports_only_its_own_domain() -> None:
+    """The package's own isolation check over this product's registry.
+
+    The shipped form of what the per-domain endpoint-module test asserts above,
+    kept alongside it because the package's probe covers every module of a
+    foreign domain rather than its endpoint modules alone. Anything foreign
+    beyond the identity settings seam is a regression.
+    """
+    from webbpulse.testing import entrypoint_imports
+
+    for domain in DOMAIN_NAMES:
+        package = ENTRYPOINT_MODULES[domain]
+        result = entrypoint_imports(
+            domain,
+            module=f"app.domains.{package}.entrypoint",
+            package=package,
+            package_root="app.domains.",
+            cwd=BACKEND,
+            env={"APP_SECRETS_ARN": UNREADABLE_SECRET_ARN},
+        )
+        assert set(result.foreign) <= SANCTIONED_FOREIGN_IMPORTS, (
+            f"the {domain} image also imported {sorted(set(result.foreign) - SANCTIONED_FOREIGN_IMPORTS)}"
         )
