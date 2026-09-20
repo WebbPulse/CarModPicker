@@ -74,55 +74,24 @@ def test_the_monolith_does_not_initialise_sentry() -> None:
 
 
 @pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
-def test_main_configures_tracing_before_it_builds_the_app(domain: str) -> None:
-    """Tracing is configured before the application is built, or it is never instrumented."""
-    called = _called_names(_main_body(domain))
+def test_main_is_the_packages_entrypoint_pair(domain: str) -> None:
+    """`main` and `build_app` come from `domain_entrypoint`, not from a local `main`.
 
-    assert "configure_tracing" in called, f"{domain}: main does not configure tracing"
-    assert "build_app" in called, f"{domain}: main does not build an application"
-    assert called.index("configure_tracing") < called.index("build_app"), (
-        f"{domain}: main builds the application before configuring tracing, so "
-        "the FastAPI instrumentation is never attached"
+    The order these three properties used to be asserted on, logging before
+    tracing and tracing before the build, is the order `domain_entrypoint`
+    guarantees and `test_an_entrypoint_exposes_the_runtime_wiring` in
+    `test_entrypoint_isolation.py` asserts by running `main` with the wiring
+    replaced. It cannot be read off the tree any more because `main` is a
+    closure the package builds, so what is asserted here is that the entrypoint
+    really does delegate to the package rather than growing its own `main` back.
+    """
+    tree = ast.parse(_source(domain))
+
+    assert not [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"], (
+        f"{domain}: its entrypoint defines its own main() again, so the order "
+        "domain_entrypoint guarantees is no longer the order the process runs in"
     )
-
-
-@pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
-def test_main_configures_logging_before_tracing(domain: str) -> None:
-    """Logging is configured before tracing, so tracing warnings land in the JSON format."""
-    called = _called_names(_main_body(domain))
-
-    assert called.index("configure_logging") < called.index("configure_tracing"), (
-        f"{domain}: tracing is configured before logging, so its warnings are "
-        "emitted in whatever format the root logger defaulted to"
-    )
-
-
-@pytest.mark.parametrize("domain", sorted(DOMAIN_NAMES))
-def test_the_module_level_app_is_not_the_one_main_serves(domain: str) -> None:
-    """main builds its own application, since the module-level one predates the provider."""
-    body = _main_body(domain)
-    called = _called_names(body)
-
-    assert "run_uvicorn" in called, f"{domain}: main does not serve"
-
-    served = [
-        statement
-        for statement in body
-        if isinstance(statement, ast.Expr)
-        and isinstance(statement.value, ast.Call)
-        and isinstance(statement.value.func, ast.Name)
-        and statement.value.func.id == "run_uvicorn"
-    ]
-    assert len(served) == 1, f"{domain}: expected exactly one run_uvicorn call"
-
-    argument = served[0].value.args[0]
-    assert isinstance(argument, ast.Call) and isinstance(argument.func, ast.Name), (
-        f"{domain}: run_uvicorn is not passed a freshly built application"
-    )
-    assert argument.func.id == "build_app", (
-        f"{domain}: run_uvicorn serves {ast.dump(argument)} rather than build_app(), "
-        "so it serves an application built before tracing was configured"
-    )
+    assert "domain_entrypoint" in _called_names(tree.body), f"{domain}: its entrypoint does not call domain_entrypoint"
 
 
 def test_the_runtime_dependency_carries_the_aws_otel_extra() -> None:

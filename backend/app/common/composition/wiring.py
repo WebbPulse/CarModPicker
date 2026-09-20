@@ -1,4 +1,10 @@
-"""What a domain is, and how one application is built from any subset of them.
+"""What this product adds to `webbpulse.composition`, and nothing the package owns.
+
+`Domain`, the registry, the builder, the tracing gate, the startup secrets check
+and the local authorizer are all the package's now. What stays here is the part
+that is CarModPicker's: the colorized TTY logging, the repository bundle built
+from this product's own registry, the rate limiter, the vehicles seeder and the
+five root routes.
 
 Both roots build through `build_domain_app`, so they cannot drift. Composition
 is `include_router` and never `mount`, which would empty the OpenAPI document.
@@ -7,70 +13,50 @@ is `include_router` and never `mount`, which would empty the OpenAPI document.
 from __future__ import annotations
 
 import logging
-import warnings
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, Iterable, Sequence, Tuple
+from typing import Any, AsyncIterator, Callable, Dict, Sequence, Tuple
 
 from fastapi import FastAPI, Query, Response
 from fastapi.responses import JSONResponse
+from webbpulse.composition import OTLP_ENDPOINT_ENV, Domain, check_secrets, local_authorizer, scope_for
+from webbpulse.composition import build_domain_app as _build_domain_app
+from webbpulse.composition import configure_tracing as _configure_tracing
 from webbpulse.http import DEFAULT_CORS_ALLOW_HEADERS
 
+from app.common.composition.service import OPENAPI_VERSION, SERVICE_NAME_TEMPLATE
 from app.common.core.config import settings
-
-if TYPE_CHECKING:  # pragma: no cover
-    from fastapi import APIRouter
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "API_PREFIX",
+    "CORS_ALLOW_HEADERS",
+    "OPENAPI_VERSION",
+    "OTLP_ENDPOINT_ENV",
+    "SERVICE_NAME_TEMPLATE",
+    "Domain",
+    "add_root_routes",
+    "add_shared_middleware",
+    "build_domain_app",
+    "bundle_for",
+    "check_signing_key",
+    "configure_logging",
+    "configure_tracing",
+    "run_startup_tasks",
+    "scope_for",
+    "start_domain",
+    "tables_for_domain",
+]
+
 API_PREFIX = settings.API_STR
-
-SERVICE_NAME_TEMPLATE = "carmodpicker-{domain}"
-
-OPENAPI_VERSION = "0.1.0"
-"""Pinned so `create_app` publishes the version the OpenAPI snapshot records."""
-
-
-@dataclass(frozen=True)
-class Domain:
-    """One deployable domain."""
-
-    name: str
-    title: str
-    load_routers: Callable[[], "Sequence[Tuple[APIRouter, str, Tuple[str, ...]]]"]
-    load_unprefixed_routers: "Callable[[Any], Sequence[APIRouter]] | None" = None
-    """Routers the domain mounts at the root with no prefix and no tags, because
-    the router itself declares its full paths. Called lazily, like `load_routers`,
-    so the glue behind it belongs to this domain's import closure alone."""
-    router_prefix: str = API_PREFIX
-    router_tags: Tuple[str, ...] = ()
-    requires_secrets: Tuple[str, ...] = ()
-    repositories: Tuple[str, ...] = ()
-    seeds: bool = False
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def service_name(self) -> str:
-        """The service name this domain logs and traces under."""
-        return SERVICE_NAME_TEMPLATE.format(domain=self.name)
-
-    @property
-    def tables(self) -> Tuple[str, ...]:
-        """The DynamoDB tables this domain's repositories reach, sorted.
-
-        Read from the repository registry rather than listed again, so the two and
-        the Terraform IAM policy cannot disagree.
-        """
-        from app.common.db.dynamo.registry import tables_for
-
-        return tables_for(self.repositories)
 
 
 def configure_logging(service: "str | None" = None) -> None:
     """The application's log format, applied to the root and uvicorn loggers.
 
-    A thin call into `app.common.core.logging.configure_app_logging`. Called at import
-    by `app/main.py`; calling it twice is harmless.
+    A thin call into `app.common.core.logging.configure_app_logging`, which is this
+    product's own: the package's `configure_logging` has no colorized TTY branch.
+    Called at import by `app/main.py`; calling it twice is harmless.
     """
     from app.common.core.logging import configure_app_logging
 
@@ -81,74 +67,73 @@ def configure_logging(service: "str | None" = None) -> None:
     )
 
 
-OTLP_ENDPOINT_ENV = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
-
-
 def configure_tracing(domain: "Domain") -> bool:
     """Wire OpenTelemetry for one domain, but only when an OTLP endpoint is set.
 
-    The gate is deliberate: without it the package would default to the X-Ray
-    endpoint and every process would retry a 403 in silence.
+    The package's gate, bound to this product's settings so the consumer
+    entrypoints and the domain entrypoints call it the same way.
     """
-    import os
-
-    if not os.environ.get(OTLP_ENDPOINT_ENV, "").strip():
-        logger.debug(
-            "Tracing not configured: %s is unset.",
-            OTLP_ENDPOINT_ENV,
-        )
-        return False
-
-    from webbpulse.otel import configure_tracing as _configure_tracing
-    from webbpulse.otel import resolve_sample_ratio
-
-    return _configure_tracing(
-        domain.service_name,
-        environment=settings.environment,
-        sample_ratio=resolve_sample_ratio(),
-    )
+    return _configure_tracing(domain, settings)
 
 
-def check_signing_key(domains: "Iterable[Domain]") -> None:
+def check_signing_key(domains: "Sequence[Domain]") -> None:
     """Fail fast on a missing secret, once at startup, per the domains served.
 
-    A root serving no domain that names a secret never calls `require_secrets`,
-    which is what lets `vehicles` run with no Secrets Manager grant.
+    The package's `check_secrets` under this product's own name, kept because the
+    consumer entrypoints and the lifespan both call it.
     """
-    wanted = sorted({name for domain in domains for name in domain.requires_secrets})
-    if not wanted:
-        return
-    if settings.is_production:
-        settings.require_secrets(*wanted)
-        return
-    if "SECRET_KEY" in wanted and not settings.SECRET_KEY:
-        warnings.warn(
-            "SECRET_KEY is empty. JWT tokens will be insecure. Set SECRET_KEY environment variable.",
-            UserWarning,
-        )
+    check_secrets(domains, settings)
+
+
+def tables_for_domain(domain: "Domain") -> "Tuple[str, ...]":
+    """The DynamoDB tables one domain's repositories reach, sorted.
+
+    A function rather than the property the product's own `Domain` carried, because
+    the descriptor is the package's now and the repository registry is this
+    product's. Read from that registry rather than listed again, so the tables and
+    the Terraform IAM policy cannot disagree.
+    """
+    from app.common.db.dynamo.registry import tables_for
+
+    return tables_for(domain.repositories)
+
+
+def start_domain(domain: "Domain", _settings: "Any" = None) -> None:
+    """Configure logging, then tracing, then verify the secrets one domain needs.
+
+    The `check` hook `domain_entrypoint` runs, and the reason each entrypoint binds
+    `settings=None`: the package's own `main` would call the package's
+    `configure_logging`, which has no colorized TTY branch, so this product does all
+    three itself in the package's order. Logging comes first so a misconfigured
+    function fails at cold start with the failure already formatted, and tracing
+    precedes the build because the server span middleware can only be injected into
+    an unbuilt middleware stack.
+    """
+    del _settings
+
+    configure_logging(service=domain.service_name)
+    configure_tracing(domain)
+    check_signing_key([domain])
 
 
 def bundle_for(domains: "Sequence[Domain]") -> "Any":
     """The bundle carrying exactly the repositories these domains declare.
 
-    Building the bundle constructs no repository, so an image's import graph
-    stays proportional to the routes it serves.
+    Reads the package's `scope_for` for the names rather than recomputing the
+    union, and builds this product's own bundle type. Building the bundle
+    constructs no repository, so an image's import graph stays proportional to
+    the routes it serves.
     """
     from app.common.api.dependencies.repositories import build_bundle
 
-    names: "list[str]" = []
-    for domain in domains:
-        for repository in domain.repositories:
-            if repository not in names:
-                names.append(repository)
-    label = "+".join(domain.name for domain in domains) or "none"
-    return build_bundle(names, name=label)
+    scope = scope_for(list(domains))
+    return build_bundle(list(scope.names), name=scope.name)
 
 
 def run_startup_tasks() -> None:
     """Seed work that runs once per process, on the first request in the app.
 
-    Only a root serving a domain whose descriptor sets `seeds` wires this, so a
+    Only a root serving a domain named in `SEEDING_DOMAINS` wires this, so a
     function with read-only IAM on the car tables never attempts the write.
     """
     from app.common.seeds.init_cars import init_car_generations
@@ -167,57 +152,37 @@ CORS_ALLOW_HEADERS: Tuple[str, ...] = (
 """The package default set, plus the two headers `terraform/apigateway.tf` also allows."""
 
 
-def add_shared_middleware(app: FastAPI) -> None:
-    """Rate limiting, added inside the CORS and request id `create_app` installed.
+def add_shared_middleware(app: FastAPI, domains: "Sequence[Domain]" = ()) -> None:
+    """Rate limiting and the local authorizer, then this product's repository bundle.
 
-    The order is load-bearing: Starlette runs middleware outermost-first in the
-    order added, so CORS wraps the request id middleware which wraps the rate limiter.
+    The order is load-bearing: `build_domain_app` runs this after `create_app` and
+    before any router, and Starlette runs middleware outermost-first in the order
+    added, so CORS wraps the request id middleware which wraps the rate limiter.
     """
+    from app.common.api.dependencies.repositories import bind_repositories
     from app.common.api.middleware import rate_limit_middleware
+    from app.domains.identity.package_glue import build_identity_settings
 
     app.middleware("http")(rate_limit_middleware)
+    local_authorizer(app, settings, build_identity_settings=build_identity_settings)
+    bind_repositories(app, bundle_for(domains))
 
 
 def add_local_authorizer(app: FastAPI) -> bool:
     """Stand in for the gateway's JWT authorizer, but only on a local stack.
 
-    Deployed, API Gateway verifies the access token and the Lambda Web Adapter hands
-    the function its claims in `x-amzn-request-context`, which is what every authorized
-    route reads. A local e2e stack has no gateway, so a valid token arrives carrying no
-    claims and each of those routes answers 401. The package's middleware verifies the
-    bearer token in process against the local signer's own key set and publishes the
-    result in that same shape.
-
-    Returns whether it was added. The application's own environment is checked before
-    anything else is built, because the package settings validate their signing keys on
-    construction and only the identity function carries any: every other deployed
-    function would fail to start if those settings were built first. Nothing happens
-    without an issuer either, since with no issuer no identity route is mounted and
-    there is no token to verify. The identity settings' environment is then checked as
-    well, because that is the one the package's constructor refuses on and the two are
-    separate variables.
+    The package's `local_authorizer` bound to this product's settings and its own
+    identity settings factory, kept as a name so the gate test can call it alone.
     """
-    from webbpulse.identity import LOCAL_ENVIRONMENT, LocalAuthorizerMiddleware
-
     from app.domains.identity.package_glue import build_identity_settings
 
-    if settings.environment.strip().lower() != LOCAL_ENVIRONMENT:
-        return False
-    if not settings.IDENTITY_ISSUER:
-        return False
-
-    identity_settings = build_identity_settings(settings)
-    if identity_settings.environment.strip().lower() != LOCAL_ENVIRONMENT:
-        return False
-
-    app.add_middleware(LocalAuthorizerMiddleware, settings=identity_settings)
-    return True
+    return local_authorizer(app, settings, build_identity_settings=build_identity_settings)
 
 
 _SITEMAP_CACHE = "public, max-age=3600"
 
 
-def add_root_routes(app: FastAPI) -> None:
+def add_root_routes(app: FastAPI, domains: "Sequence[Domain]" = ()) -> None:
     """`/`, `/health`, `/ready` and the two sitemap routes.
 
     None of the five is published in the OpenAPI document. The gateway declares a route
@@ -225,6 +190,8 @@ def add_root_routes(app: FastAPI) -> None:
     alone, which is how the deploy's smoke step probes `/health`. Declaring them would
     describe three operations the gateway answers its own 404 for.
     """
+    del domains
+
     from app.common.api.services import sitemap_service
     from app.common.db.dynamo.client import check_db_ready
 
@@ -302,6 +269,19 @@ def add_root_routes(app: FastAPI) -> None:
         )
 
 
+def _instrument(app: FastAPI, domains: "Sequence[Domain]" = ()) -> None:
+    """Instrument the finished application, after this product's middleware is on.
+
+    Last rather than through `build_domain_app(instrument=True)`, so the server span
+    wraps the rate limiter rather than sitting underneath it.
+    """
+    del domains
+
+    from webbpulse.otel import instrument_fastapi
+
+    instrument_fastapi(app)
+
+
 def build_domain_app(
     domains: "Domain | str | Sequence[Domain | str]",
     *,
@@ -311,17 +291,16 @@ def build_domain_app(
 ) -> FastAPI:
     """Build one application from one domain or many: Root B's whole job.
 
-    `startup_tasks` is injectable so `app.main` can keep the module-level
-    `run_startup_tasks` name the suite patches.
+    The package's builder with this product's hooks. `startup_tasks` is injectable
+    so `app.main` can keep the module-level `run_startup_tasks` name the suite patches.
     """
-    from app.common.api.dependencies.repositories import bind_repositories
-    from app.common.composition.domains import DOMAINS
+    from webbpulse.composition import resolve_domains
 
-    if isinstance(domains, (Domain, str)):
-        domains = [domains]
-    resolved = [DOMAINS[d] if isinstance(d, str) else d for d in domains]
+    from app.common.api.middleware.error_handler import error_handler_options
+    from app.common.composition.domains import DOMAINS, SEEDING_DOMAINS
 
-    seeds = any(domain.seeds for domain in resolved)
+    resolved = resolve_domains(domains, DOMAINS)
+    seeds = any(domain.name in SEEDING_DOMAINS for domain in resolved)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -331,49 +310,22 @@ def build_domain_app(
             (startup_tasks or run_startup_tasks)()
         yield
 
-    from webbpulse.http import create_app
+    after_routers = [add_root_routes, _instrument] if include_root_routes else [_instrument]
 
-    from app.common.api.middleware.error_handler import error_handler_options
-
-    app = create_app(
+    return _build_domain_app(
+        resolved,
+        registry=DOMAINS,
+        settings=settings,
         title=title if title is not None else settings.PROJECT_NAME,
-        version=OPENAPI_VERSION,
         service_name=resolved[0].service_name if len(resolved) == 1 else settings.PROJECT_NAME,
+        configure=[add_shared_middleware],
+        after_routers=after_routers,
+        version=OPENAPI_VERSION,
         cors_allow_origins=settings.allowed_origins_list,
         cors_allow_headers=CORS_ALLOW_HEADERS,
         include_health=False,
-        instrument=False,
         openapi_url=f"{settings.API_STR}/openapi.json",
         debug=settings.DEBUG,
         lifespan=lifespan,
         **error_handler_options(),
-        **{k: v for domain in resolved for k, v in domain.extra.items()},
     )
-
-    add_shared_middleware(app)
-    add_local_authorizer(app)
-
-    bind_repositories(app, bundle_for(resolved))
-
-    for domain in resolved:
-        for router, prefix, tags in domain.load_routers():
-            app.include_router(
-                router,
-                prefix=f"{domain.router_prefix}{prefix}",
-                tags=list(tags or domain.router_tags),
-            )
-
-    for domain in resolved:
-        if domain.load_unprefixed_routers is None:
-            continue
-        for router in domain.load_unprefixed_routers(settings):
-            app.include_router(router)
-
-    if include_root_routes:
-        add_root_routes(app)
-
-    from webbpulse.otel import instrument_fastapi
-
-    instrument_fastapi(app)
-
-    return app
