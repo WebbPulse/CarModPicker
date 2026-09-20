@@ -486,7 +486,7 @@ def test_the_hooks_receive_the_same_store_objects_the_package_does(
 
     captured: dict[str, Any] = {}
 
-    import webbpulse.identity as package
+    import webbpulse.identity.router as package
 
     original = package.build_identity_router
 
@@ -529,7 +529,7 @@ def test_the_four_new_stores_are_supplied_unconditionally(
         lambda service, *a, **k: FakeKms(private_key) if service == "kms" else object(),
     )
 
-    import webbpulse.identity as package
+    import webbpulse.identity.router as package
 
     original = package.build_identity_router
 

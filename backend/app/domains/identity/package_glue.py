@@ -40,76 +40,30 @@ def build_router(settings: "Settings") -> "APIRouter":
     The package declares the statuses every mounted route answers, so the document
     this router publishes needs no amendment here.
     """
-    from webbpulse.dynamodb import Repository
-    from webbpulse.identity import (
-        CREDENTIALS_TABLE,
-        IDENTITY_TOKENS_TABLE,
-        LOGIN_ATTEMPTS_TABLE,
-        OAUTH_LINKS_TABLE,
-        OAUTH_STATES_TABLE,
-        PASSKEYS_TABLE,
-        RECOVERY_CODES_TABLE,
-        REFRESH_TOKENS_TABLE,
-        TOTP_FACTORS_TABLE,
-        WEBAUTHN_CHALLENGES_TABLE,
-        DynamoCredentialStore,
-        DynamoIdentityTokenStore,
-        DynamoLoginAttemptStore,
-        DynamoOAuthLinkStore,
-        DynamoOAuthStateStore,
-        DynamoPasskeyStore,
-        DynamoRecoveryCodeStore,
-        DynamoRefreshTokenStore,
-        DynamoTotpFactorStore,
-        DynamoWebAuthnChallengeStore,
-        IdentityStores,
-        build_identity_router,
-        signing_client,
-    )
+    from webbpulse.identity import build_dynamo_router, dynamo_stores
 
     from app.domains.identity.identity_hooks import CarModPickerIdentityHooks
 
-    def repository(logical_name: str) -> Repository:
-        """A package repository for one of the six identity tables.
-
-        Prefix and endpoint are passed explicitly so this reads the same `Settings`
-        as the rest of the backend, and table names are the package's constants.
-        """
-        return Repository(
-            logical_name,
-            prefix=settings.dynamodb_table_prefix,
-            endpoint_url=settings.DYNAMODB_ENDPOINT_URL or None,
-        )
-
+    prefix = settings.dynamodb_table_prefix
+    endpoint_url = settings.DYNAMODB_ENDPOINT_URL or None
     identity_settings = build_identity_settings(settings)
 
-    stores = IdentityStores(
-        credentials=DynamoCredentialStore(repository(CREDENTIALS_TABLE)),
-        refresh_tokens=DynamoRefreshTokenStore(repository(REFRESH_TOKENS_TABLE)),
-        identity_tokens=DynamoIdentityTokenStore(repository(IDENTITY_TOKENS_TABLE)),
-        totp_factors=DynamoTotpFactorStore(repository(TOTP_FACTORS_TABLE)),
-        recovery_codes=DynamoRecoveryCodeStore(repository(RECOVERY_CODES_TABLE)),
-        oauth_states=DynamoOAuthStateStore(repository(OAUTH_STATES_TABLE)),
-        oauth_links=DynamoOAuthLinkStore(repository(OAUTH_LINKS_TABLE)),
-        passkeys=DynamoPasskeyStore(repository(PASSKEYS_TABLE)),
-        webauthn_challenges=DynamoWebAuthnChallengeStore(repository(WEBAUTHN_CHALLENGES_TABLE)),
-    )
+    stores = dynamo_stores(prefix, endpoint_url=endpoint_url)
 
-    router = build_identity_router(
+    return build_dynamo_router(
         identity_settings,
         CarModPickerIdentityHooks(
             package_passkeys=stores.passkeys,
             package_oauth_links=stores.oauth_links,
         ),
-        stores,
-        kms_client=signing_client(identity_settings),
+        prefix=prefix,
+        endpoint_url=endpoint_url,
         service="carmodpicker-identity",
         version=IDENTITY_ROUTER_VERSION,
-        attempts=DynamoLoginAttemptStore(repository(LOGIN_ATTEMPTS_TABLE)),
+        stores=stores,
         email_sender=build_email_sender(identity_settings),
         oauth_client_secrets=build_oauth_client_secrets(settings),
     )
-    return router
 
 
 OAUTH_SECRET_KEYS = {

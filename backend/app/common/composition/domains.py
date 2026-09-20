@@ -2,13 +2,22 @@
 
 Importing this module imports no endpoint module: each loader does its own
 imports in its body, which is what keeps one domain's image free of the rest.
+
+The descriptor and the registry are `webbpulse.composition`'s; the rows, the
+loaders and the repository lists are this product's.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, FrozenSet, Sequence, Tuple
 
-from app.common.composition.wiring import Domain
+from webbpulse.composition import Domain, DomainRegistry
+
+from app.common.composition.service import SERVICE_NAME_TEMPLATE
+from app.common.core.config import settings
+
+API_PREFIX = settings.API_STR
+"""Every domain row mounts its routers under this, which the package does not default."""
 
 if TYPE_CHECKING:  # pragma: no cover
     from fastapi import APIRouter
@@ -222,9 +231,11 @@ _ADMIN_REPOSITORIES = (
 )
 
 
-DOMAINS: Dict[str, Domain] = {
+_ROWS: Dict[str, Domain] = {
     "identity": Domain(
         name="identity",
+        service_name_template=SERVICE_NAME_TEMPLATE,
+        router_prefix=API_PREFIX,
         title="CarModPicker identity",
         load_routers=_identity_routers,
         load_unprefixed_routers=_identity_unprefixed_routers,
@@ -232,49 +243,64 @@ DOMAINS: Dict[str, Domain] = {
     ),
     "users": Domain(
         name="users",
+        service_name_template=SERVICE_NAME_TEMPLATE,
+        router_prefix=API_PREFIX,
         title="CarModPicker users",
         load_routers=_users_routers,
         repositories=_USERS_REPOSITORIES,
     ),
     "catalog": Domain(
         name="catalog",
+        service_name_template=SERVICE_NAME_TEMPLATE,
+        router_prefix=API_PREFIX,
         title="CarModPicker catalog",
         load_routers=_catalog_routers,
         repositories=_CATALOG_REPOSITORIES,
     ),
     "vehicles": Domain(
         name="vehicles",
+        service_name_template=SERVICE_NAME_TEMPLATE,
+        router_prefix=API_PREFIX,
         title="CarModPicker vehicles",
         load_routers=_vehicles_routers,
         repositories=_VEHICLES_REPOSITORIES,
-        seeds=True,
     ),
     "build-lists": Domain(
         name="build-lists",
+        service_name_template=SERVICE_NAME_TEMPLATE,
+        router_prefix=API_PREFIX,
         title="CarModPicker build lists",
         load_routers=_build_lists_routers,
         repositories=_BUILD_LISTS_REPOSITORIES,
     ),
     "build-logs": Domain(
         name="build-logs",
+        service_name_template=SERVICE_NAME_TEMPLATE,
+        router_prefix=API_PREFIX,
         title="CarModPicker build logs",
         load_routers=_build_logs_routers,
         repositories=_BUILD_LOGS_REPOSITORIES,
     ),
     "moderation": Domain(
         name="moderation",
+        service_name_template=SERVICE_NAME_TEMPLATE,
+        router_prefix=API_PREFIX,
         title="CarModPicker moderation",
         load_routers=_moderation_routers,
         repositories=_MODERATION_REPOSITORIES,
     ),
     "media": Domain(
         name="media",
+        service_name_template=SERVICE_NAME_TEMPLATE,
+        router_prefix=API_PREFIX,
         title="CarModPicker media",
         load_routers=_media_routers,
         repositories=_MEDIA_REPOSITORIES,
     ),
     "admin": Domain(
         name="admin",
+        service_name_template=SERVICE_NAME_TEMPLATE,
+        router_prefix=API_PREFIX,
         title="CarModPicker admin",
         load_routers=_admin_routers,
         repositories=_ADMIN_REPOSITORIES,
@@ -282,6 +308,17 @@ DOMAINS: Dict[str, Domain] = {
     ),
 }
 
-DOMAIN_NAMES: Tuple[str, ...] = tuple(DOMAINS)
+DOMAINS = DomainRegistry(_ROWS)
+"""The ordered, immutable registry both composition roots and every entrypoint read."""
 
-ENTRYPOINT_MODULES: Dict[str, str] = {name: name.replace("-", "_") for name in DOMAIN_NAMES}
+DOMAIN_NAMES: Tuple[str, ...] = DOMAINS.names
+
+ENTRYPOINT_MODULES: Dict[str, str] = DOMAINS.entrypoint_modules
+
+SEEDING_DOMAINS: FrozenSet[str] = frozenset({"vehicles"})
+"""Domains whose application runs the car generation seeder on first request.
+
+A product concern rather than a registry field: only a root serving one of these
+wires the lifespan hook, so a function with read-only IAM on the car tables never
+attempts the write.
+"""
