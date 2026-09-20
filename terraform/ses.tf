@@ -1,61 +1,62 @@
-resource "aws_sesv2_configuration_set" "transactional" {
+module "ses" {
+  source  = "app.terraform.io/WebbPulse/platform-modules/aws//modules/ses-identity"
+  version = "~> 2.27"
+
   configuration_set_name = "carmodpicker-transactional"
 
-  reputation_options {
-    reputation_metrics_enabled = true
-  }
+  domain           = local.custom_domain ? local.domain_name : null
+  sender_address   = local.custom_domain ? null : local.email_from
+  mail_from_domain = local.custom_domain ? "bounce.${local.domain_name}" : null
 
-  sending_options {
-    sending_enabled = true
-  }
+  vdm_options_enabled           = true
+  manage_account_vdm_attributes = true
 
-  vdm_options {
-    dashboard_options {
-      engagement_metrics = "ENABLED"
-    }
-    guardian_options {
-      optimized_shared_delivery = "ENABLED"
-    }
-  }
+  notification_topic_arn = aws_sns_topic.ses_notifications.arn
 
-  tags = { Name = "${local.prefix}-transactional" }
+  verified_recipients = var.ses_verified_recipients
+
+  tags           = { Name = "${local.prefix}-transactional" }
+  recipient_tags = { Name = "${local.prefix}-ses-recipient" }
 }
 
-resource "aws_sesv2_email_identity" "domain" {
-  count = local.custom_domain ? 1 : 0
-
-  email_identity         = local.domain_name
-  configuration_set_name = aws_sesv2_configuration_set.transactional.configuration_set_name
-
-  dkim_signing_attributes {
-    next_signing_key_length = "RSA_2048_BIT"
-  }
-
-  tags = { Name = "${local.prefix}-ses-domain" }
+moved {
+  from = aws_sesv2_configuration_set.transactional
+  to   = module.ses.aws_sesv2_configuration_set.this
 }
 
-resource "aws_sesv2_email_identity" "sender" {
-  count = local.custom_domain ? 0 : 1
-
-  email_identity         = local.email_from
-  configuration_set_name = aws_sesv2_configuration_set.transactional.configuration_set_name
-
-  tags = { Name = "${local.prefix}-ses-sender" }
+moved {
+  from = aws_sesv2_email_identity.domain[0]
+  to   = module.ses.aws_sesv2_email_identity.domain[0]
 }
 
-resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
-  count = local.custom_domain ? 1 : 0
-
-  email_identity         = aws_sesv2_email_identity.domain[0].email_identity
-  mail_from_domain       = "bounce.${local.domain_name}"
-  behavior_on_mx_failure = "USE_DEFAULT_VALUE"
+moved {
+  from = aws_sesv2_email_identity.sender[0]
+  to   = module.ses.aws_sesv2_email_identity.sender[0]
 }
 
-resource "aws_sesv2_email_identity_feedback_attributes" "domain" {
-  count = local.custom_domain ? 1 : 0
+moved {
+  from = aws_sesv2_email_identity_mail_from_attributes.domain[0]
+  to   = module.ses.aws_sesv2_email_identity_mail_from_attributes.domain[0]
+}
 
-  email_identity           = aws_sesv2_email_identity.domain[0].email_identity
-  email_forwarding_enabled = false
+moved {
+  from = aws_sesv2_email_identity_feedback_attributes.domain[0]
+  to   = module.ses.aws_sesv2_email_identity_feedback_attributes.domain[0]
+}
+
+moved {
+  from = aws_sesv2_configuration_set_event_destination.sns
+  to   = module.ses.aws_sesv2_configuration_set_event_destination.notifications[0]
+}
+
+moved {
+  from = aws_sesv2_account_vdm_attributes.main
+  to   = module.ses.aws_sesv2_account_vdm_attributes.this[0]
+}
+
+moved {
+  from = aws_sesv2_email_identity.recipient
+  to   = module.ses.aws_sesv2_email_identity.recipient
 }
 
 resource "aws_sns_topic" "ses_notifications" {
@@ -84,38 +85,4 @@ resource "aws_sns_topic_subscription" "ses_email" {
   topic_arn = aws_sns_topic.ses_notifications.arn
   protocol  = "email"
   endpoint  = "tyler@webbpulse.com"
-}
-
-resource "aws_sesv2_configuration_set_event_destination" "sns" {
-  configuration_set_name = aws_sesv2_configuration_set.transactional.configuration_set_name
-  event_destination_name = "sns-notifications"
-
-  event_destination {
-    enabled              = true
-    matching_event_types = ["BOUNCE", "COMPLAINT", "DELIVERY_DELAY"]
-
-    sns_destination {
-      topic_arn = aws_sns_topic.ses_notifications.arn
-    }
-  }
-}
-
-resource "aws_sesv2_account_vdm_attributes" "main" {
-  vdm_enabled = "ENABLED"
-
-  dashboard_attributes {
-    engagement_metrics = "ENABLED"
-  }
-
-  guardian_attributes {
-    optimized_shared_delivery = "ENABLED"
-  }
-}
-
-resource "aws_sesv2_email_identity" "recipient" {
-  for_each = toset(var.ses_verified_recipients)
-
-  email_identity = each.value
-
-  tags = { Name = "${local.prefix}-ses-recipient" }
 }

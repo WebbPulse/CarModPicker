@@ -257,3 +257,9 @@ variable "ses_verified_recipients" {
   type        = list(string)
   default     = []
 }
+
+variable "adopt_spans_log_group" {
+  description = "Adopt the reserved aws/spans log group into state and hold it at the platform's 7 day retention. X-Ray creates that group itself the first time it writes a span to the CloudWatchLogs destination, and it cannot be created ahead of time because CreateLogGroup rejects names beginning with aws/. An import block whose target does not exist is a plan time error, so a brand new account has to apply once with this false, generate one span, and then set it true. true is correct for every environment where a span has already been written, which is both of ours."
+  type        = bool
+  default     = true
+}
