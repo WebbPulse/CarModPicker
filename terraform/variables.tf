@@ -64,24 +64,11 @@ variable "api_throttle_rate_limit" {
   default     = 25
 }
 
-variable "secret_key" {
-  description = "HS256 signing key for the price alert unsubscribe link, the one remaining application-signed token. All session tokens are RS256 and signed in KMS."
-  type        = string
-  sensitive   = true
-}
-
 variable "email_from" {
   description = "Sender address for transactional email. null = no-reply@ the domain SES is verified for (the served domain with a custom domain, the apex otherwise)."
   type        = string
   default     = null
   nullable    = true
-}
-
-variable "extension_api_key" {
-  description = "Shared secret the batch price-history route accepts in the X-API-Key header, for the Chrome extension and ingestion jobs. Empty = API-key auth disabled and only an admin bearer token is accepted. Set as a sensitive variable on each HCP workspace."
-  type        = string
-  sensitive   = true
-  default     = ""
 }
 
 variable "staging_profile" {
@@ -135,23 +122,9 @@ variable "oauth_google_client_id" {
   default     = ""
 }
 
-variable "oauth_google_client_secret" {
-  description = "Client secret of the Google OAuth application, written into the app secret as OAUTH_GOOGLE_CLIENT_SECRET. An id set with no secret is a provider that is not advertised and whose start route answers 503, rather than a deployment that fails."
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 variable "oauth_github_client_id" {
   description = "Client id of the GitHub OAuth application. Empty means the package declares no GitHub route and does not advertise GitHub on GET /api/auth/oauth/providers. Not a secret; set as an ordinary workspace variable."
   type        = string
-  default     = ""
-}
-
-variable "oauth_github_client_secret" {
-  description = "Client secret of the GitHub OAuth application, written into the app secret as OAUTH_GITHUB_CLIENT_SECRET. An id set with no secret is a provider that is not advertised and whose start route answers 503, rather than a deployment that fails."
-  type        = string
-  sensitive   = true
   default     = ""
 }
 
@@ -250,12 +223,6 @@ variable "ephemeral_users_enabled" {
 
   type    = bool
   default = false
-}
-
-variable "ses_verified_recipients" {
-  description = "Mailbox addresses to verify as SES email identities so the sandbox can deliver to them. Empty once the account has production access."
-  type        = list(string)
-  default     = []
 }
 
 variable "adopt_spans_log_group" {

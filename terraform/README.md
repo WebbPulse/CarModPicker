@@ -44,21 +44,18 @@ When `staging_access_gate = true` and the profile is `full`, `staging_access_gat
 
 Production was cut over from App Runner + RDS PostgreSQL to Lambda + DynamoDB on 2026-09-06, and the legacy VPC, RDS, ECR and App Runner resources were destroyed.
 
-## HCP workspace variables
+## Configuration
 
-Set per workspace, not in `.tfvars`.
+Each value lives in exactly one of four places.
 
-| Variable | Notes |
+| Where | What |
 | --- | --- |
-| `environment`, `staging_profile` | Pushed from the WebbPulse-Platform repo. |
-| `parent_route53_zone_id`, `route53_write_role_arn` | Staging only, pushed from WebbPulse-Platform. A variable validation requires both once staging has a custom domain. |
-| `staging_access_gate`, `staging_access_users` | Staging only, pushed from WebbPulse-Platform. |
-| `secret_key` | Sensitive, set by hand. Lands in the `<prefix>/app` JSON as `SECRET_KEY`. |
-| `oauth_google_client_secret`, `oauth_github_client_secret` | Sensitive, set by hand. Land in the same JSON secret; the matching client ids are non-sensitive variables. |
-| `extension_api_key` | Sensitive, set by hand. Lands in the `<prefix>/app` JSON as `EXTENSION_API_KEY`, the shared secret `POST /api/parts/price-history` accepts in the `X-API-Key` header. Leaving it unset is a supported state: that route then accepts admin bearer tokens only. |
-| `bootstrap_image_tag` | The `sha-<40 hex>` seed tag every image function is created from. Defaults to `""`, which resolves the function and route maps to empty so a fresh account can apply once with no images in ECR. See the gotcha below. |
-| `adopt_spans_log_group` | Whether to import the reserved `aws/spans` log group. Defaults to `true`. See the gotcha below. |
-| `custom_domain_enabled`, `domain_name`, `email_from` | Optional shaping overrides. |
+| `env/<environment>.tfvars`, committed | Non-secret config: `bootstrap_image_tag`, `identity_jwt_mode`, `domain_jwt_enforced`, the passkey flags, the OAuth client ids, `ephemeral_users_enabled` (staging), `aws_region` and `adopt_spans_log_group` (production). WebbPulse-Platform loads the file on every plan through the workspace's `TF_CLI_ARGS_plan` env var, and a `-var-file` value beats a workspace variable of the same name. |
+| HCP workspace variables pushed by WebbPulse-Platform | `environment`, `staging_profile`, and on staging `parent_route53_zone_id`, `route53_write_role_arn`, `staging_access_gate`, `staging_access_users`. Never repeat these in a tfvars file. Production's `environment` is still set by hand on the workspace until Platform manages its variables. |
+| `<prefix>/app` Secrets Manager JSON secret | `SECRET_KEY`, `EXTENSION_API_KEY`, `OAUTH_GOOGLE_CLIENT_SECRET`, `OAUTH_GITHUB_CLIENT_SECRET`, set by an operator with `webbpulse-config --prefix <prefix> secret set <KEY>`. Terraform declares only the generated `mfa_master_key` and keeps every other live key (`json_preserve_unmanaged`). An empty or absent `EXTENSION_API_KEY` means `POST /api/parts/price-history` accepts admin bearer tokens only; an OAuth client id with no secret is a provider that is not advertised. |
+| `/<prefix>/config` SSM String parameter | Private non-secret config as a JSON object, owned by an operator and read by the `operator-config` module: `ses_verified_recipients`, the SES sandbox recipient identities. Change it with `aws ssm put-parameter --overwrite` carrying the whole object; the next plan follows it. |
+
+`bootstrap_image_tag` and `adopt_spans_log_group` have gotchas below. `custom_domain_enabled`, `domain_name` and `email_from` are optional shaping overrides for a tfvars file.
 
 ## GitHub Environment variables and their outputs
 
@@ -89,7 +86,7 @@ Other hostname-bearing outputs worth knowing: `api_url`, `frontend_url`, `domain
 
 - **Naming**: every resource name starts with `local.prefix`, `carmodpicker-<environment>`.
 - **Tags**: `Project`, `Environment`, `ManagedBy=terraform`, applied globally via provider `default_tags`.
-- **Secrets**: values flow HCP workspace variable to `var.*` to Secrets Manager. The Lambda resolves `<prefix>/app` through `APP_SECRETS_ARN` on the first read of a secret field, not at import, so a function that reads no secret makes no call and needs no `secretsmanager:GetSecretValue` grant. No secret values live in outputs or version control.
+- **Secrets**: values live only in the `<prefix>/app` secret, set out of band, never in Terraform variables, state or plan output. The Lambda resolves `<prefix>/app` through `APP_SECRETS_ARN` on the first read of a secret field, not at import, so a function that reads no secret makes no call and needs no `secretsmanager:GetSecretValue` grant. No secret values live in outputs or version control.
 - **Lambda code is not Terraform's**: every function is a container image and Terraform owns only the create.
 
 ## Local validation
