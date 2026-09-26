@@ -70,6 +70,10 @@ vi.mock('./hooks/useAuth', () => ({
   }),
 }));
 
+vi.mock('./components/shell/BetaBanner', () => ({
+  default: () => null,
+}));
+
 vi.mock('./hooks/useAppSettings', () => ({
   useAppSettings: () => ({
     settings: { premium_disabled: false },
