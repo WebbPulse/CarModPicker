@@ -1,22 +1,19 @@
-import { useState } from 'react';
+import { useDismissedUntilSignIn } from '@webbpulse/auth/react';
 import { FaTimes, FaWrench } from 'react-icons/fa';
 
-const SESSION_KEY = 'beta_banner_dismissed';
+/** The key the dismissal is stored under, beneath the package's prefix. */
+const BETA_BANNER_DISMISSAL_KEY = 'beta-banner';
 
 /**
- * A dismissible banner noting the site is under active development, per session.
+ * A banner noting the site is under active development. A dismissal lasts until
+ * the next sign-in, so every new session sees it once.
  */
 function BetaBanner() {
-  const [dismissed, setDismissed] = useState(
-    () => sessionStorage.getItem(SESSION_KEY) === 'true'
+  const { dismissed, dismiss } = useDismissedUntilSignIn(
+    BETA_BANNER_DISMISSAL_KEY
   );
 
   if (dismissed) return null;
-
-  const handleDismiss = () => {
-    sessionStorage.setItem(SESSION_KEY, 'true');
-    setDismissed(true);
-  };
 
   return (
     <div className="relative z-40 w-full bg-warning/15 border-b border-warning/30 backdrop-blur-sm">
@@ -32,7 +29,7 @@ function BetaBanner() {
         </div>
         <button
           type="button"
-          onClick={handleDismiss}
+          onClick={dismiss}
           aria-label="Dismiss banner"
           className="shrink-0 text-warning hover:text-warning/90 transition-colors duration-200"
         >
