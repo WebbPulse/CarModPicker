@@ -13,7 +13,7 @@ module "ses" {
 
   notification_topic_arn = aws_sns_topic.ses_notifications.arn
 
-  verified_recipients = var.ses_verified_recipients
+  verified_recipients = try(module.config.values.ses_verified_recipients, [])
 
   tags           = { Name = "${local.prefix}-transactional" }
   recipient_tags = { Name = "${local.prefix}-ses-recipient" }
