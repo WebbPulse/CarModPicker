@@ -2,12 +2,17 @@
 
 import os
 import uuid
-from typing import Any, Dict, Generator, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
 from webbpulse.log_context import UNSET, request_id_var, user_id_var
+
+if TYPE_CHECKING:
+    from webbpulse.testing import CheckedKey
+
+pytest_plugins = ["webbpulse.testing"]
 
 os.environ["TESTING"] = "true"
 os.environ["ENABLE_RATE_LIMITING"] = "false"
@@ -450,6 +455,12 @@ def _isolate_aws(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
     monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
     monkeypatch.delenv("AWS_PROFILE", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _primary_keys_only(primary_keys_only: "list[CheckedKey]") -> "list[CheckedKey]":
+    """Hold every moto test to DynamoDB's exact primary key rule."""
+    return primary_keys_only
 
 
 @pytest.fixture
