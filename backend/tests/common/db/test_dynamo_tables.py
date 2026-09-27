@@ -33,6 +33,7 @@ EXPECTED_SUFFIXES = {
     "image_source_mappings",
     "app_settings",
     "rate-limits",
+    "idempotency",
 }
 
 DROPPED_SUFFIXES = {
@@ -146,6 +147,7 @@ def test_tables_are_created_from_spec(dynamo_tables: object) -> None:
     assert {index["IndexName"] for index in users["GlobalSecondaryIndexes"]} == {
         "username_lower-index",
         "email_lower-index",
+        "stripe_customer_id-index",
     }
 
 

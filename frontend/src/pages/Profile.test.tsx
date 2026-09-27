@@ -7,11 +7,20 @@ import { BrowserRouter } from 'react-router-dom';
 
 import { apiClient } from '../api/client';
 import { mockUser } from '../test/mocks/api';
+import { billingError, mockPremiumUser } from '../test/mocks/billing';
 import { mockUseAuth } from '../test/utils/test-mocks';
+
+const billingMocks = vi.hoisted(() => ({
+  createCheckoutSession: vi.fn(),
+  createPortalSession: vi.fn(),
+  redirectToBilling: vi.fn(),
+}));
 
 vi.mock('../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
 }));
+
+vi.mock('../api/billing', () => billingMocks);
 
 import Profile from './Profile';
 
@@ -116,5 +125,88 @@ describe('Profile page', () => {
     await waitFor(() =>
       expect(screen.getByText(/upload failed/i)).toBeInTheDocument()
     );
+  });
+
+  it('hides the subscription section for a free user', () => {
+    render(
+      <BrowserRouter>
+        <Profile />
+      </BrowserRouter>
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /manage subscription/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the billing portal from the subscription section for a premium user', async () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      user: mockPremiumUser,
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+      checkAuthStatus: vi.fn(),
+    });
+    let resolve: (url: string) => void = () => undefined;
+    billingMocks.createPortalSession.mockReturnValueOnce(
+      new Promise<string>((r) => {
+        resolve = r;
+      })
+    );
+    const user = userEvent.setup();
+
+    render(
+      <BrowserRouter>
+        <Profile />
+      </BrowserRouter>
+    );
+
+    expect(screen.getByText('Premium')).toBeInTheDocument();
+    const button = screen.getByRole('button', {
+      name: /manage subscription/i,
+    });
+    await user.click(button);
+    expect(button).toBeDisabled();
+
+    resolve('https://billing.stripe.com/p/session/test_1');
+
+    await waitFor(() =>
+      expect(billingMocks.redirectToBilling).toHaveBeenCalledWith(
+        'https://billing.stripe.com/p/session/test_1'
+      )
+    );
+  });
+
+  it('shows an inline error when the billing portal is unavailable', async () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      user: mockPremiumUser,
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+      checkAuthStatus: vi.fn(),
+    });
+    billingMocks.createPortalSession.mockRejectedValueOnce(
+      billingError(503, 'STRIPE_NOT_CONFIGURED')
+    );
+    const user = userEvent.setup();
+
+    render(
+      <BrowserRouter>
+        <Profile />
+      </BrowserRouter>
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /manage subscription/i })
+    );
+
+    expect(
+      await screen.findByText(/billing is not available right now/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /manage subscription/i })
+    ).toBeEnabled();
   });
 });

@@ -473,6 +473,18 @@
   ],
   [
     "POST",
+    "/api/billing/checkout-session"
+  ],
+  [
+    "POST",
+    "/api/billing/portal-session"
+  ],
+  [
+    "POST",
+    "/api/billing/stripe/webhook"
+  ],
+  [
+    "POST",
     "/api/bug-reports"
   ],
   [

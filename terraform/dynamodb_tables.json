@@ -346,6 +346,18 @@
     "range_key": null,
     "ttl_attribute": null
   },
+  "idempotency": {
+    "attributes": [
+      {
+        "name": "pk",
+        "type": "S"
+      }
+    ],
+    "global_secondary_indexes": [],
+    "hash_key": "pk",
+    "range_key": null,
+    "ttl_attribute": "expires_at"
+  },
   "image_source_mappings": {
     "attributes": [
       {
@@ -741,6 +753,10 @@
       {
         "name": "email_lower",
         "type": "S"
+      },
+      {
+        "name": "stripe_customer_id",
+        "type": "S"
       }
     ],
     "global_secondary_indexes": [
@@ -753,6 +769,12 @@
       {
         "hash_key": "email_lower",
         "name": "email_lower-index",
+        "projection_type": "ALL",
+        "range_key": null
+      },
+      {
+        "hash_key": "stripe_customer_id",
+        "name": "stripe_customer_id-index",
         "projection_type": "ALL",
         "range_key": null
       }

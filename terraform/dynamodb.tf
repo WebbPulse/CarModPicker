@@ -4,7 +4,7 @@ locals {
   dynamodb_tables = {
     for name, spec in local.dynamodb_table_specs :
     name => merge(spec, {
-      point_in_time_recovery = name == "rate-limits" ? false : null
+      point_in_time_recovery = contains(["rate-limits", "idempotency"], name) ? false : null
 
       stream_view_type = lookup(local.dynamodb_stream_view_types, name, null)
     })
