@@ -1,19 +1,173 @@
-import { FaArrowLeft, FaCrown, FaLock } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import {
+  FaArrowLeft,
+  FaCheckCircle,
+  FaCrown,
+  FaLock,
+  FaTimesCircle,
+} from 'react-icons/fa';
+import { Link, useSearchParams } from 'react-router-dom';
 
+import { createCheckoutSession, redirectToBilling } from '../api/billing';
+import ManageSubscriptionButton from '../components/billing/ManageSubscriptionButton';
+import { ErrorAlert } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
+import Spinner from '../components/ui/spinner';
 import { PREMIUM_MONTHLY_PRICE_USD } from '../constants';
 import { useAuth } from '../hooks/useAuth';
+import { getCheckoutErrorMessage } from '../utils/billingErrors';
 import { isPremium } from '../utils/subscription';
 
+/** Milliseconds between user refreshes while a new subscription activates. */
+const ACTIVATION_POLL_INTERVAL_MS = 2500;
+
+/** User refreshes to attempt before showing the delayed activation state. */
+const ACTIVATION_MAX_ATTEMPTS = 12;
+
 /**
- * Subscription checkout page, showing the order summary and the signed in
- * user's billing email before payment is wired up.
+ * The state shown after Stripe returns a completed payment: activating while
+ * the webhook lands, confirmed once the user is premium, or a delayed note
+ * when activation takes longer than the polling window.
+ */
+function CheckoutSuccessState({
+  userIsPremium,
+  timedOut,
+}: {
+  userIsPremium: boolean;
+  timedOut: boolean;
+}) {
+  if (userIsPremium) {
+    return (
+      <Card
+        variant="glass"
+        className="mb-6 border border-success/30 bg-success/5"
+        role="status"
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-success/20 text-success flex items-center justify-center flex-shrink-0">
+            <FaCheckCircle />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-1">
+              Welcome to Premium
+            </h3>
+            <p className="text-sm text-foreground leading-relaxed">
+              Your subscription is active. You can manage it any time from your{' '}
+              <Link
+                to="/profile"
+                className="text-primary hover:text-primary/90 underline"
+              >
+                profile
+              </Link>
+              .
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (timedOut) {
+    return (
+      <Card
+        variant="glass"
+        className="mb-6 border border-warning/30 bg-warning/5"
+        role="status"
+      >
+        <h3 className="text-lg font-semibold text-white mb-1">
+          Payment received, still activating
+        </h3>
+        <p className="text-sm text-foreground leading-relaxed">
+          Activation is taking longer than usual. It should finish within a few
+          minutes. Check your{' '}
+          <Link
+            to="/profile"
+            className="text-primary hover:text-primary/90 underline"
+          >
+            profile
+          </Link>{' '}
+          shortly, or{' '}
+          <Link
+            to="/contact-us"
+            className="text-primary hover:text-primary/90 underline"
+          >
+            contact us
+          </Link>{' '}
+          if it does not update.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      variant="glass"
+      className="mb-6 border border-primary/30 bg-primary/5"
+      role="status"
+    >
+      <div className="flex items-start gap-3">
+        <Spinner inline />
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-1">
+            Payment received, activating Premium
+          </h3>
+          <p className="text-sm text-foreground leading-relaxed">
+            This usually takes a few seconds.
+          </p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Subscription checkout page. Shows the order summary, starts Stripe Checkout,
+ * and handles the success and cancelled returns from Stripe.
  */
 function Checkout() {
-  const { user } = useAuth();
+  const { user, checkAuthStatus } = useAuth();
   const userIsPremium = isPremium(user);
+  const [searchParams] = useSearchParams();
+  const status = searchParams.get('status');
+  const returnedFromSuccess = status === 'success';
+  const returnedFromCancel = status === 'cancelled';
+
+  const [isStartingCheckout, setIsStartingCheckout] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [activationAttempts, setActivationAttempts] = useState(0);
+  const activationTimedOut =
+    !userIsPremium && activationAttempts >= ACTIVATION_MAX_ATTEMPTS;
+
+  useEffect(() => {
+    if (!returnedFromSuccess || userIsPremium) return;
+    if (activationAttempts >= ACTIVATION_MAX_ATTEMPTS) return;
+    let cancelled = false;
+    const timer = window.setTimeout(
+      () => {
+        void (async () => {
+          await checkAuthStatus();
+          if (!cancelled) setActivationAttempts((n) => n + 1);
+        })();
+      },
+      activationAttempts === 0 ? 0 : ACTIVATION_POLL_INTERVAL_MS
+    );
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [returnedFromSuccess, userIsPremium, activationAttempts, checkAuthStatus]);
+
+  const handleSubscribe = async () => {
+    setCheckoutError(null);
+    setIsStartingCheckout(true);
+    try {
+      redirectToBilling(await createCheckoutSession());
+    } catch (err) {
+      setCheckoutError(getCheckoutErrorMessage(err));
+      setIsStartingCheckout(false);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -41,7 +195,36 @@ function Checkout() {
             </p>
           </div>
 
-          {userIsPremium && (
+          {returnedFromSuccess && (
+            <CheckoutSuccessState
+              userIsPremium={userIsPremium}
+              timedOut={activationTimedOut}
+            />
+          )}
+
+          {returnedFromCancel && !userIsPremium && (
+            <Card
+              variant="glass"
+              className="mb-6 border border-white/15"
+              role="status"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 text-muted-foreground flex items-center justify-center flex-shrink-0">
+                  <FaTimesCircle />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-1">
+                    Checkout cancelled
+                  </h3>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    No charge was made. You can subscribe whenever you're ready.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {!returnedFromSuccess && userIsPremium && (
             <Card
               variant="glass"
               className="mb-6 border border-success/30 bg-success/5"
@@ -50,26 +233,20 @@ function Checkout() {
                 <div className="w-10 h-10 rounded-xl bg-success/20 text-success flex items-center justify-center flex-shrink-0">
                   <FaCrown />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h3 className="text-lg font-semibold text-white mb-1">
                     You're already Premium
                   </h3>
-                  <p className="text-sm text-foreground leading-relaxed">
-                    Your subscription is active. Manage it from your{' '}
-                    <Link
-                      to="/profile"
-                      className="text-primary hover:text-primary/90 underline"
-                    >
-                      profile
-                    </Link>
-                    .
+                  <p className="text-sm text-foreground leading-relaxed mb-4">
+                    Your subscription is active. Update your payment method,
+                    view invoices, or cancel from the billing portal.
                   </p>
+                  <ManageSubscriptionButton className="rounded-xl" />
                 </div>
               </div>
             </Card>
           )}
 
-          {/* Plan summary */}
           <Card variant="glass" className="mb-6 animate-slideInUp">
             <h2 className="text-lg font-semibold text-white mb-4">
               Order summary
@@ -102,59 +279,57 @@ function Checkout() {
             </div>
           </Card>
 
-          {/* Payment section — placeholder until provider is wired up */}
-          <Card
-            variant="glass"
-            className="animate-slideInUp"
-            style={{ animationDelay: '0.1s' }}
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <FaLock className="text-muted-foreground" />
-              <h2 className="text-lg font-semibold text-white">Payment</h2>
-            </div>
-
-            <div className="rounded-xl border border-dashed border-white/15 bg-white/5 p-6 text-center">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 mb-3 rounded-full text-xs font-semibold bg-warning/20 text-warning border border-warning/30">
-                Coming soon
+          {!returnedFromSuccess && !userIsPremium && (
+            <Card
+              variant="glass"
+              className="animate-slideInUp"
+              style={{ animationDelay: '0.1s' }}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <FaLock className="text-muted-foreground" />
+                <h2 className="text-lg font-semibold text-white">Payment</h2>
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Payment processing is almost ready
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed mb-4">
-                We're finishing the integration with our payment provider. In
-                the meantime, you can{' '}
-                <Link
-                  to="/support"
-                  className="text-primary hover:text-primary/90 underline"
-                >
-                  support the project directly
-                </Link>{' '}
-                or check back shortly.
-              </p>
-              <Button type="button" disabled className="rounded-xl">
-                <FaCrown />
-                Subscribe for ${PREMIUM_MONTHLY_PRICE_USD.toFixed(2)}/mo
-              </Button>
-            </div>
 
-            <p className="text-xs text-muted-foreground text-center mt-4 leading-relaxed">
-              By subscribing you'll agree to our{' '}
-              <Link
-                to="/terms-of-service"
-                className="text-muted-foreground hover:text-white underline"
-              >
-                Terms of Service
-              </Link>{' '}
-              and{' '}
-              <Link
-                to="/privacy-policy"
-                className="text-muted-foreground hover:text-white underline"
-              >
-                Privacy Policy
-              </Link>
-              . Cancel any time.
-            </p>
-          </Card>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center">
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed mb-4">
+                  You'll finish payment on a secure page hosted by Stripe, then
+                  come straight back here.
+                </p>
+                <Button
+                  type="button"
+                  className="rounded-xl"
+                  loading={isStartingCheckout}
+                  onClick={() => void handleSubscribe()}
+                >
+                  {!isStartingCheckout && <FaCrown />}
+                  Subscribe for ${PREMIUM_MONTHLY_PRICE_USD.toFixed(2)}/mo
+                </Button>
+                {checkoutError && (
+                  <div className="mt-4 text-left">
+                    <ErrorAlert message={checkoutError} />
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center mt-4 leading-relaxed">
+                By subscribing you agree to our{' '}
+                <Link
+                  to="/terms-of-service"
+                  className="text-muted-foreground hover:text-white underline"
+                >
+                  Terms of Service
+                </Link>{' '}
+                and{' '}
+                <Link
+                  to="/privacy-policy"
+                  className="text-muted-foreground hover:text-white underline"
+                >
+                  Privacy Policy
+                </Link>
+                . Cancel any time.
+              </p>
+            </Card>
+          )}
         </div>
       </section>
     </div>

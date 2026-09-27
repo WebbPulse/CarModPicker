@@ -1,8 +1,8 @@
 """The users domain's entrypoint, run as `python -m app.domains.users.entrypoint`.
 
-User accounts and the app settings singleton: 14 routes under `/api/users`
-and `/api/app-settings`. Verifies identity access tokens, so it needs no
-application secret.
+User accounts, the app settings singleton and Stripe billing: routes under
+`/api/users`, `/api/app-settings` and `/api/billing`. Verifies identity access
+tokens, and reads the Stripe keys from the application secret.
 """
 
 from webbpulse.composition import domain_entrypoint

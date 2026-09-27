@@ -148,13 +148,13 @@ locals {
       ]
     }
     users = {
-      secrets     = false
+      secrets     = true
       s3          = true
       s3_upload   = true
       s3_delete   = true
       ses         = false
       memory      = 512
-      tables      = ["users", "app_settings", "rate-limits"]
+      tables      = ["users", "app_settings", "rate-limits", "idempotency"]
       read_tables = ["oauth_accounts"]
     }
   }

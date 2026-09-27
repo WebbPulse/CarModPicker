@@ -22,16 +22,17 @@ lists per-domain counts, and they are asserted individually rather than only in
 aggregate, so a route moving between two domains fails loudly instead of
 cancelling out in the total.
 
-## 152 against 147
+## 155 against 150
 
 Section 2.7 of the plan speaks of 176 routes and section 1.1's per-domain table
 sums to 171. Both were right when they were written, and row 13 of
 `docs/identity-adoption.md` subtracted 24 from each: it deleted the four legacy
 routers under `/api/auth`, which were the whole of the `identity` domain's own
-route list. So the pair is 152 against 147 now, and the difference between them
-is still the five root routes.
+route list, and the three Stripe billing routes then joined `users`. So the pair
+is 155 against 150 now, and the difference between them is still the five root
+routes.
 
-- 147 are the domain routes under `/api`, and each of the nine per-domain counts
+- 150 are the domain routes under `/api`, and each of the nine per-domain counts
   in section 1.1 is exact. `identity` is 0 of them: it still serves `/api/auth`,
   but every route there is the `webbpulse.identity` package's, mounted by
   `app/composition/wiring.py` and not declared by this application.
@@ -39,24 +40,24 @@ is still the five root routes.
   which belong to no domain and which every function serves locally, because the
   Lambda Web Adapter polls `/health` on every cold start and a function that did
   not answer it would never be marked ready.
-- 152 is the sum, and it is what a deployed function's route table has to
+- 155 is the sum, and it is what a deployed function's route table has to
   contain: its own domain's routes plus those five.
 
 FastAPI adds four more of its own on top, which every count in the plan
 excludes: `/docs`, `/docs/oauth2-redirect`, `/redoc` and `/api/openapi.json`.
-So Root A serves 156 routes in total, and the constants below name all three
+So Root A serves 159 routes in total, and the constants below name all three
 numbers so a future reader does not have to re-derive which is which.
 
 ## Counting routes is version dependent
 
-`len(app.routes)` is not that 156 on every supported version, which is why
+`len(app.routes)` is not that 159 on every supported version, which is why
 `_effective_routes` exists. Starlette 1.x, which `pyproject.toml` pins via
 FastAPI 0.141.1, changed `include_router` to store one lazy `_IncludedRouter`
 per included router instead of copying the sub-router's routes into the parent.
-On that version `app.routes` has 30 entries for Root A: the 4 doc routes, the 5
-root routes, and 21 opaque wrappers whose own `path` and `methods` are `None`.
-Walking it naively finds 9 routes and misses all 147. Starlette 0.x flattens on
-include and the same walk finds all 156. Row 13 took four of those wrappers with
+On that version `app.routes` has 31 entries for Root A: the 4 doc routes, the 5
+root routes, and 22 opaque wrappers whose own `path` and `methods` are `None`.
+Walking it naively finds 9 routes and misses all 150. Starlette 0.x flattens on
+include and the same walk finds all 159. Row 13 took four of those wrappers with
 it, one per legacy auth router.
 
 The difference is invisible in the served application: routing and the OpenAPI
@@ -94,14 +95,14 @@ DOCS_ROUTES: Set[Tuple[str, str]] = {
     ("GET", "/api/openapi.json"),
 }
 
-DOMAIN_ROUTE_COUNT = 147
+DOMAIN_ROUTE_COUNT = 150
 ROOT_ROUTE_COUNT = 5
 DEPLOYED_ROUTE_COUNT = DOMAIN_ROUTE_COUNT + ROOT_ROUTE_COUNT
 TOTAL_WITH_DOCS = DEPLOYED_ROUTE_COUNT + len(DOCS_ROUTES)
 
 EXPECTED_DOMAIN_ROUTES = {
     "identity": 0,
-    "users": 13,
+    "users": 16,
     "catalog": 43,
     "vehicles": 11,
     "build-lists": 34,

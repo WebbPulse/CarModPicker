@@ -141,7 +141,7 @@ def gsi(
 
 USERS = TableSpec(
     suffix="users",
-    indexes=(gsi("username_lower"), gsi("email_lower")),
+    indexes=(gsi("username_lower"), gsi("email_lower"), gsi("stripe_customer_id")),
     lowercase_mirrors=(("username", "username_lower"), ("email", "email_lower")),
 )
 
@@ -289,6 +289,12 @@ RATE_LIMITS = TableSpec(
     ttl_attribute="expires_at",
 )
 
+IDEMPOTENCY = TableSpec(
+    suffix="idempotency",
+    partition_key=_s("pk"),
+    ttl_attribute="expires_at",
+)
+
 
 TABLES: tuple[TableSpec, ...] = (
     USERS,
@@ -317,6 +323,7 @@ TABLES: tuple[TableSpec, ...] = (
     IMAGE_SOURCE_MAPPINGS,
     APP_SETTINGS,
     RATE_LIMITS,
+    IDEMPOTENCY,
 )
 
 
