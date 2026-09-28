@@ -8,7 +8,11 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 
 import AdBanner from './components/ads/AdBanner';
 import AdColumnSpacer from './components/ads/AdColumnSpacer';
-import { ADSENSE_CLIENT_ID } from './components/ads/adsenseConfig';
+import {
+  ADSENSE_CLIENT_ID,
+  ADSENSE_SLOT_LEFT,
+  ADSENSE_SLOT_RIGHT,
+} from './components/ads/adsenseConfig';
 import Footer from './components/layout/globalFooter/Footer.tsx';
 import Header from './components/layout/globalHeader/Header.tsx';
 import EmailVerifiedRoute from './components/routes/EmailVerifiedRoute.tsx';
@@ -176,10 +180,7 @@ function App() {
               <AdBanner
                 key={`left-${location.pathname}`}
                 side="left"
-                slotId={
-                  import.meta.env['VITE_ADSENSE_SLOT_LEFT'] as
-                    string | undefined
-                }
+                slotId={ADSENSE_SLOT_LEFT}
               />
             ) : (
               <AdColumnSpacer side="left" />
@@ -340,10 +341,7 @@ function App() {
               <AdBanner
                 key={`right-${location.pathname}`}
                 side="right"
-                slotId={
-                  import.meta.env['VITE_ADSENSE_SLOT_RIGHT'] as
-                    string | undefined
-                }
+                slotId={ADSENSE_SLOT_RIGHT}
               />
             ) : (
               <AdColumnSpacer side="right" />
