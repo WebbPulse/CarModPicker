@@ -357,6 +357,26 @@ def test_payment_failed_reads_subscription_from_invoice_parent(
     assert stored.subscription_status == "expired"
 
 
+def test_failed_renewal_drops_premium_right_away(
+    client: TestClient, premium_test_user: User, gateway: FakeGateway, stripe_env: None
+) -> None:
+    """A failed renewal leaves the subscription past_due, which ends premium at once."""
+    UserRepository().update_user(premium_test_user.id, stripe_customer_id="cus_past_due")
+    gateway.subscriptions["sub_7"] = _subscription("sub_7", "cus_past_due", "past_due")
+
+    response = _deliver(
+        client,
+        "invoice.payment_failed",
+        {"id": "in_2", "object": "invoice", "customer": "cus_past_due", "subscription": "sub_7"},
+    )
+
+    assert response.status_code == 200
+    assert gateway.retrieved == ["sub_7"]
+    stored = _reload(premium_test_user)
+    assert stored.subscription_tier == "free"
+    assert stored.subscription_status == "expired"
+
+
 def test_duplicate_delivery_is_applied_once(
     client: TestClient, test_user: User, gateway: FakeGateway, stripe_env: None
 ) -> None:
@@ -420,9 +440,10 @@ def test_unknown_customer_is_acknowledged(client: TestClient, gateway: FakeGatew
     [
         ("active", "premium", "active"),
         ("trialing", "premium", "active"),
-        ("past_due", "premium", "active"),
+        ("past_due", "free", "expired"),
         ("canceled", "free", "cancelled"),
         ("unpaid", "free", "expired"),
+        ("incomplete", "free", "expired"),
         ("incomplete_expired", "free", "expired"),
     ],
 )

@@ -358,21 +358,6 @@ PROTECTED_ROUTES = (
 )
 
 
-def pytest_e2e_expected_unavailable(env: Any) -> dict[tuple[str, str], str]:
-    """Routes that answer a deliberate 503 until Stripe is configured on the stage.
-
-    The Stripe webhook refuses every delivery with `STRIPE_NOT_CONFIGURED` while the
-    stage's app secret lacks `STRIPE_WEBHOOK_SECRET`, and the local stack carries no
-    Stripe keys at all. Remove the entry once the secret is set: the plugin fails it as
-    stale as soon as the route stops answering that 503.
-    """
-    return {
-        ("POST", "/api/billing/stripe/webhook"): (
-            "STRIPE_NOT_CONFIGURED: STRIPE_WEBHOOK_SECRET is not set in the app secret yet"
-        ),
-    }
-
-
 def pytest_e2e_login_form(env: Any) -> LoginForm:
     """Where CarModPicker's login form lives and which elements prove the state changed.
 

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 PREMIUM_PRICE_LOOKUP_KEY = "premium_monthly"
 
-PREMIUM_STRIPE_STATUSES = frozenset({"active", "trialing", "past_due"})
+PREMIUM_STRIPE_STATUSES = frozenset({"active", "trialing"})
 
 SUBSCRIPTION_EVENTS = frozenset(
     {
