@@ -48,12 +48,13 @@ def _identity_unprefixed_routers(settings: "Any") -> "Sequence[APIRouter]":
 
 
 def _users_routers() -> "Sequence[RouterSpec]":
-    """The user account router and the app settings singleton router."""
-    from app.domains.users.endpoints import app_settings, users
+    """The user account, app settings and billing routers."""
+    from app.domains.users.endpoints import app_settings, billing, users
 
     return [
         (users.router, "/users", ("users",)),
         (app_settings.router, "/app-settings", ("app-settings",)),
+        (billing.router, "/billing", ("billing",)),
     ]
 
 

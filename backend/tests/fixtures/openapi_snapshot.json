@@ -161,6 +161,20 @@
         "title": "AppSettingsUpdate",
         "type": "object"
       },
+      "BillingSessionRead": {
+        "description": "A hosted Stripe page the browser is redirected to.",
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "BillingSessionRead",
+        "type": "object"
+      },
       "Body_upload_image_api_images_upload_post": {
         "properties": {
           "file": {
@@ -4804,6 +4818,30 @@
         "title": "SetPrimaryImageRequest",
         "type": "object"
       },
+      "StripeWebhookAck": {
+        "description": "The acknowledgement returned to Stripe for a webhook delivery.",
+        "properties": {
+          "duplicate": {
+            "default": false,
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "handled": {
+            "title": "Handled",
+            "type": "boolean"
+          },
+          "received": {
+            "default": true,
+            "title": "Received",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "handled"
+        ],
+        "title": "StripeWebhookAck",
+        "type": "object"
+      },
       "UserRead": {
         "description": "A user account as returned to its owner.",
         "properties": {
@@ -5636,6 +5674,160 @@
         "summary": "Update App Settings",
         "tags": [
           "app-settings"
+        ]
+      }
+    },
+    "/api/billing/checkout-session": {
+      "post": {
+        "description": "Start a Stripe Checkout for the premium monthly plan and return its URL.",
+        "operationId": "create_checkout_session_api_billing_checkout_session_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingSessionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "409": {
+            "description": "The request conflicts with the user's billing state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed."
+          },
+          "502": {
+            "description": "Stripe rejected the request"
+          },
+          "503": {
+            "description": "Stripe is not configured on this stage"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Checkout Session",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/billing/portal-session": {
+      "post": {
+        "description": "Open a Stripe Customer Portal session for the current user and return its URL.",
+        "operationId": "create_portal_session_api_billing_portal_session_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingSessionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "409": {
+            "description": "The request conflicts with the user's billing state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed."
+          },
+          "502": {
+            "description": "Stripe rejected the request"
+          },
+          "503": {
+            "description": "Stripe is not configured on this stage"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Portal Session",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/billing/stripe/webhook": {
+      "post": {
+        "description": "Receive a signed Stripe event and sync the subscription it concerns onto the user.",
+        "operationId": "stripe_webhook_api_billing_stripe_webhook_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Stripe-Signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stripe-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripeWebhookAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "The delivery's signature did not verify"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed."
+          },
+          "503": {
+            "description": "Stripe is not configured on this stage"
+          }
+        },
+        "summary": "Stripe Webhook",
+        "tags": [
+          "billing"
         ]
       }
     },

@@ -449,3 +449,25 @@ def test_the_ephemeral_group_is_gated_on_the_same_flag_as_the_lambda() -> None:
     assert re.search(r"^\s*default\s*=\s*false\s*$", block, re.MULTILINE), (
         "var.ephemeral_users_enabled must default to false: only the staging workspace mounts the ephemeral routes."
     )
+
+
+WEBHOOK_ENTRY = re.compile(
+    r'"(?P<key>POST /[^"]*)"\s*=\s*\{\s*integration\s*=\s*"(?P<integration>[^"]+)"\s*,'
+    r'\s*authorization_type\s*=\s*"(?P<authorization>[^"]+)"\s*\}'
+)
+
+
+def test_the_stripe_webhook_is_open_and_anonymous() -> None:
+    """The webhook key bypasses the access gate and the app serves it without a caller."""
+    block = _block(_strip_comments(_terraform_source()), "public_webhook_route_keys")
+    entries = {
+        m.group("key"): (m.group("integration"), m.group("authorization")) for m in WEBHOOK_ENTRY.finditer(block)
+    }
+    assert entries == {"POST /api/billing/stripe/webhook": ("users", "NONE")}
+    for method, path, names in _application_routes():
+        if _route_key(method, path) == "POST /api/billing/stripe/webhook":
+            assert not names & REQUIRES_CALLER
+            break
+    else:
+        raise AssertionError("the application serves no POST /api/billing/stripe/webhook")
+    assert "local.public_webhook_route_keys" in _terraform_source()

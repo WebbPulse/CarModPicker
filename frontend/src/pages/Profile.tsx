@@ -6,6 +6,7 @@ import ImageUpload from '../components/forms/ImageUpload';
 import Divider from '../components/layout/Divider';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
+import ManageSubscriptionButton from '../components/billing/ManageSubscriptionButton';
 import SecuritySettingsDialog from '../components/profile/SecuritySettingsDialog';
 import { ConfirmationAlert, ErrorAlert } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -17,10 +18,12 @@ import useApiRequest from '../hooks/UseApiRequest';
 import { useAuth } from '../hooks/useAuth';
 import { apiClient } from '../api/client';
 import type { UserRead, UserUpdate } from '../types/Api';
+import { isPremium } from '../utils/subscription';
 
 /**
  * The signed in user's own profile, with inline editing for their details,
- * avatar, and social links, plus access to security settings.
+ * avatar, and social links, plus access to security settings and, for
+ * subscribers, the billing portal.
  */
 function Profile() {
   const navigate = useNavigate();
@@ -370,6 +373,29 @@ function Profile() {
           </Button>
         </div>
       </Card>
+
+      {isPremium(user) && (
+        <Card className="mt-8">
+          <SectionHeader title="Subscription" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <CardInfoItem label="Plan">
+              <p>Premium</p>
+            </CardInfoItem>
+            {user.subscription_expires_at && (
+              <CardInfoItem label="Current period ends">
+                <p>
+                  {new Date(user.subscription_expires_at).toLocaleDateString()}
+                </p>
+              </CardInfoItem>
+            )}
+          </div>
+          <p className="text-muted-foreground text-sm mb-4">
+            Update your payment method, view invoices, or cancel from the
+            billing portal.
+          </p>
+          <ManageSubscriptionButton />
+        </Card>
+      )}
 
       <Card className="mt-8">
         <SectionHeader title="Social Links" />

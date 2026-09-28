@@ -77,6 +77,25 @@ class TestUsersDomain:
         assert readback.json()["youtube_url"] == marker
 
 
+class TestStripeWebhook:
+    """The Stripe webhook refuses a delivery whose signature does not verify."""
+
+    @pytest.mark.parametrize(
+        "headers",
+        [{}, {"Stripe-Signature": "t=1,v1=0000"}],
+        ids=["unsigned", "badly-signed"],
+    )
+    def test_unverified_delivery_is_rejected(self, anon: Any, headers: dict[str, str]) -> None:
+        """An unsigned or badly signed delivery answers 400, which also proves the stage has the signing secret."""
+        response = anon.post(
+            "/api/billing/stripe/webhook",
+            json={"id": "evt_e2e_unverified", "type": "customer.subscription.updated"},
+            headers=headers,
+        )
+        assert response.status_code == 400, response.text[:400]
+        assert response.json().get("error_code") == "STRIPE_SIGNATURE_INVALID", response.text[:400]
+
+
 class TestBuildListsDomain:
     """The build lists domain: create, read back and delete a build list."""
 

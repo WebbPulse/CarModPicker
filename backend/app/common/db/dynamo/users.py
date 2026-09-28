@@ -55,6 +55,7 @@ class User(TimestampedDynamoModel):
     subscription_tier: str = "free"
     subscription_expires_at: datetime | None = None
     subscription_status: str = "active"
+    stripe_customer_id: str | None = None
     totp_enabled: bool = False
     session_expire_minutes: int | None = None
     instagram_url: str | None = None
@@ -124,6 +125,11 @@ class UserRepository(DynamoRepository[User]):
     def get_by_email(self, email: str) -> User | None:
         """The user with this email, matched case insensitively."""
         page = self.query("email_lower-index", email.lower(), limit=1)
+        return page.items[0] if page.items else None
+
+    def get_by_stripe_customer_id(self, customer_id: str) -> User | None:
+        """The user linked to this Stripe customer, or None."""
+        page = self.query("stripe_customer_id-index", customer_id, limit=1)
         return page.items[0] if page.items else None
 
     def get_many(self, user_ids: list[UUID]) -> dict[UUID, User]:

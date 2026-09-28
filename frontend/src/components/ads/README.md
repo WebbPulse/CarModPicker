@@ -4,20 +4,21 @@ Banner ads render in the left and right margins on every page. They are global (
 
 ## Development (no slot IDs)
 
-Without slot env vars set, placeholder boxes are shown so layout is correct. The AdSense loader script still loads after cookie consent (needed for site verification), but no ads render.
+While `ADSENSE_SLOT_LEFT` or `ADSENSE_SLOT_RIGHT` in `adsenseConfig.ts` is empty, that side shows a placeholder box so layout is correct. The AdSense loader script still loads after cookie consent (needed for site verification), but no ads render there.
 
 ## Configuring Google AdSense
 
-1. **Publisher ID** is hardcoded in `adsenseConfig.ts` as `ADSENSE_CLIENT_ID`. Update that constant if the publisher changes.
+All three ids are public and live as constants in `adsenseConfig.ts`; none of them is read from the environment.
+
+1. **Publisher ID** is `ADSENSE_CLIENT_ID`. Update that constant if the publisher changes.
 
 2. **Create ad units** in the AdSense UI (e.g. "Display" → "Responsive" or "Fixed"). Note the **slot IDs** for left and right (e.g. `1234567890`).
 
-3. **Env vars** (in `frontend/.env` or your deploy env):
+3. **Slot IDs** go in `ADSENSE_SLOT_LEFT` and `ADSENSE_SLOT_RIGHT`.
 
-   - `VITE_ADSENSE_SLOT_LEFT` = slot ID for the left sidebar
-   - `VITE_ADSENSE_SLOT_RIGHT` = slot ID for the right sidebar
+4. Rebuild the frontend. Real ads will load in the sidebars; remounting on route change requests new ads as intended for SPAs.
 
-4. Rebuild/restart the frontend. Real ads will load in the sidebars; remounting on route change requests new ads as intended for SPAs.
+5. **ads.txt** is served from `frontend/public/ads.txt` and must list the publisher ID.
 
 ## Policy note
 

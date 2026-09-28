@@ -317,6 +317,8 @@ jobs:
           "IDENTITY_OAUTH_REDIRECT_URIS": "[\"http://127.0.0.1:8000/api/auth/oauth/callback\"]",
           "OAUTH_GOOGLE_CLIENT_SECRET": "local-stack-google-client-secret",
           "OAUTH_GITHUB_CLIENT_SECRET": "local-stack-github-client-secret",
+          "STRIPE_API_KEY": "rk_test_e2e_local_stack",
+          "STRIPE_WEBHOOK_SECRET": "whsec_e2e_local_stack",
           "E2E_USER_EMAIL": "e2e-local-user@carmodpicker.com",
           "E2E_USER_PASSWORD": "E2eLocalStackPassw0rd"
         }

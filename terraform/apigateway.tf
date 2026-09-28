@@ -16,7 +16,7 @@ locals {
     build-lists = ["/api/build-lists", "/api/build-list-parts", "/api/build-list-phases", "/api/build-list-labor-estimates"]
     identity    = ["/api/auth"]
     catalog     = ["/api/parts", "/api/part-manufacturers", "/api/categories", "/api/retailers"]
-    users       = ["/api/users", "/api/app-settings"]
+    users       = ["/api/users", "/api/app-settings", "/api/billing"]
   }
 
   lambda_domain_generated_route_keys = merge([
@@ -151,6 +151,8 @@ locals {
 
     users = [
       "PUT /api/app-settings",
+      "POST /api/billing/checkout-session",
+      "POST /api/billing/portal-session",
       "GET /api/users/admin/users",
       "PUT /api/users/admin/users/{user_id}",
       "DELETE /api/users/admin/users/{user_id}",
@@ -176,6 +178,10 @@ locals {
     "GET /api/bug-reports/count" = { integration = "moderation" }
   }
 
+  public_webhook_route_keys = {
+    "POST /api/billing/stripe/webhook" = { integration = "users", authorization_type = "NONE" }
+  }
+
   sitemap_child_names = ["static", "parts", "cars", "build-lists"]
 
   sitemap_route_keys = merge(
@@ -192,6 +198,7 @@ locals {
     local.ephemeral_users_route_keys,
     local.domain_identity_jwt_route_keys,
     local.domain_anonymous_guard_route_keys,
+    local.public_webhook_route_keys,
     local.sitemap_route_keys,
   )
 }

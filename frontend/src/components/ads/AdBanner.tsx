@@ -63,7 +63,7 @@ function SingleAd({
           data-ad-client={clientId}
           data-ad-slot={slotId}
           data-ad-format="auto"
-          data-full-width-responsive="false"
+          data-full-width-responsive="true"
         />
       ) : (
         <div
