@@ -1,6 +1,7 @@
 {
   "name": "carmodpicker-chrome-extension",
   "version": "1.0.0",
+  "license": "UNLICENSED",
   "description": "CarModPicker browser companion extension",
   "type": "module",
   "scripts": {
