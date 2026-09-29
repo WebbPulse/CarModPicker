@@ -4,7 +4,7 @@ A web app for tracking car modifications. Users manage cars and build lists, att
 
 **Stack:** FastAPI (Python 3.13) · React 19 (TypeScript) · DynamoDB · AWS (Lambda container images + HTTP API), with Terraform for infrastructure.
 
-**License:** MIT
+**License:** [PolyForm Strict License 1.0.0](LICENSE)
 
 ---
 

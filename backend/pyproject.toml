@@ -2,6 +2,7 @@
 name = "carmodpicker-backend"
 version = "0"
 requires-python = ">=3.13"
+license = "LicenseRef-PolyForm-Strict-1.0.0"
 dependencies = [
   "webbpulse[fastapi,otel,dynamodb,aws-otel,security,identity,oauth,passkeys,stripe]>=0.60.0,<1",
   "fastapi>=0.141.1",

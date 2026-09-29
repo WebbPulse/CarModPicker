@@ -1,6 +1,7 @@
 {
   "name": "@carmodpicker/email-templates",
   "version": "1.0.0",
+  "license": "UNLICENSED",
   "private": true,
   "description": "React Email templates for CarModPicker transactional emails",
   "scripts": {
