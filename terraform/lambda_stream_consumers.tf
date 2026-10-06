@@ -143,7 +143,7 @@ locals {
 module "lambda_stream_consumer" {
   for_each = local.lambda_stream_consumers
 
-  source  = "app.terraform.io/WebbPulse/platform-modules/aws//modules/lambda-function"
+  source  = "terraform.webbpulse.com/WebbPulse/platform-modules/aws//modules/lambda-function"
   version = "~> 2.1"
 
   function_name = "${local.prefix}-${each.key}"
