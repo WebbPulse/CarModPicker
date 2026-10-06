@@ -13,6 +13,7 @@ cleanup hook a delete path rather than leaving the row for the next run's stale 
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -54,13 +55,27 @@ def _seed_category_id(api: Any) -> str:
     return str(items[0]["id"])
 
 
+BUILD_LIST_CAP_GROUP = "free-build-list-cap"
+"""The xdist group of every flow that creates a build list for the shared free e2e user.
+
+A free account may hold one build list, so these flows run one after another on one
+worker and each deletes its build list at teardown before the next one creates its own.
+"""
+
+
 @pytest.fixture
-def build_list(api: Any, e2e_env: Any, track: Any) -> dict[str, Any]:
-    """A build list this run owns, shared by the build lists, build logs and votes flows."""
+def build_list(api: Any, e2e_env: Any, track: Any) -> Iterator[dict[str, Any]]:
+    """A build list this test owns, shared by the build lists, build logs and votes flows.
+
+    It is deleted at teardown rather than left for the end sweep, so the free plan's one
+    build list cap is free again for the next flow in `BUILD_LIST_CAP_GROUP`.
+    """
     body = {"name": _name(e2e_env, "build-list"), "car_id": _seed_car_id(api)}
     created = _created(api.post("/api/build-lists", json=body), "build list")
-    track(f"/api/build-lists/{created['id']}")
-    return created
+    path = track(f"/api/build-lists/{created['id']}")
+    yield created
+    deleted = api.delete(path)
+    assert deleted.status_code in (200, 204, 404), deleted.text[:400]
 
 
 class TestUsersDomain:
@@ -99,6 +114,7 @@ class TestStripeWebhook:
 class TestBuildListsDomain:
     """The build lists domain: create, read back and delete a build list."""
 
+    @pytest.mark.xdist_group(BUILD_LIST_CAP_GROUP)
     def test_build_list_round_trips(self, api: Any, e2e_env: Any, build_list: dict[str, Any]) -> None:
         """The created build list reads back by id and then deletes."""
         identifier = build_list["id"]
@@ -155,6 +171,7 @@ class TestCatalogDomain:
 class TestBuildLogsDomain:
     """The build logs domain: a post on this run's own build list."""
 
+    @pytest.mark.xdist_group(BUILD_LIST_CAP_GROUP)
     def test_build_log_post_round_trips(self, api: Any, e2e_env: Any, build_list: dict[str, Any], track: Any) -> None:
         """A post created on a build list appears in that list's log and then deletes."""
         list_id = build_list["id"]
@@ -177,6 +194,7 @@ class TestBuildLogsDomain:
 class TestModerationDomain:
     """The moderation domain: a vote on this run's own build list."""
 
+    @pytest.mark.xdist_group(BUILD_LIST_CAP_GROUP)
     def test_vote_round_trips(self, api: Any, build_list: dict[str, Any]) -> None:
         """An upvote is recorded against the entity, shows in the tallies and then withdraws.
 
