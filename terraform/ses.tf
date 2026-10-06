@@ -1,5 +1,5 @@
 module "ses" {
-  source  = "app.terraform.io/WebbPulse/platform-modules/aws//modules/ses-identity"
+  source  = "terraform.webbpulse.com/WebbPulse/platform-modules/aws//modules/ses-identity"
   version = "~> 2.27"
 
   configuration_set_name = "carmodpicker-transactional"

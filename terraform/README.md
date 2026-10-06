@@ -1,14 +1,14 @@
 # Terraform: CarModPicker AWS Infrastructure
 
-One root module, applied by two HCP Terraform workspaces in the `WebbPulse` organization:
+One root module, applied by two workspaces on the WebbPulse control plane at `terraform.webbpulse.com`:
 
 | Workspace | AWS account | VCS branch | `environment` | `staging_profile` |
 | --- | --- | --- | --- | --- |
 | `CarModPicker` | 734702670403 | `main` | `production` | n/a |
 | `CarModPicker-staging` | 748861776298 | `staging` | `staging` | `full` or `reduced` |
 
-The `cloud` block in `versions.tf` names `CarModPicker`; the staging workspace overrides it.
-State lives in HCP Terraform and AWS credentials come from HCP dynamic provider credentials, so the local checkout needs none.
+There is no backend block: the control plane's runner writes an S3 backend for each run, keyed by workspace id. AWS credentials come from the workspace's run role, so the local checkout needs none.
+`required_version` is pinned to the workspace's exact engine version; change both together.
 
 **Manual apply is the real gate on production.** A merge to `main` cannot change AWS by itself: it queues a run, and someone has to confirm the apply.
 
@@ -16,7 +16,7 @@ State lives in HCP Terraform and AWS credentials come from HCP dynamic provider 
 
 Single region, `us-west-2`. Route 53 and ACM for the served domain, CloudFront and S3 for the SPA, an HTTP API in front of nine per-domain Lambda container images plus stream consumers, DynamoDB tables, SQS queues, S3 for user images and crawl data, SES, Secrets Manager, CloudWatch alarms and X-Ray Transaction Search. The CloudFront certificate is issued in `us-east-1` through the `aws.us_east_1` alias; the API certificate is regional. There is no VPC and no NAT Gateway.
 
-Most of the stack comes from `app.terraform.io/WebbPulse/platform-modules/aws` submodules: `staging-dns`, `http-api`, `staging-access-gate`, `spa-frontend`, `ecr-repository`, `lambda-function`, `app-secrets`, `identity` and `github-actions-role`. Hand written is what a single-provider module cannot own: the ACM certificates, the CloudFront Function, and the SES records.
+Most of the stack comes from `terraform.webbpulse.com/WebbPulse/platform-modules/aws` submodules: `staging-dns`, `http-api`, `staging-access-gate`, `spa-frontend`, `ecr-repository`, `lambda-function`, `app-secrets`, `identity` and `github-actions-role`. Hand written is what a single-provider module cannot own: the ACM certificates, the CloudFront Function, and the SES records.
 
 ## File map
 
@@ -51,7 +51,7 @@ Each value lives in exactly one of four places.
 | Where | What |
 | --- | --- |
 | `env/<environment>.tfvars`, committed | Non-secret config: `bootstrap_image_tag`, `identity_jwt_mode`, `domain_jwt_enforced`, the passkey flags, the OAuth client ids, `ephemeral_users_enabled` (staging), `aws_region` and `adopt_spans_log_group` (production). WebbPulse-Platform loads the file on every plan through the workspace's `TF_CLI_ARGS_plan` env var, and a `-var-file` value beats a workspace variable of the same name. |
-| HCP workspace variables pushed by WebbPulse-Platform | `environment`, `staging_profile`, and on staging `parent_route53_zone_id`, `route53_write_role_arn`, `route53_read_role_arn` (assumed instead of the writer when the control plane exports `webbpulse_run_phase=plan`), `staging_access_gate`, `staging_access_users`. Never repeat these in a tfvars file. Production's `environment` is still set by hand on the workspace until Platform manages its variables. |
+| Workspace variables pushed by WebbPulse-Platform | `environment`, `staging_profile`, and on staging `parent_route53_zone_id`, `route53_write_role_arn`, `route53_read_role_arn` (assumed instead of the writer when the control plane exports `webbpulse_run_phase=plan`), `staging_access_gate`, `staging_access_users`. Never repeat these in a tfvars file. Production's `environment` is still set by hand on the workspace until Platform manages its variables. |
 | `<prefix>/app` Secrets Manager JSON secret | `SECRET_KEY`, `EXTENSION_API_KEY`, `OAUTH_GOOGLE_CLIENT_SECRET`, `OAUTH_GITHUB_CLIENT_SECRET`, set by an operator with `webbpulse-config --prefix <prefix> secret set <KEY>`. Terraform declares only the generated `mfa_master_key` and keeps every other live key (`json_preserve_unmanaged`). An empty or absent `EXTENSION_API_KEY` means `POST /api/parts/price-history` accepts admin bearer tokens only; an OAuth client id with no secret is a provider that is not advertised. |
 | `/<prefix>/config` SSM String parameter | Private non-secret config as a JSON object, owned by an operator and read by the `operator-config` module: `ses_verified_recipients`, the SES sandbox recipient identities. Change it with `aws ssm put-parameter --overwrite` carrying the whole object; the next plan follows it. |
 
@@ -96,7 +96,7 @@ terraform fmt -check -recursive terraform/
 cd terraform && terraform init -backend=false && terraform validate
 ```
 
-`terraform plan` runs in HCP on push.
+`terraform plan` runs on the control plane: plan-only on a pull request, and a plan held for confirmation on a push to the workspace's branch. `terraform init` needs `terraform login terraform.webbpulse.com` for the module registry.
 
 ## Teardown notes
 
