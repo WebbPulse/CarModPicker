@@ -6,7 +6,8 @@ than run. This document is now the record of what was done, not a plan of
 pending work.
 
 The concrete step list for promoting `staging` to `main` and into the
-production workspace `ws-oh1VvpTBPxmcrSYD`.
+production workspace `CarModPicker` on the owned control plane
+(`ws-01M3KGVWPWD5SGCD6SXVCKT0XB`).
 
 **This document is the single authority on this promotion.** An earlier
 `docs/prod-promotion-runbook.md`, written 2026-09-10, was superseded on ordering
@@ -168,11 +169,7 @@ restore. Delete it at step 17.
 
 Record the current variable state for the rollback:
 
-    T=$(jq -r '.credentials["app.terraform.io"].token' ~/.terraform.d/credentials.tfrc.json)
-    curl -s -H "Authorization: Bearer $T" \
-      https://app.terraform.io/api/v2/workspaces/ws-oh1VvpTBPxmcrSYD/vars \
-      | jq -r '.data[] | select(.attributes.sensitive == false)
-               | "\(.attributes.key)=\(.attributes.value)"'
+    cat terraform/env/production.tfvars
 
 Confirm `identity_jwt_mode` and `domain_jwt_enforced` are absent. If
 `identity_jwt_mode=native` prints, stop: any queued run fails at
@@ -192,10 +189,7 @@ still exists before any apply that creates a Lambda.
 does resolve today. Confirm rather than assume:
 
     export AWS_PROFILE=CarModPicker-Production/AdministratorAccess AWS_REGION=us-west-2
-    T=$(jq -r '.credentials["app.terraform.io"].token' ~/.terraform.d/credentials.tfrc.json)
-    TAG=$(curl -s -H "Authorization: Bearer $T" \
-      https://app.terraform.io/api/v2/workspaces/ws-oh1VvpTBPxmcrSYD/vars \
-      | jq -r '.data[] | select(.attributes.key=="bootstrap_image_tag") | .attributes.value')
+    TAG=$(sed -n 's/^bootstrap_image_tag *= *"\(.*\)"/\1/p' terraform/env/production.tfvars)
     echo "$TAG"
     for d in identity users catalog build-lists media build-logs moderation vehicles admin; do
       printf '%-12s ' "$d"
@@ -437,11 +431,7 @@ Owner present. **This is a release and a one-way authentication cutover.**
 
 Re-confirm both JWT variables are still absent:
 
-    T=$(jq -r '.credentials["app.terraform.io"].token' ~/.terraform.d/credentials.tfrc.json)
-    curl -s -H "Authorization: Bearer $T" \
-      https://app.terraform.io/api/v2/workspaces/ws-oh1VvpTBPxmcrSYD/vars \
-      | jq -r '.data[].attributes | select(.key=="identity_jwt_mode" or .key=="domain_jwt_enforced")
-               | "\(.key)=\(.value)"'
+    grep -E '^(identity_jwt_mode|domain_jwt_enforced)' terraform/env/production.tfvars
 
 Expect no output.
 
@@ -476,15 +466,11 @@ Confirm the tag landed in all nine repositories, then set it:
 **Gate: all nine print a timestamp.** A `MISSING` means the first apply fails
 partway at `CreateFunction`. Do not proceed.
 
-    T=$(jq -r '.credentials["app.terraform.io"].token' ~/.terraform.d/credentials.tfrc.json)
-    VAR_ID=$(curl -s -H "Authorization: Bearer $T" \
-      https://app.terraform.io/api/v2/workspaces/ws-oh1VvpTBPxmcrSYD/vars \
-      | jq -r '.data[] | select(.attributes.key=="bootstrap_image_tag") | .id')
-    curl -s -X PATCH -H "Authorization: Bearer $T" \
-      -H "Content-Type: application/vnd.api+json" \
-      -d "{\"data\":{\"id\":\"$VAR_ID\",\"type\":\"vars\",\"attributes\":{\"value\":\"sha-$MERGE_SHA\"}}}" \
-      "https://app.terraform.io/api/v2/workspaces/ws-oh1VvpTBPxmcrSYD/vars/$VAR_ID" \
-      | jq -r '.data.attributes | "\(.key)=\(.value)"'
+    sed -i "s/^bootstrap_image_tag *=.*/bootstrap_image_tag = \"sha-$MERGE_SHA\"/" \
+      terraform/env/production.tfvars
+
+Land that change through a PR into `staging` and promote it, so the next plane
+run picks it up.
 
 The frontend deploy that follows the merge ships the identity-only bundle. **No
 `AUTH_MODE` GitHub variable is needed and none should be set**: row 13 made
@@ -585,13 +571,11 @@ Otherwise roll back before touching the gateway.
 
 Owner present for the apply.
 
-    T=$(jq -r '.credentials["app.terraform.io"].token' ~/.terraform.d/credentials.tfrc.json)
-    curl -s -X POST -H "Authorization: Bearer $T" \
-      -H "Content-Type: application/vnd.api+json" \
-      -d '{"data":{"type":"vars","attributes":{
-            "key":"identity_jwt_mode","value":"native","category":"terraform","sensitive":false,
-            "description":"Native API Gateway JWT authorizer. Requires the identity function to be deployed and already serving discovery and JWKS at the production API host, because CreateAuthorizer fetches both synchronously at create time."}}}' \
-      https://app.terraform.io/api/v2/workspaces/ws-oh1VvpTBPxmcrSYD/vars
+    identity_jwt_mode = "native"
+
+Add that line to `terraform/env/production.tfvars`. It needs the identity
+function deployed and already serving discovery and JWKS at the production API
+host, because `CreateAuthorizer` fetches both synchronously at create time.
 
 The validation in `variables.tf` refuses `native` when `environment` is
 `staging`, so this value is only ever valid on this workspace. Staging uses
@@ -652,16 +636,11 @@ valid one. **Owner:** not required.
 Owner present for the apply. **Run this at a quiet hour**, not alongside a
 frontend deploy.
 
-    T=$(jq -r '.credentials["app.terraform.io"].token' ~/.terraform.d/credentials.tfrc.json)
-    curl -s -X POST -H "Authorization: Bearer $T" \
-      -H "Content-Type: application/vnd.api+json" \
-      -d '{"data":{"type":"vars","attributes":{
-            "key":"domain_jwt_enforced","value":"true","category":"terraform","sensitive":false,
-            "description":"Require an identity access token at the gateway on the 80 domain route keys that need an authenticated caller. The keys exist and are inert either way."}}}' \
-      https://app.terraform.io/api/v2/workspaces/ws-oh1VvpTBPxmcrSYD/vars
+    domain_jwt_enforced = true
 
-The description text above is the one to paste when the variable is created:
-the keys exist and are inert either way, and the flip is only safe once the
+Add that line to `terraform/env/production.tfvars`.
+
+The keys exist and are inert either way, and the flip is only safe once the
 deployed frontend sends identity tokens.
 
 **This is not Portfolio's 0/1/0, and it is not staging's shape either.** In
@@ -927,7 +906,7 @@ expected outcome and means nothing is needed.
 
 ## Do not do
 
-- **Do not save plan JSON to disk.** HCP plan `json-output` includes sensitive
+- **Do not save plan JSON to disk.** Plan `json-output` includes sensitive
   variable values in plaintext. Fetch it only through a `jq` filter, never
   redirect it to a file, and tell any subagent the same.
 - **Do not call `get-secret-value` or `batch-get-secret-value`** on
