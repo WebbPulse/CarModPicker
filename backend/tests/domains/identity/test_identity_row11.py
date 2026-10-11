@@ -42,7 +42,7 @@ and the staging access gate module's own tests. This file starts from the event
 those produce.
 
 **Not the JWKS fetch.** In-process verification on a domain function now runs
-through `webbpulse.identity.JwksVerifier`, which fetches the issuer's published
+through `webbpulse.identity.cached_verifier`, a `JwksVerifier` that fetches the issuer's published
 key set over HTTPS. Whether that verifier accepts or refuses a given token is
 the package's own test. What is tested here is the branch this application
 makes: which verifier it picks from the environment, and that every way
@@ -144,7 +144,7 @@ def identity_user(db_session: Any, dynamo_tables: Any) -> User:
 
 
 class _StubVerifier:
-    """Stands in for `JwksVerifier`, returning the claims it was built with or raising."""
+    """Stands in for the `JwksVerifier` that `cached_verifier` returns, answering claims or raising."""
 
     def __init__(self, outcome: Any) -> None:
         """Hold the claim set to return, or the exception to raise."""
@@ -226,8 +226,8 @@ def test_a_domain_function_verifies_through_the_jwks_verifier(monkeypatch: pytes
     monkeypatch.setattr(app_settings, "IDENTITY_AUDIENCE", AUDIENCE)
     monkeypatch.delenv("IDENTITY_SIGNING_KEY_ARNS", raising=False)
     monkeypatch.setattr(
-        "webbpulse.identity.JwksVerifier",
-        lambda **kwargs: _StubVerifier({"sub": subject}),
+        "webbpulse.identity.cached_verifier",
+        lambda *args, **kwargs: _StubVerifier({"sub": subject}),
     )
 
     assert verify_bearer_subject(_request(authorization="Bearer good-token")) == subject
@@ -241,8 +241,8 @@ def test_a_bad_token_on_a_domain_function_is_anonymous_rather_than_an_error(
     monkeypatch.setattr(app_settings, "IDENTITY_AUDIENCE", AUDIENCE)
     monkeypatch.delenv("IDENTITY_SIGNING_KEY_ARNS", raising=False)
     monkeypatch.setattr(
-        "webbpulse.identity.JwksVerifier",
-        lambda **kwargs: _StubVerifier(InvalidToken("expired")),
+        "webbpulse.identity.cached_verifier",
+        lambda *args, **kwargs: _StubVerifier(InvalidToken("expired")),
     )
 
     assert verify_bearer_subject(_request(authorization="Bearer expired-token")) == ""
@@ -253,10 +253,10 @@ def test_a_request_with_no_bearer_header_never_builds_a_verifier(monkeypatch: py
     monkeypatch.setattr(app_settings, "IDENTITY_ISSUER", ISSUER)
     monkeypatch.setattr(app_settings, "IDENTITY_AUDIENCE", AUDIENCE)
 
-    def explode(**kwargs: Any) -> Any:
+    def explode(*args: Any, **kwargs: Any) -> Any:
         raise AssertionError("a verifier was built for a request carrying no bearer token")
 
-    monkeypatch.setattr("webbpulse.identity.JwksVerifier", explode)
+    monkeypatch.setattr("webbpulse.identity.cached_verifier", explode)
 
     assert verify_bearer_subject(_request()) == ""
     assert verify_bearer_subject(_request(authorization="Basic bm90LWEtYmVhcmVy")) == ""
@@ -287,10 +287,10 @@ def test_the_identity_function_verifies_through_the_token_service(monkeypatch: p
         lambda settings, client: _StubService({"sub": subject}),
     )
 
-    def explode(**kwargs: Any) -> Any:
+    def explode(*args: Any, **kwargs: Any) -> Any:
         raise AssertionError("the JWKS verifier was built on a function holding signing keys")
 
-    monkeypatch.setattr("webbpulse.identity.JwksVerifier", explode)
+    monkeypatch.setattr("webbpulse.identity.cached_verifier", explode)
 
     assert verify_bearer_subject(_request(authorization="Bearer good-token")) == subject
 
@@ -494,8 +494,8 @@ def test_an_optional_route_resolves_the_user_from_a_bearer_token_alone(
     this change every signed in caller on those routes read as anonymous.
     """
     monkeypatch.setattr(
-        "webbpulse.identity.JwksVerifier",
-        lambda **kwargs: _StubVerifier({"sub": str(identity_user.id)}),
+        "webbpulse.identity.cached_verifier",
+        lambda *args, **kwargs: _StubVerifier({"sub": str(identity_user.id)}),
     )
     client = TestClient(_dual_mode_app())
     response = client.get("/maybe", headers={"Authorization": "Bearer a-valid-access-token"})
@@ -510,8 +510,8 @@ def test_an_optional_route_with_a_bad_token_is_anonymous_rather_than_an_error(
 ) -> None:
     """A token that does not verify leaves the caller anonymous with a 200, never a 401 or 500."""
     monkeypatch.setattr(
-        "webbpulse.identity.JwksVerifier",
-        lambda **kwargs: _StubVerifier(InvalidToken("signature verification failed")),
+        "webbpulse.identity.cached_verifier",
+        lambda *args, **kwargs: _StubVerifier(InvalidToken("signature verification failed")),
     )
     client = TestClient(_dual_mode_app())
     response = client.get("/maybe", headers={"Authorization": "Bearer not-a-real-token"})
@@ -544,8 +544,8 @@ def test_a_required_auth_route_still_takes_only_the_authorizer_claims(
     alone resolve, and a bearer token the verifier refuses is still a 401.
     """
     monkeypatch.setattr(
-        "webbpulse.identity.JwksVerifier",
-        lambda **kwargs: _StubVerifier(InvalidToken("signature verification failed")),
+        "webbpulse.identity.cached_verifier",
+        lambda *args, **kwargs: _StubVerifier(InvalidToken("signature verification failed")),
     )
     client = TestClient(_dual_mode_app())
 
