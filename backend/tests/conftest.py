@@ -425,7 +425,6 @@ def mock_s3(monkeypatch: pytest.MonkeyPatch) -> Generator[Dict[str, Any], None, 
         monkeypatch.setattr(app_settings, "USER_IMAGES_BUCKET", "test-user-images")
 
         monkeypatch.setattr(ss_module.storage_service, "s3_client", s3)
-        monkeypatch.setattr(ss_module.storage_service, "s3_client_presigner", s3)
         monkeypatch.setattr(ss_module.storage_service, "bucket_name", "test-user-images")
 
         yield {
