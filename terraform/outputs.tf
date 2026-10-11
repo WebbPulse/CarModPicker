@@ -140,17 +140,17 @@ output "stream_consumer_dlq_arns" {
 
 output "work_queue_arns" {
   description = "Work queue ARN keyed by job, for the two asynchronous seams. part-purge is row 28 and user-delete is row 30."
-  value       = { for key, q in aws_sqs_queue.work : key => q.arn }
+  value       = { for key, q in module.work_queue : key => q.queue_arn }
 }
 
 output "work_queue_urls" {
   description = "Work queue URL keyed by job. A producer sends with the URL rather than the ARN, so the tombstone writer in rows 28 and 30 reads this one."
-  value       = { for key, q in aws_sqs_queue.work : key => q.url }
+  value       = { for key, q in module.work_queue : key => q.queue_url }
 }
 
 output "work_queue_dlq_arns" {
   description = "Work queue dead letter queue ARN keyed by job. Named by the redrive policy on the queue itself, so a consumer needs this only to drain one by hand."
-  value       = { for key, q in aws_sqs_queue.work_dlq : key => q.arn }
+  value       = { for key, q in module.work_queue : key => q.dead_letter_queue_arn }
 }
 
 output "stream_consumer_function_names" {
@@ -170,5 +170,5 @@ output "stream_consumer_log_group_names" {
 
 output "stream_consumer_event_source_mapping_uuids" {
   description = "Event source mapping UUID keyed by consumer. This is the id `aws lambda get-event-source-mapping` takes, which is how you read the mapping's LastProcessingResult and its state when records are not being consumed."
-  value       = { for name, mapping in aws_lambda_event_source_mapping.stream_consumer : name => mapping.uuid }
+  value       = { for name, fn in module.lambda_stream_consumer : name => one(values(fn.dynamodb_stream_event_source_mapping_uuids)) }
 }
