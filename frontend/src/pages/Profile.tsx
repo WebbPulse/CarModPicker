@@ -27,12 +27,7 @@ import { isPremium } from '../utils/subscription';
  */
 function Profile() {
   const navigate = useNavigate();
-  const {
-    user,
-    isLoading: authIsLoading,
-    reloadUser,
-    setUser,
-  } = useAuth();
+  const { user, isLoading: authIsLoading, reloadUser, setUser } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSecurityDialogOpen, setIsSecurityDialogOpen] = useState(false);
