@@ -5,6 +5,7 @@
  */
 import {
   ApiError,
+  getErrorCode,
   getWebbPulseError,
   isWebbPulseErrorBody,
 } from '@webbpulse/api-client';
@@ -25,8 +26,7 @@ export const getApiErrorMessage = (err: unknown, fallback: string): string => {
 };
 
 /** The machine readable code, for branching on a specific failure. */
-export const getApiErrorCode = (err: unknown): string | undefined =>
-  err instanceof ApiError ? getWebbPulseError(err).errorCode : undefined;
+export const getApiErrorCode = getErrorCode;
 
 /**
  * A route-specific `details` object, for the errors that attach one. Excludes
