@@ -192,18 +192,6 @@ resource "aws_iam_role_policy" "lambda_stream_consumer" {
     Statement = concat(
       [
         {
-          Sid      = "WriteOwnLogs"
-          Effect   = "Allow"
-          Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-          Resource = "${module.lambda_stream_consumer[each.key].log_group_arn}:*"
-        },
-        {
-          Sid      = "WriteSpansToTheXRayOTLPEndpoint"
-          Effect   = "Allow"
-          Action   = ["xray:PutSpans", "xray:PutSpansForIndexing"]
-          Resource = "*"
-        },
-        {
           Sid    = "ReadTheTableStream"
           Effect = "Allow"
           Action = [
@@ -253,14 +241,6 @@ resource "aws_iam_role_policy" "lambda_stream_consumer" {
           Effect   = "Allow"
           Action   = local.dynamodb_domain_read_actions
           Resource = local.lambda_stream_consumer_read_arns[each.key]
-        },
-      ] : [],
-      each.value.secrets ? [
-        {
-          Sid      = "ReadTheAppSecret"
-          Effect   = "Allow"
-          Action   = ["secretsmanager:GetSecretValue"]
-          Resource = [module.app_secrets.arns["app"]]
         },
       ] : [],
       each.value.ses ? [
