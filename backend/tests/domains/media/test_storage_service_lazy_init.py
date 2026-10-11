@@ -46,7 +46,6 @@ def test_constructor_does_not_touch_s3(live_storage_settings: None) -> None:
 
     client_factory.assert_not_called()
     assert service.s3_client is None
-    assert service.s3_client_presigner is None
     assert service.bucket_name == BUCKET
 
 
@@ -58,15 +57,15 @@ def test_first_use_connects_with_session_token_and_caches_client(live_storage_se
         service._ensure_client()
         service._ensure_client()
 
-    assert client_factory.call_count == 2
+    assert client_factory.call_count == 1
     kwargs = client_factory.call_args_list[0].kwargs
     assert kwargs["aws_access_key_id"] == "AKIATEST"
     assert kwargs["aws_secret_access_key"] == "secret"
     assert kwargs["aws_session_token"] == "session-token"
     assert kwargs["region_name"] == "us-west-2"
+    assert kwargs["config"].signature_version == "s3v4"
     fake_client.head_bucket.assert_called_once_with(Bucket=BUCKET)
     assert service.s3_client is fake_client
-    assert service.s3_client_presigner is fake_client
 
 
 def test_empty_credentials_fall_back_to_default_chain(
@@ -108,7 +107,6 @@ def test_probe_failure_is_deferred_until_storage_is_used(
     assert presign_error.value.status_code == 500
     assert "Access denied to S3 bucket" in caplog.text
     assert service.s3_client is None
-    assert service.s3_client_presigner is None
 
 
 def test_missing_bucket_probe_reports_not_found(live_storage_settings: None) -> None:
@@ -127,7 +125,6 @@ def test_injected_client_is_not_replaced(live_storage_settings: None) -> None:
     injected = MagicMock()
     service = StorageService()
     service.s3_client = injected
-    service.s3_client_presigner = injected
     with patch.object(ss_module.boto3, "client") as client_factory:
         service._ensure_client()
 
@@ -175,3 +172,29 @@ def test_lazy_connect_against_moto_bucket(live_storage_settings: None) -> None:
     assert service.s3_client is not None
     assert service.delete_image("user/abc/x.jpg") is True
     assert service.object_exists("user/abc/x.jpg") is False
+
+
+def test_presigned_get_caps_expiry_at_the_sigv4_ceiling(live_storage_settings: None) -> None:
+    """A long expiry is capped at seven days and minted through the shared presigner."""
+    injected = MagicMock()
+    injected.generate_presigned_url.return_value = "https://example.test/signed"
+    service = StorageService()
+    service.s3_client = injected
+
+    url = service.get_presigned_url("user/abc/x.jpg", expiration=90 * 24 * 60 * 60)
+
+    assert url == "https://example.test/signed"
+    kwargs = injected.generate_presigned_url.call_args.kwargs
+    assert kwargs["ExpiresIn"] == 604_800
+    assert kwargs["Params"] == {"Bucket": BUCKET, "Key": "user/abc/x.jpg"}
+
+
+def test_non_positive_expiry_is_refused(live_storage_settings: None) -> None:
+    """A zero or negative expiry is a 400 rather than a URL that is already dead."""
+    service = StorageService()
+    service.s3_client = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.get_presigned_url("user/abc/x.jpg", expiration=0)
+
+    assert exc_info.value.status_code == 400
