@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input';
 import { useAuth } from '../../hooks/useAuth';
 import OAuthProviderButtons from '../../components/authentication/OAuthProviderButtons';
 import PasskeySignInButton from '../../components/authentication/PasskeySignInButton';
+import { safeReturnPath } from '@webbpulse/auth';
 import { useOAuthCallback } from '@webbpulse/auth/react';
 import { describeOAuthCallbackError } from '../../api/identityOAuth';
 import type { PasskeySignInResult } from '../../api/identityPasskeys';
@@ -19,17 +20,6 @@ import {
   type LoginChallenge,
 } from '../../api/identityAuth';
 
-/**
- * Only accept returnTo values that look like a local path. Blocks protocol-
- * relative and absolute URLs so a crafted /login?returnTo=... link can't be
- * used as an open-redirect gadget.
- */
-const safeReturnTo = (value: string | null): string => {
-  if (!value) return '/';
-  if (!value.startsWith('/') || value.startsWith('//')) return '/';
-  return value;
-};
-
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +29,7 @@ function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnTo = safeReturnTo(searchParams.get('returnTo'));
+  const returnTo = safeReturnPath(searchParams.get('returnTo'));
   const { login: authLogin, checkAuthStatus } = useAuth();
   const requires2FA = challenge !== null;
   const allowRecoveryCode = acceptsRecoveryCodes();

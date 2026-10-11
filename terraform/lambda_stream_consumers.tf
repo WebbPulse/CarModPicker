@@ -144,7 +144,7 @@ module "lambda_stream_consumer" {
   for_each = local.lambda_stream_consumers
 
   source  = "terraform.webbpulse.com/WebbPulse/platform-modules/aws//modules/lambda-function"
-  version = "~> 2.1"
+  version = "~> 2.39"
 
   function_name = "${local.prefix}-${each.key}"
   role_name     = "${local.prefix}-lambda-${each.key}"
@@ -173,6 +173,10 @@ module "lambda_stream_consumer" {
 
   tracing_mode             = "Active"
   attach_xray_write_policy = true
+
+  enable_log_write = true
+  enable_xray      = true
+  app_secret_arns  = each.value.secrets ? [module.app_secrets.arns["app"]] : []
 
   tags = { Name = "${local.prefix}-${each.key}" }
 }

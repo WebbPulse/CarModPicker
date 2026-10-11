@@ -1,12 +1,15 @@
 module "ses" {
   source  = "terraform.webbpulse.com/WebbPulse/platform-modules/aws//modules/ses-identity"
-  version = "~> 2.27"
+  version = "~> 2.39"
 
   configuration_set_name = "carmodpicker-transactional"
 
   domain           = local.custom_domain ? local.domain_name : null
   sender_address   = local.custom_domain ? null : local.email_from
   mail_from_domain = local.custom_domain ? "bounce.${local.domain_name}" : null
+
+  dkim_records_zone_id     = local.custom_domain ? module.staging_dns.zone_id : null
+  create_mail_from_records = local.custom_domain
 
   vdm_options_enabled           = true
   manage_account_vdm_attributes = true
@@ -57,6 +60,16 @@ moved {
 moved {
   from = aws_sesv2_email_identity.recipient
   to   = module.ses.aws_sesv2_email_identity.recipient
+}
+
+moved {
+  from = aws_route53_record.ses_mail_from_mx[0]
+  to   = module.ses.aws_route53_record.mail_from_mx[0]
+}
+
+moved {
+  from = aws_route53_record.ses_mail_from_spf[0]
+  to   = module.ses.aws_route53_record.mail_from_spf[0]
 }
 
 resource "aws_sns_topic" "ses_notifications" {

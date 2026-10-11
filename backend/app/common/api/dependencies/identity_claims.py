@@ -13,16 +13,18 @@ every signed in caller on those routes reads as anonymous.
 **Two verifiers, picked by what the function's environment holds.** The identity function
 has `IDENTITY_SIGNING_KEY_ARNS` and a KMS grant, so it uses `TokenService`, which reads
 its public keys through `kms:GetPublicKey`. A domain function has only the issuer and the
-audience, so it uses `JwksVerifier`, which fetches the published key set over HTTPS and
-needs no KMS grant. Giving the nine domains the signing key ARNs instead would let every
-one of them mint tokens, since `kms:Sign` and `kms:GetPublicKey` are granted together.
+audience, so it uses the shared `cached_verifier`, a `JwksVerifier` that fetches the
+published key set over HTTPS and needs no KMS grant. Giving the nine domains the signing
+key ARNs instead would let every one of them mint tokens, since `kms:Sign` and
+`kms:GetPublicKey` are granted together.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional
 
+from webbpulse.identity import bearer_credential, verified_bearer_subject
 from webbpulse.identity.claims import (
     GATE_CLAIMS_KEY,
     identity_claims,
@@ -34,7 +36,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 __all__ = [
     "GATE_CLAIMS_KEY",
-    "bearer_token",
+    "bearer_credential",
     "identity_claims",
     "identity_subject",
     "reset_token_service",
@@ -44,54 +46,35 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-def bearer_token(request: "Request") -> str:
-    """The presented Bearer credential, or `""` when there is no usable one."""
-    authorization = request.headers.get("authorization", "")
-    scheme, _, presented = authorization.partition(" ")
-    if scheme.lower() != "bearer":
-        return ""
-    return presented.strip()
-
-
 def verify_bearer_subject(request: "Request") -> str:
     """The `sub` of a Bearer identity token verified in this process, or `""`.
 
     The fallback for a route the gateway put no claims on. A real verification:
     RS256 signature, issuer, audience, expiry and not-before. Every failure is
     `""` rather than a raise, so a bad or expired token on an optional auth
-    route is an anonymous caller and not an error.
+    route is an anonymous caller and not an error. No verifier is built for a
+    request that carries no Bearer credential.
     """
     from app.common.core.config import settings
 
     if not settings.IDENTITY_ISSUER.strip():
         return ""
-
-    presented = bearer_token(request)
-    if not presented:
+    if not bearer_credential(request):
         return ""
-
-    verifier = _verifier()
-    if verifier is None:
-        return ""
-    try:
-        claims = verifier(presented)
-    except Exception:
-        logger.debug("An identity access token did not verify.", exc_info=True)
-        return ""
-    return str(claims.get("sub", "") or "")
+    return verified_bearer_subject(request, _verifier())
 
 
-_verifier_cache: Optional[Any] = None
+_verifier_cache: Optional[Callable[[str], Mapping[str, Any]]] = None
 _verifier_failed = False
 
 
-def _verifier() -> Optional[Any]:
+def _verifier() -> Optional[Callable[[str], Mapping[str, Any]]]:
     """The memoised callable that verifies a token, or `None` where none can be built.
 
     `TokenService` where this function signs (the identity function), otherwise
-    `JwksVerifier` against the issuer's published key set. A failure is
-    remembered: without the environment the settings raise, and retrying that
-    per request would be a pydantic validation on every call.
+    the process-wide `cached_verifier` against the issuer's published key set. A
+    failure is remembered: without the environment the settings raise, and
+    retrying that per request would be a pydantic validation on every call.
     """
     global _verifier_cache, _verifier_failed
 
@@ -112,17 +95,15 @@ def _verifier() -> Optional[Any]:
             service = TokenService(build_identity_settings(app_settings), boto3.client("kms"))
             _verifier_cache = service.verify_access_token
         else:
-            from webbpulse.identity import JwksVerifier
+            from webbpulse.identity import cached_verifier
 
-            audience = app_settings.IDENTITY_AUDIENCE.strip()
-            if not audience:
-                raise ValueError("IDENTITY_AUDIENCE is required to verify a token in process")
-
-            verifier = JwksVerifier(
-                issuer=app_settings.IDENTITY_ISSUER.strip(),
-                audience=audience,
-                jwks_uri=app_settings.IDENTITY_JWKS_URL.strip() or None,
+            verifier = cached_verifier(
+                app_settings.IDENTITY_ISSUER,
+                app_settings.IDENTITY_AUDIENCE,
+                jwks_uri=app_settings.IDENTITY_JWKS_URL,
             )
+            if verifier is None:
+                raise ValueError("IDENTITY_ISSUER and IDENTITY_AUDIENCE are required to verify a token in process")
             _verifier_cache = verifier.verify
     except Exception:
         _verifier_failed = True
@@ -143,8 +124,11 @@ def _signing_key_arns_present() -> bool:
 
 
 def reset_token_service() -> None:
-    """Drop the memoised verifier. For tests that change the environment."""
+    """Drop the memoised verifier and the shared verifier cache. For tests that change the environment."""
     global _verifier_cache, _verifier_failed
+
+    from webbpulse.identity import clear_verifier_cache
 
     _verifier_cache = None
     _verifier_failed = False
+    clear_verifier_cache()

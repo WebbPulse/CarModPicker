@@ -4,7 +4,7 @@ version = "0"
 requires-python = ">=3.13"
 license = "LicenseRef-PolyForm-Strict-1.0.0"
 dependencies = [
-  "webbpulse[fastapi,otel,dynamodb,aws-otel,security,identity,oauth,passkeys,stripe]>=0.60.0,<1",
+  "webbpulse[fastapi,otel,dynamodb,aws-otel,security,identity,oauth,passkeys,stripe]>=0.81.0,<1",
   "fastapi>=0.141.1",
   "pydantic[email]>=2.13.5",
   "pydantic-settings>=2.15.0",
@@ -12,7 +12,7 @@ dependencies = [
   "click>=8.5.0",
   "typing_extensions>=4.16.0",
   "uuid6>=2025.0.1",
-  "PyJWT[crypto]>=2.13.0",
+  "PyJWT[crypto]>=2.15.1",
   "bcrypt>=5.0.0",
   "python-multipart>=0.0.32",
   "pyotp>=2.10.0",
@@ -47,7 +47,7 @@ dev = [
   "locust>=2.46.5",
 ]
 e2e = [
-  "webbpulse[e2e,fastapi,dynamodb,identity,oauth,passkeys,security,stripe]>=0.60.0,<1",
+  "webbpulse[e2e,fastapi,dynamodb,identity,oauth,passkeys,security,stripe]>=0.81.0,<1",
   "pytest>=9.1.1",
   "pytest-asyncio>=1.4.0",
   "pytest-cov>=7.1.0",
