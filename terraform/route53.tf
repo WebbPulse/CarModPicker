@@ -45,26 +45,6 @@ resource "aws_route53_record" "ses_dkim" {
   records = ["${module.ses.dkim_tokens[count.index]}.dkim.amazonses.com"]
 }
 
-resource "aws_route53_record" "ses_mail_from_mx" {
-  count = local.custom_domain ? 1 : 0
-
-  zone_id = module.staging_dns.zone_id
-  name    = "bounce.${local.domain_name}"
-  type    = "MX"
-  ttl     = 300
-  records = ["10 feedback-smtp.${var.aws_region}.amazonses.com"]
-}
-
-resource "aws_route53_record" "ses_mail_from_spf" {
-  count = local.custom_domain ? 1 : 0
-
-  zone_id = module.staging_dns.zone_id
-  name    = "bounce.${local.domain_name}"
-  type    = "TXT"
-  ttl     = 300
-  records = ["v=spf1 include:amazonses.com ~all"]
-}
-
 resource "aws_route53_record" "dmarc" {
   count = local.custom_domain ? 1 : 0
 

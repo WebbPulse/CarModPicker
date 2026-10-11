@@ -61,40 +61,6 @@ locals {
       }
     },
   ]
-
-  shared_registry_policy_statements = concat(local.codeartifact_read_policy_statements, [
-    {
-      sid = "SharedBaseImagePull"
-      actions = [
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:BatchGetImage",
-        "ecr:DescribeImages",
-        "ecr:GetDownloadUrlForLayer",
-      ]
-      resources = [local.shared_base_image_repository_arn]
-    },
-    {
-      sid       = "SharedBaseImageAuth"
-      actions   = ["ecr:GetAuthorizationToken"]
-      resources = ["*"]
-    },
-    {
-      sid = "EcrPushDomainImages"
-      actions = [
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload",
-        "ecr:PutImage",
-        "ecr:BatchGetImage",
-        "ecr:DescribeImages",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:GetRepositoryPolicy",
-        "ecr:SetRepositoryPolicy",
-      ]
-      resources = module.registry.repository_arns_list
-    },
-  ])
 }
 
 locals {
@@ -134,30 +100,33 @@ locals {
 
 module "github_actions_role" {
   source  = "terraform.webbpulse.com/WebbPulse/platform-modules/aws//modules/github-actions-role"
-  version = "~> 1.1"
+  version = "~> 2.39"
 
   role_name = "${local.prefix}-github-actions-deploy"
   subjects  = ["repo:WebbPulse/CarModPicker:*"]
 
+  allow_wildcard_subjects = true
+
+  lambda_image_deploy = {
+    function_arns = concat(
+      local.lambda_domain_function_arns,
+      local.lambda_stream_consumer_function_arns,
+    )
+    invoke_function_arns = local.lambda_domain_function_arns
+  }
+
+  ecr_push = {
+    repository_arns      = module.registry.repository_arns_list
+    pull_repository_arns = [local.shared_base_image_repository_arn]
+  }
+
+  spa_deploy = {
+    bucket_arns       = [module.frontend.bucket_arn]
+    distribution_arns = [module.frontend.distribution_arn]
+  }
+
   policy_statements = concat(
     [
-      {
-        actions = [
-          "lambda:UpdateFunctionCode",
-          "lambda:PublishVersion",
-          "lambda:GetFunction",
-          "lambda:GetFunctionConfiguration",
-          "lambda:GetFunctionCodeSigningConfig",
-        ]
-        resources = concat(
-          local.lambda_domain_function_arns,
-          local.lambda_stream_consumer_function_arns,
-        )
-      },
-      {
-        actions   = ["lambda:InvokeFunction"]
-        resources = local.lambda_domain_function_arns
-      },
       {
         actions   = ["logs:FilterLogEvents"]
         resources = ["arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/apigateway/${local.prefix}-api:*"]
@@ -170,29 +139,10 @@ module "github_actions_role" {
           "arn:aws:apigateway:${var.aws_region}::/apis/${module.api.api_id}/*",
         ]
       },
-      {
-        actions = [
-          "s3:PutObject",
-          "s3:GetObject",
-          "s3:DeleteObject",
-          "s3:ListBucket",
-        ]
-        resources = [
-          module.frontend.bucket_arn,
-          "${module.frontend.bucket_arn}/*",
-        ]
-      },
-      {
-        actions = [
-          "cloudfront:CreateInvalidation",
-          "cloudfront:GetInvalidation",
-        ]
-        resources = [module.frontend.distribution_arn]
-      },
     ],
     local.gate_policy_statements,
     local.e2e_signing_policy_statements,
-    local.shared_registry_policy_statements,
+    local.codeartifact_read_policy_statements,
   )
 }
 
