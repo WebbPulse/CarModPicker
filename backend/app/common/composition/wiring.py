@@ -54,8 +54,8 @@ API_PREFIX = settings.API_STR
 def configure_logging(service: "str | None" = None) -> None:
     """The application's log format, applied to the root and uvicorn loggers.
 
-    A thin call into `app.common.core.logging.configure_app_logging`, which is this
-    product's own: the package's `configure_logging` has no colorized TTY branch.
+    A thin call into `app.common.core.logging.configure_app_logging`, which routes the
+    package's `configure_logging` to stderr.
     Called at import by `app/main.py`; calling it twice is harmless.
     """
     from app.common.core.logging import configure_app_logging
@@ -103,7 +103,7 @@ def start_domain(domain: "Domain", _settings: "Any" = None) -> None:
 
     The `check` hook `domain_entrypoint` runs, and the reason each entrypoint binds
     `settings=None`: the package's own `main` would call the package's
-    `configure_logging`, which has no colorized TTY branch, so this product does all
+    `configure_logging` on stdout, which two commands keep for data, so this product does all
     three itself in the package's order. Logging comes first so a misconfigured
     function fails at cold start with the failure already formatted, and tracing
     precedes the build because the server span middleware can only be injected into
