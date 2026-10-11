@@ -126,7 +126,7 @@ function CheckoutSuccessState({
  * and handles the success and cancelled returns from Stripe.
  */
 function Checkout() {
-  const { user, checkAuthStatus } = useAuth();
+  const { user, reloadUser } = useAuth();
   const userIsPremium = isPremium(user);
   const [searchParams] = useSearchParams();
   const status = searchParams.get('status');
@@ -146,7 +146,7 @@ function Checkout() {
     const timer = window.setTimeout(
       () => {
         void (async () => {
-          await checkAuthStatus();
+          await reloadUser();
           if (!cancelled) setActivationAttempts((n) => n + 1);
         })();
       },
@@ -156,7 +156,7 @@ function Checkout() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [returnedFromSuccess, userIsPremium, activationAttempts, checkAuthStatus]);
+  }, [returnedFromSuccess, userIsPremium, activationAttempts, reloadUser]);
 
   const handleSubscribe = async () => {
     setCheckoutError(null);

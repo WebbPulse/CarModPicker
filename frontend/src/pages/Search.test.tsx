@@ -57,9 +57,9 @@ describe('Search page', () => {
       isAuthenticated: false,
       user: null,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
   });
 

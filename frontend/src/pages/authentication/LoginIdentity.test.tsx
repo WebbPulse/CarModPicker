@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 const navigate = vi.fn();
 const authLogin = vi.fn();
-const checkAuthStatus = vi.fn().mockResolvedValue(undefined);
+const reloadUser = vi.fn().mockResolvedValue(null);
 
 /** Whatever the passkey availability route should answer for one test. */
 let passkeyAnswer: 'available' | 'unavailable' | 'unknown' = 'unavailable';
@@ -46,8 +46,8 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({
-    login: authLogin,
-    checkAuthStatus,
+    setUser: authLogin,
+    reloadUser,
     isAuthenticated: false,
     isLoading: false,
     user: null,
@@ -170,7 +170,7 @@ describe('the passkey button', () => {
     conditionalResult = { ok: true, kind: 'signed-in' };
     await renderLogin();
     await waitFor(() => {
-      expect(checkAuthStatus).toHaveBeenCalled();
+      expect(reloadUser).toHaveBeenCalled();
     });
   });
 
@@ -181,7 +181,7 @@ describe('the passkey button', () => {
     await waitFor(() => {
       expect(screen.getByText(/sign in with a passkey/i)).toBeTruthy();
     });
-    expect(checkAuthStatus).not.toHaveBeenCalled();
+    expect(reloadUser).not.toHaveBeenCalled();
   });
 
   it('signs in when the ceremony succeeds', async () => {
@@ -193,7 +193,7 @@ describe('the passkey button', () => {
     });
     fireEvent.click(screen.getByText(/sign in with a passkey/i));
     await waitFor(() => {
-      expect(checkAuthStatus).toHaveBeenCalled();
+      expect(reloadUser).toHaveBeenCalled();
     });
   });
 
@@ -403,7 +403,7 @@ describe('the OAuth callback', () => {
     setUrl('?oauth=1');
     await renderLogin();
     await waitFor(() => {
-      expect(checkAuthStatus).toHaveBeenCalled();
+      expect(reloadUser).toHaveBeenCalled();
     });
     expect(globalThis.location.search).not.toContain('oauth=1');
   });
@@ -429,6 +429,6 @@ describe('the OAuth callback', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /sign in$/i })).toBeTruthy();
     });
-    expect(checkAuthStatus).not.toHaveBeenCalled();
+    expect(reloadUser).not.toHaveBeenCalled();
   });
 });

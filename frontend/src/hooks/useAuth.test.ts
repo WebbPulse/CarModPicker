@@ -66,20 +66,20 @@ describe('useAuth', () => {
   it('throws when used outside of an AuthProvider', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => renderHook(() => useAuth())).toThrow(
-      /useAuth must be used within an AuthProvider/
+      /must be used within an AuthProvider/
     );
     spy.mockRestore();
   });
 
-  it('exposes login/logout/checkAuthStatus callables', () => {
+  it('exposes setUser/logout/reloadUser callables', () => {
     const { Wrapper } = authHarness({
       status: 'authenticated',
       user: mockUser,
     });
     const { result } = renderHook(() => useAuth(), { wrapper: Wrapper });
 
-    expect(typeof result.current.login).toBe('function');
+    expect(typeof result.current.setUser).toBe('function');
     expect(typeof result.current.logout).toBe('function');
-    expect(typeof result.current.checkAuthStatus).toBe('function');
+    expect(typeof result.current.reloadUser).toBe('function');
   });
 });

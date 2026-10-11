@@ -30,7 +30,7 @@ function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = safeReturnPath(searchParams.get('returnTo'));
-  const { login: authLogin, checkAuthStatus } = useAuth();
+  const { setUser, reloadUser } = useAuth();
   const requires2FA = challenge !== null;
   const allowRecoveryCode = acceptsRecoveryCodes();
 
@@ -43,9 +43,9 @@ function Login() {
    */
   const finishLogin = async (user: UserRead | null) => {
     if (user !== null) {
-      authLogin(user);
+      setUser(user);
     } else {
-      await checkAuthStatus();
+      await reloadUser();
     }
     void navigate(returnTo);
   };
