@@ -29,11 +29,13 @@ const MISSING = 'This link is missing its token. Request a new one.';
 const VerifyEmailTokenBody: React.FC<{ client: AuthClient<unknown> }> = ({
   client,
 }) => {
-  const { checkAuthStatus } = useAuth();
+  const { reloadUser } = useAuth();
   const state = useEmailVerificationLink({
     client,
     expectedPath: VERIFY_EMAIL_PATH,
-    onConfirmed: checkAuthStatus,
+    onConfirmed: async () => {
+      await reloadUser();
+    },
   });
 
   if (state.kind === 'confirming') {

@@ -2,13 +2,15 @@
  * Shared auth mocks and the user variants the tests assert roles against.
  */
 
+import type { UseAuthResult } from '@webbpulse/auth/react';
 import { vi } from 'vitest';
-import type { AuthContextType } from '../../contexts/AuthContextDefinition';
 import type { UserRead } from '../../types/Api';
 import { mockUser } from '../mocks/api';
 
+type AuthResult = UseAuthResult<UserRead>;
+
 type MockAuthState = {
-  [K in keyof AuthContextType]?: AuthContextType[K] | undefined;
+  [K in keyof AuthResult]?: AuthResult[K] | undefined;
 };
 
 /** Mock for the useAuth hook, so tests can set the session directly. */

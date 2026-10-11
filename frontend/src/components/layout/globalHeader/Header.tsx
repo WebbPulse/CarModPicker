@@ -12,7 +12,7 @@ import {
   FaUser,
 } from 'react-icons/fa';
 import { GiRaceCar } from 'react-icons/gi';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { CHROME_EXTENSION_STORE_URL } from '../../../constants';
 import { useAuth } from '../../../hooks/useAuth';
 import { Button } from '../../ui/button';
@@ -23,15 +23,17 @@ import Spinner from '../../ui/spinner';
  */
 function Header() {
   const { isAuthenticated, logout, isLoading, user } = useAuth();
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const handleLogout = () => {
-    void logout();
+  const handleLogout = async () => {
     setIsMobileMenuOpen(false);
+    await logout();
+    void navigate('/');
   };
 
   return (
@@ -75,7 +77,7 @@ function Header() {
                   </Link>
                   <button
                     type="button"
-                    onClick={handleLogout}
+                    onClick={() => void handleLogout()}
                     data-testid="sign-out"
                     className="flex items-center space-x-2 border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 px-4 py-2 rounded-xl text-sm font-medium text-white hover:text-primary transition-all duration-300"
                   >
@@ -164,7 +166,7 @@ function Header() {
                     </Link>
                     <button
                       type="button"
-                      onClick={handleLogout}
+                      onClick={() => void handleLogout()}
                       className="w-full flex items-center justify-center space-x-2 border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 px-4 py-2 rounded-xl text-sm font-medium text-white"
                     >
                       <FaSignOutAlt />

@@ -22,17 +22,17 @@ vi.mock('../api/billing', () => billingMocks);
 
 import Checkout from './Checkout';
 
-const checkAuthStatus = vi.fn<() => Promise<void>>();
+const reloadUser = vi.fn<() => Promise<UserRead | null>>();
 
 /** Sets the signed in user the page reads through useAuth. */
-const setUser = (user: UserRead) => {
+const signInAs = (user: UserRead) => {
   mockUseAuth.mockReturnValue({
     isAuthenticated: true,
     user,
     isLoading: false,
-    login: vi.fn(),
+    setUser: vi.fn(),
     logout: vi.fn(),
-    checkAuthStatus,
+    reloadUser,
   });
 };
 
@@ -47,8 +47,8 @@ const renderAt = (url = '/checkout') =>
 describe('Checkout page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    checkAuthStatus.mockResolvedValue(undefined);
-    setUser(mockUser);
+    reloadUser.mockResolvedValue(null);
+    signInAs(mockUser);
   });
 
   afterEach(() => {
@@ -158,7 +158,7 @@ describe('Checkout page', () => {
   });
 
   it('shows the already premium card with a manage subscription button', async () => {
-    setUser(mockPremiumUser);
+    signInAs(mockPremiumUser);
     billingMocks.createPortalSession.mockResolvedValueOnce(
       'https://billing.stripe.com/p/session/test_1'
     );
@@ -184,7 +184,7 @@ describe('Checkout page', () => {
   });
 
   it('shows an inline error when the portal session fails', async () => {
-    setUser(mockPremiumUser);
+    signInAs(mockPremiumUser);
     billingMocks.createPortalSession.mockRejectedValueOnce(
       billingError(409, 'NO_BILLING_ACCOUNT')
     );
@@ -202,10 +202,10 @@ describe('Checkout page', () => {
 
   it('polls the user after a successful payment until premium, then confirms', async () => {
     let refreshes = 0;
-    checkAuthStatus.mockImplementation(() => {
+    reloadUser.mockImplementation(() => {
       refreshes += 1;
-      if (refreshes >= 2) setUser(mockPremiumUser);
-      return Promise.resolve();
+      if (refreshes >= 2) signInAs(mockPremiumUser);
+      return Promise.resolve(null);
     });
     vi.useFakeTimers();
     renderAt('/checkout?status=success&session_id=cs_test_1');
@@ -221,13 +221,13 @@ describe('Checkout page', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(checkAuthStatus).toHaveBeenCalledTimes(1);
+    expect(reloadUser).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/activating premium/i)).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2500);
     });
-    expect(checkAuthStatus).toHaveBeenCalledTimes(2);
+    expect(reloadUser).toHaveBeenCalledTimes(2);
 
     expect(
       screen.getByRole('heading', { name: /welcome to premium/i })
@@ -240,7 +240,7 @@ describe('Checkout page', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10000);
     });
-    expect(checkAuthStatus).toHaveBeenCalledTimes(2);
+    expect(reloadUser).toHaveBeenCalledTimes(2);
   });
 
   it('stops polling after about 30 seconds and shows the delayed state', async () => {
@@ -253,7 +253,7 @@ describe('Checkout page', () => {
       });
     }
 
-    expect(checkAuthStatus).toHaveBeenCalledTimes(12);
+    expect(reloadUser).toHaveBeenCalledTimes(12);
     expect(
       screen.getByRole('heading', { name: /still activating/i })
     ).toBeInTheDocument();
@@ -261,16 +261,16 @@ describe('Checkout page', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10000);
     });
-    expect(checkAuthStatus).toHaveBeenCalledTimes(12);
+    expect(reloadUser).toHaveBeenCalledTimes(12);
   });
 
   it('confirms immediately when the user is already premium on return', () => {
-    setUser(mockPremiumUser);
+    signInAs(mockPremiumUser);
     renderAt('/checkout?status=success&session_id=cs_test_1');
 
     expect(
       screen.getByRole('heading', { name: /welcome to premium/i })
     ).toBeInTheDocument();
-    expect(checkAuthStatus).not.toHaveBeenCalled();
+    expect(reloadUser).not.toHaveBeenCalled();
   });
 });

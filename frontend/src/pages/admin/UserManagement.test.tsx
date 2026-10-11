@@ -41,9 +41,9 @@ describe('UserManagement page', () => {
       isAuthenticated: true,
       user: adminUser,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
     vi.mocked(apiClient.get).mockResolvedValue({
       data: makePaginatedUserList(),
@@ -144,9 +144,9 @@ describe('UserManagement page', () => {
       isAuthenticated: true,
       user: mockUser,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
 
     render(
@@ -165,9 +165,9 @@ describe('UserManagement page', () => {
       isAuthenticated: false,
       user: null,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
 
     render(

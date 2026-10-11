@@ -37,7 +37,7 @@ export const acceptsRecoveryCodes = (): boolean => true;
 
 /**
  * Runs the first leg of a sign in. Returns no user, so the caller follows a
- * success with `checkAuthStatus()`.
+ * success with `reloadUser()`.
  */
 export const signIn = async (
   username: string,

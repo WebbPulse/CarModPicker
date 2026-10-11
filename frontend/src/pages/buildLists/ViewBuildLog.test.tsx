@@ -7,9 +7,9 @@ vi.mock('../../hooks/useAuth', () => ({
     isAuthenticated: true,
     user: mockUser,
     isLoading: false,
-    login: vi.fn(),
+    setUser: vi.fn(),
     logout: vi.fn(),
-    checkAuthStatus: vi.fn(),
+    reloadUser: vi.fn(),
   }),
 }));
 

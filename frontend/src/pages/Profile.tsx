@@ -30,8 +30,8 @@ function Profile() {
   const {
     user,
     isLoading: authIsLoading,
-    checkAuthStatus,
-    login: authLogin,
+    reloadUser,
+    setUser,
   } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -117,7 +117,7 @@ function Profile() {
     const result = await executeUpdateUser({ userId: user.id, data: payload });
 
     if (result) {
-      authLogin(result);
+      setUser(result);
       setIsEditing(false);
       setStatusMessage({
         type: 'success',
@@ -145,7 +145,7 @@ function Profile() {
     const result = await executeUpdateUser({ userId: user.id, data: payload });
 
     if (result) {
-      authLogin(result);
+      setUser(result);
       setStatusMessage({
         type: 'success',
         message: 'Social links updated successfully!',
@@ -353,7 +353,7 @@ function Profile() {
             void (async () => {
               setStatusMessage(null);
               setUpdateApiError(null);
-              await checkAuthStatus();
+              await reloadUser();
               setStatusMessage({
                 type: 'success',
                 message: 'Profile data refreshed.',
@@ -454,28 +454,28 @@ function Profile() {
               type: 'success',
               message: 'Password changed successfully!',
             });
-            void checkAuthStatus();
+            void reloadUser();
           }}
           on2FAEnabled={() => {
             setStatusMessage({
               type: 'success',
               message: '2FA enabled successfully!',
             });
-            void checkAuthStatus();
+            void reloadUser();
           }}
           on2FADisabled={() => {
             setStatusMessage({
               type: 'success',
               message: '2FA disabled successfully!',
             });
-            void checkAuthStatus();
+            void reloadUser();
           }}
           onSessionUpdated={() => {
             setStatusMessage({
               type: 'success',
               message: 'Session length updated.',
             });
-            void checkAuthStatus();
+            void reloadUser();
           }}
         />
       )}

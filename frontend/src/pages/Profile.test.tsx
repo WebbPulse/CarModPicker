@@ -31,9 +31,9 @@ describe('Profile page', () => {
       isAuthenticated: true,
       user: mockUser,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
   });
 
@@ -144,9 +144,9 @@ describe('Profile page', () => {
       isAuthenticated: true,
       user: mockPremiumUser,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
     let resolve: (url: string) => void = () => undefined;
     billingMocks.createPortalSession.mockReturnValueOnce(
@@ -183,9 +183,9 @@ describe('Profile page', () => {
       isAuthenticated: true,
       user: mockPremiumUser,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
     billingMocks.createPortalSession.mockRejectedValueOnce(
       billingError(503, 'STRIPE_NOT_CONFIGURED')

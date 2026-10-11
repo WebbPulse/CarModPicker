@@ -37,9 +37,9 @@ describe('SystemAdmin page', () => {
       isAuthenticated: true,
       user: adminUser,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
     vi.mocked(apiClient.get).mockResolvedValue({
       data: { current_revision: 'abc123' },
@@ -211,9 +211,9 @@ describe('SystemAdmin page', () => {
       isAuthenticated: true,
       user: mockUser,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
 
     render(
@@ -234,9 +234,9 @@ describe('SystemAdmin page', () => {
       isAuthenticated: false,
       user: null,
       isLoading: false,
-      login: vi.fn(),
+      setUser: vi.fn(),
       logout: vi.fn(),
-      checkAuthStatus: vi.fn(),
+      reloadUser: vi.fn(),
     });
 
     render(

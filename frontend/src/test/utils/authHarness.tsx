@@ -11,10 +11,6 @@ import {
 } from '@webbpulse/auth/react';
 import type { AuthState, AuthStatus } from '@webbpulse/auth';
 import { vi } from 'vitest';
-import {
-  AuthExtrasContext,
-  type AuthExtrasContextType,
-} from '../../contexts/AuthContextDefinition';
 import type { UserRead } from '../../types/Api';
 
 /** A stub auth client whose state a test drives directly. */
@@ -31,9 +27,10 @@ export interface StubAuthClient {
 }
 
 /**
- * Builds a stub `AuthClient` carrying only what the React bindings read: the
- * store surface of `getState` and `subscribe`. `useAuth` binds each client
- * method lazily on first read, and no guard under this harness reads one.
+ * Builds a stub `AuthClient` carrying the store surface of `getState` and
+ * `subscribe`, plus `setUser`, `reloadUser` and `logout` as spies that move the
+ * store the way the real client does. `useAuth` binds each client method lazily
+ * on first read, so any other method throws only when a test reads it.
  */
 export function createStubAuthClient(
   initial: Partial<AuthState<UserRead>> = {}
@@ -61,25 +58,29 @@ export function createStubAuthClient(
     for (const listener of [...listeners]) listener(state);
   };
 
+  const endSession = (): void =>
+    setState({
+      status: 'anonymous',
+      user: null,
+      hasAccessToken: false,
+      pendingMfa: null,
+    });
+
   const client = {
     getState: () => state,
     subscribe: (listener: (next: AuthState<UserRead>) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    setUser: vi.fn((user: UserRead | null) => setState({ user })),
+    reloadUser: vi.fn(() => Promise.resolve(state.user)),
+    logout: vi.fn(() => {
+      endSession();
+      return Promise.resolve();
+    }),
   } as unknown as AnyAuthClient;
 
-  return {
-    client,
-    setState,
-    endSession: () =>
-      setState({
-        status: 'anonymous',
-        user: null,
-        hasAccessToken: false,
-        pendingMfa: null,
-      }),
-  };
+  return { client, setState, endSession };
 }
 
 /** A session a test wants rendered, as the two fields a guard reads. */
@@ -88,29 +89,14 @@ export interface HarnessSession {
   user?: UserRead | null;
 }
 
-/** The stub extras a harness supplies when a test does not override them. */
-export type HarnessExtras = Partial<AuthExtrasContextType>;
-
 /**
- * Wraps children in the package provider and the CarModPicker extras, so
- * `useAuth` resolves exactly as it does in the application.
+ * Wraps children in the package provider over the stub, so `useAuth` resolves
+ * exactly as it does in the application.
  */
-export function renderAuthHarness(
-  stub: StubAuthClient,
-  extras: HarnessExtras = {}
-) {
-  const value: AuthExtrasContextType = {
-    login: vi.fn(),
-    logout: vi.fn().mockResolvedValue(undefined),
-    checkAuthStatus: vi.fn().mockResolvedValue(undefined),
-    ...extras,
-  };
-
+export function renderAuthHarness(stub: StubAuthClient) {
   return ({ children }: { children: ReactNode }) => (
     <PackageAuthProvider client={stub.client} initializeOnMount={false}>
-      <AuthExtrasContext.Provider value={value}>
-        {children}
-      </AuthExtrasContext.Provider>
+      {children}
     </PackageAuthProvider>
   );
 }
@@ -119,15 +105,12 @@ export function renderAuthHarness(
  * The common case: a stub client already in the given session plus the wrapper
  * that mounts it. Returns both, so a test can flip the session mid render.
  */
-export function authHarness(
-  session: HarnessSession = {},
-  extras: HarnessExtras = {}
-) {
+export function authHarness(session: HarnessSession = {}) {
   const status: AuthStatus = session.status ?? 'anonymous';
   const stub = createStubAuthClient({
     status,
     user: session.user ?? null,
     hasAccessToken: status === 'authenticated',
   });
-  return { stub, Wrapper: renderAuthHarness(stub, extras) };
+  return { stub, Wrapper: renderAuthHarness(stub) };
 }
