@@ -16,8 +16,8 @@ export const loadCarModPickerConfig = (env: ImportMetaEnv): AppConfig =>
     apiBaseUrlAliases: ['VITE_API_URL'],
     assumeHttps: true,
     backendTargets: {
-      staging: env.VITE_STAGING_API_URL as string | undefined,
-      production: env.VITE_PROD_API_URL as string | undefined,
+      staging: env['VITE_STAGING_API_URL'] as string | undefined,
+      production: env['VITE_PROD_API_URL'] as string | undefined,
     },
     apiPathPrefix: '/api',
   });
