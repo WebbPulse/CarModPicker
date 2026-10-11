@@ -10,7 +10,7 @@ import re
 import uuid
 from collections import defaultdict
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 from uuid import UUID
 
 import boto3
@@ -18,7 +18,7 @@ from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image
-from webbpulse.storage import MAX_EXPIRES_IN, presigned_get
+from webbpulse.storage import MAX_EXPIRES_IN, S3Presigner, presigned_get
 
 from app.common.core.config import settings
 
@@ -372,7 +372,7 @@ class StorageService:
                 self.bucket_name,
                 file_key,
                 min(expiration_time, MAX_EXPIRES_IN),
-                client=self.s3_client,
+                client=cast(S3Presigner, self.s3_client),
             )
             return download.url
 
