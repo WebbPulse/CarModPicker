@@ -26,32 +26,34 @@ resource "aws_sqs_queue" "stream_dlq" {
   tags = { Name = "${local.prefix}-${replace(each.key, "_", "-")}-stream-dlq" }
 }
 
-resource "aws_sqs_queue" "work_dlq" {
+module "work_queue" {
   for_each = local.work_queues
 
-  name                    = "${local.prefix}-${each.key}-dlq"
-  sqs_managed_sse_enabled = true
+  source  = "terraform.webbpulse.com/WebbPulse/platform-modules/aws//modules/sqs-queue"
+  version = "~> 2.39"
 
-  message_retention_seconds = 1209600
-
-  tags = { Name = "${local.prefix}-${each.key}-dlq" }
-}
-
-resource "aws_sqs_queue" "work" {
-  for_each = local.work_queues
-
-  name                    = "${local.prefix}-${each.key}"
-  sqs_managed_sse_enabled = true
-
-  message_retention_seconds = 345600
+  name = "${local.prefix}-${each.key}"
 
   visibility_timeout_seconds = local.work_queue_consumer_timeout * 6
+  consumer_timeout_seconds   = local.work_queue_consumer_timeout
+}
 
-  redrive_policy = jsonencode({
-    deadLetterTargetArn = aws_sqs_queue.work_dlq[each.key].arn
+moved {
+  from = aws_sqs_queue.work["part-purge"]
+  to   = module.work_queue["part-purge"].aws_sqs_queue.this
+}
 
-    maxReceiveCount = 5
-  })
+moved {
+  from = aws_sqs_queue.work_dlq["part-purge"]
+  to   = module.work_queue["part-purge"].aws_sqs_queue.dead_letter
+}
 
-  tags = { Name = "${local.prefix}-${each.key}" }
+moved {
+  from = aws_sqs_queue.work["user-delete"]
+  to   = module.work_queue["user-delete"].aws_sqs_queue.this
+}
+
+moved {
+  from = aws_sqs_queue.work_dlq["user-delete"]
+  to   = module.work_queue["user-delete"].aws_sqs_queue.dead_letter
 }

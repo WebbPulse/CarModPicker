@@ -21,9 +21,9 @@ function seedAdmin(): void {
     isAuthenticated: true,
     user: mockAdminUser,
     isLoading: false,
-    login: vi.fn(),
+    setUser: vi.fn(),
     logout: vi.fn(),
-    checkAuthStatus: vi.fn().mockResolvedValue(undefined),
+    reloadUser: vi.fn().mockResolvedValue(null),
   });
 }
 
@@ -32,9 +32,9 @@ function seedNonAdmin(): void {
     isAuthenticated: true,
     user: mockUser,
     isLoading: false,
-    login: vi.fn(),
+    setUser: vi.fn(),
     logout: vi.fn(),
-    checkAuthStatus: vi.fn().mockResolvedValue(undefined),
+    reloadUser: vi.fn().mockResolvedValue(null),
   });
 }
 

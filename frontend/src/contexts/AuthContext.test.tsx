@@ -1,10 +1,4 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,7 +6,7 @@ import { ApiError } from '@webbpulse/api-client';
 import { buildApiError } from '../test/apiResponse';
 import { mockUser } from '../test/mocks/api';
 
-const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
+const { mockApiClient, mockIdentityClient } = vi.hoisted(() => {
   const listeners = new Set<(state: unknown) => void>();
   const freshState = () => ({
     status: 'unknown' as string,
@@ -44,7 +38,6 @@ const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
   };
   return {
     mockApiClient: apiClient,
-    mockNavigate: vi.fn(),
     mockIdentityClient: {
       listeners,
       getState: () => state,
@@ -81,7 +74,7 @@ const { mockApiClient, mockIdentityClient, mockNavigate } = vi.hoisted(() => {
             return null;
           }
           setState({ error });
-          throw error;
+          return null;
         }
       }),
     },
@@ -108,19 +101,11 @@ vi.mock('../api/client', () => ({
     error instanceof ApiError,
 }));
 
-vi.mock('react-router-dom', async () => {
-  const actual =
-    await vi.importActual<typeof import('react-router-dom')>(
-      'react-router-dom'
-    );
-  return { ...actual, useNavigate: () => mockNavigate };
-});
-
 import { AuthProvider } from './AuthContext';
 import { useAuth } from '../hooks/useAuth';
 
 function Consumer() {
-  const { isAuthenticated, user, isLoading, login, logout, checkAuthStatus } =
+  const { isAuthenticated, user, isLoading, setUser, logout, reloadUser } =
     useAuth();
   return (
     <div>
@@ -128,10 +113,10 @@ function Consumer() {
         {isAuthenticated ? (user?.username ?? 'authed-noname') : 'anon'}
       </span>
       <span data-testid="loading">{isLoading ? 'loading' : 'idle'}</span>
-      <button type="button" onClick={() => login(mockUser)}>
+      <button type="button" onClick={() => setUser(mockUser)}>
         login-direct
       </button>
-      <button type="button" onClick={() => void checkAuthStatus()}>
+      <button type="button" onClick={() => void reloadUser()}>
         check
       </button>
       <button
@@ -224,7 +209,7 @@ describe('AuthContext provider', () => {
     );
   });
 
-  it('shows the profile a direct login() seeded, with no extra request', async () => {
+  it('shows the profile a direct setUser() seeded, with no extra request', async () => {
     renderWithProvider();
 
     await waitFor(() =>
@@ -240,7 +225,7 @@ describe('AuthContext provider', () => {
     expect(vi.mocked(mockApiClient.get)).not.toHaveBeenCalled();
   });
 
-  it('re-reads the profile on checkAuthStatus()', async () => {
+  it('re-reads the profile on reloadUser()', async () => {
     renderWithProvider();
 
     await waitFor(() =>
@@ -258,7 +243,7 @@ describe('AuthContext provider', () => {
     expect(vi.mocked(mockApiClient.get)).toHaveBeenCalledWith('/users/me');
   });
 
-  it('ends the session when checkAuthStatus() is refused with a 401', async () => {
+  it('ends the session when reloadUser() is refused with a 401', async () => {
     renderWithProvider();
 
     await waitFor(() =>
@@ -288,8 +273,7 @@ describe('AuthContext provider', () => {
     );
   });
 
-  it('keeps the session and logs a non-401 checkAuthStatus() failure', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('keeps the session on a non-401 reloadUser() failure', async () => {
     renderWithProvider();
 
     await waitFor(() =>
@@ -307,12 +291,13 @@ describe('AuthContext provider', () => {
 
     fireEvent.click(screen.getByText('check'));
 
-    await waitFor(() => expect(errorSpy).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockIdentityClient.reloadUser).toHaveBeenCalled()
+    );
     expect(screen.getByTestId('state').textContent).toBe(mockUser.username);
-    errorSpy.mockRestore();
   });
 
-  it('signs out and navigates home on logout', async () => {
+  it('signs out on logout', async () => {
     renderWithProvider();
 
     await waitFor(() =>
@@ -326,53 +311,5 @@ describe('AuthContext provider', () => {
     );
 
     expect(mockIdentityClient.logout).toHaveBeenCalledTimes(1);
-    expect(mockNavigate).toHaveBeenCalledWith('/');
-  });
-
-  it('waits for the logout call to settle before navigating home', async () => {
-    let releaseLogout: (() => void) | undefined;
-    mockIdentityClient.logout.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          releaseLogout = () => {
-            mockIdentityClient.setState({
-              status: 'anonymous',
-              user: null,
-              hasAccessToken: false,
-            });
-            resolve();
-          };
-        })
-    );
-
-    renderWithProvider();
-
-    await waitFor(() =>
-      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
-    );
-
-    fireEvent.click(screen.getByText('logout'));
-
-    await waitFor(() => expect(mockIdentityClient.logout).toHaveBeenCalled());
-    expect(mockNavigate).not.toHaveBeenCalled();
-
-    act(() => releaseLogout?.());
-
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
-    expect(screen.getByTestId('state').textContent).toBe('anon');
-  });
-
-  it('still clears the session and navigates home when logout rejects', async () => {
-    mockIdentityClient.logout.mockRejectedValueOnce(new Error('network down'));
-
-    renderWithProvider();
-
-    await waitFor(() =>
-      expect(screen.getByTestId('state').textContent).toBe(mockUser.username)
-    );
-
-    fireEvent.click(screen.getByText('logout'));
-
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
   });
 });

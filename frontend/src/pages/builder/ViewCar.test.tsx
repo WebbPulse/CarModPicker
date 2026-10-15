@@ -22,9 +22,9 @@ function seedAuthenticated(): void {
     isAuthenticated: authenticatedAuthState.isAuthenticated,
     user: mockUser,
     isLoading: authenticatedAuthState.isLoading,
-    login: vi.fn(),
+    setUser: vi.fn(),
     logout: vi.fn(),
-    checkAuthStatus: vi.fn().mockResolvedValue(undefined),
+    reloadUser: vi.fn().mockResolvedValue(null),
   });
 }
 

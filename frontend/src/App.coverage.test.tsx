@@ -64,9 +64,9 @@ vi.mock('./hooks/useAuth', () => ({
           subscription_tier: 'free',
         }
       : null,
-    login: vi.fn(),
+    setUser: vi.fn(),
     logout: vi.fn(),
-    checkAuthStatus: vi.fn(),
+    reloadUser: vi.fn(),
   }),
 }));
 

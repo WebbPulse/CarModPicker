@@ -35,9 +35,9 @@ const seedAuth = (state: AuthState) => {
     isAuthenticated: state.isAuthenticated,
     user: state.user,
     isLoading: state.isLoading ?? false,
-    login: vi.fn(),
+    setUser: vi.fn(),
     logout: vi.fn(),
-    checkAuthStatus: vi.fn(),
+    reloadUser: vi.fn(),
   });
 };
 

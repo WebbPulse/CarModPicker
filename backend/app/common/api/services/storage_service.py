@@ -10,7 +10,7 @@ import re
 import uuid
 from collections import defaultdict
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 from uuid import UUID
 
 import boto3
@@ -18,6 +18,7 @@ from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image
+from webbpulse.storage import MAX_EXPIRES_IN, S3Presigner, presigned_get
 
 from app.common.core.config import settings
 
@@ -48,7 +49,6 @@ class StorageService:
     """Service for handling secure image uploads to S3."""
 
     s3_client: Optional[S3Client]
-    s3_client_presigner: Optional[S3Client]
     bucket_name: Optional[str]
     max_size_bytes: int
     allowed_extensions: list[str]
@@ -59,16 +59,15 @@ class StorageService:
         self.bucket_name = settings.USER_IMAGES_BUCKET
         self.max_size_bytes = settings.max_image_size_bytes
         self.allowed_extensions = settings.allowed_image_extensions_list
-        self.presigned_url_expiration = min(settings.PRESIGNED_URL_EXPIRATION, 7776000)
+        self.presigned_url_expiration = min(settings.PRESIGNED_URL_EXPIRATION, MAX_EXPIRES_IN)
         self.s3_client = None
-        self.s3_client_presigner = None
 
         if not self.bucket_name:
             logger.warning("USER_IMAGES_BUCKET not configured. Image uploads will be disabled.")
 
     def _ensure_client(self) -> None:
         """Create the S3 clients on first use, outside tests."""
-        if self.s3_client is not None and self.s3_client_presigner is not None:
+        if self.s3_client is not None:
             return
         if not self.bucket_name or _is_test_environment():
             return
@@ -80,7 +79,7 @@ class StorageService:
                 "aws_session_token": settings.AWS_SESSION_TOKEN or None,
                 "region_name": settings.AWS_REGION or None,
                 "endpoint_url": settings.S3_ENDPOINT_URL or None,
-                "config": BotoConfig(max_pool_connections=100),
+                "config": BotoConfig(max_pool_connections=100, signature_version="s3v4"),
             }
 
             s3_client = boto3.client("s3", **client_kwargs)  # type: ignore[redundant-cast]
@@ -110,7 +109,6 @@ class StorageService:
                     )
 
             self.s3_client = s3_client
-            self.s3_client_presigner = boto3.client("s3", **client_kwargs)  # type: ignore[redundant-cast]
 
         except Exception as e:
             logger.error(f"Failed to initialize S3 bucket client: {str(e)}")
@@ -346,13 +344,14 @@ class StorageService:
             )
 
     def get_presigned_url(self, file_key: str, expiration: Optional[int] = None) -> str:
-        """Generate a presigned URL for accessing a file in S3 bucket.
+        """Mint a presigned GET for one image through `webbpulse.storage.presigned_get`.
 
-        The S3 bucket is private; presigned URLs are used to serve images.
-        These URLs are temporary and expire after the specified time.
+        The bucket is private, so images are served through these temporary URLs. The
+        expiry defaults to the configured one and is capped at SigV4's seven day ceiling.
+        A non-positive expiry is refused with 400.
         """
         self._ensure_client()
-        if not self.s3_client_presigner:
+        if not self.s3_client or not self.bucket_name:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Image storage is not configured. Please contact administrator.",
@@ -361,16 +360,21 @@ class StorageService:
         if not file_key:
             return ""
 
-        try:
-            expiration_time = expiration or self.presigned_url_expiration
-
-            presigned_url = self.s3_client_presigner.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": self.bucket_name, "Key": file_key},
-                ExpiresIn=expiration_time,
+        expiration_time = self.presigned_url_expiration if expiration is None else expiration
+        if expiration_time < 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="expiration must be a positive number of seconds",
             )
 
-            return str(presigned_url)
+        try:
+            download = presigned_get(
+                self.bucket_name,
+                file_key,
+                min(expiration_time, MAX_EXPIRES_IN),
+                client=cast(S3Presigner, self.s3_client),
+            )
+            return download.url
 
         except Exception as e:
             logger.error(f"Failed to generate presigned URL for {file_key}: {str(e)}")

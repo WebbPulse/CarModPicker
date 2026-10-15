@@ -233,7 +233,7 @@ locals {
         EMAIL_ENABLED = "true"
       } : {},
       local.domain_uses_user_images[name] ? {
-        USER_IMAGES_BUCKET = aws_s3_bucket.user_images.bucket
+        USER_IMAGES_BUCKET = module.user_images_bucket.bucket
       } : {},
 
       name == "identity" ? merge({
@@ -346,7 +346,7 @@ resource "aws_iam_role_policy" "lambda_domain" {
           Sid      = "ReadUserImageObjectsToPresignThem"
           Effect   = "Allow"
           Action   = ["s3:GetObject"]
-          Resource = ["${aws_s3_bucket.user_images.arn}/*"]
+          Resource = ["${module.user_images_bucket.bucket_arn}/*"]
         },
       ] : [],
       each.value.s3_upload ? [
@@ -354,7 +354,7 @@ resource "aws_iam_role_policy" "lambda_domain" {
           Sid      = "UploadUserImageObjects"
           Effect   = "Allow"
           Action   = ["s3:PutObject"]
-          Resource = ["${aws_s3_bucket.user_images.arn}/*"]
+          Resource = ["${module.user_images_bucket.bucket_arn}/*"]
         },
       ] : [],
       each.value.s3_delete ? [
@@ -362,7 +362,7 @@ resource "aws_iam_role_policy" "lambda_domain" {
           Sid      = "DeleteUserImageObjects"
           Effect   = "Allow"
           Action   = ["s3:DeleteObject"]
-          Resource = ["${aws_s3_bucket.user_images.arn}/*"]
+          Resource = ["${module.user_images_bucket.bucket_arn}/*"]
         },
       ] : [],
       local.domain_uses_user_images[each.key] ? [
@@ -370,7 +370,7 @@ resource "aws_iam_role_policy" "lambda_domain" {
           Sid      = "ListTheUserImagesBucket"
           Effect   = "Allow"
           Action   = ["s3:ListBucket"]
-          Resource = [aws_s3_bucket.user_images.arn]
+          Resource = [module.user_images_bucket.bucket_arn]
         },
       ] : [],
       each.value.ses ? [

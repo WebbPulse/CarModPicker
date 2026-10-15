@@ -32,9 +32,9 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
     isAuthenticated: initialAuthState.isAuthenticated,
     user: initialAuthState.user,
     isLoading: initialAuthState.isLoading,
-    login: vi.fn(),
+    setUser: vi.fn(),
     logout: vi.fn(),
-    checkAuthStatus: vi.fn(),
+    reloadUser: vi.fn(),
   });
 
   return <BrowserRouter>{children}</BrowserRouter>;
