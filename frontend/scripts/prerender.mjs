@@ -54,7 +54,7 @@ const MIME = {
   '.webmanifest': 'application/manifest+json',
 };
 
-function serveDist(port) {
+function serveDist() {
   return new Promise((resolvePromise) => {
     const server = createServer(async (req, res) => {
       const path = (req.url || '/').split('?')[0];
@@ -75,7 +75,7 @@ function serveDist(port) {
         res.end(body);
       }
     });
-    server.listen(port, '127.0.0.1', () => resolvePromise(server));
+    server.listen(0, '127.0.0.1', () => resolvePromise(server));
   });
 }
 
@@ -171,9 +171,9 @@ async function main() {
     throw new Error(`dist/ does not exist at ${DIST} — run vite build first.`);
   }
 
-  const port = 4173 + Math.floor(Math.random() * 1000);
+  const server = await serveDist();
+  const { port } = server.address();
   const baseUrl = `http://127.0.0.1:${port}`;
-  const server = await serveDist(port);
 
   const browser = await puppeteer.launch({
     headless: true,
