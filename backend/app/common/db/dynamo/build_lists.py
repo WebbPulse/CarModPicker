@@ -10,6 +10,7 @@ from app.common.db.dynamo.models import DynamoModel, TimestampedDynamoModel, utc
 from app.common.db.dynamo.repository import DynamoRepository, Page, transact_write
 from app.common.db.dynamo.tables import (
     BUILD_LIST_LABOR_ESTIMATES,
+    BUILD_LIST_LISTING_PARTITION,
     BUILD_LIST_PARTS,
     BUILD_LIST_PHASES,
     BUILD_LISTS,
@@ -101,7 +102,9 @@ class BuildListChildRepository(DynamoRepository[TModel]):
 
 
 class BuildListRepository(DynamoRepository[BuildList]):
-    """Build lists, queryable by owning user and by car."""
+    """Build lists, queryable by owning user, by car, and all together for public listings."""
+
+    listing_index = "listing-created_at-index"
 
     def __init__(self) -> None:
         """Bind to the build lists table."""
@@ -128,6 +131,38 @@ class BuildListRepository(DynamoRepository[BuildList]):
     ) -> Page[BuildList]:
         """Build lists for a car, newest first by default."""
         return self.query("car_id-created_at-index", car_id, limit=limit, cursor=cursor, scan_forward=scan_forward)
+
+    def list_public(
+        self,
+        *,
+        limit: int = 100,
+        cursor: str | None = None,
+        scan_forward: bool = False,
+    ) -> Page[BuildList]:
+        """One page of every build list, newest first by default."""
+        return self.query(
+            self.listing_index,
+            BUILD_LIST_LISTING_PARTITION,
+            limit=limit,
+            cursor=cursor,
+            scan_forward=scan_forward,
+        )
+
+    def all_public(self) -> list[BuildList]:
+        """Every build list through the listing index, newest first."""
+        return self.query_all(self.listing_index, BUILD_LIST_LISTING_PARTITION, scan_forward=False)
+
+    def all_for_user(self, user_id: UUID) -> list[BuildList]:
+        """Every build list owned by a user, newest first."""
+        return self.query_all("user_id-created_at-index", user_id, scan_forward=False)
+
+    def all_for_cars(self, car_ids: Iterable[UUID]) -> list[BuildList]:
+        """Every build list for any of these cars, newest first within each car."""
+        return [
+            build_list
+            for car_id in dict.fromkeys(car_ids)
+            for build_list in self.query_all("car_id-created_at-index", car_id, scan_forward=False)
+        ]
 
     def get_many(self, ids: Iterable[UUID]) -> dict[UUID, BuildList]:
         """The build lists for these ids, keyed by id, skipping missing ones."""

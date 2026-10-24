@@ -65,6 +65,15 @@ def _matches_search(term: str, build_list: BuildList) -> bool:
     return search.contains(term, build_list.name, build_list.description)
 
 
+def _listing_source(repos: Repositories, car_filter: Optional[set[UUID]], owner_id: Optional[UUID]) -> List[BuildList]:
+    """The build lists a public listing filters, read through the narrowest index Query."""
+    if car_filter is not None:
+        return repos.build_lists.all_for_cars(sorted(car_filter, key=str))
+    if owner_id is not None:
+        return repos.build_lists.all_for_user(owner_id)
+    return repos.build_lists.all_public()
+
+
 def _next_sort_order(existing: List[Any]) -> int:
     """Next sort_order: max + 1, or 0 for the first child."""
     if not existing:
@@ -120,7 +129,7 @@ async def read_build_lists_with_votes(
     car_filter = set(car_ids) if car_ids else ({car_id} if car_id is not None else None)
     candidates = [
         bl
-        for bl in repos.build_lists.scan_all()
+        for bl in _listing_source(repos, car_filter, owner_id)
         if (not term or _matches_search(term, bl))
         and (car_filter is None or bl.car_id in car_filter)
         and (owner_id is None or bl.user_id == owner_id)
