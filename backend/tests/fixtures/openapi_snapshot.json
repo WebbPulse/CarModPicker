@@ -13566,11 +13566,11 @@
     },
     "/api/users": {
       "get": {
-        "description": "List all users with pagination and search.\n\nReturns full UserRead (with email_verified and totp_enabled) for each user if:",
+        "description": "List users with pagination and search.\n\nAdmins and superusers get full UserRead items and a search that also matches\nemails; everyone else gets PublicUserRead items matched on username only.",
         "operationId": "list_users_api_users_get",
         "parameters": [
           {
-            "description": "Search in usernames and emails",
+            "description": "Search in usernames, and in emails for admins",
             "in": "query",
             "name": "search",
             "required": false,
@@ -13583,7 +13583,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Search in usernames and emails",
+              "description": "Search in usernames, and in emails for admins",
               "title": "Search"
             }
           },
