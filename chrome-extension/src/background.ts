@@ -499,8 +499,10 @@ interface CursorPage<T> {
 async function cursorPageItems<T>(
   endpoint: string,
 ): Promise<ApiResponse<T[]>> {
-  const res = await apiRequest<CursorPage<T>>(endpoint, { method: "GET" });
-  return { ...res, data: res.data?.items };
+  const { data, ...rest } = await apiRequest<CursorPage<T>>(endpoint, {
+    method: "GET",
+  });
+  return data ? { ...rest, data: data.items } : rest;
 }
 
 /** List car generations. */

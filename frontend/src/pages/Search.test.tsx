@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-import { apiClient } from '../api/client';
+import { apiClient, type ApiRequestConfig } from '../api/client';
 import type { SearchResults } from '../api/search';
 import {
   mockBuildList,
@@ -50,9 +50,10 @@ const routeGet = (
   search: (params: Record<string, unknown>) => SearchResults
 ) => {
   vi.mocked(apiClient.get).mockImplementation(
-    (path: string, config?: { params?: Record<string, unknown> }) => {
+    (path: string, config?: ApiRequestConfig) => {
       if (path === '/search') {
-        return Promise.resolve({ data: search(config?.params ?? {}) });
+        const params = (config?.params ?? {}) as Record<string, unknown>;
+        return Promise.resolve({ data: search(params) });
       }
       if (path.startsWith('/car-generations/')) {
         return Promise.resolve({ data: mockCar });
@@ -115,7 +116,9 @@ describe('Search page', () => {
 
   it('loads the next page of one category with its cursor', async () => {
     routeGet((params) =>
-      params.parts_cursor === 'parts-cursor-1' ? secondPartsPage : searchResults
+      params['parts_cursor'] === 'parts-cursor-1'
+        ? secondPartsPage
+        : searchResults
     );
 
     render(

@@ -442,10 +442,10 @@ export interface CursorPageInfo {
 }
 
 /** Limit and opaque cursor accepted by cursor paged routes. */
-export interface CursorParams {
+export type CursorParams = {
   limit?: number;
   cursor?: string;
-}
+};
 
 /** Editable fields on a part. */
 export interface PartUpdate {

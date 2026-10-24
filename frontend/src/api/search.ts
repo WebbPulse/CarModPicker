@@ -23,13 +23,13 @@ export interface SearchResults {
 export type SearchCategory = 'build_lists' | 'users' | 'parts';
 
 /** Query, per category limit, and the cursor of each category to continue. */
-export interface SearchParams {
+export type SearchParams = {
   q: string;
   limit?: number;
   build_lists_cursor?: string;
   users_cursor?: string;
   parts_cursor?: string;
-}
+};
 
 /** Cross entity search in a single request. */
 export const searchApi = {
