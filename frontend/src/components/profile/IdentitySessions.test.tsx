@@ -130,7 +130,7 @@ describe('IdentitySessions', () => {
   });
 
   it('does nothing when ending the others is not confirmed', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     render(<IdentitySessions />);
 
     fireEvent.click(
@@ -138,7 +138,7 @@ describe('IdentitySessions', () => {
     );
 
     await waitFor(() => {
-      expect(window.confirm).toHaveBeenCalled();
+      expect(confirm).toHaveBeenCalled();
     });
     expect(revokeSession).not.toHaveBeenCalled();
   });
