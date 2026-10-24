@@ -1,4 +1,4 @@
-import { test, expect, type Route, type Request } from '@playwright/test';
+import { test, expect, type Route, type Request } from './fixtures';
 
 const FIXED_NOW_ISO = '2026-04-25T12:00:00.000Z';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;

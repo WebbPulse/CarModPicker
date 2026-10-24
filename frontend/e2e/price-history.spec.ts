@@ -1,4 +1,4 @@
-import { test, expect, type Route, type Request } from '@playwright/test';
+import { test, expect, type Route, type Request } from './fixtures';
 
 const MULTI_PART_ID = '11111111-1111-1111-1111-111111111111';
 const SINGLE_PART_ID = '22222222-2222-2222-2222-222222222222';

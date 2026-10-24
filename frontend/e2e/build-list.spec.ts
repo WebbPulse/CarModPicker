@@ -1,4 +1,4 @@
-import { test, expect, type Route, type Request } from '@playwright/test';
+import { test, expect, type Route, type Request } from './fixtures';
 
 const BUILD_LIST_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const CAR_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
