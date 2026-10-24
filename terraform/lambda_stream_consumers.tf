@@ -66,7 +66,7 @@ locals {
 
       timeout = 29
 
-      secrets = false
+      secrets = true
       ses     = false
 
       tables = [
@@ -129,13 +129,14 @@ locals {
       consumer.work_queue != null ? {
         "${upper(replace(consumer.work_queue, "-", "_"))}_QUEUE_URL" = module.work_queue[consumer.work_queue].queue_url
       } : {},
+      consumer.secrets ? {
+        APP_SECRETS_ARN = module.app_secrets.arns["app"]
+      } : {},
       consumer.ses ? {
         EMAIL_FROM    = local.email_from
         EMAIL_ENABLED = "true"
 
         FRONTEND_URL = local.frontend_url
-
-        APP_SECRETS_ARN = module.app_secrets.arns["app"]
     } : {})
   }
 }

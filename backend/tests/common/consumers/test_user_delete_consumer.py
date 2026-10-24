@@ -9,10 +9,13 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 import pytest
+from webbpulse.testing import FakeStripeGateway
 
 from app.domains.users.consumers.user_delete import (
+    BILLING_OWNER_KEY,
     MESSAGE_KIND,
     MESSAGE_VERSION,
+    cancel_billing,
     cascade_user_delete,
     group_records_by_user,
     handle_queue,
@@ -466,6 +469,7 @@ class TestQueueHalf:
         repos = build_world(user_id)
         removed = cascade_user_delete(repos, UUID(user_id))
         assert removed == {
+            "stripe_subscriptions_cancelled": 0,
             "parts": 2,
             "parts_already_purged": 0,
             "part_price_alerts": 4,
@@ -559,6 +563,96 @@ class TestQueueHalf:
         repos = build_world(user_id)
         result = handle_queue({"Records": [queue_record(user_id=user_id)]}, repos)
         assert result == {"batchItemFailures": []}
+
+
+def subscribed_billing(user_id: str) -> tuple[FakeStripeGateway, str]:
+    """A fake Stripe account where the user holds one live premium subscription."""
+    billing = FakeStripeGateway()
+    customer_id = billing.ensure_customer(owner_key=BILLING_OWNER_KEY, owner_id=user_id, email="someone@example.com")
+    subscription = billing.add_subscription(customer_id, metadata={BILLING_OWNER_KEY: user_id})
+    return billing, subscription["id"]
+
+
+class FailingStripeGateway(FakeStripeGateway):
+    """A fake whose cancel fails the way a Stripe outage would."""
+
+    def cancel_owner_subscriptions(self, owner_key: str, owner_id: str) -> list[str]:
+        """Raise instead of cancelling."""
+        raise RuntimeError("Stripe is unavailable")
+
+
+class TestBillingCancel:
+    """Deleting an account cancels its Stripe subscription at once, and only its own."""
+
+    def test_deleting_a_subscribed_user_cancels_the_subscription(self) -> None:
+        """The message drains every group and leaves the subscription canceled."""
+        user_id = str(uuid4())
+        repos = build_world(user_id)
+        billing, subscription_id = subscribed_billing(user_id)
+
+        failures = process_queue_records(repos, [queue_record(user_id=user_id)], billing)
+
+        assert failures == []
+        assert repos.is_empty_for(user_id)
+        assert billing.retrieve_subscription(subscription_id)["status"] == "canceled"
+
+    def test_the_cancel_is_counted(self) -> None:
+        """The cascade reports how many subscriptions it cancelled."""
+        user_id = str(uuid4())
+        billing, _ = subscribed_billing(user_id)
+        removed = cascade_user_delete(build_world(user_id), UUID(user_id), billing)
+        assert removed["stripe_subscriptions_cancelled"] == 1
+
+    def test_a_user_without_a_subscription_still_deletes_cleanly(self) -> None:
+        """No Stripe customer at all is not an error, and nothing is cancelled."""
+        user_id = str(uuid4())
+        repos = build_world(user_id)
+        billing = FakeStripeGateway()
+
+        failures = process_queue_records(repos, [queue_record(user_id=user_id)], billing)
+
+        assert failures == []
+        assert repos.is_empty_for(user_id)
+        assert cancel_billing(billing, UUID(user_id)) == {"stripe_subscriptions_cancelled": 0}
+
+    def test_somebody_elses_subscription_is_untouched(self) -> None:
+        """Only customers tagged with the deleted user's id are cancelled."""
+        user_id, other = str(uuid4()), str(uuid4())
+        billing, _ = subscribed_billing(user_id)
+        theirs = billing.add_subscription(
+            billing.ensure_customer(owner_key=BILLING_OWNER_KEY, owner_id=other), metadata={BILLING_OWNER_KEY: other}
+        )
+
+        cascade_user_delete(build_world(user_id), UUID(user_id), billing)
+
+        assert billing.retrieve_subscription(theirs["id"])["status"] == "active"
+
+    def test_a_replay_cancels_nothing_twice(self) -> None:
+        """A redelivered message converges without a second cancel."""
+        user_id = str(uuid4())
+        repos = build_world(user_id)
+        billing, subscription_id = subscribed_billing(user_id)
+        record = queue_record(user_id=user_id)
+
+        assert process_queue_records(repos, [record], billing) == []
+        assert cancel_billing(billing, UUID(user_id)) == {"stripe_subscriptions_cancelled": 0}
+        assert process_queue_records(repos, [record], billing) == []
+        assert billing.retrieve_subscription(subscription_id)["status"] == "canceled"
+
+    def test_a_stripe_failure_reports_the_message_for_retry(self) -> None:
+        """A Stripe error fails the message so the queue retries the cancel."""
+        user_id = str(uuid4())
+        failures = process_queue_records(
+            build_world(user_id), [queue_record(user_id=user_id, message_id="m3")], FailingStripeGateway()
+        )
+        assert failures == ["m3"]
+
+    def test_no_stripe_configuration_skips_the_cancel(self) -> None:
+        """A stage without Stripe keys still drains the cascade."""
+        user_id = str(uuid4())
+        repos = build_world(user_id)
+        assert process_queue_records(repos, [queue_record(user_id=user_id)], None) == []
+        assert repos.is_empty_for(user_id)
 
 
 class TestEventDiscrimination:
@@ -831,14 +925,15 @@ class TestEntrypoint:
     """The shared Lambda entrypoint: routing, failure reporting, and bundle scope."""
 
     @staticmethod
-    def client(monkeypatch: pytest.MonkeyPatch, repos: Any, sqs: Any) -> Any:
-        """A test client over the entrypoint with its repositories and SQS stubbed."""
+    def client(monkeypatch: pytest.MonkeyPatch, repos: Any, sqs: Any, billing: Any = None) -> Any:
+        """A test client over the entrypoint with its repositories, SQS and Stripe stubbed."""
         from fastapi.testclient import TestClient
 
         from app.domains.users.consumers import delete_entrypoint as entrypoint
 
         monkeypatch.setattr(entrypoint, "repositories", lambda: repos)
         monkeypatch.setattr(entrypoint, "sqs_client", lambda: sqs)
+        monkeypatch.setattr(entrypoint, "billing_gateway", lambda: billing)
         return TestClient(entrypoint.app, raise_server_exceptions=False)
 
     def test_health_is_served(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -872,6 +967,38 @@ class TestEntrypoint:
         assert response.json() == {"batchItemFailures": []}
         assert repos.is_empty_for(user_id)
         assert sqs.sent == [], "the queue half sends nothing"
+
+    def test_a_queue_event_cancels_the_users_subscription(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The drainer passes the entrypoint's Stripe gateway into the cascade."""
+        user_id = str(uuid4())
+        billing, subscription_id = subscribed_billing(user_id)
+        client = self.client(monkeypatch, build_world(user_id), FakeSqs(), billing)
+
+        response = client.post("/events", json={"Records": [queue_record(user_id=user_id)]})
+
+        assert response.json() == {"batchItemFailures": []}
+        assert billing.retrieve_subscription(subscription_id)["status"] == "canceled"
+
+    def test_the_billing_gateway_is_none_without_stripe_keys(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A stage with no Stripe configuration resolves to no gateway, once."""
+        from webbpulse.integrations.stripe import StripeNotConfigured
+
+        from app.domains.users.consumers import delete_entrypoint as entrypoint
+
+        calls: List[int] = []
+
+        def missing() -> Any:
+            """Count the attempt and report the keys missing."""
+            calls.append(1)
+            raise StripeNotConfigured("the Stripe configuration is missing STRIPE_API_KEY")
+
+        monkeypatch.setattr("app.domains.users.services.billing_service.load_billing_settings", missing)
+        monkeypatch.setattr(entrypoint, "_billing", None)
+        monkeypatch.setattr(entrypoint, "_billing_resolved", False)
+
+        assert entrypoint.billing_gateway() is None
+        assert entrypoint.billing_gateway() is None
+        assert len(calls) == 1
 
     def test_a_partial_failure_is_reported(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A failing message comes back as a batchItemFailures entry with a 200."""
