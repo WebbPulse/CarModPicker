@@ -1,7 +1,9 @@
 """Image dedup cache mapping a canonical source URL to its stored S3 key.
 
-Keeps the same product image from being uploaded twice across parts or
-scrape sessions. ``source_url-index`` answers the lookup.
+Keeps the same product image from being uploaded twice across one user's
+parts or scrape sessions. Mappings are scoped to the user who stored the
+image, so one user cannot point a source URL at their own upload for
+everyone else. ``source_url-index`` answers the lookup.
 """
 
 from datetime import datetime
@@ -23,6 +25,7 @@ class ImageSourceMapping(DynamoModel):
     id: UUID = Field(default_factory=uuid7)  # pyright: ignore[reportIncompatibleVariableOverride]
     source_url: str
     file_key: str
+    user_id: UUID | None = None
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -33,17 +36,19 @@ class ImageSourceMappingRepository(DynamoRepository[ImageSourceMapping]):
         """Bind to the image source mappings table."""
         super().__init__(ImageSourceMapping, IMAGE_SOURCE_MAPPINGS)
 
-    def get_by_source_url(self, source_url: str) -> ImageSourceMapping | None:
-        """The mapping for this source URL, or None when the image is not stored yet."""
-        page = self.query(SOURCE_URL_INDEX, source_url, limit=1)
-        return page.items[0] if page.items else None
+    def get_by_source_url(self, source_url: str, user_id: UUID) -> ImageSourceMapping | None:
+        """This user's mapping for the source URL, or None when they have not stored it yet."""
+        for mapping in self.query_all(SOURCE_URL_INDEX, source_url):
+            if mapping.user_id == user_id:
+                return mapping
+        return None
 
-    def record(self, source_url: str, file_key: str) -> ImageSourceMapping:
-        """Remember ``file_key`` for ``source_url``; an existing mapping wins."""
-        existing = self.get_by_source_url(source_url)
+    def record(self, source_url: str, file_key: str, user_id: UUID) -> ImageSourceMapping:
+        """Remember ``file_key`` for ``source_url`` on behalf of ``user_id``; their existing mapping wins."""
+        existing = self.get_by_source_url(source_url, user_id)
         if existing is not None:
             return existing
-        return self.create(ImageSourceMapping(source_url=source_url, file_key=file_key))
+        return self.create(ImageSourceMapping(source_url=source_url, file_key=file_key, user_id=user_id))
 
     def all_file_keys(self) -> set[str]:
         """Every stored file key, for reconciling against the bucket."""

@@ -40,7 +40,7 @@ async def get_image_by_source_url(
     Returns the existing file_key if found, so clients can skip re-uploading.
     """
     canonical = get_canonical_image_url(source_url)
-    mapping = repos.image_source_mappings.get_by_source_url(canonical)
+    mapping = repos.image_source_mappings.get_by_source_url(canonical, current_user.id)
     if not mapping:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No cached image for this source URL")
     return {"file_key": mapping.file_key}
@@ -136,7 +136,7 @@ async def upload_image(
     try:
         if source_url and source_url.strip():
             canonical = get_canonical_image_url(source_url)
-            existing = repos.image_source_mappings.get_by_source_url(canonical)
+            existing = repos.image_source_mappings.get_by_source_url(canonical, current_user.id)
             if existing:
                 presigned_url = storage_service.get_presigned_url(existing.file_key)
                 logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")
@@ -162,7 +162,7 @@ async def upload_image(
         if source_url and source_url.strip() and entity_type == "part":
             try:
                 canonical = get_canonical_image_url(source_url)
-                repos.image_source_mappings.record(canonical, file_key)
+                repos.image_source_mappings.record(canonical, file_key, current_user.id)
             except Exception as e:
                 logger.warning(f"Failed to store image source mapping: {e}")
 
@@ -208,7 +208,7 @@ async def fetch_image_from_url(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="source_url is required")
 
     canonical = get_canonical_image_url(source_url)
-    existing = repos.image_source_mappings.get_by_source_url(canonical)
+    existing = repos.image_source_mappings.get_by_source_url(canonical, current_user.id)
     if existing:
         presigned_url = storage_service.get_presigned_url(existing.file_key)
         logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")
@@ -236,7 +236,7 @@ async def fetch_image_from_url(
 
         if body.entity_type == "part":
             try:
-                repos.image_source_mappings.record(canonical, file_key)
+                repos.image_source_mappings.record(canonical, file_key, current_user.id)
             except Exception as e:
                 logger.warning(f"Failed to store image source mapping: {e}")
 

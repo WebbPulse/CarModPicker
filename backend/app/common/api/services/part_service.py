@@ -18,6 +18,7 @@ from app.common.api.services.part_listing_service import (
     normalize_gtin,
     normalize_part_number,
 )
+from app.common.api.services.storage_service import storage_service
 from app.common.api.utils.authorization import can_delete_part, require_part_edit_permission
 from app.common.api.utils.response_patterns import ResponsePatterns
 from app.common.db.dynamo import search
@@ -191,6 +192,9 @@ class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
             payload["gtin"] = normalize_gtin(data.gtin) or payload.get("gtin")
         if payload.get("image_urls") is not None:
             payload["image_urls"] = payload["image_urls"][:MAX_IMAGES_PER_PART]
+            storage_service.assert_file_keys_attachable(
+                payload["image_urls"], current_user.id, is_admin=current_user.is_admin
+            )
 
         self._require(self.repos.categories.get(str(payload["category_id"])), "category")
         if payload.get("part_manufacturer_id") is not None:
@@ -227,6 +231,12 @@ class PartService(BaseDynamoCRUDService[Part, PartCreate, PartUpdate]):
         car_ids = changes.pop("car_ids", None)
         if changes.get("image_urls") is not None:
             changes["image_urls"] = changes["image_urls"][:MAX_IMAGES_PER_PART]
+            storage_service.assert_file_keys_attachable(
+                changes["image_urls"],
+                current_user.id,
+                already_attached=entity.image_urls or [],
+                is_admin=current_user.is_admin,
+            )
         if changes.get("gtin") is not None:
             changes["gtin"] = normalize_gtin(changes["gtin"])
         if "part_number" in changes:
