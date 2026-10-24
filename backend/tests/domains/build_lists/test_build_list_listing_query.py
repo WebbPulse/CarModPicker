@@ -66,8 +66,8 @@ def test_writes_carry_the_listing_key_and_page_newest_first(dynamo_tables: Any) 
     user_id = uuid7()
     lists = [_seed(repo, user_id=user_id, car_id=None, price=100, age_minutes=age) for age in (30, 10, 20)]
 
-    raw = dynamo_client.get_table(BUILD_LISTS).get_item(Key={"id": str(lists[0].id)})["Item"]
-    assert raw["listing"] == "build_list"
+    raw = dynamo_client.get_table(BUILD_LISTS).get_item(Key={"id": str(lists[0].id)}).get("Item", {})
+    assert raw.get("listing") == "build_list"
 
     first = repo.list_public(limit=2)
     second = repo.list_public(limit=2, cursor=first.next_cursor)

@@ -45,7 +45,8 @@ def test_backfill_is_a_dry_run_then_idempotent(dynamo_tables: Any) -> None:
 
     assert script.backfill(script_table, apply=True) == {"missing": 2, "written": 2, "skipped": 0}
     assert [str(bl.id) for bl in repo.all_public()] == [newer, older]
-    assert "listing" not in table.get_item(Key={"id": unique_lookup_key("name", "legacy")})["Item"]
+    sentinel = table.get_item(Key={"id": unique_lookup_key("name", "legacy")}).get("Item", {})
+    assert sentinel and "listing" not in sentinel
 
     assert script.backfill(script_table, apply=True) == {"missing": 0, "written": 0, "skipped": 0}
 
