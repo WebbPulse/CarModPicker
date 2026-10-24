@@ -1,8 +1,28 @@
 
 version: 2
+registries:
+  codeartifact-python:
+    type: python-index
+    url: https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/pypi/python/simple/
+    aws-region: us-west-2
+    account-id: "432410731887"
+    role-name: artifacts-shared-dependabot-reader
+    domain: webbpulse
+    domain-owner: "432410731887"
+  codeartifact-npm:
+    type: npm-registry
+    url: https://webbpulse-432410731887.d.codeartifact.us-west-2.amazonaws.com/npm/npm/
+    aws-region: us-west-2
+    account-id: "432410731887"
+    role-name: artifacts-shared-dependabot-reader
+    domain: webbpulse
+    domain-owner: "432410731887"
+
 updates:
   - package-ecosystem: "uv"
     directory: "/backend"
+    registries:
+      - codeartifact-python
     target-branch: "staging"
     schedule:
       interval: "weekly"
@@ -18,6 +38,8 @@ updates:
     directories:
       - "/frontend"
       - "/chrome-extension"
+    registries:
+      - codeartifact-npm
     target-branch: "staging"
     schedule:
       interval: "weekly"
