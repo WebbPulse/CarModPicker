@@ -96,8 +96,8 @@ def _canonical_parts() -> list[TimestampedDynamoModel]:
 
 
 def _build_lists() -> list[TimestampedDynamoModel]:
-    """Return every build list row."""
-    return list(get_repositories().build_lists.scan_all())
+    """Return every build list row through the listing index."""
+    return list(get_repositories().build_lists.all_public())
 
 
 def _car_generations() -> list[TimestampedDynamoModel]:

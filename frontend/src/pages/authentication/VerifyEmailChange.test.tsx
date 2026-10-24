@@ -60,7 +60,7 @@ describe('VerifyEmailChange', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders a taken refusal', async () => {
+  it('explains a lost address race and that the address did not change', async () => {
     confirmEmailChange.mockResolvedValue({
       ok: false,
       reason: 'taken',
@@ -69,7 +69,12 @@ describe('VerifyEmailChange', () => {
     });
     render(<VerifyEmailChange />);
     expect(
-      await screen.findByText(/belongs to another account/i)
+      await screen.findByText(
+        /another account started using that email address/i
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/your sign-in address has not changed/i)
     ).toBeInTheDocument();
   });
 

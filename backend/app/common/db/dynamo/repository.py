@@ -312,6 +312,9 @@ class DynamoRepository(Generic[TModel]):
         for target, sources in self.spec.coalesced_keys:
             if any(source in changes for source in sources):
                 raise ValueError(f"updating {sources} requires a full put because {target!r} is derived from them")
+        for target, _, absent_source in self.spec.sparse_constants:
+            if absent_source in changes:
+                raise ValueError(f"updating {absent_source!r} requires a full put because {target!r} depends on it")
         return derived
 
     def delete(self, partition_value: Any, sort_value: Any = None, *, must_exist: bool = False) -> None:
@@ -388,6 +391,24 @@ class DynamoRepository(Generic[TModel]):
             cursor = page.next_cursor
             if cursor is None:
                 return items
+
+    def count_query(self, index: str | None, key_value: Any) -> int:
+        """How many items match a key, counted by the Query itself without returning them."""
+        hash_name, _ = self._query_key_names(index)
+        kwargs: dict[str, Any] = {
+            "KeyConditionExpression": Key(hash_name).eq(to_dynamo_value(key_value)),
+            "Select": "COUNT",
+        }
+        if index is not None:
+            kwargs["IndexName"] = index
+        total = 0
+        while True:
+            response = self.table.query(**kwargs)
+            total += int(response.get("Count", 0))
+            start_key = response.get("LastEvaluatedKey")
+            if start_key is None:
+                return total
+            kwargs["ExclusiveStartKey"] = start_key
 
     def _query_key_names(self, index: str | None) -> tuple[str, str | None]:
         """The hash and range attribute names of the table or of one of its indexes."""

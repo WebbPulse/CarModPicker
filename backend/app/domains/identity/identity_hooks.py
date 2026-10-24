@@ -11,12 +11,13 @@ from typing import Any
 from uuid import UUID
 
 from webbpulse.dynamodb import ItemNotFound
-from webbpulse.identity import AuthenticationRefused
+from webbpulse.identity import AuthenticationRefused, LoginRejected
 from webbpulse.identity.oauth import OAuthLinkStore
 from webbpulse.identity.storage import PasskeyStore
 
 from app.common.db.dynamo.users import (
     OAuthAccountRepository,
+    UniqueAttributeTaken,
     User,
     UserRepository,
     WebAuthnCredentialRepository,
@@ -28,6 +29,9 @@ SUPERUSER_ROLE = "superuser"
 ADMIN_ROLE = "admin"
 
 REGISTRATION_ATTRIBUTES = frozenset({"username", "email_verified"})
+
+EMAIL_TAKEN_CODE = "EMAIL_TAKEN"
+EMAIL_TAKEN_MESSAGE = "Another account already uses that email address."
 
 
 class CarModPickerIdentityHooks:
@@ -170,13 +174,16 @@ class CarModPickerIdentityHooks:
 
         Called by the package only after the link mailed to `email` is spent. Goes
         through `update_user` so the email reservation moves in the same transaction.
-        Raises `ValueError` for a missing row, since the link is already spent.
+        Raises `LoginRejected` with 409 `EMAIL_TAKEN` when another account claimed the
+        address after the package's check, and `ValueError` for a missing row.
         """
         parsed = _as_uuid(user_id)
         if parsed is None:
             raise ValueError(f"change_email was given {user_id!r}, which is not one of this product's user ids.")
         try:
             self._users.update_user(parsed, email=email, email_verified=True)
+        except UniqueAttributeTaken as exc:
+            raise LoginRejected(EMAIL_TAKEN_MESSAGE, error_code=EMAIL_TAKEN_CODE, status_code=409) from exc
         except ItemNotFound as exc:
             raise ValueError(f"change_email found no user with id {parsed}. The link was consumed.") from exc
 

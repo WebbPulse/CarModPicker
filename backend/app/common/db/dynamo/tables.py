@@ -38,6 +38,7 @@ class TableSpec:
     composite_keys: tuple[tuple[str, tuple[str, ...]], ...] = ()
     coalesced_keys: tuple[tuple[str, tuple[str, ...]], ...] = ()
     constant_attributes: tuple[tuple[str, str], ...] = ()
+    sparse_constants: tuple[tuple[str, str, str], ...] = ()
 
     @property
     def key_attribute_names(self) -> tuple[str, ...]:
@@ -192,6 +193,9 @@ PART_MANUFACTURERS = TableSpec(
     lowercase_mirrors=(("name", "name_lower"),),
 )
 
+PART_CANONICAL_LISTING_ATTRIBUTE = "canonical_listing"
+PART_CANONICAL_LISTING_PARTITION = "part"
+
 PARTS = TableSpec(
     suffix="parts",
     indexes=(
@@ -201,8 +205,10 @@ PARTS = TableSpec(
         gsi("user_id", "created_at"),
         gsi("canonical_id"),
         gsi("gtin"),
+        gsi(PART_CANONICAL_LISTING_ATTRIBUTE, "created_at"),
     ),
     coalesced_keys=(("canonical_id", ("canonical_part_id", "id")),),
+    sparse_constants=((PART_CANONICAL_LISTING_ATTRIBUTE, PART_CANONICAL_LISTING_PARTITION, "canonical_part_id"),),
 )
 
 PART_CARS = TableSpec(
