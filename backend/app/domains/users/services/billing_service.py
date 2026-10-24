@@ -9,12 +9,13 @@ import stripe
 from webbpulse.dynamodb import IdempotencyStore
 from webbpulse.dynamodb import Repository as SharedRepository
 from webbpulse.integrations.stripe import (
+    BillingGateway,
+    StripeGateway,
     StripeNotConfigured,
     StripeSettings,
     claim_webhook_event,
     event_claim_key,
     load_stripe_settings,
-    stripe_client,
 )
 
 from app.common.core.config import settings
@@ -25,6 +26,8 @@ from app.common.db.dynamo.users import User, UserRepository
 logger = logging.getLogger(__name__)
 
 PREMIUM_PRICE_LOOKUP_KEY = "premium_monthly"
+
+CUSTOMER_OWNER_KEY = "user_id"
 
 PREMIUM_STRIPE_STATUSES = frozenset({"active", "trialing"})
 
@@ -51,72 +54,12 @@ def load_billing_settings() -> StripeSettings:
     return load_stripe_settings(settings.APP_SECRETS_ARN or None)
 
 
-class StripeGateway:
-    """The handful of Stripe calls billing makes, behind one seam tests can fake."""
-
-    def __init__(self, client: stripe.StripeClient) -> None:
-        """Wrap a configured Stripe client."""
-        self.client = client
-
-    @classmethod
-    def from_settings(cls, stripe_settings: StripeSettings) -> "StripeGateway":
-        """Build a gateway from resolved Stripe settings."""
-        return cls(stripe_client(stripe_settings))
-
-    def find_price_id(self, lookup_key: str) -> str | None:
-        """The id of the active price carrying `lookup_key`, or None."""
-        prices = self.client.v1.prices.list(params={"lookup_keys": [lookup_key], "active": True, "limit": 1})
-        return prices.data[0].id if prices.data else None
-
-    def create_customer(self, *, email: str, user_id: str) -> str:
-        """Create a Stripe customer for a user and return its id."""
-        customer = self.client.v1.customers.create(params={"email": email, "metadata": {"user_id": user_id}})
-        return customer.id
-
-    def create_checkout_session(
-        self,
-        *,
-        customer_id: str,
-        price_id: str,
-        user_id: str,
-        success_url: str,
-        cancel_url: str,
-    ) -> str:
-        """Create a subscription mode Checkout Session and return its URL."""
-        session = self.client.v1.checkout.sessions.create(
-            params={
-                "mode": "subscription",
-                "customer": customer_id,
-                "client_reference_id": user_id,
-                "line_items": [{"price": price_id, "quantity": 1}],
-                "success_url": success_url,
-                "cancel_url": cancel_url,
-                "metadata": {"user_id": user_id},
-                "subscription_data": {"metadata": {"user_id": user_id}},
-            }
-        )
-        if not session.url:
-            raise stripe.StripeError("Checkout Session has no URL")
-        return session.url
-
-    def create_portal_session(self, *, customer_id: str, return_url: str) -> str:
-        """Create a Customer Portal session and return its URL."""
-        session = self.client.v1.billing_portal.sessions.create(
-            params={"customer": customer_id, "return_url": return_url}
-        )
-        return session.url
-
-    def retrieve_subscription(self, subscription_id: str) -> dict[str, Any]:
-        """The subscription with this id, as a plain dict."""
-        return self.client.v1.subscriptions.retrieve(subscription_id).to_dict()
-
-
-GatewayFactory = Callable[[StripeSettings], StripeGateway]
+GatewayFactory = Callable[[StripeSettings], BillingGateway]
 
 
 def get_gateway_factory() -> GatewayFactory:
     """The dependency building a Stripe gateway from settings, overridden in tests."""
-    return StripeGateway.from_settings
+    return StripeGateway
 
 
 def get_idempotency_store() -> IdempotencyStore:
@@ -152,16 +95,24 @@ def portal_return_url() -> str:
     return f"{settings.frontend_base_url}/profile"
 
 
-def ensure_customer(user: User, users: UserRepository, gateway: StripeGateway) -> str:
-    """The user's Stripe customer id, creating and persisting one when absent."""
-    if user.stripe_customer_id:
-        return user.stripe_customer_id
-    customer_id = gateway.create_customer(email=user.email, user_id=str(user.id))
-    users.update_user(user.id, stripe_customer_id=customer_id)
+def ensure_customer(user: User, users: UserRepository, gateway: BillingGateway) -> str:
+    """The user's one Stripe customer id, persisted when it was not stored yet.
+
+    The shared gateway answers the same customer to every concurrent caller, so the
+    unconditional write stores the same id whichever racer lands last.
+    """
+    customer_id = gateway.ensure_customer(
+        owner_key=CUSTOMER_OWNER_KEY,
+        owner_id=str(user.id),
+        email=user.email,
+        customer_id=user.stripe_customer_id,
+    )
+    if customer_id != user.stripe_customer_id:
+        users.update_user(user.id, stripe_customer_id=customer_id)
     return customer_id
 
 
-def start_checkout(user: User, users: UserRepository, gateway: StripeGateway) -> str:
+def start_checkout(user: User, users: UserRepository, gateway: BillingGateway) -> str:
     """Create a premium Checkout Session for the user and return its URL.
 
     Raises PriceNotFound when no price carries the premium lookup key.
@@ -174,9 +125,10 @@ def start_checkout(user: User, users: UserRepository, gateway: StripeGateway) ->
     return gateway.create_checkout_session(
         customer_id=customer_id,
         price_id=price_id,
-        user_id=str(user.id),
+        reference_id=str(user.id),
         success_url=success_url,
         cancel_url=cancel_url,
+        metadata={CUSTOMER_OWNER_KEY: str(user.id)},
     )
 
 
@@ -249,7 +201,7 @@ def find_user(
 
 def _sync_subscription(
     users: UserRepository,
-    gateway: StripeGateway,
+    gateway: BillingGateway,
     *,
     subscription_id: str,
     customer_id: str | None,
@@ -271,7 +223,7 @@ def _sync_subscription(
     return True
 
 
-def apply_event(event_type: str, obj: dict[str, Any], users: UserRepository, gateway: StripeGateway) -> bool:
+def apply_event(event_type: str, obj: dict[str, Any], users: UserRepository, gateway: BillingGateway) -> bool:
     """Apply one verified Stripe event, answering whether it changed a user."""
     if event_type == "checkout.session.completed":
         subscription_id = _object_id(obj.get("subscription"))
@@ -307,7 +259,7 @@ def apply_event(event_type: str, obj: dict[str, Any], users: UserRepository, gat
 def process_webhook_event(
     event: stripe.Event,
     users: UserRepository,
-    gateway: StripeGateway,
+    gateway: BillingGateway,
     store: IdempotencyStore,
 ) -> tuple[bool, bool]:
     """Claim and apply a verified event, answering (handled, duplicate).
@@ -328,6 +280,7 @@ def process_webhook_event(
 
 
 __all__ = [
+    "CUSTOMER_OWNER_KEY",
     "HANDLED_EVENTS",
     "PREMIUM_PRICE_LOOKUP_KEY",
     "GatewayFactory",
