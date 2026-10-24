@@ -1,4 +1,4 @@
-"""The public build list listing reads through index Queries, never a table Scan (CAR-24)."""
+"""Public build list reads go through index Queries, never a table Scan (CAR-24, CAR-35)."""
 
 from datetime import UTC, datetime, timedelta
 from typing import Any, Iterator, List
@@ -10,8 +10,17 @@ from uuid6 import uuid7
 
 from app.common.core.config import settings
 from app.common.db.dynamo import client as dynamo_client
-from app.common.db.dynamo.build_lists import BuildList, BuildListRepository
+from app.common.db.dynamo.build_lists import (
+    BuildList,
+    BuildListLaborEstimate,
+    BuildListLaborEstimateRepository,
+    BuildListPart,
+    BuildListPartRepository,
+    BuildListRepository,
+)
+from app.common.db.dynamo.catalog import Part as DBPart
 from app.common.db.dynamo.tables import BUILD_LISTS
+from tests.conftest import get_default_category_id, save_catalog
 
 LISTING_URL = f"{settings.API_STR}/build-lists/with-votes"
 
@@ -26,6 +35,19 @@ def no_build_list_scans(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(BuildListRepository, "scan_all", refuse)
     monkeypatch.setattr(BuildListRepository, "scan", refuse)
+
+
+@pytest.fixture
+def no_child_scans(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail the test if anything scans the build list parts or labor estimates tables."""
+
+    def refuse(*args: Any, **kwargs: Any) -> Any:
+        """Stand in for a Scan the cost lookups must never issue."""
+        raise AssertionError("a build list child table was scanned")
+
+    for repository in (BuildListPartRepository, BuildListLaborEstimateRepository):
+        monkeypatch.setattr(repository, "scan_all", refuse)
+        monkeypatch.setattr(repository, "scan", refuse)
 
 
 @pytest.fixture
@@ -123,3 +145,71 @@ def test_car_and_owner_filters_query_their_own_indexes(
     response = client.get(f"{LISTING_URL}?owner_id={owner}")
     assert [item["id"] for item in response.json()["data"]] == [str(on_a.id)]
     assert queried_indexes == ["user_id-created_at-index"]
+
+
+def test_costs_come_from_child_index_queries(
+    client: TestClient, db_session: Any, dynamo_tables: Any, no_build_list_scans: None, no_child_scans: None
+) -> None:
+    """Parts and labor cost are read per build list through the child indexes, and sort and filter as before."""
+    repo = BuildListRepository()
+    user_id = uuid7()
+    cheap = _seed(repo, user_id=user_id, car_id=None, price=100, age_minutes=1)
+    pricey = _seed(repo, user_id=user_id, car_id=None, price=100, age_minutes=2)
+    bare = _seed(repo, user_id=user_id, car_id=None, price=150, age_minutes=3)
+    part = save_catalog(
+        DBPart(
+            name="cost part",
+            category_id=get_default_category_id(db_session),
+            user_id=user_id,
+            is_universal=True,
+            best_price_cents=1000,
+        )
+    )
+    BuildListPartRepository().create(
+        BuildListPart(build_list_id=pricey.id, part_id=part.id, added_by=user_id, quantity=2)
+    )
+    labor = BuildListLaborEstimateRepository()
+    labor.create(BuildListLaborEstimate(build_list_id=pricey.id, name="install", cost_cents=500))
+    labor.create(BuildListLaborEstimate(build_list_id=cheap.id, name="tune", cost_cents=25))
+
+    response = client.get(f"{LISTING_URL}?sort=price_desc")
+    assert response.status_code == 200
+    data = {item["id"]: item for item in response.json()["data"]}
+    assert [item["id"] for item in response.json()["data"]] == [str(pricey.id), str(bare.id), str(cheap.id)]
+    assert data[str(pricey.id)]["total_cost_cents"] == 2600
+    assert data[str(pricey.id)]["total_parts_cost_cents"] == 2000
+    assert data[str(pricey.id)]["total_labor_cost_cents"] == 500
+    assert data[str(cheap.id)]["total_cost_cents"] == 125
+    assert data[str(cheap.id)]["total_parts_cost_cents"] is None
+    assert data[str(bare.id)]["total_labor_cost_cents"] is None
+
+    response = client.get(f"{LISTING_URL}?min_cost_cents=130&max_cost_cents=2000")
+    assert [item["id"] for item in response.json()["data"]] == [str(bare.id)]
+
+    response = client.get(LISTING_URL)
+    assert {item["id"]: item["total_cost_cents"] for item in response.json()["data"]} == {
+        str(pricey.id): 2600,
+        str(cheap.id): 125,
+        str(bare.id): 150,
+    }
+
+
+def test_count_queries_the_listing_index(client: TestClient, dynamo_tables: Any, no_build_list_scans: None) -> None:
+    """The build list count is a COUNT Query on the listing index."""
+    repo = BuildListRepository()
+    assert client.get(f"{settings.API_STR}/build-lists/count").json() == {"count": 0}
+    for age in range(3):
+        _seed(repo, user_id=uuid7(), car_id=None, price=100, age_minutes=age)
+    assert client.get(f"{settings.API_STR}/build-lists/count").json() == {"count": 3}
+
+
+def test_sitemap_reads_build_lists_through_the_listing_index(
+    client: TestClient, dynamo_tables: Any, no_build_list_scans: None
+) -> None:
+    """The sitemap index and the build list sitemap read build lists without a Scan."""
+    seeded = _seed(BuildListRepository(), user_id=uuid7(), car_id=None, price=100, age_minutes=1)
+
+    assert client.get("/sitemap.xml").status_code == 200
+    response = client.get("/sitemap-build-lists.xml")
+    assert response.status_code == 200
+    assert f"/build-lists/{seeded.id}" in response.text
