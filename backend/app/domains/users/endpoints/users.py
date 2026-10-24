@@ -127,7 +127,7 @@ async def upload_profile_picture(
         old_key = (current_user.image_urls or [None])[0]
         if old_key:
             try:
-                storage_service.delete_image(old_key)
+                storage_service.delete_owned_image(old_key, current_user.id)
                 logger.info(f"Deleted old profile picture for user {current_user.id}: {old_key}")
             except Exception as e:
                 logger.warning(f"Failed to delete old profile picture for user {current_user.id}: {str(e)}")
@@ -165,7 +165,7 @@ async def delete_profile_picture(
         )
 
     try:
-        storage_service.delete_image(old_file_key)
+        storage_service.delete_owned_image(old_file_key, current_user.id)
         updated = repos.users.update(current_user.id, image_urls=None)
 
         logger.info(f"User {current_user.id} deleted profile picture: {old_file_key}")
@@ -265,6 +265,9 @@ async def update_user(
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
     update_data = user.model_dump(exclude_unset=True)
+    storage_service.assert_file_keys_attachable(
+        update_data.get("image_urls") or [], current_user.id, already_attached=db_user.image_urls or []
+    )
     username_changed = False
     session_expire_minutes_changed = False
     changes: dict[str, Any] = {}

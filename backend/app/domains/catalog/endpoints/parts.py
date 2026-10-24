@@ -311,6 +311,8 @@ async def append_images_to_part(
     repos: Repositories = Depends(get_repositories),
 ) -> PartRead:
     """Append image file keys to a part's gallery."""
+    from app.common.api.services.storage_service import storage_service
+
     part = _get_part_or_404(repos, part_id)
     require_part_edit_permission(current_user, part)
 
@@ -321,6 +323,9 @@ async def append_images_to_part(
             detail=f"Part already has the maximum number of images ({MAX_IMAGES_PER_PART}).",
         )
 
+    storage_service.assert_file_keys_attachable(
+        data.file_keys, current_user.id, already_attached=existing, is_admin=current_user.is_admin
+    )
     seen = set(existing)
     for fk in data.file_keys:
         if fk and fk not in seen and len(existing) < MAX_IMAGES_PER_PART:
@@ -366,7 +371,7 @@ async def remove_image_from_part(
 
     if removed_key and is_file_key(removed_key):
         try:
-            storage_service.delete_image(removed_key)
+            storage_service.delete_owned_image(removed_key, current_user.id)
         except Exception as e:
             logging.getLogger(__name__).warning(
                 "Failed to delete image from storage for part %s: %s",

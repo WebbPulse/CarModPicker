@@ -10,7 +10,7 @@ import re
 import uuid
 from collections import defaultdict
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Iterable, Optional, cast
 from uuid import UUID
 
 import boto3
@@ -238,6 +238,38 @@ class StorageService:
         expected_hash = hashlib.sha256(str(user_id).encode()).hexdigest()[:16]
 
         return user_hash_in_key == expected_hash
+
+    def assert_file_keys_attachable(
+        self,
+        values: Iterable[Optional[str]],
+        user_id: UUID,
+        *,
+        already_attached: Iterable[Optional[str]] = (),
+        is_admin: bool = False,
+    ) -> None:
+        """Refuse any newly attached S3 file key the caller did not upload.
+
+        External URLs and keys already on the entity pass; admins pass.
+        """
+        if is_admin:
+            return
+        attached = {value for value in already_attached if value}
+        for value in values:
+            if not value or value in attached or value.startswith(("http://", "https://")):
+                continue
+            if not self.verify_file_key_ownership(value, user_id):
+                logger.warning(f"User {user_id} attempted to attach file_key they don't own: {value}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to attach this image",
+                )
+
+    def delete_owned_image(self, file_key: str, user_id: UUID) -> bool:
+        """Delete ``file_key`` only when ``user_id`` uploaded it; otherwise leave it for the orphan sweep."""
+        if not self.verify_file_key_ownership(file_key, user_id):
+            logger.warning(f"User {user_id} attempted to delete file_key they don't own: {file_key}")
+            return False
+        return self.delete_image(file_key)
 
     def validate_file_key(self, file_key: str) -> None:
         """Validate that a file key is safe and doesn't contain path traversal attempts."""

@@ -14,6 +14,7 @@ from fastapi import HTTPException, status
 from app.common.api.dependencies.repositories import Repositories, get_repositories
 from app.common.api.schemas.build_list import BuildListCreate, BuildListUpdate
 from app.common.api.services.base_dynamo_crud_service import BaseDynamoCRUDService
+from app.common.api.services.storage_service import storage_service
 from app.common.db.dynamo.build_lists import (
     BuildList,
     BuildListPart,
@@ -79,6 +80,9 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
         """Create a build list and its build log after the eligibility checks."""
         self._verify_car_exists(data.car_id)
         self._enforce_free_tier_limit(current_user)
+        storage_service.assert_file_keys_attachable(
+            data.image_urls or [], current_user.id, is_admin=current_user.is_admin
+        )
 
         build_list = self.repository.create(self.build_entity(data, current_user, additional_data))
         self._create_build_log(build_list)
@@ -91,6 +95,16 @@ class BuildListService(BaseDynamoCRUDService[BuildList, BuildListCreate, BuildLi
         changes = data.model_dump(exclude_unset=True)
         if changes.get("car_id") is not None:
             self._verify_car_exists(changes["car_id"])
+        if changes.get("image_urls"):
+            entity = self.get_by_id(entity_id, allow_public=True)
+            if not self.can_modify(entity, current_user):
+                raise self.forbidden("update")
+            storage_service.assert_file_keys_attachable(
+                changes["image_urls"],
+                current_user.id,
+                already_attached=entity.image_urls or [],
+                is_admin=current_user.is_admin,
+            )
         return super().update(entity_id, data, current_user)
 
     def delete(self, entity_id: UUID, current_user: DBUser) -> BuildList:
