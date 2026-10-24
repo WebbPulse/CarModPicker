@@ -25,6 +25,7 @@ from app.common.db.dynamo.tables import (
     PARTS,
     RETAILERS,
 )
+from app.common.db.dynamo.tombstones import drop_tombstoned
 from app.common.db.dynamo.users import run_unique_transaction
 
 NAME = "name"
@@ -435,17 +436,18 @@ class PartRepository(UniqueCatalogRepository[Part]):
         return self.query_all("canonical_id-index", str(canonical_id))
 
     def list_canonical(self) -> list[Part]:
-        """Every part that is itself canonical rather than a linked duplicate, through the sparse canonical index.
+        """Every live part that is itself canonical rather than a linked duplicate, through the sparse canonical index.
 
-        Falls back to a filtered Scan only while the index is still being created or backfilled by DynamoDB.
+        Tombstoned parts are left out. Falls back to a filtered Scan only while the index is still being created or
+        backfilled by DynamoDB.
         """
         try:
-            return self.query_all(self.canonical_index, PART_CANONICAL_LISTING_PARTITION)
+            return drop_tombstoned(self.query_all(self.canonical_index, PART_CANONICAL_LISTING_PARTITION))
         except ClientError as exc:
             message = str(exc.response.get("Error", {}).get("Message", ""))
             if not any(marker in message for marker in UNREADABLE_INDEX_MARKERS):
                 raise
-        return [part for part in self.scan_all() if part.canonical_part_id is None]
+        return drop_tombstoned(part for part in self.scan_all() if part.canonical_part_id is None)
 
     def count_by_category(self, category_id: UUID) -> int:
         """How many parts are in this category."""

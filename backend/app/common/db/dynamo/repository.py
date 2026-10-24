@@ -23,6 +23,7 @@ from app.common.db.dynamo.serialization import (
     unique_lookup_key,
 )
 from app.common.db.dynamo.tables import IndexSpec, TableSpec
+from app.common.db.dynamo.tombstones import DELETED_ATTRIBUTE
 
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb.service_resource import Table
@@ -299,7 +300,8 @@ class DynamoRepository(Generic[TModel]):
 
 
         Raises ValueError for composite and coalesced keys, which cannot be recomputed
-        from a partial update and need a full put.
+        from a partial update and need a full put. A tombstone removes every sparse
+        constant, and clearing one needs a full put to restore them.
         """
         derived: dict[str, Any] = {}
         for source, target in self.spec.lowercase_mirrors:
@@ -315,6 +317,12 @@ class DynamoRepository(Generic[TModel]):
         for target, _, absent_source in self.spec.sparse_constants:
             if absent_source in changes:
                 raise ValueError(f"updating {absent_source!r} requires a full put because {target!r} depends on it")
+            if DELETED_ATTRIBUTE in changes:
+                if not changes[DELETED_ATTRIBUTE]:
+                    raise ValueError(
+                        f"clearing {DELETED_ATTRIBUTE!r} requires a full put because {target!r} depends on it"
+                    )
+                derived[target] = None
         return derived
 
     def delete(self, partition_value: Any, sort_value: Any = None, *, must_exist: bool = False) -> None:
