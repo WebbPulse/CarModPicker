@@ -34,7 +34,9 @@ beforeEach(() => {
       return Promise.resolve({ data: mockCar });
     }
     if (url.startsWith('/car-generations')) {
-      return Promise.resolve({ data: [mockCar] });
+      return Promise.resolve({
+        data: { items: [mockCar], next_cursor: null, has_next: false },
+      });
     }
     if (url === '/parts/filter-options') {
       return Promise.resolve({
@@ -73,7 +75,7 @@ describe('usePartsFilters — initial state', () => {
     });
 
     expect(result.current.currentPage).toBe(1);
-    expect(result.current.params.skip).toBe(0);
+    expect(result.current.params.cursor).toBeUndefined();
     expect(result.current.params.limit).toBe(100);
     expect(result.current.params.sort).toBe('votes_desc');
   });
@@ -159,5 +161,46 @@ describe('usePartsFilters — user-scoped variant', () => {
     });
 
     expect(result.current.params.user_id).toBe(userId);
+  });
+});
+
+describe('usePartsFilters — cursor paging', () => {
+  it('sends the next cursor for page two and drops it when filters change', () => {
+    const { result } = renderHook(() => usePartsFilters(), {
+      wrapper: routerWrapper(['/parts']),
+    });
+
+    act(() => {
+      result.current.setPaginationInfo({
+        has_next: true,
+        next_cursor: 'cursor-page-2',
+      });
+    });
+    act(() => {
+      result.current.setCurrentPage(2);
+    });
+
+    expect(result.current.currentPage).toBe(2);
+    expect(result.current.params.cursor).toBe('cursor-page-2');
+
+    act(() => {
+      result.current.setSearchTerm('brakes');
+    });
+
+    expect(result.current.currentPage).toBe(1);
+    expect(result.current.params.cursor).toBeUndefined();
+  });
+
+  it('falls back to page one when no cursor is known for the page', () => {
+    const { result } = renderHook(() => usePartsFilters(), {
+      wrapper: routerWrapper(['/parts']),
+    });
+
+    act(() => {
+      result.current.setCurrentPage(3);
+    });
+
+    expect(result.current.currentPage).toBe(1);
+    expect(result.current.params.cursor).toBeUndefined();
   });
 });

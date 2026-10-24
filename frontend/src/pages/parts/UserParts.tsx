@@ -7,12 +7,12 @@ import { ErrorAlert } from '../../components/ui/alert';
 import { Card } from '../../components/ui/card';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import { Input } from '../../components/ui/input';
-import Pagination from '../../components/ui/pagination';
+import CursorPager from '../../components/ui/cursor-pager';
 import { useAuth } from '../../hooks/useAuth';
 import { usePartsFilters } from '../../hooks/usePartsFilters';
 import { buildListPartsApi } from '../../api/build_list_parts';
 import { partsApi } from '../../api/parts';
-import type { PartReadWithVotes, PaginationInfo } from '../../types/Api';
+import type { CursorPageInfo, PartReadWithVotes } from '../../types/Api';
 
 /** The signed in user's own parts, with deletion. */
 const UserParts: React.FC = () => {
@@ -31,7 +31,7 @@ const UserParts: React.FC = () => {
   const filters = usePartsFilters(filterOptions);
 
   const handlePaginationChange = useCallback(
-    (pagination: PaginationInfo | null) => {
+    (pagination: CursorPageInfo | null) => {
       filters.setPaginationInfo(pagination);
     },
     [filters]
@@ -174,15 +174,11 @@ const UserParts: React.FC = () => {
             part_manufacturers={filters.availablePartManufacturers}
           />
 
-          {filters.paginationInfo && filters.paginationInfo.total_pages > 1 && (
-            <Pagination
-              currentPage={filters.paginationInfo.current_page}
-              totalPages={filters.paginationInfo.total_pages}
-              totalItems={filters.paginationInfo.total_items}
-              itemsPerPage={filters.paginationInfo.items_per_page}
-              onPageChange={filters.setCurrentPage}
-            />
-          )}
+          <CursorPager
+            currentPage={filters.currentPage}
+            hasNext={filters.paginationInfo?.has_next ?? false}
+            onPageChange={filters.setCurrentPage}
+          />
         </main>
       </div>
 

@@ -57,12 +57,16 @@ describe('partManufacturersApi', () => {
     });
 
     await partManufacturersApi.searchPartManufacturers('brembo', {
-      skip: 0,
+      cursor: 'cursor-0',
       limit: 10,
     });
 
     expect(apiClient.get).toHaveBeenCalledWith('/part-manufacturers/search', {
-      params: expect.objectContaining({ q: 'brembo', skip: 0, limit: 10 }),
+      params: expect.objectContaining({
+        q: 'brembo',
+        cursor: 'cursor-0',
+        limit: 10,
+      }),
     });
   });
 
@@ -154,12 +158,12 @@ describe('partManufacturersApi', () => {
 
     await partManufacturersApi.getPartsByPartManufacturer(
       mockPartManufacturer.id,
-      { skip: 5, limit: 15 }
+      { cursor: 'cursor-5', limit: 15 }
     );
 
     expect(apiClient.get).toHaveBeenCalledWith(
       `/part-manufacturers/${mockPartManufacturer.id}/parts`,
-      { params: expect.objectContaining({ skip: 5, limit: 15 }) }
+      { params: expect.objectContaining({ cursor: 'cursor-5', limit: 15 }) }
     );
   });
 

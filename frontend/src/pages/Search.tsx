@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import BuildListItem from '../components/buildLists/BuildListItem';
 import PageHeader from '../components/layout/PageHeader';
 import SectionHeader from '../components/layout/SectionHeader';
+import PartListItem from '../components/parts/PartListItem';
 import { ErrorAlert } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -12,18 +13,106 @@ import UserCard from '../components/users/UserCard';
 import { SEARCH_INITIAL_LIMITS, SEARCH_RESULTS_LIMIT } from '../constants';
 import useApiRequest from '../hooks/UseApiRequest';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
-import { searchApi } from '../api/search';
-import type { BuildListRead, PublicUserRead } from '../types/Api';
+import {
+  searchApi,
+  type SearchCategory,
+  type SearchParams,
+  type SearchResults,
+} from '../api/search';
+import type {
+  BuildListRead,
+  CursorPage,
+  PartRead,
+  PublicUserRead,
+} from '../types/Api';
+import { getApiErrorMessage } from '../utils/apiError';
 
-const fetchSearchResultsRequestFn = (params: {
-  q: string;
-  skip?: number;
-  limit?: number;
-}) => searchApi.search(params);
+/** Loaded items, next cursor, and how many are shown for one category. */
+interface CategoryState<T> {
+  items: T[];
+  nextCursor: string | null;
+  hasNext: boolean;
+  displayed: number;
+}
+
+/** Per category results for the current query. */
+interface SearchState {
+  build_lists: CategoryState<BuildListRead>;
+  parts: CategoryState<PartRead>;
+  users: CategoryState<PublicUserRead>;
+}
+
+const SECTION_ORDER: SearchCategory[] = ['build_lists', 'parts', 'users'];
+
+const SECTION_LABELS: Record<SearchCategory, string> = {
+  build_lists: 'Build Lists',
+  parts: 'Parts',
+  users: 'Users',
+};
+
+const CURSOR_PARAM: Record<
+  SearchCategory,
+  'build_lists_cursor' | 'parts_cursor' | 'users_cursor'
+> = {
+  build_lists: 'build_lists_cursor',
+  parts: 'parts_cursor',
+  users: 'users_cursor',
+};
+
+const emptyCategory = <T,>(): CategoryState<T> => ({
+  items: [],
+  nextCursor: null,
+  hasNext: false,
+  displayed: 0,
+});
+
+const emptySearchState = (): SearchState => ({
+  build_lists: emptyCategory<BuildListRead>(),
+  parts: emptyCategory<PartRead>(),
+  users: emptyCategory<PublicUserRead>(),
+});
+
+const categoryFromPage = <T,>(
+  page: CursorPage<T>,
+  category: SearchCategory
+): CategoryState<T> => ({
+  items: page.items,
+  nextCursor: page.next_cursor,
+  hasNext: page.has_next,
+  displayed: Math.min(SEARCH_INITIAL_LIMITS[category], page.items.length),
+});
+
+const appendPage = <T,>(
+  current: CategoryState<T>,
+  page: CursorPage<T>,
+  category: SearchCategory
+): CategoryState<T> => {
+  const items = [...current.items, ...page.items];
+  return {
+    items,
+    nextCursor: page.next_cursor,
+    hasNext: page.has_next,
+    displayed: Math.min(
+      current.displayed + SEARCH_INITIAL_LIMITS[category],
+      items.length
+    ),
+  };
+};
+
+/** Maps a first page search response onto per category state. */
+const searchStateFromResults = (results: SearchResults): SearchState => ({
+  build_lists: categoryFromPage(results.build_lists, 'build_lists'),
+  parts: categoryFromPage(results.parts, 'parts'),
+  users: categoryFromPage(results.users, 'users'),
+});
+
+const fetchSearchResultsRequestFn = (params: SearchParams) =>
+  searchApi.search(params);
 
 /**
  * Site search page. The query lives in the URL, so a search is shareable and
- * survives reload, and results cover build lists and users.
+ * survives reload, and results cover build lists, parts and users, each paged
+ * by its own cursor.
  */
 function Search() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,40 +120,19 @@ function Search() {
     () => searchParams.get('q') || ''
   );
 
-  const queryFromUrl = searchParams.get('q') || '';
+  const queryFromUrl = (searchParams.get('q') || '').trim();
   useDocumentMeta({
     title: queryFromUrl ? `Search: ${queryFromUrl}` : 'Search',
     description: queryFromUrl
-      ? `Search results on CarModPicker for "${queryFromUrl}": builds and users matching your query.`
-      : 'Search CarModPicker for builds and users across the community.',
+      ? `Search results on CarModPicker for "${queryFromUrl}": builds, parts and users matching your query.`
+      : 'Search CarModPicker for builds, parts and users across the community.',
     canonicalPath: '/search',
   });
 
-  const [buildLists, setBuildLists] = useState<BuildListRead[]>([]);
-  const [users, setUsers] = useState<PublicUserRead[]>([]);
-  const [displayedCounts, setDisplayedCounts] = useState<{
-    build_lists: number;
-    users: number;
-  }>({
-    build_lists: 0,
-    users: 0,
-  });
-  const [pagination, setPagination] = useState<{
-    build_lists: { has_next: boolean; skip: number };
-    users: { has_next: boolean; skip: number };
-  } | null>(null);
-  const [currentQuery, setCurrentQuery] = useState<string>(
-    () => searchParams.get('q') || ''
-  );
-
-  const sortedSections = useMemo(() => {
-    const sections: Array<'build_lists' | 'users'> = ['build_lists', 'users'];
-    const counts = {
-      build_lists: buildLists.length,
-      users: users.length,
-    };
-    return [...sections].sort((a, b) => counts[b] - counts[a]);
-  }, [buildLists.length, users.length]);
+  const [results, setResults] = useState<SearchState>(emptySearchState);
+  const [currentQuery, setCurrentQuery] = useState<string>(queryFromUrl);
+  const [loadingMore, setLoadingMore] = useState<SearchCategory | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
 
   const {
     data: searchResults,
@@ -73,21 +141,18 @@ function Search() {
     executeRequest: performSearch,
   } = useApiRequest(fetchSearchResultsRequestFn);
 
+  const sortedSections = useMemo(
+    () =>
+      [...SECTION_ORDER].sort(
+        (a, b) => results[b].items.length - results[a].items.length
+      ),
+    [results]
+  );
+
   const handleSearch = useCallback(() => {
-    if (searchTerm.trim()) {
-      const query = searchTerm.trim();
-      setSearchParams({ q: query });
-      setCurrentQuery(query);
-      setBuildLists([]);
-      setUsers([]);
-      setDisplayedCounts({
-        build_lists: 0,
-        users: 0,
-      });
-      setPagination(null);
-      void performSearch({ q: query, skip: 0, limit: SEARCH_RESULTS_LIMIT });
-    }
-  }, [searchTerm, setSearchParams, performSearch]);
+    const query = searchTerm.trim();
+    if (query) setSearchParams({ q: query });
+  }, [searchTerm, setSearchParams]);
 
   useEffect(() => {
     const trimmed = searchTerm.trim();
@@ -96,18 +161,28 @@ function Search() {
         setSearchParams({ q: trimmed });
       } else {
         setSearchParams({});
-        setCurrentQuery('');
-        setBuildLists([]);
-        setUsers([]);
-        setDisplayedCounts({
-          build_lists: 0,
-          users: 0,
-        });
-        setPagination(null);
       }
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm, setSearchParams]);
+
+  useEffect(() => {
+    setCurrentQuery(queryFromUrl);
+    setResults(emptySearchState());
+    setLoadMoreError(null);
+    if (queryFromUrl) {
+      setSearchTerm((prev) =>
+        prev.trim() === queryFromUrl ? prev : queryFromUrl
+      );
+      void performSearch({ q: queryFromUrl, limit: SEARCH_RESULTS_LIMIT });
+    }
+  }, [queryFromUrl, performSearch]);
+
+  useEffect(() => {
+    if (searchResults && searchResults.query === currentQuery) {
+      setResults(searchStateFromResults(searchResults));
+    }
+  }, [searchResults, currentQuery]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -116,133 +191,99 @@ function Search() {
   };
 
   const loadMore = useCallback(
-    (category: 'build_lists' | 'users') => {
-      if (!pagination || !currentQuery) return;
-
-      const currentDisplayed = displayedCounts[category];
-      const allResults: BuildListRead[] | PublicUserRead[] =
-        category === 'build_lists' ? buildLists : users;
-
-      if (currentDisplayed < allResults.length) {
-        setDisplayedCounts((prev) => ({
+    async (category: SearchCategory) => {
+      const state = results[category];
+      if (state.displayed < state.items.length) {
+        setResults((prev) => ({
           ...prev,
-          [category]: Math.min(
-            currentDisplayed + SEARCH_INITIAL_LIMITS[category],
-            allResults.length
-          ),
+          [category]: {
+            ...prev[category],
+            displayed: Math.min(
+              prev[category].displayed + SEARCH_INITIAL_LIMITS[category],
+              prev[category].items.length
+            ),
+          },
         }));
-      } else if (pagination[category].has_next) {
-        const currentSkip = pagination[category].skip;
-        const limit = SEARCH_RESULTS_LIMIT;
-        void performSearch({ q: currentQuery, skip: currentSkip, limit });
+        return;
+      }
+      if (!state.hasNext || !state.nextCursor || !currentQuery) return;
+
+      const query = currentQuery;
+      setLoadingMore(category);
+      setLoadMoreError(null);
+      try {
+        const params: SearchParams = { q: query, limit: SEARCH_RESULTS_LIMIT };
+        params[CURSOR_PARAM[category]] = state.nextCursor;
+        const response = await searchApi.search(params);
+        if (response.data.query !== query) return;
+        setResults((prev) => {
+          switch (category) {
+            case 'build_lists':
+              return {
+                ...prev,
+                build_lists: appendPage(
+                  prev.build_lists,
+                  response.data.build_lists,
+                  category
+                ),
+              };
+            case 'parts':
+              return {
+                ...prev,
+                parts: appendPage(prev.parts, response.data.parts, category),
+              };
+            case 'users':
+              return {
+                ...prev,
+                users: appendPage(prev.users, response.data.users, category),
+              };
+          }
+        });
+      } catch (err) {
+        setLoadMoreError(
+          getApiErrorMessage(err, 'Could not load more results.')
+        );
+      } finally {
+        setLoadingMore(null);
       }
     },
-    [
-      pagination,
-      currentQuery,
-      performSearch,
-      displayedCounts,
-      buildLists,
-      users,
-    ]
+    [results, currentQuery]
   );
 
-  useEffect(() => {
-    if (searchResults) {
-      setCurrentQuery(searchResults.query);
-
-      if (searchResults.build_lists.skip === 0) {
-        setBuildLists(searchResults.build_lists.data);
-        setDisplayedCounts((prev) => ({
-          ...prev,
-          build_lists: Math.min(
-            SEARCH_INITIAL_LIMITS.build_lists,
-            searchResults.build_lists.data.length
-          ),
-        }));
-      } else {
-        setBuildLists((prev) => {
-          const newList = [...prev, ...searchResults.build_lists.data];
-          setDisplayedCounts((prevCounts) => ({
-            ...prevCounts,
-            build_lists: Math.min(
-              prevCounts.build_lists + SEARCH_INITIAL_LIMITS.build_lists,
-              newList.length
-            ),
-          }));
-          return newList;
-        });
-      }
-
-      if (searchResults.users.skip === 0) {
-        setUsers(searchResults.users.data);
-        setDisplayedCounts((prev) => ({
-          ...prev,
-          users: Math.min(
-            SEARCH_INITIAL_LIMITS.users,
-            searchResults.users.data.length
-          ),
-        }));
-      } else {
-        setUsers((prev) => {
-          const newList = [...prev, ...searchResults.users.data];
-          setDisplayedCounts((prevCounts) => ({
-            ...prevCounts,
-            users: Math.min(
-              prevCounts.users + SEARCH_INITIAL_LIMITS.users,
-              newList.length
-            ),
-          }));
-          return newList;
-        });
-      }
-
-      setPagination({
-        build_lists: {
-          has_next: searchResults.build_lists.has_next,
-          skip:
-            searchResults.build_lists.skip +
-            searchResults.build_lists.data.length,
-        },
-        users: {
-          has_next: searchResults.users.has_next,
-          skip: searchResults.users.skip + searchResults.users.data.length,
-        },
-      });
+  const renderItems = (category: SearchCategory) => {
+    switch (category) {
+      case 'build_lists':
+        return results.build_lists.items
+          .slice(0, results.build_lists.displayed)
+          .map((buildList) => (
+            <BuildListItem key={buildList.id} buildList={buildList} />
+          ));
+      case 'parts':
+        return results.parts.items
+          .slice(0, results.parts.displayed)
+          .map((part) => <PartListItem key={part.id} part={part} />);
+      case 'users':
+        return results.users.items
+          .slice(0, results.users.displayed)
+          .map((user) => <UserCard key={user.id} user={user} />);
     }
-  }, [searchResults]);
+  };
 
-  useEffect(() => {
-    const query = searchParams.get('q');
-    if (query && query.trim()) {
-      setSearchTerm(query);
-      setCurrentQuery(query);
-      setBuildLists([]);
-      setUsers([]);
-      setDisplayedCounts({
-        build_lists: 0,
-        users: 0,
-      });
-      setPagination(null);
-      void performSearch({
-        q: query.trim(),
-        skip: 0,
-        limit: SEARCH_RESULTS_LIMIT,
-      });
-    }
-  }, [searchParams, performSearch]);
+  const totalResults = SECTION_ORDER.reduce(
+    (sum, category) => sum + results[category].items.length,
+    0
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader title="Search" />
 
-      {/* Search Input */}
       <Card className="mb-8">
         <div className="flex gap-4">
           <div className="flex-1">
             <Input
               type="text"
-              placeholder="Search build lists and users..."
+              placeholder="Search build lists, parts and users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -259,7 +300,6 @@ function Search() {
         </div>
       </Card>
 
-      {/* Loading State */}
       {isLoading && (
         <Card>
           <div className="flex justify-center py-8">
@@ -268,95 +308,49 @@ function Search() {
         </Card>
       )}
 
-      {/* Error State */}
       {error && !isLoading && (
         <Card>
           <ErrorAlert message={`Search failed: ${error}`} />
         </Card>
       )}
 
-      {/* Search Results (including "no results" state when currentQuery is set) */}
       {!isLoading && !error && currentQuery && (
         <>
-          {sortedSections.map((section) => {
-            if (section === 'build_lists') {
-              return (
-                <Card key="build_lists" className="mb-6">
-                  <SectionHeader
-                    title={`Build Lists (${pagination?.build_lists ? searchResults?.build_lists.total || buildLists.length : buildLists.length}${pagination?.build_lists ? ` of ${searchResults?.build_lists.total || 0}` : ''})`}
-                  />
-                  {buildLists.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>No build lists found.</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="tile-grid-compact">
-                        {buildLists
-                          .slice(
-                            0,
-                            displayedCounts.build_lists ||
-                              Math.min(
-                                SEARCH_INITIAL_LIMITS.build_lists,
-                                buildLists.length
-                              )
-                          )
-                          .map((buildList) => (
-                            <BuildListItem
-                              key={buildList.id}
-                              buildList={buildList}
-                            />
-                          ))}
-                      </div>
-                      {(pagination?.build_lists.has_next ||
-                        displayedCounts.build_lists < buildLists.length) && (
-                        <div className="mt-6 flex justify-center">
-                          <Button
-                            type="button"
-                            onClick={() => loadMore('build_lists')}
-                            disabled={isLoading}
-                          >
-                            {isLoading ? 'Loading...' : 'Load More Build Lists'}
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </Card>
-              );
-            }
+          {loadMoreError && (
+            <Card className="mb-6">
+              <ErrorAlert message={loadMoreError} />
+            </Card>
+          )}
 
+          {sortedSections.map((category) => {
+            const state = results[category];
+            const label = SECTION_LABELS[category];
+            const canLoadMore =
+              state.hasNext || state.displayed < state.items.length;
             return (
-              <Card key="users" className="mb-6">
+              <Card key={category} className="mb-6">
                 <SectionHeader
-                  title={`Users (${pagination?.users ? searchResults?.users.total || users.length : users.length}${pagination?.users ? ` of ${searchResults?.users.total || 0}` : ''})`}
+                  title={`${label} (${state.items.length}${state.hasNext ? '+' : ''})`}
                 />
-                {users.length === 0 ? (
+                {state.items.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p>No users found.</p>
+                    <p>No {label.toLowerCase()} found.</p>
                   </div>
                 ) : (
                   <>
                     <div className="tile-grid-compact">
-                      {users
-                        .slice(
-                          0,
-                          displayedCounts.users ||
-                            Math.min(SEARCH_INITIAL_LIMITS.users, users.length)
-                        )
-                        .map((user) => (
-                          <UserCard key={user.id} user={user} />
-                        ))}
+                      {renderItems(category)}
                     </div>
-                    {(pagination?.users.has_next ||
-                      displayedCounts.users < users.length) && (
+                    {canLoadMore && (
                       <div className="mt-6 flex justify-center">
                         <Button
                           type="button"
-                          onClick={() => loadMore('users')}
-                          disabled={isLoading}
+                          onClick={() => void loadMore(category)}
+                          disabled={loadingMore !== null}
                         >
-                          {isLoading ? 'Loading...' : 'Load More Users'}
+                          {loadingMore === category
+                            ? 'Loading...'
+                            : `Load More ${label}`}
                         </Button>
                       </div>
                     )}
@@ -366,8 +360,7 @@ function Search() {
             );
           })}
 
-          {/* No Results Message */}
-          {buildLists.length === 0 && users.length === 0 && currentQuery && (
+          {totalResults === 0 && (
             <Card>
               <div className="text-center py-12">
                 <p className="text-xl text-muted-foreground mb-2">
@@ -382,12 +375,11 @@ function Search() {
         </>
       )}
 
-      {/* Initial State (no search performed yet or search cleared) */}
       {!isLoading && !error && !currentQuery && (
         <Card>
           <div className="text-center py-12">
             <p className="text-xl text-muted-foreground mb-2">
-              Enter a search term to find build lists and users
+              Enter a search term to find build lists, parts and users
             </p>
             <p className="text-muted-foreground">
               Search across names and descriptions

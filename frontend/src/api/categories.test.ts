@@ -44,17 +44,17 @@ describe('categoriesApi', () => {
     );
   });
 
-  it('getPartsByCategory forwards skip/limit pagination params', async () => {
+  it('getPartsByCategory forwards cursor/limit pagination params', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockPart] });
 
     await categoriesApi.getPartsByCategory(mockCategory.id, {
-      skip: 10,
+      cursor: 'cursor-10',
       limit: 25,
     });
 
     expect(apiClient.get).toHaveBeenCalledWith(
       `/categories/${mockCategory.id}/parts`,
-      { params: expect.objectContaining({ skip: 10, limit: 25 }) }
+      { params: expect.objectContaining({ cursor: 'cursor-10', limit: 25 }) }
     );
   });
 

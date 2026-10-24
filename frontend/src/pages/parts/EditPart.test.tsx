@@ -70,7 +70,9 @@ describe('EditPart page', () => {
         return Promise.resolve({ data: [mockCategory] });
       }
       if (url.startsWith('/car-generations')) {
-        return Promise.resolve({ data: [] });
+        return Promise.resolve({
+          data: { items: [], next_cursor: null, has_next: false },
+        });
       }
       if (url.startsWith('/part-manufacturers')) {
         return Promise.resolve({ data: [mockManufacturer] });

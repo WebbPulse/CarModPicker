@@ -1,13 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useApiRequest from '../../hooks/UseApiRequest';
 import { useAuth } from '../../hooks/useAuth';
 import { usersApi } from '../../api/users';
-import type {
-  AdminUserUpdate,
-  PaginatedResponse,
-  UserRead,
-} from '../../types/Api';
+import type { AdminUserUpdate, CursorPage, UserRead } from '../../types/Api';
 
 import PageHeader from '../../components/layout/PageHeader';
 import SectionHeader from '../../components/layout/SectionHeader';
@@ -23,15 +19,19 @@ import {
 } from '../../components/ui/dialog';
 import { Input } from '../../components/ui/input';
 import { LoadingOverlay } from '../../components/ui/loading-overlay';
-import Pagination from '../../components/ui/pagination';
+import CursorPager from '../../components/ui/cursor-pager';
 import Spinner from '../../components/ui/spinner';
 import { ADMIN_ITEMS_PER_PAGE } from '../../constants';
 
-const fetchUsersRequestFn = (params?: {
-  skip?: number;
+/** Query params for one page of the admin users list. */
+interface UsersPageParams {
+  cursor?: string;
   limit?: number;
   search?: string;
-}) => usersApi.getAllUsers(params);
+}
+
+const fetchUsersRequestFn = (params?: UsersPageParams) =>
+  usersApi.getAllUsers(params);
 
 const updateUserRequestFn = (payload: {
   userId: string;
@@ -47,6 +47,7 @@ function UserManagement() {
   const navigate = useNavigate();
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageCursors, setPageCursors] = useState<Record<number, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const wasFocusedRef = useRef(false);
@@ -70,10 +71,7 @@ function UserManagement() {
     isLoading: isLoadingUsers,
     error: usersError,
     executeRequest: fetchUsers,
-  } = useApiRequest<
-    PaginatedResponse<UserRead>,
-    { skip?: number; limit?: number; search?: string }
-  >(fetchUsersRequestFn);
+  } = useApiRequest<CursorPage<UserRead>, UsersPageParams>(fetchUsersRequestFn);
 
   const {
     isLoading: isUpdating,
@@ -107,18 +105,35 @@ function UserManagement() {
 
   useEffect(() => {
     setCurrentPage(1);
+    setPageCursors({});
   }, [debouncedSearchTerm]);
 
+  const pageCursor = currentPage > 1 ? pageCursors[currentPage] : undefined;
+
+  const usersParams = useMemo(() => {
+    const params: UsersPageParams = { limit: ADMIN_ITEMS_PER_PAGE };
+    if (pageCursor) params.cursor = pageCursor;
+    if (debouncedSearchTerm) params.search = debouncedSearchTerm;
+    return params;
+  }, [pageCursor, debouncedSearchTerm]);
+
   useEffect(() => {
-    const params: { skip: number; limit: number; search?: string } = {
-      skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
-      limit: ADMIN_ITEMS_PER_PAGE,
-    };
-    if (debouncedSearchTerm) {
-      params.search = debouncedSearchTerm;
-    }
-    void fetchUsers(params);
-  }, [fetchUsers, currentPage, debouncedSearchTerm]);
+    if (currentPage > 1 && pageCursor === undefined) setCurrentPage(1);
+  }, [currentPage, pageCursor]);
+
+  useEffect(() => {
+    if (currentPage > 1 && pageCursor === undefined) return;
+    const page = currentPage;
+    void fetchUsers(usersParams).then((result) => {
+      const nextCursor = result?.has_next ? result.next_cursor : null;
+      if (!nextCursor) return;
+      setPageCursors((prev) =>
+        prev[page + 1] === nextCursor
+          ? prev
+          : { ...prev, [page + 1]: nextCursor }
+      );
+    });
+  }, [fetchUsers, usersParams, currentPage, pageCursor]);
 
   useEffect(() => {
     if (wasFocusedRef.current) {
@@ -136,8 +151,7 @@ function UserManagement() {
     }
   }, [usersData, searchTerm]);
 
-  const users = usersData?.data || [];
-  const pagination = usersData?.pagination;
+  const users = usersData?.items || [];
 
   if (!currentUser) {
     return (
@@ -194,10 +208,7 @@ function UserManagement() {
         subscription_status: null,
         subscription_expires_at: null,
       });
-      void fetchUsers({
-        skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
-        limit: ADMIN_ITEMS_PER_PAGE,
-      });
+      void fetchUsers(usersParams);
     }
   };
 
@@ -207,10 +218,7 @@ function UserManagement() {
     if (result) {
       setIsDeleteDialogOpen(false);
       setSelectedUser(null);
-      void fetchUsers({
-        skip: (currentPage - 1) * ADMIN_ITEMS_PER_PAGE,
-        limit: ADMIN_ITEMS_PER_PAGE,
-      });
+      void fetchUsers(usersParams);
     }
   };
 
@@ -461,15 +469,11 @@ function UserManagement() {
           </div>
 
           {/* Pagination */}
-          {pagination && (
-            <Pagination
-              currentPage={pagination.current_page}
-              totalPages={pagination.total_pages}
-              onPageChange={setCurrentPage}
-              itemsPerPage={ADMIN_ITEMS_PER_PAGE}
-              totalItems={pagination.total_items}
-            />
-          )}
+          <CursorPager
+            currentPage={currentPage}
+            hasNext={usersData?.has_next ?? false}
+            onPageChange={setCurrentPage}
+          />
         </Card>
       ) : users && users.length === 0 && !isLoadingUsers ? (
         <Card>

@@ -12,6 +12,8 @@ import type {
   BuildListRead,
   BuildListReadWithVotes,
   BuildListUpdate,
+  CursorPage,
+  CursorParams,
   PaginatedResponse,
 } from '../types/Api';
 
@@ -26,11 +28,8 @@ export const buildListsApi = {
   deleteBuildList: (buildListId: string) =>
     apiClient.delete<BuildListRead>(`/build-lists/${buildListId}`),
 
-  listBuildLists: (params?: {
-    skip?: number;
-    limit?: number;
-    search?: string;
-  }) => apiClient.get<BuildListRead[]>('/build-lists/', { params }),
+  listBuildLists: (params?: CursorParams) =>
+    apiClient.get<CursorPage<BuildListRead>>('/build-lists', { params }),
   getBuildListsWithVotes: (params?: {
     skip?: number;
     limit?: number;

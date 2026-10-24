@@ -64,26 +64,29 @@ describe('buildListsApi', () => {
     );
   });
 
-  it('listBuildLists GETs /build-lists/ with default params', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockBuildList] });
+  it('listBuildLists GETs /build-lists with default params', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { items: [mockBuildList], next_cursor: null, has_next: false },
+    });
 
     await buildListsApi.listBuildLists();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/build-lists/', {
+    expect(apiClient.get).toHaveBeenCalledWith('/build-lists', {
       params: undefined,
     });
   });
 
-  it('listBuildLists GETs /build-lists/ with search + pagination params', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockBuildList] });
+  it('listBuildLists GETs /build-lists with cursor and limit', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { items: [mockBuildList], next_cursor: null, has_next: false },
+    });
 
-    await buildListsApi.listBuildLists({ skip: 10, limit: 25, search: 'abc' });
+    await buildListsApi.listBuildLists({ cursor: 'cursor-10', limit: 25 });
 
-    expect(apiClient.get).toHaveBeenCalledWith('/build-lists/', {
+    expect(apiClient.get).toHaveBeenCalledWith('/build-lists', {
       params: expect.objectContaining({
-        skip: 10,
+        cursor: 'cursor-10',
         limit: 25,
-        search: 'abc',
       }),
     });
   });

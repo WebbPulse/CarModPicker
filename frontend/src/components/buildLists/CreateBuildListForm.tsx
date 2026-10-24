@@ -106,7 +106,7 @@ const CreateBuildListForm: React.FC<CreateBuildListFormProps> = ({
   }, [selectedMake, fetchCarsByMake]);
 
   useEffect(() => {
-    setAvailableCars(normalizeCarReadList(carsByMake ?? undefined));
+    setAvailableCars(normalizeCarReadList(carsByMake?.items));
   }, [carsByMake]);
 
   useEffect(() => {
