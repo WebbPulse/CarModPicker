@@ -3,7 +3,7 @@
  *
  * Spends the `?token=` once on mount through `confirmEmailChange`, which works
  * signed in or not, since the link may open in another browser. Refusals carry
- * the server's own sentence.
+ * the server's own sentence, except a lost address race, which says what to do next.
  */
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -25,6 +25,10 @@ const FAILED =
 /** The sentence shown when the link arrived without its token. */
 const MISSING =
   'This link is missing its token. Request a new one from your security settings.';
+
+/** The sentence shown when another account claimed the address before the link was used. */
+const TAKEN =
+  'Another account started using that email address before you confirmed it, so your sign-in address has not changed. Request a change to a different address from your security settings.';
 
 type ChangeState =
   | { kind: 'confirming' }
@@ -53,7 +57,10 @@ const VerifyEmailChangeBody: React.FC<{ client: AuthClient<unknown> }> = ({
       .confirmEmailChange({ token })
       .then(async (outcome) => {
         if (!outcome.ok) {
-          setState({ kind: 'refused', message: outcome.message });
+          setState({
+            kind: 'refused',
+            message: outcome.reason === 'taken' ? TAKEN : outcome.message,
+          });
           return;
         }
         setState({ kind: 'confirmed' });
