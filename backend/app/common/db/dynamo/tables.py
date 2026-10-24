@@ -37,6 +37,7 @@ class TableSpec:
     lowercase_mirrors: tuple[tuple[str, str], ...] = ()
     composite_keys: tuple[tuple[str, tuple[str, ...]], ...] = ()
     coalesced_keys: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    constant_attributes: tuple[tuple[str, str], ...] = ()
 
     @property
     def key_attribute_names(self) -> tuple[str, ...]:
@@ -226,9 +227,13 @@ PART_PRICE_ALERTS = TableSpec(
     indexes=(gsi("user_id", "part_id"), gsi("part_id")),
 )
 
+BUILD_LIST_LISTING_ATTRIBUTE = "listing"
+BUILD_LIST_LISTING_PARTITION = "build_list"
+
 BUILD_LISTS = TableSpec(
     suffix="build_lists",
-    indexes=(gsi("user_id", "created_at"), gsi("car_id", "created_at")),
+    indexes=(gsi("user_id", "created_at"), gsi("car_id", "created_at"), gsi(BUILD_LIST_LISTING_ATTRIBUTE, "created_at")),
+    constant_attributes=((BUILD_LIST_LISTING_ATTRIBUTE, BUILD_LIST_LISTING_PARTITION),),
 )
 
 BUILD_LIST_PARTS = TableSpec(

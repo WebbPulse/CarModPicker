@@ -102,6 +102,8 @@ def apply_derived_attributes(item: dict[str, Any], spec: TableSpec) -> dict[str,
             if item.get(source) is not None:
                 item[target] = item[source]
                 break
+    for target, value in spec.constant_attributes:
+        item[target] = value
     return item
 
 
