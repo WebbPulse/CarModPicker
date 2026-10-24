@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.common.db.dynamo.tables import TableSpec
+from app.common.db.dynamo.tombstones import DELETED_ATTRIBUTE
 
 TModel = TypeVar("TModel", bound=BaseModel)
 
@@ -89,7 +90,10 @@ def from_dynamo_value(value: Any) -> Any:
 
 
 def apply_derived_attributes(item: dict[str, Any], spec: TableSpec) -> dict[str, Any]:
-    """Add the index attributes `spec` derives from other fields, in place."""
+    """Add the index attributes `spec` derives from other fields, in place.
+
+    A sparse constant is left off a tombstoned item so the sparse index skips it.
+    """
     for source, target in spec.lowercase_mirrors:
         source_value = item.get(source)
         if isinstance(source_value, str):
@@ -105,7 +109,7 @@ def apply_derived_attributes(item: dict[str, Any], spec: TableSpec) -> dict[str,
     for target, value in spec.constant_attributes:
         item[target] = value
     for target, value, absent_source in spec.sparse_constants:
-        if item.get(absent_source) is None:
+        if item.get(absent_source) is None and not item.get(DELETED_ATTRIBUTE):
             item[target] = value
         else:
             item.pop(target, None)

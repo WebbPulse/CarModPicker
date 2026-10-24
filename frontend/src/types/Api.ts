@@ -428,6 +428,25 @@ export interface PaginatedResponse<T> {
   pagination: PaginationInfo;
 }
 
+/** One cursor page of items, matching the backend `CursorPage` schema. */
+export interface CursorPage<T> {
+  items: T[];
+  next_cursor: string | null;
+  has_next: boolean;
+}
+
+/** Paging state of the last loaded cursor page. */
+export interface CursorPageInfo {
+  has_next: boolean;
+  next_cursor: string | null;
+}
+
+/** Limit and opaque cursor accepted by cursor paged routes. */
+export type CursorParams = {
+  limit?: number;
+  cursor?: string;
+};
+
 /** Editable fields on a part. */
 export interface PartUpdate {
   name?: string | null;

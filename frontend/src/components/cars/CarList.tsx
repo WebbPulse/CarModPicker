@@ -20,7 +20,6 @@ interface CarListProps {
   onAddCarClick?: () => void;
   showAddCarTile?: boolean;
   limit?: number;
-  skip?: number;
 }
 
 /** Renders a collection of cars, with an empty state. */
@@ -35,7 +34,6 @@ const CarList: React.FC<CarListProps> = ({
   onAddCarClick,
   showAddCarTile = false,
   limit = 100,
-  skip = 0,
 }) => {
   const [internalCars, setInternalCars] = useState<CarGenerationRead[] | null>(
     null
@@ -44,33 +42,27 @@ const CarList: React.FC<CarListProps> = ({
   const fetchCarsRequestFn = useCallback(
     async (payload?: unknown) => {
       void payload;
-      let response: Awaited<ReturnType<typeof carGenerationsApi.listCars>>;
-      if (searchQuery) {
-        response = await carGenerationsApi.searchCars(searchQuery, {
-          skip,
-          limit,
-        });
-      } else if (generationId) {
+      if (generationId && !searchQuery) {
         const single = await carGenerationsApi.getCar(generationId);
         return { ...single, data: [single.data] };
+      }
+      let response: Awaited<ReturnType<typeof carGenerationsApi.listCars>>;
+      if (searchQuery) {
+        response = await carGenerationsApi.searchCars(searchQuery, { limit });
       } else if (make && year) {
         response = await carGenerationsApi.searchCars(`${make} ${year}`, {
-          skip,
           limit,
         });
       } else if (make) {
-        response = await carGenerationsApi.getCarsByMake(make, { skip, limit });
+        response = await carGenerationsApi.getCarsByMake(make, { limit });
       } else if (year) {
-        response = await carGenerationsApi.searchCars(String(year), {
-          skip,
-          limit,
-        });
+        response = await carGenerationsApi.searchCars(String(year), { limit });
       } else {
-        response = await carGenerationsApi.listCars({ skip, limit });
+        response = await carGenerationsApi.listCars({ limit });
       }
-      return response;
+      return { ...response, data: response.data.items };
     },
-    [searchQuery, make, year, generationId, skip, limit]
+    [searchQuery, make, year, generationId, limit]
   );
 
   const {

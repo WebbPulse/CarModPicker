@@ -3,31 +3,29 @@
  */
 
 import { apiClient } from './client';
-import type { CarGenerationRead } from '../types/Api';
+import type { CarGenerationRead, CursorPage, CursorParams } from '../types/Api';
 
 /** Car generation lookup, search, and make or model browsing. */
 export const carGenerationsApi = {
   getCar: (carId: string) =>
     apiClient.get<CarGenerationRead>(`/car-generations/${carId}`),
-  listCars: (params?: { skip?: number; limit?: number; search?: string }) =>
-    apiClient.get<CarGenerationRead[]>('/car-generations/', { params }),
-  searchCars: (q: string, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarGenerationRead[]>('/car-generations/search', {
+  listCars: (params?: CursorParams) =>
+    apiClient.get<CursorPage<CarGenerationRead>>('/car-generations', {
+      params,
+    }),
+  searchCars: (q: string, params?: CursorParams) =>
+    apiClient.get<CursorPage<CarGenerationRead>>('/car-generations/search', {
       params: { q, ...params },
     }),
-  getCarsByMake: (make: string, params?: { skip?: number; limit?: number }) =>
-    apiClient.get<CarGenerationRead[]>(
+  getCarsByMake: (make: string, params?: CursorParams) =>
+    apiClient.get<CursorPage<CarGenerationRead>>(
       `/car-generations/car-makes/${encodeURIComponent(make)}`,
       {
         params,
       }
     ),
-  getCarsByMakeModel: (
-    make: string,
-    model: string,
-    params?: { skip?: number; limit?: number }
-  ) =>
-    apiClient.get<CarGenerationRead[]>(
+  getCarsByMakeModel: (make: string, model: string, params?: CursorParams) =>
+    apiClient.get<CursorPage<CarGenerationRead>>(
       `/car-generations/car-makes/${encodeURIComponent(make)}/car-models/${encodeURIComponent(model)}`,
       { params }
     ),

@@ -296,7 +296,7 @@ const BuildListsCatalog: React.FC = () => {
   }, [selectedMake, selectedGeneration, fetchCarsByMake]);
 
   useEffect(() => {
-    setAvailableCars(normalizeCarReadList(carsByMake ?? undefined));
+    setAvailableCars(normalizeCarReadList(carsByMake?.items));
   }, [carsByMake]);
 
   useEffect(() => {

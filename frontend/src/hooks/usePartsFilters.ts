@@ -13,7 +13,7 @@ import type {
   PartManufacturerResponse,
   CarGenerationRead,
   CategoryResponse,
-  PaginationInfo,
+  CursorPageInfo,
 } from '../types/Api';
 import { normalizeCarRead, normalizeCarReadList } from '../utils/carUtils';
 import useApiRequest from './UseApiRequest';
@@ -31,7 +31,7 @@ export interface UsePartsFiltersOptions {
 /** Filter state, the derived query params, and the setters that change them. */
 export interface UsePartsFiltersReturn {
   params: {
-    skip: number;
+    cursor?: string;
     limit: number;
     category_ids?: string[];
     car_id?: string;
@@ -45,8 +45,8 @@ export interface UsePartsFiltersReturn {
   };
   currentPage: number;
   setCurrentPage: (page: number) => void;
-  paginationInfo: PaginationInfo | null;
-  setPaginationInfo: (info: PaginationInfo | null) => void;
+  paginationInfo: CursorPageInfo | null;
+  setPaginationInfo: (info: CursorPageInfo | null) => void;
 
   selectedCategoryIds: string[];
   setSelectedCategoryIds: (ids: string[]) => void;
@@ -133,9 +133,9 @@ export function usePartsFilters(
     PartManufacturerResponse[]
   >([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo | null>(
-    null
-  );
+  const [paginationInfo, setPaginationInfoState] =
+    useState<CursorPageInfo | null>(null);
+  const [pageCursors, setPageCursors] = useState<Record<number, string>>({});
   const [isInitializedFromUrl, setIsInitializedFromUrl] = useState(false);
   const isInitializingFromUrlRef = useRef(false);
 
@@ -212,7 +212,7 @@ export function usePartsFilters(
   }, [filterOptions?.make_names, selectedMake]);
 
   useEffect(() => {
-    const list = normalizeCarReadList(carsByMake ?? undefined);
+    const list = normalizeCarReadList(carsByMake?.items);
     if (filterOptions?.car_ids?.length) {
       const allowed = new Set(filterOptions.car_ids);
       setAvailableCars(list.filter((c) => c.id != null && allowed.has(c.id)));
@@ -399,14 +399,14 @@ export function usePartsFilters(
     if (
       syncToUrl &&
       selectedMake &&
-      carsByMake?.length &&
+      carsByMake?.items.length &&
       searchParams.get('model') &&
       !selectedGeneration
     ) {
       const carIdParam = searchParams.get('car_id');
       if (carIdParam) {
         const car = normalizeCarRead(
-          carsByMake.find((c) => c.id === carIdParam) ?? null
+          carsByMake.items.find((c) => c.id === carIdParam) ?? null
         );
         if (car) setSelectedGeneration(car);
       } else {
@@ -511,6 +511,7 @@ export function usePartsFilters(
 
   useEffect(() => {
     setCurrentPage(1);
+    setPageCursors({});
   }, [
     selectedCategoryIds,
     effectiveCarIds,
@@ -615,6 +616,27 @@ export function usePartsFilters(
     }
   }, []);
 
+  const setPaginationInfo = useCallback(
+    (info: CursorPageInfo | null) => {
+      setPaginationInfoState(info);
+      const nextCursor = info?.has_next ? info.next_cursor : null;
+      if (nextCursor) {
+        setPageCursors((prev) =>
+          prev[currentPage + 1] === nextCursor
+            ? prev
+            : { ...prev, [currentPage + 1]: nextCursor }
+        );
+      }
+    },
+    [currentPage]
+  );
+
+  const pageCursor = currentPage > 1 ? pageCursors[currentPage] : undefined;
+
+  useEffect(() => {
+    if (currentPage > 1 && pageCursor === undefined) setCurrentPage(1);
+  }, [currentPage, pageCursor]);
+
   const params = useMemo(() => {
     const minCents =
       priceMin.trim() !== ''
@@ -633,7 +655,7 @@ export function usePartsFilters(
         ? maxCents
         : undefined;
     return {
-      skip: (currentPage - 1) * PARTS_PER_PAGE,
+      ...(pageCursor !== undefined && { cursor: pageCursor }),
       limit: PARTS_PER_PAGE,
       ...(userId !== undefined && { user_id: userId }),
       ...(selectedCategoryIds.length > 0 && {
@@ -651,7 +673,7 @@ export function usePartsFilters(
       ...(max_price_cents !== undefined && { max_price_cents }),
     };
   }, [
-    currentPage,
+    pageCursor,
     userId,
     selectedCategoryIds,
     effectiveCarIds,

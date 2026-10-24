@@ -54,21 +54,15 @@ const renderWithRouter = (
 const makePaginatedPartsResponse = (
   items: (typeof mockPart)[] = [mockPart]
 ) => ({
-  data: items.map((p) => ({
+  items: items.map((p) => ({
     ...p,
     upvotes: 0,
     downvotes: 0,
     total_votes: 0,
     user_vote: null,
   })),
-  pagination: {
-    current_page: 1,
-    total_pages: 1,
-    total_items: items.length,
-    items_per_page: 100,
-    has_next: false,
-    has_previous: false,
-  },
+  next_cursor: null,
+  has_next: false,
 });
 
 describe('UserParts page', () => {

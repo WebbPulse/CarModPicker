@@ -488,9 +488,26 @@ async function getCategories(): Promise<ApiResponse<Category[]>> {
   return apiRequest<Category[]>("/categories", { method: "GET" });
 }
 
+/** One page of a cursor paged list route. */
+interface CursorPage<T> {
+  items: T[];
+  next_cursor: string | null;
+  has_next: boolean;
+}
+
+/** Unwrap the items of a cursor paged response. */
+async function cursorPageItems<T>(
+  endpoint: string,
+): Promise<ApiResponse<T[]>> {
+  const { data, ...rest } = await apiRequest<CursorPage<T>>(endpoint, {
+    method: "GET",
+  });
+  return data ? { ...rest, data: data.items } : rest;
+}
+
 /** List car generations. */
 async function getCars(limit: number = 1000): Promise<ApiResponse<Car[]>> {
-  return apiRequest<Car[]>(`/car-generations/?limit=${limit}`, { method: "GET" });
+  return cursorPageItems<Car>(`/car-generations?limit=${limit}`);
 }
 
 /** Search car generations by name. */
@@ -498,9 +515,8 @@ async function searchCars(
   searchTerm: string,
   limit: number = 100,
 ): Promise<ApiResponse<Car[]>> {
-  return apiRequest<Car[]>(
+  return cursorPageItems<Car>(
     `/car-generations/search?q=${encodeURIComponent(searchTerm)}&limit=${limit}`,
-    { method: "GET" },
   );
 }
 
@@ -518,9 +534,8 @@ async function searchPartManufacturers(
   searchTerm: string,
   limit: number = 100,
 ): Promise<ApiResponse<PartManufacturer[]>> {
-  return apiRequest<PartManufacturer[]>(
+  return cursorPageItems<PartManufacturer>(
     `/part-manufacturers/search?q=${encodeURIComponent(searchTerm)}&limit=${limit}`,
-    { method: "GET" },
   );
 }
 

@@ -47,6 +47,7 @@ PACKAGE_PATHS = (
     ("POST", "/api/auth/email/change"),
     ("POST", "/api/auth/email/change/confirm"),
     ("GET", "/api/auth/sessions"),
+    ("POST", "/api/auth/sessions/revoke-others"),
     ("DELETE", "/api/auth/sessions/{family_id}"),
 )
 

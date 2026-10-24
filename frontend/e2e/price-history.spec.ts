@@ -138,15 +138,9 @@ const MOCK_PARTS_LIST: MockPart[] = [
 ];
 
 const MOCK_PAGINATED_PARTS = {
-  data: MOCK_PARTS_LIST,
-  pagination: {
-    current_page: 1,
-    total_pages: 1,
-    total_items: MOCK_PARTS_LIST.length,
-    items_per_page: 100,
-    has_next: false,
-    has_previous: false,
-  },
+  items: MOCK_PARTS_LIST,
+  next_cursor: null,
+  has_next: false,
 };
 
 const MOCK_BATCH_RESPONSE = {

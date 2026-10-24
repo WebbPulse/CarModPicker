@@ -1,16 +1,17 @@
-"""Write the canonical index key onto canonical part rows that predate it.
+"""Write the canonical index key onto canonical part rows that predate it, and drop it from tombstoned rows.
 
 The sitemap and GTIN dedupe read canonical parts from the sparse
 `canonical_listing-created_at-index`, whose hash key is the `canonical_listing`
 attribute every write now derives for a part without `canonical_part_id`
 (CAR-36). Canonical rows written before that change lack it and stay out of
-those reads until this runs.
+those reads until this runs. Tombstoned rows never carry it (CAR-39), so any
+tombstoned row written before that change has it removed.
 
-Idempotent: the scan only returns canonical rows missing the attribute, and each
-write is conditioned on the row still existing, still being canonical and still
-lacking it, so a rerun, or a part deleted, linked or rewritten mid-run, changes
-nothing. Linked duplicates and `#unique#` sentinel rows are skipped. Dry run
-unless `--apply` is passed.
+Idempotent: the scans only return live canonical rows missing the attribute and
+tombstoned rows carrying it, and each write is conditioned on the row still
+being in that state, so a rerun, or a part deleted, linked or rewritten mid-run,
+changes nothing. Linked duplicates and `#unique#` sentinel rows are skipped. Dry
+run unless `--apply` is passed.
 
 Usage, from backend/, with credentials for the target account:
     python scripts/backfill_part_canonical_listing_key.py --prefix carmodpicker-staging
@@ -39,6 +40,7 @@ from app.common.db.dynamo.tables import (  # noqa: E402
     PART_CANONICAL_LISTING_PARTITION,
     PARTS,
 )
+from app.common.db.dynamo.tombstones import DELETED_ATTRIBUTE  # noqa: E402
 
 CANONICAL_PART_ID = "canonical_part_id"
 
@@ -57,20 +59,15 @@ def build_table(prefix: str, endpoint_url: str | None = None, region_name: str |
     ).table
 
 
-def iter_missing_ids(table: Any) -> Iterator[str]:
-    """The ids of canonical part rows without the canonical index attribute, sentinels excluded."""
+def iter_ids(table: Any, condition: Any) -> Iterator[str]:
+    """The ids of part rows matching `condition`, sentinels excluded."""
     from boto3.dynamodb.conditions import Attr
 
     id_name = PARTS.partition_key.name
-    missing = (
-        Attr(PART_CANONICAL_LISTING_ATTRIBUTE).not_exists()
-        & Attr(CANONICAL_PART_ID).not_exists()
-        & ~Attr(id_name).begins_with(UNIQUE_KEY_PREFIX)
-    )
     start_key: dict[str, Any] | None = None
     while True:
         kwargs: dict[str, Any] = {
-            "FilterExpression": missing,
+            "FilterExpression": condition & ~Attr(id_name).begins_with(UNIQUE_KEY_PREFIX),
             "ProjectionExpression": "#id",
             "ExpressionAttributeNames": {"#id": id_name},
         }
@@ -84,11 +81,30 @@ def iter_missing_ids(table: Any) -> Iterator[str]:
             return
 
 
+def iter_missing_ids(table: Any) -> Iterator[str]:
+    """The ids of live canonical part rows without the canonical index attribute."""
+    from boto3.dynamodb.conditions import Attr
+
+    return iter_ids(
+        table,
+        Attr(PART_CANONICAL_LISTING_ATTRIBUTE).not_exists()
+        & Attr(CANONICAL_PART_ID).not_exists()
+        & (Attr(DELETED_ATTRIBUTE).not_exists() | Attr(DELETED_ATTRIBUTE).eq(False)),
+    )
+
+
+def iter_tombstoned_ids(table: Any) -> Iterator[str]:
+    """The ids of tombstoned part rows still carrying the canonical index attribute."""
+    from boto3.dynamodb.conditions import Attr
+
+    return iter_ids(table, Attr(PART_CANONICAL_LISTING_ATTRIBUTE).exists() & Attr(DELETED_ATTRIBUTE).eq(True))
+
+
 def backfill(table: Any, *, apply: bool) -> dict[str, int]:
-    """Set the canonical index attribute on every canonical row missing it, counting each outcome."""
+    """Key every live canonical row missing the attribute and unkey every tombstoned row, counting each outcome."""
     from botocore.exceptions import ClientError
 
-    summary = {"missing": 0, "written": 0, "skipped": 0}
+    summary = {"missing": 0, "written": 0, "tombstoned": 0, "cleared": 0, "skipped": 0}
     for part_id in iter_missing_ids(table):
         summary["missing"] += 1
         if not apply:
@@ -99,13 +115,15 @@ def backfill(table: Any, *, apply: bool) -> dict[str, int]:
                 UpdateExpression="SET #listing = :listing",
                 ConditionExpression=(
                     "attribute_exists(#id) AND attribute_not_exists(#canonical) AND attribute_not_exists(#listing)"
+                    " AND (attribute_not_exists(#deleted) OR #deleted = :live)"
                 ),
                 ExpressionAttributeNames={
                     "#id": PARTS.partition_key.name,
                     "#canonical": CANONICAL_PART_ID,
                     "#listing": PART_CANONICAL_LISTING_ATTRIBUTE,
+                    "#deleted": DELETED_ATTRIBUTE,
                 },
-                ExpressionAttributeValues={":listing": PART_CANONICAL_LISTING_PARTITION},
+                ExpressionAttributeValues={":listing": PART_CANONICAL_LISTING_PARTITION, ":live": False},
             )
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") != CONDITIONAL_CHECK_FAILED:
@@ -113,13 +131,37 @@ def backfill(table: Any, *, apply: bool) -> dict[str, int]:
             summary["skipped"] += 1
             continue
         summary["written"] += 1
+    for part_id in iter_tombstoned_ids(table):
+        summary["tombstoned"] += 1
+        if not apply:
+            continue
+        try:
+            table.update_item(
+                Key={PARTS.partition_key.name: part_id},
+                UpdateExpression="REMOVE #listing",
+                ConditionExpression="attribute_exists(#listing) AND #deleted = :deleted",
+                ExpressionAttributeNames={
+                    "#listing": PART_CANONICAL_LISTING_ATTRIBUTE,
+                    "#deleted": DELETED_ATTRIBUTE,
+                },
+                ExpressionAttributeValues={":deleted": True},
+            )
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") != CONDITIONAL_CHECK_FAILED:
+                raise
+            summary["skipped"] += 1
+            continue
+        summary["cleared"] += 1
     return summary
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse the command line; the run is a dry run unless --apply is passed."""
     parser = argparse.ArgumentParser(
-        description="Backfill the canonical index key on canonical part rows. Dry run unless --apply is passed."
+        description=(
+            "Backfill the canonical index key on live canonical part rows and drop it from tombstoned ones."
+            " Dry run unless --apply is passed."
+        )
     )
     parser.add_argument(
         "--prefix",
@@ -148,7 +190,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     summary = backfill(build_table(args.prefix, args.endpoint_url, args.region), apply=args.apply)
     mode = "applied" if args.apply else "dry run"
-    print(f"{mode}: {summary['missing']} missing, {summary['written']} written, {summary['skipped']} skipped")
+    print(
+        f"{mode}: {summary['missing']} missing, {summary['written']} written, "
+        f"{summary['tombstoned']} tombstoned, {summary['cleared']} cleared, {summary['skipped']} skipped"
+    )
     return 0
 
 

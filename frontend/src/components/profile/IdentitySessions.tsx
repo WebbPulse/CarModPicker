@@ -2,10 +2,12 @@
  * The active sessions panel for identity mode. Lists the user's live sign-ins
  * with the one in use marked, and ends any other one, singly or all at once.
  * The session in use is ended by signing out, so it has no end button.
+ * The state machine is `useSessionsPanel` from `@webbpulse/auth/panels`; this
+ * file is the markup and copy.
  */
-import { useCallback, useEffect, useState } from 'react';
 import { FaDesktop, FaMobileAlt, FaQuestionCircle } from 'react-icons/fa';
 import type { AccountSession } from '@webbpulse/auth';
+import { useSessionsPanel } from '@webbpulse/auth/panels';
 import {
   getIdentityClient,
   type IdentityClient,
@@ -14,10 +16,6 @@ import { ConfirmationAlert, ErrorAlert } from '../ui/alert';
 import { Button } from '../ui/button';
 import Spinner from '../ui/spinner';
 
-/** The sentence shown when a call could not reach the server. */
-const FAILED =
-  'Could not reach the server. Check your connection and try again.';
-
 /** The readable name of a coarse device class. */
 const DEVICE_LABELS: Record<string, string> = {
   desktop: 'Desktop browser',
@@ -25,11 +23,21 @@ const DEVICE_LABELS: Record<string, string> = {
   bot: 'Automated client',
 };
 
-/** A session's client and operating system, or its device class. */
+/** A session's client or browser and operating system, or its device class. */
 const describeSession = (session: AccountSession): string => {
   const base =
-    session.client || DEVICE_LABELS[session.device] || 'Unknown device';
+    session.client ||
+    session.browser ||
+    DEVICE_LABELS[session.device] ||
+    'Unknown device';
   return session.platform ? `${base} on ${session.platform}` : base;
+};
+
+/** The notice after the other sessions were ended, by how many ended. */
+const revokedOthersMessage = (count: number): string => {
+  if (count === 0) return 'No other sessions were signed in.';
+  if (count === 1) return 'Signed out 1 other session.';
+  return `Signed out ${count} other sessions.`;
 };
 
 /** A date and time for display, falling back to the raw value. */
@@ -49,66 +57,15 @@ const DeviceIcon: React.FC<{ device: string }> = ({ device }) => {
 
 /** The panel body, mounted only once the identity client could be built. */
 const SessionsBody: React.FC<{ client: IdentityClient }> = ({ client }) => {
-  const [sessions, setSessions] = useState<AccountSession[] | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const panel = useSessionsPanel({
+    client,
+    messages: {
+      removed: 'Session ended. That device is signed out.',
+      revokedOthers: revokedOthersMessage,
+    },
+  });
 
-  const load = useCallback(async () => {
-    try {
-      const outcome = await client.listSessions();
-      setSessions(outcome.sessions);
-    } catch {
-      setSessions((current) => current ?? []);
-      setError(FAILED);
-    }
-  }, [client]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const run = async (step: () => Promise<string | null>) => {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const message = await step();
-      if (message) setNotice(message);
-    } catch {
-      setError(FAILED);
-    } finally {
-      await load();
-      setBusy(false);
-    }
-  };
-
-  const endOne = (session: AccountSession) =>
-    run(async () => {
-      const outcome = await client.revokeSession(session.id);
-      if (outcome.ok || outcome.reason === 'not-found') {
-        return 'Session ended. That device is signed out.';
-      }
-      setError(outcome.message);
-      return null;
-    });
-
-  const endOthers = (others: AccountSession[]) =>
-    run(async () => {
-      const outcomes = await Promise.all(
-        others.map((session) => client.revokeSession(session.id))
-      );
-      const refused = outcomes.find(
-        (outcome) => !outcome.ok && outcome.reason !== 'not-found'
-      );
-      if (refused && !refused.ok) {
-        setError(refused.message);
-        return null;
-      }
-      return 'All other sessions ended. Those devices are signed out.';
-    });
-
-  if (sessions === null) {
+  if (panel.loading) {
     return (
       <div className="flex justify-center py-8">
         <Spinner />
@@ -116,7 +73,18 @@ const SessionsBody: React.FC<{ client: IdentityClient }> = ({ client }) => {
     );
   }
 
-  const others = sessions.filter((session) => !session.current);
+  const sessions = panel.items ?? [];
+
+  const signOutOthers = () => {
+    if (
+      !window.confirm(
+        'Sign out every other session? Those devices will need to sign in again.'
+      )
+    ) {
+      return;
+    }
+    void panel.revokeOthers();
+  };
 
   return (
     <div className="space-y-4">
@@ -128,8 +96,8 @@ const SessionsBody: React.FC<{ client: IdentityClient }> = ({ client }) => {
         </p>
       </div>
 
-      {error && <ErrorAlert message={error} />}
-      {notice && <ConfirmationAlert message={notice} />}
+      {panel.error && <ErrorAlert message={panel.error} />}
+      {panel.notice && <ConfirmationAlert message={panel.notice} />}
 
       {sessions.length === 0 ? (
         <p className="text-sm text-muted-foreground">
@@ -174,8 +142,8 @@ const SessionsBody: React.FC<{ client: IdentityClient }> = ({ client }) => {
                     size="sm"
                     variant="destructive"
                     aria-label={`End session on ${label} last active ${lastActive}`}
-                    onClick={() => void endOne(session)}
-                    disabled={busy}
+                    onClick={() => void panel.revoke(session.id)}
+                    disabled={panel.busy}
                   >
                     End
                   </Button>
@@ -186,25 +154,16 @@ const SessionsBody: React.FC<{ client: IdentityClient }> = ({ client }) => {
         </ul>
       )}
 
-      {others.length > 0 && (
+      {sessions.length > 0 && (
         <Button
           type="button"
           variant="destructive"
-          onClick={() => {
-            if (
-              !window.confirm(
-                'End every other session? Those devices will need to sign in again.'
-              )
-            ) {
-              return;
-            }
-            void endOthers(others);
-          }}
-          disabled={busy}
-          loading={busy}
+          onClick={signOutOthers}
+          disabled={panel.busy || panel.others.length === 0}
+          loading={panel.busy && panel.others.length > 0}
           className="w-full"
         >
-          End all other sessions
+          Sign out other sessions
         </Button>
       )}
     </div>

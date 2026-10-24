@@ -10,7 +10,7 @@ import { mockUseAuth } from '../../test/utils/test-mocks';
 import { testScenarios } from '../../test/utils/test-utils';
 import { mockUser } from '../../test/mocks/api';
 import { makeAdminUserView, makeUserList } from '../../test/mocks/admin/users';
-import type { PaginatedResponse, UserRead } from '../../types/Api';
+import type { CursorPage, UserRead } from '../../types/Api';
 
 const adminUser = testScenarios.adminAuthenticated.initialAuthState.user;
 
@@ -22,16 +22,10 @@ import UserManagement from './UserManagement';
 
 const makePaginatedUserList = (
   items: UserRead[] = makeUserList()
-): PaginatedResponse<UserRead> => ({
-  data: items,
-  pagination: {
-    current_page: 1,
-    total_pages: 1,
-    total_items: items.length,
-    items_per_page: 25,
-    has_next: false,
-    has_previous: false,
-  },
+): CursorPage<UserRead> => ({
+  items,
+  next_cursor: null,
+  has_next: false,
 });
 
 describe('UserManagement page', () => {
@@ -65,7 +59,7 @@ describe('UserManagement page', () => {
       expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
         '/users/admin/users',
         expect.objectContaining({
-          params: expect.objectContaining({ skip: 0, limit: 10 }),
+          params: expect.objectContaining({ limit: 10 }),
         })
       );
     });

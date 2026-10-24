@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from app.common.db.dynamo import client as dynamo_client
 from app.common.db.dynamo.catalog import Part as DBPart
 from app.common.db.dynamo.catalog import PartRepository
-from app.common.db.dynamo.tables import PART_CANONICAL_LISTING_ATTRIBUTE, PARTS
+from app.common.db.dynamo.tables import PART_CANONICAL_LISTING_ATTRIBUTE, PART_CANONICAL_LISTING_PARTITION, PARTS
 from app.common.db.dynamo.users import User
 from tests.conftest import get_default_category_id, save_catalog
 
@@ -76,6 +76,55 @@ def test_linking_and_unlinking_moves_a_part_through_the_canonical_index(
 
     repo.update_unique(linked, canonical_part_id=None)
     assert {p.id for p in repo.list_canonical()} == {target.id, part.id}
+
+
+def test_soft_deleted_canonical_part_leaves_the_sitemap(
+    client: TestClient, db_session: Any, test_user: User, no_part_scans: None
+) -> None:
+    """Tombstoning a canonical part drops its canonical index key, so neither sitemap lists it (CAR-39)."""
+    kept = _part(db_session, test_user, "Kept")
+    deleted = _part(db_session, test_user, "Deleted")
+    repo = PartRepository()
+
+    repo.update(str(deleted.id), deleted=True)
+    stored = dynamo_client.get_table(PARTS).get_item(Key={"id": str(deleted.id)}).get("Item", {})
+    assert stored and PART_CANONICAL_LISTING_ATTRIBUTE not in stored
+    assert [p.id for p in repo.list_canonical()] == [kept.id]
+
+    assert client.get("/sitemap.xml").status_code == 200
+    response = client.get("/sitemap-parts.xml")
+    assert response.status_code == 200
+    assert f"/parts/{kept.id}<" in response.text
+    assert f"/parts/{deleted.id}<" not in response.text
+
+
+def test_full_put_of_a_tombstoned_part_omits_the_canonical_index_key(db_session: Any, test_user: User) -> None:
+    """A full write of a tombstoned canonical part never derives the canonical index key."""
+    part = _part(db_session, test_user, "Part")
+    PartRepository().put(part.model_copy(update={"deleted": True}))
+    stored = dynamo_client.get_table(PARTS).get_item(Key={"id": str(part.id)}).get("Item", {})
+    assert stored and PART_CANONICAL_LISTING_ATTRIBUTE not in stored
+
+
+def test_list_canonical_filters_tombstoned_rows_still_keyed(
+    db_session: Any, test_user: User, no_part_scans: None
+) -> None:
+    """A tombstoned row that still carries the canonical index key is filtered out on read."""
+    part = _part(db_session, test_user, "Part")
+    dynamo_client.get_table(PARTS).update_item(
+        Key={"id": str(part.id)},
+        UpdateExpression="SET #deleted = :deleted, #listing = :listing",
+        ExpressionAttributeNames={"#deleted": "deleted", "#listing": PART_CANONICAL_LISTING_ATTRIBUTE},
+        ExpressionAttributeValues={":deleted": True, ":listing": PART_CANONICAL_LISTING_PARTITION},
+    )
+    assert PartRepository().list_canonical() == []
+
+
+def test_partial_update_clearing_the_tombstone_is_refused(db_session: Any, test_user: User) -> None:
+    """Clearing a tombstone needs a full put, since only that can restore the canonical index key."""
+    part = _part(db_session, test_user, "Part")
+    with pytest.raises(ValueError):
+        PartRepository().update(str(part.id), deleted=False)
 
 
 def test_partial_update_of_canonical_part_id_is_refused(db_session: Any, test_user: User) -> None:

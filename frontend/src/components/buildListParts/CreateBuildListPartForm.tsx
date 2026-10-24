@@ -35,9 +35,14 @@ interface CreateBuildListPartFormProps {
   onCancel: () => void;
 }
 
-const fetchPartsRequestFn = () => partsApi.getParts();
+const fetchPartsRequestFn = () =>
+  partsApi
+    .getParts()
+    .then((response) => ({ ...response, data: response.data.items }));
 const fetchCarsRequestFn = () =>
-  carGenerationsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+  carGenerationsApi
+    .listCars({ limit: LARGE_FETCH_LIMIT })
+    .then((response) => ({ ...response, data: response.data.items }));
 const fetchPhasesRequestFn = (buildListId: string) =>
   buildListsApi.getPhases(buildListId);
 

@@ -8,11 +8,12 @@ import {
 
 const listSessions = vi.fn();
 const revokeSession = vi.fn();
+const revokeOtherSessions = vi.fn();
 let clientIsNull = false;
 
 vi.mock('../../api/identityClient', () => ({
   getIdentityClient: () =>
-    clientIsNull ? null : { listSessions, revokeSession },
+    clientIsNull ? null : { listSessions, revokeSession, revokeOtherSessions },
 }));
 
 import IdentitySessions from './IdentitySessions';
@@ -52,6 +53,14 @@ const OTHER = {
   current: false,
 };
 
+const CHROME = {
+  ...CURRENT,
+  id: 'fam-chrome',
+  browser: 'Chrome',
+  platform: 'Windows',
+  current: false,
+};
+
 const AGENT = {
   ...CURRENT,
   id: 'fam-agent',
@@ -72,6 +81,7 @@ beforeEach(() => {
     sessions: [CURRENT, PHONE, OTHER],
   });
   revokeSession.mockResolvedValue({ ok: true });
+  revokeOtherSessions.mockResolvedValue({ ok: true, revoked: 2 });
   vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
@@ -148,46 +158,93 @@ describe('IdentitySessions', () => {
     ).toBeInTheDocument();
   });
 
-  it('ends every other session but never the current one', async () => {
+  it('names the browser when the session has no client', async () => {
+    listSessions.mockResolvedValue({
+      ok: true,
+      sessions: [{ ...CURRENT, browser: 'Firefox' }, CHROME],
+    });
+    render(<IdentitySessions />);
+
+    expect(await screen.findByText('Firefox on macOS')).toBeInTheDocument();
+    expect(screen.getByText('Chrome on Windows')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Desktop browser on macOS')
+    ).not.toBeInTheDocument();
+  });
+
+  it('prefers the client name over the browser', async () => {
+    listSessions.mockResolvedValue({
+      ok: true,
+      sessions: [CURRENT, { ...AGENT, browser: 'Chrome' }],
+    });
+    render(<IdentitySessions />);
+
+    expect(await screen.findByText('claude-code on Linux')).toBeInTheDocument();
+  });
+
+  it('signs out every other session in one call and reports the count', async () => {
     render(<IdentitySessions />);
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'End all other sessions' })
+      await screen.findByRole('button', { name: 'Sign out other sessions' })
     );
 
     expect(
-      await screen.findByText(
-        'All other sessions ended. Those devices are signed out.'
-      )
+      await screen.findByText('Signed out 2 other sessions.')
     ).toBeInTheDocument();
-    expect(revokeSession).toHaveBeenCalledTimes(2);
-    expect(revokeSession).toHaveBeenCalledWith('fam-phone');
-    expect(revokeSession).toHaveBeenCalledWith('fam-other');
-    expect(revokeSession).not.toHaveBeenCalledWith('fam-current');
+    expect(revokeOtherSessions).toHaveBeenCalledTimes(1);
+    expect(revokeSession).not.toHaveBeenCalled();
+    expect(listSessions).toHaveBeenCalledTimes(2);
   });
 
-  it('does nothing when ending the others is not confirmed', async () => {
+  it('reports a single other session in the singular', async () => {
+    revokeOtherSessions.mockResolvedValue({ ok: true, revoked: 1 });
+    render(<IdentitySessions />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Sign out other sessions' })
+    );
+
+    expect(
+      await screen.findByText('Signed out 1 other session.')
+    ).toBeInTheDocument();
+  });
+
+  it('says so when signing out the others fails', async () => {
+    revokeOtherSessions.mockRejectedValue(new Error('network'));
+    render(<IdentitySessions />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Sign out other sessions' })
+    );
+
+    expect(
+      await screen.findByText(/could not reach the server/i)
+    ).toBeInTheDocument();
+  });
+
+  it('does nothing when signing out the others is not confirmed', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     render(<IdentitySessions />);
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'End all other sessions' })
+      await screen.findByRole('button', { name: 'Sign out other sessions' })
     );
 
     await waitFor(() => {
       expect(confirm).toHaveBeenCalled();
     });
-    expect(revokeSession).not.toHaveBeenCalled();
+    expect(revokeOtherSessions).not.toHaveBeenCalled();
   });
 
-  it('hides the end all action when only the current session is live', async () => {
+  it('disables signing out the others when only the current session is live', async () => {
     listSessions.mockResolvedValue({ ok: true, sessions: [CURRENT] });
     render(<IdentitySessions />);
 
     expect(await screen.findByText('This device')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'End all other sessions' })
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Sign out other sessions' })
+    ).toBeDisabled();
   });
 
   it('says so when the list cannot be loaded', async () => {

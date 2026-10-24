@@ -4,7 +4,8 @@
 
 import { apiClient } from './client';
 import type {
-  PaginatedResponse,
+  CursorPage,
+  CursorParams,
   PartCreate,
   PartListingReadWithRetailer,
   PartRead,
@@ -17,16 +18,11 @@ import type {
 
 /** Part lookup, search, filtering, and price history. */
 export const partsApi = {
-  getParts: (params?: {
-    skip?: number;
-    limit?: number;
-    category_id?: string;
-    car_id?: string;
-    search?: string;
-  }) => apiClient.get<PartRead[]>('/parts/', { params }),
+  getParts: (params?: CursorParams & { search?: string }) =>
+    apiClient.get<CursorPage<PartRead>>('/parts', { params }),
 
   getPartsWithVotes: (params?: {
-    skip?: number;
+    cursor?: string;
     limit?: number;
     category_id?: string;
     category_ids?: string[];
@@ -41,7 +37,7 @@ export const partsApi = {
     max_price_cents?: number;
     universal?: boolean;
   }) =>
-    apiClient.get<PaginatedResponse<PartReadWithVotes>>('/parts/with-votes', {
+    apiClient.get<CursorPage<PartReadWithVotes>>('/parts/with-votes', {
       params,
     }),
 
@@ -61,11 +57,8 @@ export const partsApi = {
       make_names?: string[];
     }>('/parts/filter-options', { params }),
 
-  getPartsByCategory: (
-    categoryId: string,
-    params?: { skip?: number; limit?: number }
-  ) =>
-    apiClient.get<PartRead[]>(`/parts/category/${categoryId}`, {
+  getPartsByCategory: (categoryId: string, params?: CursorParams) =>
+    apiClient.get<CursorPage<PartRead>>(`/parts/category/${categoryId}`, {
       params: { filter_id: categoryId, ...params },
     }),
 
