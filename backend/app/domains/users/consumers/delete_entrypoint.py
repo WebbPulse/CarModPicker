@@ -1,15 +1,19 @@
 """The users domain's account delete cascade consumer.
 
 One function behind two event source mappings: the `users` stream fans a tombstone
-onto the `user-delete` queue, and the queue drains the cascade across its tables.
+onto the `user-delete` queue, and the queue cancels the user's Stripe subscriptions
+and drains the cascade across its tables.
 """
 
+import logging
 from typing import Any, Dict, List, Mapping
 
 from fastapi import FastAPI
 
 from app.common.composition.domains import DOMAINS
 from app.common.composition.wiring import configure_logging, configure_tracing
+
+logger = logging.getLogger(__name__)
 
 DOMAIN = DOMAINS["users"]
 
@@ -39,6 +43,10 @@ SERVICE_NAME = f"{DOMAIN.service_name}-delete-consumer"
 _repos: Any = None
 
 _sqs: Any = None
+
+_billing: Any = None
+
+_billing_resolved = False
 
 
 def repositories() -> Any:
@@ -71,6 +79,29 @@ def sqs_client() -> Any:
     return _sqs
 
 
+def billing_gateway() -> Any:
+    """The webbpulse Stripe gateway the cascade cancels with, memoised, or `None`.
+
+    `None` when the stage has no Stripe configuration, logged as an error so a
+    production gap is visible rather than silently leaving subscriptions active.
+    """
+    global _billing, _billing_resolved
+    if not _billing_resolved:
+        from webbpulse.integrations.stripe import StripeGateway, StripeNotConfigured
+
+        from app.domains.users.services.billing_service import load_billing_settings
+
+        try:
+            _billing = StripeGateway(load_billing_settings())
+        except StripeNotConfigured as error:
+            logger.error(
+                "User delete consumer: Stripe is not configured; subscriptions will not be cancelled: %s", error
+            )
+            _billing = None
+        _billing_resolved = True
+    return _billing
+
+
 def handle_batch(event: Mapping[str, Any]) -> Dict[str, List[Dict[str, str]]]:
     """Fan a tombstone onto the work queue, or drain a cascade off it.
 
@@ -79,7 +110,7 @@ def handle_batch(event: Mapping[str, Any]) -> Dict[str, List[Dict[str, str]]]:
     from app.domains.users.consumers.user_delete import handle_queue, handle_stream, is_queue_event
 
     if is_queue_event(event):
-        return handle_queue(event, repositories())
+        return handle_queue(event, repositories(), billing_gateway())
     return handle_stream(event, sqs_client())
 
 
