@@ -104,6 +104,11 @@ def apply_derived_attributes(item: dict[str, Any], spec: TableSpec) -> dict[str,
                 break
     for target, value in spec.constant_attributes:
         item[target] = value
+    for target, value, absent_source in spec.sparse_constants:
+        if item.get(absent_source) is None:
+            item[target] = value
+        else:
+            item.pop(target, None)
     return item
 
 

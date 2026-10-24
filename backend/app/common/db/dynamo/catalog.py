@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Iterable, TypeVar
 from uuid import UUID
 
+from botocore.exceptions import ClientError
 from pydantic import Field, model_validator
 from uuid6 import uuid7
 
@@ -19,6 +20,7 @@ from app.common.db.dynamo.tables import (
     PART_CARS,
     PART_LISTINGS,
     PART_MANUFACTURERS,
+    PART_CANONICAL_LISTING_PARTITION,
     PART_PRICE_HISTORY,
     PARTS,
     RETAILERS,
@@ -34,6 +36,8 @@ GTIN = "gtin"
 MANUFACTURER_PART_NUMBER = "manufacturer_part_number"
 
 UniquePair = tuple[str, str]
+
+UNREADABLE_INDEX_MARKERS = ("backfilling global secondary index", "does not have the specified index")
 
 
 class CarMake(TimestampedDynamoModel):
@@ -367,6 +371,8 @@ class RetailerRepository(NamedRepository[Retailer]):
 class PartRepository(UniqueCatalogRepository[Part]):
     """Catalogue parts, unique by GTIN and by manufacturer part number."""
 
+    canonical_index = "canonical_listing-created_at-index"
+
     def __init__(self) -> None:
         """Bind to the parts table."""
         super().__init__(Part, PARTS)
@@ -429,7 +435,16 @@ class PartRepository(UniqueCatalogRepository[Part]):
         return self.query_all("canonical_id-index", str(canonical_id))
 
     def list_canonical(self) -> list[Part]:
-        """Every part that is itself canonical rather than a linked duplicate."""
+        """Every part that is itself canonical rather than a linked duplicate, through the sparse canonical index.
+
+        Falls back to a filtered Scan only while the index is still being created or backfilled by DynamoDB.
+        """
+        try:
+            return self.query_all(self.canonical_index, PART_CANONICAL_LISTING_PARTITION)
+        except ClientError as exc:
+            message = str(exc.response.get("Error", {}).get("Message", ""))
+            if not any(marker in message for marker in UNREADABLE_INDEX_MARKERS):
+                raise
         return [part for part in self.scan_all() if part.canonical_part_id is None]
 
     def count_by_category(self, category_id: UUID) -> int:
