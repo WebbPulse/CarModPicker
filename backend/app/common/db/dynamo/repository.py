@@ -389,6 +389,24 @@ class DynamoRepository(Generic[TModel]):
             if cursor is None:
                 return items
 
+    def count_query(self, index: str | None, key_value: Any) -> int:
+        """How many items match a key, counted by the Query itself without returning them."""
+        hash_name, _ = self._query_key_names(index)
+        kwargs: dict[str, Any] = {
+            "KeyConditionExpression": Key(hash_name).eq(to_dynamo_value(key_value)),
+            "Select": "COUNT",
+        }
+        if index is not None:
+            kwargs["IndexName"] = index
+        total = 0
+        while True:
+            response = self.table.query(**kwargs)
+            total += int(response.get("Count", 0))
+            start_key = response.get("LastEvaluatedKey")
+            if start_key is None:
+                return total
+            kwargs["ExclusiveStartKey"] = start_key
+
     def _query_key_names(self, index: str | None) -> tuple[str, str | None]:
         """The hash and range attribute names of the table or of one of its indexes."""
         if index is None:

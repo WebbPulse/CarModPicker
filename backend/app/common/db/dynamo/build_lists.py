@@ -1,5 +1,6 @@
 """Build lists and their parts, phases and labor estimates on DynamoDB."""
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Iterable, TypeVar
 from uuid import UUID
 
@@ -17,6 +18,8 @@ from app.common.db.dynamo.tables import (
 )
 
 TModel = TypeVar("TModel", bound=DynamoModel)
+
+CHILD_QUERY_WORKERS = 8
 
 
 class BuildList(TimestampedDynamoModel):
@@ -96,6 +99,14 @@ class BuildListChildRepository(DynamoRepository[TModel]):
         """Every child of this build list."""
         return self.query_all(self.child_index, build_list_id)
 
+    def all_for_build_lists(self, build_list_ids: Iterable[UUID]) -> dict[UUID, list[TModel]]:
+        """Every child of each of these build lists, keyed by build list id, one index Query per list."""
+        ids = list(dict.fromkeys(build_list_ids))
+        if len(ids) <= 1:
+            return {build_list_id: self.all_for_build_list(build_list_id) for build_list_id in ids}
+        with ThreadPoolExecutor(max_workers=min(CHILD_QUERY_WORKERS, len(ids))) as pool:
+            return dict(zip(ids, pool.map(self.all_for_build_list, ids)))
+
     def delete_actions_for_build_list(self, build_list_id: UUID) -> list[dict[str, Any]]:
         """Transaction actions deleting every child of this build list."""
         return [self.delete_action(str(item.id)) for item in self.all_for_build_list(build_list_id)]
@@ -172,8 +183,8 @@ class BuildListRepository(DynamoRepository[BuildList]):
         return {item.id: item for item in self.batch_get(keys)}
 
     def count(self) -> int:
-        """How many build lists exist."""
-        return len(self.scan_all())
+        """How many build lists exist, counted on the listing index."""
+        return self.count_query(self.listing_index, BUILD_LIST_LISTING_PARTITION)
 
 
 class BuildListPartRepository(BuildListChildRepository[BuildListPart]):

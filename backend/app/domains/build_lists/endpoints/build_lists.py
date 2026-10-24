@@ -135,25 +135,33 @@ async def read_build_lists_with_votes(
         and (owner_id is None or bl.user_id == owner_id)
     ]
 
-    candidate_ids = {bl.id for bl in candidates}
-    parts_by_list: Dict[UUID, List[Any]] = {}
-    for part in repos.build_list_parts.scan_all():
-        if part.build_list_id in candidate_ids:
-            parts_by_list.setdefault(part.build_list_id, []).append(part)
-    prices = {
-        part_id: part.best_price_cents
-        for part_id, part in drop_tombstoned_values(
-            repos.parts.get_many({p.part_id for ps in parts_by_list.values() for p in ps})
-        ).items()
-    }
-    parts_cost: Dict[UUID, Optional[int]] = {
-        list_id: sum(part.quantity * (prices.get(part.part_id) or 0) for part in parts)
-        for list_id, parts in parts_by_list.items()
-    }
+    parts_cost: Dict[UUID, Optional[int]] = {}
     labor_cost: Dict[UUID, Optional[int]] = {}
-    for estimate in repos.build_list_labor_estimates.scan_all():
-        if estimate.build_list_id in candidate_ids:
-            labor_cost[estimate.build_list_id] = (labor_cost.get(estimate.build_list_id) or 0) + estimate.cost_cents
+    costed: set[UUID] = set()
+
+    def load_costs(lists: List[BuildList]) -> None:
+        """Fill parts and labor cost for these build lists from per-list index Queries."""
+        ids = [bl.id for bl in lists if bl.id not in costed]
+        if not ids:
+            return
+        costed.update(ids)
+        parts_by_list = {
+            list_id: parts for list_id, parts in repos.build_list_parts.all_for_build_lists(ids).items() if parts
+        }
+        prices = {
+            part_id: part.best_price_cents
+            for part_id, part in drop_tombstoned_values(
+                repos.parts.get_many({p.part_id for ps in parts_by_list.values() for p in ps})
+            ).items()
+        }
+        for list_id, parts in parts_by_list.items():
+            parts_cost[list_id] = sum(part.quantity * (prices.get(part.part_id) or 0) for part in parts)
+        for list_id, estimates in repos.build_list_labor_estimates.all_for_build_lists(ids).items():
+            if estimates:
+                labor_cost[list_id] = sum(estimate.cost_cents for estimate in estimates)
+
+    if min_cost_cents is not None or max_cost_cents is not None or sort in ("price_asc", "price_desc"):
+        load_costs(candidates)
 
     def total_cost(bl: BuildList) -> int:
         """Return the base price plus parts and labor cost for a build list."""
@@ -188,6 +196,8 @@ async def read_build_lists_with_votes(
 
     if not build_lists:
         return create_paginated_response(data=[], total=total, skip=skip, limit=limit, entity_name="build lists")
+
+    load_costs(build_lists)
 
     user_votes: Dict[UUID, str] = {}
     if current_user:
