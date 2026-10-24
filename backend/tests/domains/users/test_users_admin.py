@@ -300,7 +300,7 @@ class TestAdminUserManagement:
         assert updated_user["email_verified"] == update_data["email_verified"]
 
     def test_admin_update_user_with_superuser(self, client: TestClient, db_session: Any) -> None:
-        """Test that superusers can update other users."""
+        """A superuser can update other users but cannot grant superuser through the API."""
         test_user = UserRepository().create_user(
             DBUser(
                 username="test_update_user_superuser",
@@ -327,7 +327,47 @@ class TestAdminUserManagement:
         updated_user = response.json()
         assert updated_user["username"] == update_data["username"]
         assert updated_user["email"] == update_data["email"]
-        assert updated_user["is_superuser"] == update_data["is_superuser"]
+        assert updated_user["is_superuser"] is False
+        assert UserRepository().get_or_raise(test_user.id).is_superuser is False
+
+    def test_admin_cannot_grant_superuser(self, client: TestClient, db_session: Any) -> None:
+        """Superuser is set out of band, so the admin update route ignores `is_superuser`."""
+        test_user = UserRepository().create_user(
+            DBUser(
+                username="test_grant_superuser",
+                email="test_grant_superuser@example.com",
+                is_admin=False,
+                is_superuser=False,
+                email_verified=True,
+                disabled=False,
+            )
+        )
+        admin_user_dict, token = create_and_login_admin_user(client, db_session, "grant_superuser")
+        headers = get_auth_headers(token)
+
+        for target in (test_user.id, admin_user_dict["id"]):
+            response = client.put(
+                f"{settings.API_STR}/users/admin/users/{target}",
+                json={"is_superuser": True},
+                headers=headers,
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["is_superuser"] is False
+            assert UserRepository().get_or_raise(target).is_superuser is False
+
+    def test_user_cannot_grant_self_superuser(self, client: TestClient, db_session: Any) -> None:
+        """The self service update route ignores `is_superuser` and `is_admin`."""
+        admin_user_dict, token = create_and_login_admin_user(client, db_session, "self_superuser")
+        headers = get_auth_headers(token)
+
+        response = client.put(
+            f"{settings.API_STR}/users/{admin_user_dict['id']}",
+            json={"is_superuser": True},
+            headers=headers,
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["is_superuser"] is False
+        assert UserRepository().get_or_raise(admin_user_dict["id"]).is_superuser is False
 
     def test_admin_update_user_ignores_a_password(self, client: TestClient, db_session: Any) -> None:
         """An admin cannot set a password here; `AdminUserUpdate` no longer has the field.

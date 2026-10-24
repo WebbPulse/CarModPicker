@@ -27,6 +27,8 @@ REFUSAL_MESSAGE = "This account may not sign in."
 SUPERUSER_ROLE = "superuser"
 ADMIN_ROLE = "admin"
 
+REGISTRATION_ATTRIBUTES = frozenset({"username", "email_verified"})
+
 
 class CarModPickerIdentityHooks:
     """CarModPicker's `IdentityHooks`, satisfying the protocol structurally.
@@ -135,13 +137,12 @@ class CarModPickerIdentityHooks:
     def create_user(self, *, email: str, attributes: Mapping[str, Any]) -> Mapping[str, Any]:
         """Create a CarModPicker user row for a package registration and return it.
 
-        The username is derived from the address when none is supplied.
-        `hashed_password` is not a field on `User` since row 13; the `pop` stays
-        because `attributes` is the package's mapping rather than this model.
+        The username is derived from the address when none is supplied. Only
+        `REGISTRATION_ATTRIBUTES` are kept, because the public register route passes
+        caller supplied attributes through; role flags such as `is_superuser` are
+        set out of band, never at registration.
         """
-        record = dict(attributes)
-        record.pop("id", None)
-        record.pop("hashed_password", None)
+        record = {key: value for key, value in attributes.items() if key in REGISTRATION_ATTRIBUTES}
         record["email"] = email
         record["username"] = str(record.get("username") or _username_from(email))
         user = User(**record)
