@@ -103,8 +103,10 @@ describe('usersApi — list + count', () => {
   });
 
   it('listUsers GETs /users/ with pagination params', async () => {
-    getMock.mockResolvedValueOnce({ data: [mockUser] });
-    const params = { skip: 0, limit: 10, search: 'test' };
+    getMock.mockResolvedValueOnce({
+      data: { items: [mockUser], next_cursor: null, has_next: false },
+    });
+    const params = { cursor: 'cursor-0', limit: 10, search: 'test' };
 
     await usersApi.listUsers(params);
 
@@ -138,13 +140,11 @@ describe('usersApi — admin endpoints', () => {
     getMock.mockResolvedValueOnce({
       data: {
         items: [mockUser],
-        total: 1,
-        skip: 0,
-        limit: 10,
+        next_cursor: null,
         has_next: false,
       },
     });
-    const params = { skip: 0, limit: 10 };
+    const params = { cursor: 'cursor-0', limit: 10 };
 
     await usersApi.getAllUsers(params);
 

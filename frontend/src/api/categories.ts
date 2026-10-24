@@ -3,18 +3,20 @@
  */
 
 import { apiClient } from './client';
-import type { CategoryResponse, PartRead } from '../types/Api';
+import type {
+  CategoryResponse,
+  CursorPage,
+  CursorParams,
+  PartRead,
+} from '../types/Api';
 
 /** Part category lookup and the parts under each category. */
 export const categoriesApi = {
   getCategories: () => apiClient.get<CategoryResponse[]>('/categories'),
   getCategory: (categoryId: string) =>
     apiClient.get<CategoryResponse>(`/categories/${categoryId}`),
-  getPartsByCategory: (
-    categoryId: string,
-    params?: { skip?: number; limit?: number }
-  ) =>
-    apiClient.get<PartRead[]>(`/categories/${categoryId}/parts`, {
+  getPartsByCategory: (categoryId: string, params?: CursorParams) =>
+    apiClient.get<CursorPage<PartRead>>(`/categories/${categoryId}/parts`, {
       params,
     }),
 

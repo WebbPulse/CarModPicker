@@ -9,7 +9,7 @@ import { partVotesApi } from '../../api/votes';
 import type {
   CarGenerationRead,
   CategoryResponse,
-  PaginationInfo,
+  CursorPageInfo,
   PartManufacturerResponse,
   PartReadWithVotes,
 } from '../../types/Api';
@@ -28,7 +28,7 @@ import VoteButtons from './VoteButtons';
 
 interface CachedData {
   data: PartReadWithVotes[];
-  pagination: PaginationInfo | null;
+  pagination: CursorPageInfo | null;
   timestamp: number;
 }
 const partsCache = new Map<string, CachedData>();
@@ -130,7 +130,7 @@ function SortableTh({
 
 /** A stable cache key for a params object, independent of key order. */
 function getCacheKey(params?: {
-  skip?: number;
+  cursor?: string;
   limit?: number;
   category_id?: string;
   category_ids?: string[];
@@ -222,7 +222,7 @@ function getCachedData(cacheKey: string): CachedData | null {
 
 interface PartListProps {
   params?: {
-    skip?: number;
+    cursor?: string;
     limit?: number;
     category_id?: string;
     category_ids?: string[];
@@ -238,7 +238,7 @@ interface PartListProps {
     universal?: boolean;
   };
   data?: PartReadWithVotes[];
-  pagination?: PaginationInfo | null;
+  pagination?: CursorPageInfo | null;
   refreshKey?: number;
   title?: string;
   emptyMessage?: string;
@@ -253,7 +253,7 @@ interface PartListProps {
   onDelete?: (part: PartReadWithVotes) => void;
   canEdit?: (part: PartReadWithVotes) => boolean;
   canDelete?: (part: PartReadWithVotes) => boolean;
-  onPaginationChange?: (pagination: PaginationInfo | null) => void;
+  onPaginationChange?: (pagination: CursorPageInfo | null) => void;
   /** When provided with onSortChange, sort is controlled: parent passes sortParam (API value) and is notified on change. Enables server-side sort for full result set. */
   sortParam?: string;
   /** When controlled: called with new API sort param. When uncontrolled: called with no args when sort changes (e.g. to reset pagination). */
@@ -267,7 +267,7 @@ interface PartListProps {
 }
 
 const fetchPartsRequestFn = (params?: {
-  skip?: number;
+  cursor?: string;
   limit?: number;
   category_id?: string;
   category_ids?: string[];
@@ -405,7 +405,7 @@ function PartList({
     return cached?.data ?? [];
   });
   const [displayPagination, setDisplayPagination] =
-    useState<PaginationInfo | null>(() => {
+    useState<CursorPageInfo | null>(() => {
       if (providedPagination) return providedPagination;
       const cached = getCachedData(cacheKey);
       return cached?.pagination ?? null;
@@ -455,18 +455,22 @@ function PartList({
   }, [fetchRequestKey]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally only refetch when request key changes; effectiveParams/cacheKey used inside
 
   useEffect(() => {
-    if (paginatedResponse?.data) {
-      setDisplayData(paginatedResponse.data);
-      setDisplayPagination(paginatedResponse.pagination ?? null);
+    if (paginatedResponse?.items) {
+      const pagination: CursorPageInfo = {
+        has_next: paginatedResponse.has_next,
+        next_cursor: paginatedResponse.next_cursor,
+      };
+      setDisplayData(paginatedResponse.items);
+      setDisplayPagination(pagination);
       partsCache.set(cacheKey, {
-        data: paginatedResponse.data,
-        pagination: paginatedResponse.pagination ?? null,
+        data: paginatedResponse.items,
+        pagination,
         timestamp: Date.now(),
       });
     }
   }, [paginatedResponse, cacheKey]);
 
-  const prevPaginationRef = useRef<PaginationInfo | null>(null);
+  const prevPaginationRef = useRef<CursorPageInfo | null>(null);
 
   useEffect(() => {
     const currentPagination = providedPagination ?? displayPagination;

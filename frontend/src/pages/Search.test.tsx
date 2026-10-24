@@ -1,11 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-import { apiClient } from '../api/client';
-import { mockBuildList, mockPart, mockUser } from '../test/mocks/api';
+import { apiClient, type ApiRequestConfig } from '../api/client';
+import type { SearchResults } from '../api/search';
+import {
+  mockBuildList,
+  mockCar,
+  mockPart,
+  mockUser,
+  mockVoteSummary,
+} from '../test/mocks/api';
 import { mockUseAuth } from '../test/utils/test-mocks';
 
 vi.mock('../hooks/useAuth', () => ({
@@ -14,40 +21,46 @@ vi.mock('../hooks/useAuth', () => ({
 
 import Search from './Search';
 
-const searchResultsFixture = {
-  data: {
-    query: 'honda',
-    build_lists: {
-      data: [mockBuildList],
-      total: 1,
-      has_next: false,
-      skip: 0,
-      limit: 10,
-    },
-    users: {
-      data: [mockUser],
-      total: 1,
-      has_next: false,
-      skip: 0,
-      limit: 10,
-    },
-    parts: {
-      data: [mockPart],
-      total: 1,
-      has_next: false,
-      skip: 0,
-      limit: 10,
-    },
+const searchResults: SearchResults = {
+  query: 'honda',
+  build_lists: { items: [mockBuildList], next_cursor: null, has_next: false },
+  users: { items: [mockUser], next_cursor: null, has_next: false },
+  parts: { items: [mockPart], next_cursor: 'parts-cursor-1', has_next: true },
+};
+
+const secondPartsPage: SearchResults = {
+  query: 'honda',
+  build_lists: { items: [mockBuildList], next_cursor: null, has_next: false },
+  users: { items: [mockUser], next_cursor: null, has_next: false },
+  parts: {
+    items: [{ ...mockPart, id: 'part-2', name: 'Second Part' }],
+    next_cursor: null,
+    has_next: false,
   },
 };
 
-const emptyResultsFixture = {
-  data: {
-    query: 'missing',
-    build_lists: { data: [], total: 0, has_next: false, skip: 0, limit: 10 },
-    users: { data: [], total: 0, has_next: false, skip: 0, limit: 10 },
-    parts: { data: [], total: 0, has_next: false, skip: 0, limit: 10 },
-  },
+const emptyResults: SearchResults = {
+  query: 'missing',
+  build_lists: { items: [], next_cursor: null, has_next: false },
+  users: { items: [], next_cursor: null, has_next: false },
+  parts: { items: [], next_cursor: null, has_next: false },
+};
+
+const routeGet = (
+  search: (params: Record<string, unknown>) => SearchResults
+) => {
+  vi.mocked(apiClient.get).mockImplementation(
+    (path: string, config?: ApiRequestConfig) => {
+      if (path === '/search') {
+        const params = (config?.params ?? {}) as Record<string, unknown>;
+        return Promise.resolve({ data: search(params) });
+      }
+      if (path.startsWith('/car-generations/')) {
+        return Promise.resolve({ data: mockCar });
+      }
+      return Promise.resolve({ data: mockVoteSummary });
+    }
+  );
 };
 
 describe('Search page', () => {
@@ -76,12 +89,12 @@ describe('Search page', () => {
       screen.getByText(/enter a search term to find build lists/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText(/search build lists and users/i)
+      screen.getByPlaceholderText(/search build lists, parts and users/i)
     ).toBeInTheDocument();
   });
 
-  it('renders search results from the API when query param is present', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue(searchResultsFixture);
+  it('renders build lists, parts and users from the cursor paged response', async () => {
+    routeGet(() => searchResults);
 
     render(
       <MemoryRouter initialEntries={['/search?q=honda']}>
@@ -89,18 +102,55 @@ describe('Search page', () => {
       </MemoryRouter>
     );
 
-    await waitFor(() =>
-      expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
-        '/search',
-        expect.objectContaining({
-          params: expect.objectContaining({ q: 'honda' }),
-        })
-      )
+    expect(await screen.findByText(mockBuildList.name)).toBeInTheDocument();
+    expect(screen.getByText(mockPart.name)).toBeInTheDocument();
+    expect(screen.getByText(mockUser.username)).toBeInTheDocument();
+    expect(screen.getByText('Parts (1+)')).toBeInTheDocument();
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      '/search',
+      expect.objectContaining({
+        params: expect.objectContaining({ q: 'honda' }),
+      })
     );
   });
 
+  it('loads the next page of one category with its cursor', async () => {
+    routeGet((params) =>
+      params['parts_cursor'] === 'parts-cursor-1'
+        ? secondPartsPage
+        : searchResults
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/search?q=honda']}>
+        <Search />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /load more parts/i })
+    );
+
+    expect(await screen.findByText('Second Part')).toBeInTheDocument();
+    expect(screen.getByText(mockPart.name)).toBeInTheDocument();
+    expect(screen.getByText('Parts (2)')).toBeInTheDocument();
+    expect(screen.getAllByText(mockBuildList.name)).toHaveLength(1);
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledWith(
+      '/search',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          q: 'honda',
+          parts_cursor: 'parts-cursor-1',
+        }),
+      })
+    );
+    expect(
+      screen.queryByRole('button', { name: /load more parts/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('shows a no-results message when the API returns empty result sets', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue(emptyResultsFixture);
+    routeGet(() => emptyResults);
 
     render(
       <MemoryRouter initialEntries={['/search?q=missing']}>

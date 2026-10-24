@@ -115,8 +115,12 @@ async function mockApi(
       if (path === `/car-generations/${CAR_ID}` && method === 'GET') {
         return jsonResponse(route, MOCK_CAR);
       }
-      if (path === '/car-generations/' && method === 'GET') {
-        return jsonResponse(route, []);
+      if (path === '/car-generations' && method === 'GET') {
+        return jsonResponse(route, {
+          items: [],
+          next_cursor: null,
+          has_next: false,
+        });
       }
 
       if (path === '/categories/' && method === 'GET') {

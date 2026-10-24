@@ -5,7 +5,8 @@
 import { apiClient } from './client';
 import type {
   AdminUserUpdate,
-  PaginatedResponse,
+  CursorPage,
+  CursorParams,
   PublicUserRead,
   UserRead,
   UserUpdate,
@@ -33,12 +34,12 @@ export const usersApi = {
   deleteProfilePicture: () =>
     apiClient.delete<UserRead>('/users/me/profile-picture'),
 
-  listUsers: (params?: { skip?: number; limit?: number; search?: string }) =>
-    apiClient.get<Array<UserRead | PublicUserRead>>('/users', { params }),
+  listUsers: (params?: CursorParams & { search?: string }) =>
+    apiClient.get<CursorPage<UserRead | PublicUserRead>>('/users', { params }),
   countUsers: () => apiClient.get<{ count: number }>('/users/count'),
 
-  getAllUsers: (params?: { skip?: number; limit?: number; search?: string }) =>
-    apiClient.get<PaginatedResponse<UserRead>>('/users/admin/users', {
+  getAllUsers: (params?: CursorParams & { search?: string }) =>
+    apiClient.get<CursorPage<UserRead>>('/users/admin/users', {
       params,
     }),
   adminUpdateUser: (userId: string, data: AdminUserUpdate) =>

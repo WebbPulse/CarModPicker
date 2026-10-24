@@ -24,26 +24,27 @@ describe('carGenerationsApi', () => {
     expect(result.data).toEqual(mockCar);
   });
 
-  it('listCars GETs /car-generations/ with default undefined params', async () => {
+  it('listCars GETs /car-generations with default undefined params', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockCar] });
 
     await carGenerationsApi.listCars();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/car-generations/', {
+    expect(apiClient.get).toHaveBeenCalledWith('/car-generations', {
       params: undefined,
     });
   });
 
-  it('listCars GETs /car-generations/ forwarding skip/limit/search', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockCar] });
+  it('listCars GETs /car-generations forwarding cursor and limit', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { items: [mockCar], next_cursor: null, has_next: false },
+    });
 
-    await carGenerationsApi.listCars({ skip: 10, limit: 25, search: 'Toyota' });
+    await carGenerationsApi.listCars({ cursor: 'cursor-10', limit: 25 });
 
-    expect(apiClient.get).toHaveBeenCalledWith('/car-generations/', {
+    expect(apiClient.get).toHaveBeenCalledWith('/car-generations', {
       params: expect.objectContaining({
-        skip: 10,
+        cursor: 'cursor-10',
         limit: 25,
-        search: 'Toyota',
       }),
     });
   });
@@ -61,12 +62,15 @@ describe('carGenerationsApi', () => {
   it('searchCars GETs /car-generations/search merging pagination params with q', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockCar] });
 
-    await carGenerationsApi.searchCars('Camry', { skip: 5, limit: 10 });
+    await carGenerationsApi.searchCars('Camry', {
+      cursor: 'cursor-5',
+      limit: 10,
+    });
 
     expect(apiClient.get).toHaveBeenCalledWith('/car-generations/search', {
       params: expect.objectContaining({
         q: 'Camry',
-        skip: 5,
+        cursor: 'cursor-5',
         limit: 10,
       }),
     });
@@ -75,12 +79,15 @@ describe('carGenerationsApi', () => {
   it('getCarsByMake GETs /car-generations/car-makes/:make with encoded make', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockCar] });
 
-    await carGenerationsApi.getCarsByMake('Alfa Romeo', { skip: 0, limit: 20 });
+    await carGenerationsApi.getCarsByMake('Alfa Romeo', {
+      cursor: 'cursor-0',
+      limit: 20,
+    });
 
     expect(apiClient.get).toHaveBeenCalledWith(
       '/car-generations/car-makes/Alfa%20Romeo',
       {
-        params: expect.objectContaining({ skip: 0, limit: 20 }),
+        params: expect.objectContaining({ cursor: 'cursor-0', limit: 20 }),
       }
     );
   });
@@ -100,13 +107,13 @@ describe('carGenerationsApi', () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockCar] });
 
     await carGenerationsApi.getCarsByMakeModel('Alfa Romeo', 'Giulia GTA', {
-      skip: 0,
+      cursor: 'cursor-0',
       limit: 20,
     });
 
     expect(apiClient.get).toHaveBeenCalledWith(
       '/car-generations/car-makes/Alfa%20Romeo/car-models/Giulia%20GTA',
-      { params: expect.objectContaining({ skip: 0, limit: 20 }) }
+      { params: expect.objectContaining({ cursor: 'cursor-0', limit: 20 }) }
     );
   });
 

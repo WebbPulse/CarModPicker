@@ -12,7 +12,9 @@ function seedApiClient(buildLists: (typeof mockBuildList)[] = [mockBuildList]) {
       return Promise.resolve({ data: { Toyota: 1 } });
     }
     if (url.includes('/car-generations/car-makes/')) {
-      return Promise.resolve({ data: [mockCar] });
+      return Promise.resolve({
+        data: { items: [mockCar], next_cursor: null, has_next: false },
+      });
     }
     if (url.includes('/car-generations/') && !url.includes('stats')) {
       return Promise.resolve({ data: mockCar });

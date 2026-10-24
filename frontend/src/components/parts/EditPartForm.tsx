@@ -38,7 +38,9 @@ const updatePartRequestFn = (payload: {
 
 const fetchCategoriesRequestFn = () => categoriesApi.getCategories();
 const fetchCarsRequestFn = () =>
-  carGenerationsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+  carGenerationsApi
+    .listCars({ limit: LARGE_FETCH_LIMIT })
+    .then((response) => ({ ...response, data: response.data.items }));
 const fetchPartManufacturersRequestFn = () =>
   partManufacturersApi.getPartManufacturers(true);
 

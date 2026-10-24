@@ -4,6 +4,8 @@
 
 import { apiClient } from './client';
 import type {
+  CursorPage,
+  CursorParams,
   PartManufacturerCreate,
   PartManufacturerResponse,
   PartManufacturerUpdate,
@@ -16,13 +18,13 @@ export const partManufacturersApi = {
     apiClient.get<PartManufacturerResponse[]>('/part-manufacturers/', {
       params: { active_only: activeOnly },
     }),
-  searchPartManufacturers: (
-    q: string,
-    params?: { skip?: number; limit?: number }
-  ) =>
-    apiClient.get<PartManufacturerResponse[]>('/part-manufacturers/search', {
-      params: { q, ...params },
-    }),
+  searchPartManufacturers: (q: string, params?: CursorParams) =>
+    apiClient.get<CursorPage<PartManufacturerResponse>>(
+      '/part-manufacturers/search',
+      {
+        params: { q, ...params },
+      }
+    ),
   getPartManufacturer: (part_manufacturerId: string) =>
     apiClient.get<PartManufacturerResponse>(
       `/part-manufacturers/${part_manufacturerId}`
@@ -43,9 +45,9 @@ export const partManufacturersApi = {
     ),
   getPartsByPartManufacturer: (
     part_manufacturerId: string,
-    params?: { skip?: number; limit?: number }
+    params?: CursorParams
   ) =>
-    apiClient.get<PartRead[]>(
+    apiClient.get<CursorPage<PartRead>>(
       `/part-manufacturers/${part_manufacturerId}/parts`,
       {
         params,

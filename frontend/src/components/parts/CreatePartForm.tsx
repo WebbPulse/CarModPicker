@@ -38,7 +38,9 @@ interface CreatePartFormProps {
 const createPartRequestFn = (partData: PartCreate) =>
   apiClient.post<PartCreate>('/parts/', partData);
 const fetchCarsRequestFn = () =>
-  carGenerationsApi.listCars({ limit: LARGE_FETCH_LIMIT });
+  carGenerationsApi
+    .listCars({ limit: LARGE_FETCH_LIMIT })
+    .then((response) => ({ ...response, data: response.data.items }));
 
 /**
  * Creates a part, including its vehicle fitment, category, manufacturer, and images.

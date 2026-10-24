@@ -18,9 +18,9 @@ const getMock = apiClient.get as MockedFunction<typeof apiClient.get>;
 
 function makeEmptyResults(query: string): SearchResults {
   return {
-    build_lists: { data: [], total: 0, has_next: false, skip: 0, limit: 10 },
-    users: { data: [], total: 0, has_next: false, skip: 0, limit: 10 },
-    parts: { data: [], total: 0, has_next: false, skip: 0, limit: 10 },
+    build_lists: { items: [], next_cursor: null, has_next: false },
+    users: { items: [], next_cursor: null, has_next: false },
+    parts: { items: [], next_cursor: null, has_next: false },
     query,
   };
 }
@@ -30,28 +30,22 @@ describe('searchApi', () => {
     vi.clearAllMocks();
   });
 
-  it('search forwards query params to /search/ via GET', async () => {
+  it('search forwards query params to /search via GET', async () => {
     const payload: SearchResults = {
       build_lists: {
-        data: [mockBuildList],
-        total: 1,
+        items: [mockBuildList],
+        next_cursor: null,
         has_next: false,
-        skip: 0,
-        limit: 10,
       },
       users: {
-        data: [mockUser],
-        total: 1,
+        items: [mockUser],
+        next_cursor: null,
         has_next: false,
-        skip: 0,
-        limit: 10,
       },
       parts: {
-        data: [mockPart],
-        total: 1,
-        has_next: false,
-        skip: 0,
-        limit: 10,
+        items: [mockPart],
+        next_cursor: 'parts-cursor-1',
+        has_next: true,
       },
       query: 'honda civic',
     };
@@ -59,18 +53,18 @@ describe('searchApi', () => {
 
     const result = await searchApi.search({
       q: 'honda civic',
-      skip: 0,
       limit: 10,
+      parts_cursor: 'parts-cursor-0',
     });
 
     expect(getMock).toHaveBeenCalledWith('/search', {
-      params: { q: 'honda civic', skip: 0, limit: 10 },
+      params: { q: 'honda civic', limit: 10, parts_cursor: 'parts-cursor-0' },
     });
     expect(result.data).toEqual(payload);
     expect(result.data.query).toBe('honda civic');
   });
 
-  it('search passes through the q-only form without skip/limit', async () => {
+  it('search passes through the q-only form without limit or cursors', async () => {
     getMock.mockResolvedValueOnce({
       data: makeEmptyResults('civic'),
     });
@@ -89,9 +83,9 @@ describe('searchApi', () => {
 
     const result = await searchApi.search({ q: 'xyzzy-no-match' });
 
-    expect(result.data.build_lists.data).toHaveLength(0);
-    expect(result.data.users.data).toHaveLength(0);
-    expect(result.data.parts.data).toHaveLength(0);
+    expect(result.data.build_lists.items).toHaveLength(0);
+    expect(result.data.users.items).toHaveLength(0);
+    expect(result.data.parts.items).toHaveLength(0);
     expect(result.data.query).toBe('xyzzy-no-match');
   });
 });

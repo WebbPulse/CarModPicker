@@ -14,51 +14,40 @@ describe('partsApi', () => {
     vi.clearAllMocks();
   });
 
-  it('getParts GETs /parts/ with default undefined params', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockPart] });
+  it('getParts GETs /parts with default undefined params', async () => {
+    const page = { items: [mockPart], next_cursor: null, has_next: false };
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: page });
 
     const result = await partsApi.getParts();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/parts/', {
+    expect(apiClient.get).toHaveBeenCalledWith('/parts', {
       params: undefined,
     });
-    expect(result.data).toEqual([mockPart]);
+    expect(result.data).toEqual(page);
   });
 
-  it('getParts GETs /parts/ forwarding filter params (search, car_id, category_id, skip, limit)', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockPart] });
+  it('getParts GETs /parts forwarding search, cursor and limit', async () => {
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: { items: [mockPart], next_cursor: null, has_next: false },
+    });
 
     await partsApi.getParts({
-      skip: 0,
+      cursor: 'cursor-1',
       limit: 50,
-      category_id: mockCategory.id,
-      car_id: mockCar.id,
       search: 'intake',
     });
 
-    expect(apiClient.get).toHaveBeenCalledWith('/parts/', {
+    expect(apiClient.get).toHaveBeenCalledWith('/parts', {
       params: expect.objectContaining({
-        skip: 0,
+        cursor: 'cursor-1',
         limit: 50,
-        category_id: mockCategory.id,
-        car_id: mockCar.id,
         search: 'intake',
       }),
     });
   });
 
   it('getPartsWithVotes GETs /parts/with-votes with default undefined params', async () => {
-    const paginated = {
-      data: [],
-      pagination: {
-        current_page: 1,
-        total_pages: 0,
-        total_items: 0,
-        items_per_page: 20,
-        has_next: false,
-        has_previous: false,
-      },
-    };
+    const paginated = { items: [], next_cursor: null, has_next: false };
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: paginated });
 
     const result = await partsApi.getPartsWithVotes();
@@ -70,17 +59,7 @@ describe('partsApi', () => {
   });
 
   it('getPartsWithVotes GETs /parts/with-votes forwarding rich filter params', async () => {
-    const paginated = {
-      data: [],
-      pagination: {
-        current_page: 1,
-        total_pages: 0,
-        total_items: 0,
-        items_per_page: 20,
-        has_next: false,
-        has_previous: false,
-      },
-    };
+    const paginated = { items: [], next_cursor: null, has_next: false };
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: paginated });
 
     await partsApi.getPartsWithVotes({
@@ -153,14 +132,17 @@ describe('partsApi', () => {
   it('getPartsByCategory GETs /parts/category/:categoryId with filter_id injected into params', async () => {
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [mockPart] });
 
-    await partsApi.getPartsByCategory(mockCategory.id, { skip: 5, limit: 20 });
+    await partsApi.getPartsByCategory(mockCategory.id, {
+      cursor: 'cursor-5',
+      limit: 20,
+    });
 
     expect(apiClient.get).toHaveBeenCalledWith(
       `/parts/category/${mockCategory.id}`,
       {
         params: expect.objectContaining({
           filter_id: mockCategory.id,
-          skip: 5,
+          cursor: 'cursor-5',
           limit: 20,
         }),
       }

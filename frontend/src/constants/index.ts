@@ -24,6 +24,7 @@ export const SEARCH_RESULTS_LIMIT = 20;
 /** Initial display limits for search results by category */
 export const SEARCH_INITIAL_LIMITS = {
   build_lists: 8,
+  parts: 8,
   users: 8,
 } as const;
 
