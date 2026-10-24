@@ -21,6 +21,10 @@ const CURRENT = {
   id: 'fam-current',
   device: 'desktop',
   ip: '203.0.113.1',
+  lastIp: '203.0.113.9',
+  client: '',
+  platform: 'macOS',
+  clientId: '',
   startedAt: '2026-10-20T10:00:00Z',
   lastActiveAt: '2026-10-23T10:00:00Z',
   expiresAt: null,
@@ -33,6 +37,8 @@ const PHONE = {
   id: 'fam-phone',
   device: 'mobile',
   ip: '198.51.100.7',
+  lastIp: '',
+  platform: '',
   current: false,
 };
 
@@ -41,6 +47,20 @@ const OTHER = {
   id: 'fam-other',
   device: 'other',
   ip: '',
+  lastIp: '',
+  platform: '',
+  current: false,
+};
+
+const AGENT = {
+  ...CURRENT,
+  id: 'fam-agent',
+  device: 'other',
+  ip: '192.0.2.4',
+  lastIp: '192.0.2.5',
+  client: 'claude-code',
+  platform: 'Linux',
+  clientId: 'mcp-client',
   current: false,
 };
 
@@ -63,17 +83,34 @@ describe('IdentitySessions', () => {
   it('lists every session and marks the current one', async () => {
     render(<IdentitySessions />);
 
-    expect(await screen.findByText('Desktop browser')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Desktop browser on macOS')
+    ).toBeInTheDocument();
     expect(screen.getByText('Mobile device')).toBeInTheDocument();
     expect(screen.getByText('Unknown device')).toBeInTheDocument();
     expect(screen.getByText('This device')).toBeInTheDocument();
     expect(screen.getByText(/198\.51\.100\.7/)).toBeInTheDocument();
+    expect(screen.getByText(/203\.0\.113\.9/)).toBeInTheDocument();
+    expect(screen.queryByText(/203\.0\.113\.1\b/)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /end session on desktop/i })
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole('button', { name: /^end session on/i })
     ).toHaveLength(2);
+  });
+
+  it('names a non-browser client and shows its last address', async () => {
+    listSessions.mockResolvedValue({ ok: true, sessions: [CURRENT, AGENT] });
+    render(<IdentitySessions />);
+
+    expect(await screen.findByText('claude-code on Linux')).toBeInTheDocument();
+    expect(screen.getByText(/192\.0\.2\.5/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /^end session on claude-code on linux/i,
+      })
+    ).toBeInTheDocument();
   });
 
   it('ends one other session and reloads the list', async () => {

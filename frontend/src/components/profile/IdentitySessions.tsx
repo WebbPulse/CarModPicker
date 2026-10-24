@@ -25,6 +25,13 @@ const DEVICE_LABELS: Record<string, string> = {
   bot: 'Automated client',
 };
 
+/** A session's client and operating system, or its device class. */
+const describeSession = (session: AccountSession): string => {
+  const base =
+    session.client || DEVICE_LABELS[session.device] || 'Unknown device';
+  return session.platform ? `${base} on ${session.platform}` : base;
+};
+
 /** A date and time for display, falling back to the raw value. */
 const formatDateTime = (value: string): string => {
   if (!value) return 'Unknown';
@@ -131,10 +138,10 @@ const SessionsBody: React.FC<{ client: IdentityClient }> = ({ client }) => {
       ) : (
         <ul className="space-y-2">
           {sessions.map((session) => {
-            const label = DEVICE_LABELS[session.device] ?? 'Unknown device';
+            const label = describeSession(session);
             const lastActive = formatDateTime(session.lastActiveAt);
             const detail = [
-              session.ip,
+              session.lastIp || session.ip,
               `Signed in ${formatDateTime(session.startedAt)}`,
               `Last active ${lastActive}`,
             ]
