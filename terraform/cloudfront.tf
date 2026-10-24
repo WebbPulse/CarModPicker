@@ -1,6 +1,10 @@
+locals {
+  csp_api_origin = local.custom_domain ? "https://api.${local.domain_name}" : "https://*.execute-api.${var.aws_region}.amazonaws.com"
+}
+
 module "frontend" {
   source  = "terraform.webbpulse.com/WebbPulse/platform-modules/aws//modules/spa-frontend"
-  version = "~> 2.27"
+  version = "~> 2.37"
 
   name                       = "${local.prefix}-frontend"
   origin_access_control_name = "${local.prefix}-frontend-oac"
@@ -15,8 +19,39 @@ module "frontend" {
     canonical_host = "www"
   }
 
-  origin_request_policy_id   = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf" # CORS-S3Origin
-  response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03" # SecurityHeadersPolicy
+  origin_request_policy_id = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf" # CORS-S3Origin
+
+  security_headers = {
+    content_security_policy = {
+      mode = "report_only"
+      script_src = [
+        "'sha256-sZ74JUQgeZ+Iaq5vidBOBxmSTBiyZoshbNQK1H7GpU4='",
+        "https://accounts.google.com/gsi/client",
+        "https://pagead2.googlesyndication.com",
+        "https://*.googlesyndication.com",
+        "https://*.adtrafficquality.google",
+        "https://fundingchoicesmessages.google.com",
+      ]
+      connect_src = [
+        local.csp_api_origin,
+        "https://accounts.google.com/gsi/",
+        "https://*.google.com",
+        "https://*.googlesyndication.com",
+        "https://*.doubleclick.net",
+        "https://*.adtrafficquality.google",
+      ]
+      frame_src = [
+        "https://accounts.google.com/gsi/",
+        "https://*.doubleclick.net",
+        "https://*.googlesyndication.com",
+        "https://www.google.com",
+        "https://*.adtrafficquality.google",
+        "https://fundingchoicesmessages.google.com",
+      ]
+      style_src = ["https://accounts.google.com/gsi/style"]
+      img_src   = ["https:"]
+    }
+  }
 
   distribution_tags = { Name = "${local.prefix}-frontend" }
 
