@@ -9,7 +9,7 @@ import time
 from typing import Any, Iterator
 
 import pytest
-from webbpulse.testing import FakeKms
+from webbpulse.testing import FakeIdempotencyStore, FakeKms
 
 from tests.domains.identity.test_identity_row5 import AUDIENCE, ISSUER, KEY_ARN
 from tests.domains.identity.test_identity_row5 import identity_env as _identity_env
@@ -36,8 +36,20 @@ def extension_env(identity_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def extension_app(extension_env: None, private_key: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
-    """The identity application with the extension allowlist set and boto3 faked."""
+def claim_store(monkeypatch: pytest.MonkeyPatch) -> FakeIdempotencyStore:
+    """An in-process claim store standing in for the idempotency table."""
+    from app.domains.identity import extension
+
+    store = FakeIdempotencyStore()
+    monkeypatch.setattr(extension, "handoff_claim_store", lambda: store)
+    return store
+
+
+@pytest.fixture
+def extension_app(
+    extension_env: None, private_key: Any, claim_store: FakeIdempotencyStore, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[Any]:
+    """The identity application with the extension allowlist set, boto3 faked and claims in memory."""
     import boto3
 
     def fake_client(service: str, *args: Any, **kwargs: Any) -> Any:
@@ -253,6 +265,57 @@ def test_a_code_round_trips_to_an_access_token(client: Any, private_key: Any) ->
     claims = tokens.verify_access_token(body["access_token"])
     assert claims["sub"] == "user-42"
     assert claims["typ"] == "access"
+
+
+def test_a_code_spends_once(client: Any, private_key: Any, claim_store: FakeIdempotencyStore) -> None:
+    """A replayed code is refused inside its validity window, after the first exchange won."""
+    issued = client.post(
+        "/api/auth/extension/handoff",
+        headers={"authorization": f"Bearer {_access_token(private_key, 'user-7')}"},
+        json={"redirect_uri": _redirect_uri(), "state": "nonce"},
+    )
+    code = issued.json()["code"]
+
+    first = client.post("/api/auth/extension/token", json={"code": code})
+    assert first.status_code == 200
+
+    replay = client.post("/api/auth/extension/token", json={"code": code})
+    assert replay.status_code == 401
+    assert replay.json()["detail"]["error_code"] == "HANDOFF_CODE_INVALID"
+    assert "access_token" not in replay.json()
+    assert len(claim_store.claims) == 2
+    assert claim_store.claims[0] == claim_store.claims[1]
+
+
+def test_two_codes_each_spend_once(client: Any, private_key: Any) -> None:
+    """Spending one code leaves a second, separately minted code redeemable."""
+    headers = {"authorization": f"Bearer {_access_token(private_key)}"}
+    payload = {"redirect_uri": _redirect_uri(), "state": "nonce"}
+    first = client.post("/api/auth/extension/handoff", headers=headers, json=payload).json()["code"]
+    second = client.post("/api/auth/extension/handoff", headers=headers, json=payload).json()["code"]
+
+    assert client.post("/api/auth/extension/token", json={"code": first}).status_code == 200
+    assert client.post("/api/auth/extension/token", json={"code": second}).status_code == 200
+
+
+def test_a_code_without_a_jti_is_refused(client: Any, private_key: Any, claim_store: FakeIdempotencyStore) -> None:
+    """A correctly signed handoff code with no `jti` cannot be spent, since it could not be claimed."""
+    issued_at = int(time.time())
+    unclaimable = _sign(
+        private_key,
+        {
+            "iss": ISSUER,
+            "sub": "user-1",
+            "aud": f"{ISSUER}/extension",
+            "iat": issued_at,
+            "exp": issued_at + 60,
+            "typ": "extension_handoff",
+        },
+    )
+    response = client.post("/api/auth/extension/token", json={"code": unclaimable})
+    assert response.status_code == 401
+    assert response.json()["detail"]["error_code"] == "HANDOFF_CODE_INVALID"
+    assert claim_store.claims == []
 
 
 def test_an_access_token_cannot_be_exchanged_for_another(client: Any, private_key: Any) -> None:
