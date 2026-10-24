@@ -17,6 +17,13 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from webbpulse.e2e.ephemeral import (
+    Credentials,
+    EphemeralUser,
+    describe_delete_failure,
+    ephemeral_email,
+    generate_password,
+)
 
 ABSENT_ID = "00000000-0000-4000-8000-000000000000"
 
@@ -306,3 +313,74 @@ class TestIdentityDomain:
         response = api.get("/api/users/me")
         assert response.status_code == 200, response.text[:400]
         assert response.json()["email"].lower() == credentials.email.lower()
+
+
+UNLISTED_SIGNUP_ATTRIBUTES = {"is_admin": True, "youtube_url": "https://youtube.com/@e2e-signup-unlisted"}
+"""Attributes outside `REGISTRATION_ATTRIBUTES` that public registration must drop."""
+
+
+def _find_by_username(anon: Any, username: str) -> list[dict[str, Any]]:
+    """The public profiles whose username is exactly `username`, via the anonymous user search."""
+    response = anon.get("/api/users", params={"search": username, "limit": 100})
+    assert response.status_code == 200, response.text[:400]
+    items = response.json().get("items") or []
+    return [dict(item) for item in items if str(item.get("username", "")).lower() == username.lower()]
+
+
+@pytest.fixture
+def signup(anon: Any, e2e_env: Any, admin_mint_token: str) -> Iterator[dict[str, Any]]:
+    """A public registration this test owns, deleted through the ephemeral user route at teardown.
+
+    The address is an `e2e-...@e2e.invalid` one, so the delete route accepts it, the start
+    sweep collects it if teardown fails, and staging's sandboxed SES refuses the
+    verification mail without delivering it. Skips when the run cannot mint, because the
+    user could then never be deleted.
+    """
+    if not admin_mint_token:
+        pytest.skip("this run cannot mint an admin token, so a public registration could not be cleaned up")
+    suffix = uuid.uuid4().hex[:8]
+    username = _name(e2e_env, f"signup-{suffix}")
+    email = ephemeral_email(f"{e2e_env.run_id}-signup-{suffix}")
+    record: dict[str, Any] = {"username": username, "email": email}
+    yield record
+    leftovers = [str(item["id"]) for item in _find_by_username(anon, username)]
+    failures = [
+        failure
+        for user_id in leftovers
+        if (
+            failure := describe_delete_failure(
+                anon,
+                EphemeralUser(credentials=Credentials(email=email, password="", user_id=user_id), user_id=user_id),
+                admin_token=admin_mint_token,
+            )
+        )
+    ]
+    assert not failures, "; ".join(failures)
+
+
+@pytest.mark.e2e_writes
+class TestPublicRegistration:
+    """Public sign-up keeps the allowlisted username and drops every other attribute."""
+
+    def test_register_keeps_username_and_drops_unlisted(self, anon: Any, signup: dict[str, Any]) -> None:
+        """POST /api/auth/register saves the username and ignores `is_admin` and `youtube_url`."""
+        response = anon.post(
+            "/api/auth/register",
+            json={
+                "email": signup["email"],
+                "password": generate_password(),
+                "attributes": {"username": signup["username"], **UNLISTED_SIGNUP_ATTRIBUTES},
+            },
+        )
+        accepted = response.status_code == 201 or (
+            response.status_code == 403 and response.json().get("error_code") == "EMAIL_VERIFICATION_REQUIRED"
+        )
+        assert accepted, f"registration answered {response.status_code}: {response.text[:400]}"
+
+        matches = _find_by_username(anon, signup["username"])
+        assert len(matches) == 1, f"expected one user named {signup['username']}, found {len(matches)}"
+        profile = matches[0]
+        assert profile["username"] == signup["username"]
+        assert profile["is_admin"] is False
+        assert profile["is_superuser"] is False
+        assert profile.get("youtube_url") is None
