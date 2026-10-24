@@ -219,18 +219,19 @@ async def get_user(
     },
 )
 async def list_users(
-    search: Optional[str] = Query(None, description="Search in usernames and emails"),
+    search: Optional[str] = Query(None, description="Search in usernames, and in emails for admins"),
     params: CursorParams = Depends(get_cursor_params),
     repos: Repositories = Depends(get_repositories),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
 ) -> CursorPage[Union[UserRead, PublicUserRead]]:
-    """List all users with pagination and search.
+    """List users with pagination and search.
 
-    Returns full UserRead (with email_verified and totp_enabled) for each user if:
+    Admins and superusers get full UserRead items and a search that also matches
+    emails; everyone else gets PublicUserRead items matched on username only.
     """
-    users = user_service.get_all_users(search=search, logger=logger)
-
     can_see_sensitive_fields = current_user is not None and (current_user.is_admin or current_user.is_superuser)
+    users = user_service.get_all_users(search=search, logger=logger, include_email=can_see_sensitive_fields)
+
     page = _user_page(users, params, repos, full=can_see_sensitive_fields)
 
     if can_see_sensitive_fields:
@@ -354,7 +355,7 @@ async def get_all_users(
     """
     Get all users (admin only) with pagination and search.
     """
-    users = user_service.get_all_users(search=search, logger=logger)
+    users = user_service.get_all_users(search=search, logger=logger, include_email=True)
     reads = {read.id: read for read in user_reads(users, repos)}
     page = paginate_in_memory(
         users,

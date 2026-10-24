@@ -76,10 +76,15 @@ class UserService:
             log.info(f"No user found with email: {email}")
         return user
 
-    def get_all_users(self, search: Optional[str] = None, logger: Optional[logging.Logger] = None) -> List[DBUser]:
-        """Return every user, optionally filtered by a search term."""
+    def get_all_users(
+        self,
+        search: Optional[str] = None,
+        logger: Optional[logging.Logger] = None,
+        include_email: bool = False,
+    ) -> List[DBUser]:
+        """Return every user, optionally filtered by username, or also by email when `include_email` is set."""
         log = logger if logger is not None else get_logger()
-        users = self.repos.users.search(search) if search else self.repos.users.list_all()
+        users = self.repos.users.search(search, include_email=include_email) if search else self.repos.users.list_all()
         log.info(f"Retrieved {len(users)} users")
         return users
 

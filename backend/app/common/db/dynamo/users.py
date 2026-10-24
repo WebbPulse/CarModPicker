@@ -141,14 +141,18 @@ class UserRepository(DynamoRepository[User]):
         """Every user, tombstoned ones included."""
         return self.scan_all()
 
-    def search(self, term: str) -> list[User]:
-        """Users matching `term`, excluding tombstoned rows.
+    def search(self, term: str, include_email: bool = False) -> list[User]:
+        """Users whose username contains `term`, excluding tombstoned rows.
 
         The only user read that surfaces profiles as results rather than as an
         author, so deleted accounts must be filtered out server-side here.
+        Email matching is opt-in for admin callers so public searches cannot
+        enumerate addresses.
         """
         needle = term.lower()
-        matches = Attr("username_lower").contains(needle) | Attr("email_lower").contains(needle)
+        matches = Attr("username_lower").contains(needle)
+        if include_email:
+            matches = matches | Attr("email_lower").contains(needle)
         return self.scan_all(filter_expression=matches & _not_tombstoned())
 
     def count(self) -> int:
