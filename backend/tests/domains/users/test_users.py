@@ -102,13 +102,14 @@ def test_update_own_user_success(client: TestClient, db_session: Any) -> None:
 
     update_payload = {
         "current_password": current_password,
-        "email": "updated_self@example.com",
+        "instagram_url": "https://instagram.com/update_self",
     }
     headers = get_auth_headers(token)
     response = client.put(f"{settings.API_STR}/users/{user_id}", json=update_payload, headers=headers)
     assert response.status_code == 200, response.text
     updated_user = response.json()
-    assert updated_user["email"] == update_payload["email"]
+    assert updated_user["instagram_url"] == update_payload["instagram_url"]
+    assert updated_user["email"] == user_info["email"]
     assert updated_user["username"] == user_info["username"]
 
 
@@ -260,19 +261,49 @@ def test_update_user_conflict_username(client: TestClient, db_session: Any) -> N
     assert "username already registered" in response.json()["message"].lower()
 
 
-def test_update_user_conflict_email(client: TestClient, db_session: Any) -> None:
-    """Updating to a taken email is refused as a conflict."""
-    user_a_info, _ = create_and_login_user(client, "conflict_email_A")
-    user_b_info, token_b = create_and_login_user(client, "conflict_email_B")
+def test_self_update_refuses_an_email_change_so_verification_cannot_carry_over(
+    client: TestClient, db_session: Any
+) -> None:
+    """The account takeover path: a verified user may not point the account at an
+    address they never confirmed, because OAuth sign-in links by verified email.
 
-    update_payload = {
-        "current_password": "testpassword",
-        "email": user_a_info["email"],
-    }
-    headers = get_auth_headers(token_b)
-    response = client.put(f"{settings.API_STR}/users/{user_b_info['id']}", json=update_payload, headers=headers)
-    assert response.status_code == 409
-    assert "email already registered" in response.json()["message"].lower()
+    The PUT is refused outright, and the stored address and its verified flag are
+    untouched, so the address an attacker names never becomes a verified one.
+    """
+    user_info, token = create_and_login_user(client, "takeover_attempt")
+    headers = get_auth_headers(token)
+    victim_address = "takeover_victim@example.com"
+
+    response = client.put(
+        f"{settings.API_STR}/users/{user_info['id']}",
+        json={"email": victim_address},
+        headers=headers,
+    )
+    assert response.status_code == 422, response.text
+
+    stored = UserRepository().get(UUID(user_info["id"]))
+    assert stored is not None
+    assert stored.email == user_info["email"]
+    assert stored.email_verified is True
+    assert UserRepository().get_by_email(victim_address) is None
+
+
+def test_self_update_refuses_email_alongside_other_fields(client: TestClient, db_session: Any) -> None:
+    """An email key cannot ride along with an allowed field and be silently applied."""
+    user_info, token = create_and_login_user(client, "takeover_mixed")
+    headers = get_auth_headers(token)
+
+    response = client.put(
+        f"{settings.API_STR}/users/{user_info['id']}",
+        json={"instagram_url": "https://instagram.com/x", "email": "takeover_mixed_new@example.com"},
+        headers=headers,
+    )
+    assert response.status_code == 422, response.text
+
+    stored = UserRepository().get(UUID(user_info["id"]))
+    assert stored is not None
+    assert stored.email == user_info["email"]
+    assert stored.instagram_url is None
 
 
 def test_upload_profile_picture_success(client: TestClient, db_session: Any) -> None:

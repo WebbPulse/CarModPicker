@@ -360,6 +360,60 @@ class TestAdminUserManagement:
         item = UserRepository().table.get_item(Key=UserRepository().key(test_user.id)).get("Item") or {}
         assert "hashed_password" not in item
 
+    def test_admin_email_change_clears_email_verified(self, client: TestClient, db_session: Any) -> None:
+        """An admin moving a user's address leaves it unverified unless the admin says otherwise.
+
+        Otherwise the new, unconfirmed address would inherit the old one's verified flag,
+        which is the flag OAuth email linking trusts.
+        """
+        target = UserRepository().create_user(
+            DBUser(username="admin_email_move", email="admin_email_move@example.com", email_verified=True)
+        )
+        _, token = create_and_login_admin_user(client, db_session, "email_move")
+
+        response = client.put(
+            f"{settings.API_STR}/users/admin/users/{target.id}",
+            json={"email": "admin_email_moved@example.com"},
+            headers=get_auth_headers(token),
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["email"] == "admin_email_moved@example.com"
+        assert response.json()["email_verified"] is False
+
+        stored = UserRepository().get(target.id)
+        assert stored is not None
+        assert stored.email_verified is False
+
+    def test_admin_email_change_keeps_an_explicit_email_verified(self, client: TestClient, db_session: Any) -> None:
+        """An admin who vouches for the new address can set the flag in the same request."""
+        target = UserRepository().create_user(
+            DBUser(username="admin_email_vouch", email="admin_email_vouch@example.com", email_verified=True)
+        )
+        _, token = create_and_login_admin_user(client, db_session, "email_vouch")
+
+        response = client.put(
+            f"{settings.API_STR}/users/admin/users/{target.id}",
+            json={"email": "admin_email_vouched@example.com", "email_verified": True},
+            headers=get_auth_headers(token),
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["email_verified"] is True
+
+    def test_admin_same_email_keeps_email_verified(self, client: TestClient, db_session: Any) -> None:
+        """Resending the current address, in any case, is not a change and keeps the flag."""
+        target = UserRepository().create_user(
+            DBUser(username="admin_email_same", email="admin_email_same@example.com", email_verified=True)
+        )
+        _, token = create_and_login_admin_user(client, db_session, "email_same")
+
+        response = client.put(
+            f"{settings.API_STR}/users/admin/users/{target.id}",
+            json={"email": "Admin_Email_Same@example.com"},
+            headers=get_auth_headers(token),
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["email_verified"] is True
+
     def test_admin_cannot_remove_own_admin_privileges(self, client: TestClient, db_session: Any) -> None:
         """Test that admin cannot remove their own admin privileges."""
         admin_user_dict, token = create_and_login_admin_user(client, db_session, "remove_privileges")

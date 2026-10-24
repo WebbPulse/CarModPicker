@@ -527,9 +527,19 @@ function UserManagement() {
                 id="edit-email"
                 type="email"
                 value={formData.email || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value || null })
-                }
+                onChange={(e) => {
+                  const email = e.target.value || null;
+                  const unchanged =
+                    (email ?? '').toLowerCase() ===
+                    (selectedUser?.email ?? '').toLowerCase();
+                  setFormData({
+                    ...formData,
+                    email,
+                    email_verified: unchanged
+                      ? (selectedUser?.email_verified ?? false)
+                      : false,
+                  });
+                }}
                 placeholder="Email address"
                 required
               />

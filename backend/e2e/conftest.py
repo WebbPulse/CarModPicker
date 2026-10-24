@@ -341,6 +341,7 @@ PUBLIC_ROUTES = (
     ("/search", "public"),
     ("/build-lists", "public"),
     ("/verify-email/confirm", "public"),
+    ("/verify-email-change", "public"),
     ("/extension-auth", "public"),
     ("/nonexistent-route-for-404-test", "public"),
 )

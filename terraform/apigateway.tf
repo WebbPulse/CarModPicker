@@ -38,8 +38,9 @@ locals {
   } : {}
 
   identity_jwt_route_keys = {
-    "POST /api/auth/password"   = { integration = "identity", require_identity_jwt = true }
-    "POST /api/auth/logout-all" = { integration = "identity", require_identity_jwt = true }
+    "POST /api/auth/password"     = { integration = "identity", require_identity_jwt = true }
+    "POST /api/auth/logout-all"   = { integration = "identity", require_identity_jwt = true }
+    "POST /api/auth/email/change" = { integration = "identity", require_identity_jwt = true }
 
     "POST /api/auth/totp/enrol"     = { integration = "identity", require_identity_jwt = true }
     "POST /api/auth/totp/activate"  = { integration = "identity", require_identity_jwt = true }
