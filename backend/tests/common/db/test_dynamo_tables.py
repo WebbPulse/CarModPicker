@@ -85,6 +85,8 @@ def test_derived_attributes_back_their_indexes(spec: TableSpec) -> None:
     derived = {target for _, target in spec.lowercase_mirrors}
     derived.update(target for target, _ in spec.composite_keys)
     derived.update(target for target, _ in spec.coalesced_keys)
+    derived.update(target for target, _ in spec.constant_attributes)
+    derived.update(target for target, _, _ in spec.sparse_constants)
     for target in derived:
         keyed = any(
             index.hash_key.name == target or (index.range_key is not None and index.range_key.name == target)

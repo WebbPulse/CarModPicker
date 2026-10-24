@@ -614,6 +614,10 @@
       {
         "name": "gtin",
         "type": "S"
+      },
+      {
+        "name": "canonical_listing",
+        "type": "S"
       }
     ],
     "global_secondary_indexes": [
@@ -652,6 +656,12 @@
         "name": "gtin-index",
         "projection_type": "ALL",
         "range_key": null
+      },
+      {
+        "hash_key": "canonical_listing",
+        "name": "canonical_listing-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
       }
     ],
     "hash_key": "id",

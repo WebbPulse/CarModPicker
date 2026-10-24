@@ -312,6 +312,9 @@ class DynamoRepository(Generic[TModel]):
         for target, sources in self.spec.coalesced_keys:
             if any(source in changes for source in sources):
                 raise ValueError(f"updating {sources} requires a full put because {target!r} is derived from them")
+        for target, _, absent_source in self.spec.sparse_constants:
+            if absent_source in changes:
+                raise ValueError(f"updating {absent_source!r} requires a full put because {target!r} depends on it")
         return derived
 
     def delete(self, partition_value: Any, sort_value: Any = None, *, must_exist: bool = False) -> None:
