@@ -23,7 +23,7 @@ module "frontend" {
 
   security_headers = {
     content_security_policy = {
-      mode = "report_only"
+      mode = "enforce"
       script_src = [
         "'sha256-sZ74JUQgeZ+Iaq5vidBOBxmSTBiyZoshbNQK1H7GpU4='",
         "https://accounts.google.com/gsi/client",
@@ -49,7 +49,7 @@ module "frontend" {
         "https://fundingchoicesmessages.google.com",
       ]
       style_src = ["https://accounts.google.com/gsi/style"]
-      img_src   = ["https:"]
+      img_src   = ["https:", "http:"]
     }
   }
 
