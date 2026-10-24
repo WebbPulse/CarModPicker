@@ -696,6 +696,7 @@ class TestIdempotency:
         removed = cascade_user_delete(repos, UUID(user_id))
 
         assert removed == {
+            "stripe_subscriptions_cancelled": 0,
             "parts": 0,
             "parts_already_purged": 0,
             "part_price_alerts": 0,
