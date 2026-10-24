@@ -36,8 +36,8 @@ async def get_image_by_source_url(
     repos: Repositories = Depends(get_repositories),
 ) -> dict[str, str]:
     """
-    Check if the caller already stored an image from this source URL (deduplication).
-    Returns their existing file_key if found, so clients can skip re-uploading.
+    Check if we've already stored an image from this source URL (deduplication).
+    Returns the existing file_key if found, so clients can skip re-uploading.
     """
     canonical = get_canonical_image_url(source_url)
     mapping = repos.image_source_mappings.get_by_source_url(canonical, current_user.id)

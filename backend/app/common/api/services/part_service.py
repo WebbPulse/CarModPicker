@@ -11,7 +11,6 @@ from app.common.api.schemas.pagination import CursorPage
 from app.common.api.schemas.part import MAX_IMAGES_PER_PART, PartCreate, PartRead, PartReadWithVotes, PartUpdate
 from app.common.api.services.base_dynamo_crud_service import BaseDynamoCRUDService
 from app.common.api.services.page_parser import part_number_canonical
-from app.common.api.services.storage_service import storage_service
 from app.common.api.services.part_listing_service import (
     create_or_update_listing_and_price,
     delete_part_listings,
@@ -19,6 +18,7 @@ from app.common.api.services.part_listing_service import (
     normalize_gtin,
     normalize_part_number,
 )
+from app.common.api.services.storage_service import storage_service
 from app.common.api.utils.authorization import can_delete_part, require_part_edit_permission
 from app.common.api.utils.response_patterns import ResponsePatterns
 from app.common.db.dynamo import search
