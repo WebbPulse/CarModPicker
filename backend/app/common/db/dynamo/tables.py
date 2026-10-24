@@ -232,7 +232,11 @@ BUILD_LIST_LISTING_PARTITION = "build_list"
 
 BUILD_LISTS = TableSpec(
     suffix="build_lists",
-    indexes=(gsi("user_id", "created_at"), gsi("car_id", "created_at"), gsi(BUILD_LIST_LISTING_ATTRIBUTE, "created_at")),
+    indexes=(
+        gsi("user_id", "created_at"),
+        gsi("car_id", "created_at"),
+        gsi(BUILD_LIST_LISTING_ATTRIBUTE, "created_at"),
+    ),
     constant_attributes=((BUILD_LIST_LISTING_ATTRIBUTE, BUILD_LIST_LISTING_PARTITION),),
 )
 
