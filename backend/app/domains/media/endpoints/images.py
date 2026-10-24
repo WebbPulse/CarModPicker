@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 from app.common.api.dependencies.auth import (
     get_current_admin_user,
     get_current_user,
-    get_optional_current_user,
 )
 from app.common.api.dependencies.repositories import Repositories, get_repositories
 from app.common.api.services.storage_service import storage_service
@@ -259,7 +258,7 @@ async def fetch_image_from_url(
 async def get_presigned_url(
     file_key: str,
     expiration: Optional[int] = None,
-    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+    current_user: DBUser = Depends(get_current_user),
 ) -> dict[str, str]:
     """Generate a presigned URL for accessing an image in S3 bucket.
 
@@ -268,13 +267,12 @@ async def get_presigned_url(
     """
     storage_service.validate_file_key(file_key)
 
-    if current_user:
-        if not storage_service.verify_file_key_ownership(file_key, current_user.id):
-            logger.warning(f"User {current_user.id} attempted to access file_key they don't own: {file_key}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this image",
-            )
+    if not storage_service.verify_file_key_ownership(file_key, current_user.id):
+        logger.warning(f"User {current_user.id} attempted to access file_key they don't own: {file_key}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this image",
+        )
 
     try:
         presigned_url = storage_service.get_presigned_url(file_key, expiration=expiration)
