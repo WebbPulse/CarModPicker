@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   FaClock,
+  FaDesktop,
   FaEnvelope,
   FaKey,
   FaLink,
@@ -19,6 +20,7 @@ import { Input } from '../ui/input';
 import IdentityConnectedAccounts from './IdentityConnectedAccounts';
 import IdentityEmailChange from './IdentityEmailChange';
 import IdentityPasskeySettings from './IdentityPasskeySettings';
+import IdentitySessions from './IdentitySessions';
 import { getApiErrorMessage } from '../../utils/apiError';
 
 const SESSION_EXPIRE_OPTIONS: { value: number | null; label: string }[] = [
@@ -42,7 +44,13 @@ interface SecuritySettingsDialogProps {
 }
 
 type TabType =
-  'password' | 'email' | '2fa' | 'passkeys' | 'connected' | 'session';
+  | 'password'
+  | 'email'
+  | '2fa'
+  | 'passkeys'
+  | 'connected'
+  | 'sessions'
+  | 'session';
 
 interface IconFieldProps {
   id: string;
@@ -304,6 +312,20 @@ function SecuritySettingsDialog({
             )}
             <button
               type="button"
+              onClick={() => setActiveTab('sessions')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'sessions'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <FaDesktop />
+                <span>Sessions</span>
+              </div>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('session')}
               className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                 activeTab === 'session'
@@ -313,7 +335,7 @@ function SecuritySettingsDialog({
             >
               <div className="flex items-center justify-center space-x-2">
                 <FaClock />
-                <span>Session</span>
+                <span>Session Length</span>
               </div>
             </button>
           </div>
@@ -469,6 +491,8 @@ function SecuritySettingsDialog({
               }}
             />
           )}
+
+          {activeTab === 'sessions' && <IdentitySessions />}
 
           {activeTab === 'session' && (
             <div className="space-y-6">
