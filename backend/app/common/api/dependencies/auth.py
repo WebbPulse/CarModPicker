@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
+from starlette.requests import HTTPConnection
 from webbpulse.log_context import user_id_var
 from webbpulse.security import (
     create_token,
@@ -45,11 +46,11 @@ __all__ = [
 class IdentityAwareOAuth2(OAuth2PasswordBearer):
     """`OAuth2PasswordBearer` that does not refuse a request an authorizer vouched for."""
 
-    async def __call__(self, request: Request) -> Optional[str]:
+    async def __call__(self, request: HTTPConnection) -> Optional[str]:
         """Return the bearer token, treating an authorizer vouched request as authenticated."""
         if request.headers.get("authorization"):
             return await super().__call__(request)
-        if identity_subject(request):
+        if isinstance(request, Request) and identity_subject(request):
             return ""
         return await super().__call__(request)
 
