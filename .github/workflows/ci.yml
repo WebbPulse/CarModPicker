@@ -20,6 +20,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       chrome-extension: ${{ steps.filter.outputs.chrome-extension }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      playwright: ${{ steps.filter.outputs.playwright }}
     steps:
       - uses: actions/checkout@v7
 
@@ -39,6 +40,10 @@ jobs:
             scripts:
               - 'scripts/**'
               - '.github/workflows/ci.yml'
+            playwright:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/frontend-playwright.yml'
 
   scripts:
     name: Scripts
@@ -157,6 +162,18 @@ jobs:
       codeartifact-repository: npm
       codeartifact-namespace: "@webbpulse"
       aws-region: us-west-2
+    secrets:
+      role-to-assume: ${{ vars.CI_AWS_ROLE_ARN }}
+      codeartifact-domain-owner: ${{ vars.CODEARTIFACT_DOMAIN_OWNER }}
+
+  playwright:
+    name: Frontend Playwright
+    needs: changes
+    if: needs.changes.outputs.playwright == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/frontend-playwright.yml
     secrets:
       role-to-assume: ${{ vars.CI_AWS_ROLE_ARN }}
       codeartifact-domain-owner: ${{ vars.CODEARTIFACT_DOMAIN_OWNER }}
@@ -302,6 +319,7 @@ jobs:
       - affected
       - backend
       - frontend
+      - playwright
       - chrome-extension
       - scripts
     if: always()

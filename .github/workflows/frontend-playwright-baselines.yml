@@ -1,0 +1,27 @@
+name: Frontend Playwright baselines
+
+on:
+  pull_request:
+    branches: [main, staging]
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-baselines-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baselines:
+    name: Regenerate baselines
+    if: github.event.label.name == 'update-snapshots'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/frontend-playwright.yml
+    with:
+      update-snapshots: true
+    secrets:
+      role-to-assume: ${{ vars.CI_AWS_ROLE_ARN }}
+      codeartifact-domain-owner: ${{ vars.CODEARTIFACT_DOMAIN_OWNER }}
