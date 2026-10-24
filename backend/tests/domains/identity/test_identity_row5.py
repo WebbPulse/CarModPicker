@@ -44,6 +44,10 @@ PACKAGE_PATHS = (
     ("POST", "/api/auth/step-up"),
     ("GET", "/api/auth/oauth/providers"),
     ("GET", "/api/auth/passkeys/availability"),
+    ("POST", "/api/auth/email/change"),
+    ("POST", "/api/auth/email/change/confirm"),
+    ("GET", "/api/auth/sessions"),
+    ("DELETE", "/api/auth/sessions/{family_id}"),
 )
 
 PASS_THROUGH_PATHS = (("POST", "/events"),)
