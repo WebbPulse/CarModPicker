@@ -170,9 +170,7 @@ def test_concurrent_checkouts_share_one_customer(
     headers = auth_headers_for(test_user.id)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        responses = list(
-            pool.map(lambda _: client.post("/api/billing/checkout-session", headers=headers), range(2))
-        )
+        responses = list(pool.map(lambda _: client.post("/api/billing/checkout-session", headers=headers), range(2)))
 
     assert [response.status_code for response in responses] == [200, 200]
     assert gateway.customer_creates == 1
