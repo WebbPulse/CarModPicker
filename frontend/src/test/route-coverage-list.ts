@@ -24,6 +24,7 @@ export const ALL_ROUTES: ReadonlyArray<CoverageRoute> = [
   { path: '/search', group: 'public' },
   { path: '/user/00000000-0000-0000-0000-000000000000', group: 'public' },
   { path: '/verify-email/confirm', group: 'public' },
+  { path: '/verify-email-change', group: 'public' },
   { path: '/forgot-password/confirm', group: 'public' },
   { path: '/extension-auth', group: 'public' },
   { path: '/car-generations/some-car', group: 'public' },

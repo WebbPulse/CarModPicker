@@ -301,7 +301,7 @@ function Profile() {
               <CardInfoItem label="Email:">
                 <p className="text-muted-foreground">{user.email}</p>
                 <p className="text-xs text-muted-foreground/80 mt-1">
-                  Email cannot be changed
+                  Change it under Manage Security Settings
                 </p>
               </CardInfoItem>
             </div>

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer, field_validator, model_validator
 
 from app.common.api.schemas.auth import OAuthAccountRead
 from app.common.api.schemas.part import apply_image_url_presigning
@@ -40,10 +40,13 @@ def _validate_social_url(value: Any, platform: str, allowed_host_substrings: lis
 
 
 class UserUpdate(BaseModel):
-    """Request body for a user editing their own account."""
+    """Request body for a user editing their own account.
+
+    Carries no `email`: the address moves only through the identity email change flow,
+    which mails a link to the new address before swapping it in.
+    """
 
     username: Optional[str] = None
-    email: Optional[EmailStr] = None
     disabled: Optional[bool] = None
     image_urls: Optional[List[str]] = None
     instagram_url: Optional[str] = None
@@ -52,6 +55,14 @@ class UserUpdate(BaseModel):
     youtube_url: Optional[str] = None
     tiktok_url: Optional[str] = None
     session_expire_minutes: Optional[int] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def refuse_email(cls, data: Any) -> Any:
+        """Refuse an `email` key rather than drop it, so a caller learns where the change belongs."""
+        if isinstance(data, dict) and "email" in data:
+            raise ValueError("Change your email address through POST /api/auth/email/change.")
+        return data
 
     @field_validator("instagram_url", mode="before")
     @classmethod

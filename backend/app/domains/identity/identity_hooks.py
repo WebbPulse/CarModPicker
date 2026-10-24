@@ -165,6 +165,21 @@ class CarModPickerIdentityHooks:
                 "so the address is not verified and the user needs a new one."
             ) from exc
 
+    def change_email(self, user_id: str, email: str) -> None:
+        """Move this user's sign-in address and mark it verified, on the `users` row.
+
+        Called by the package only after the link mailed to `email` is spent. Goes
+        through `update_user` so the email reservation moves in the same transaction.
+        Raises `ValueError` for a missing row, since the link is already spent.
+        """
+        parsed = _as_uuid(user_id)
+        if parsed is None:
+            raise ValueError(f"change_email was given {user_id!r}, which is not one of this product's user ids.")
+        try:
+            self._users.update_user(parsed, email=email, email_verified=True)
+        except ItemNotFound as exc:
+            raise ValueError(f"change_email found no user with id {parsed}. The link was consumed.") from exc
+
     def delete_user(self, user_id: str) -> bool:
         """Hard-delete this product's users row, returning whether one was there.
 

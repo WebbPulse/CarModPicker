@@ -297,7 +297,7 @@ async def update_user(
         del update_data["session_expire_minutes"]
 
     for field, value in update_data.items():
-        if field in ("username", "email") and value is None:
+        if field == "username" and value is None:
             continue
         changes[field] = value
 
@@ -402,6 +402,13 @@ async def admin_update_user(
     for key in ("username", "email"):
         if key in update_data and update_data[key] is None:
             del update_data[key]
+
+    if (
+        "email" in update_data
+        and update_data["email"].lower() != db_user.email.lower()
+        and "email_verified" not in update_data
+    ):
+        update_data["email_verified"] = False
 
     try:
         updated = repos.users.update_user(user_id, **update_data) if update_data else db_user

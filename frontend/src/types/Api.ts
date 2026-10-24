@@ -126,7 +126,6 @@ export type GoogleSignInResponse =
 /** Self service profile changes. Passwords are the identity service's. */
 export interface UserUpdate {
   username?: string | null;
-  email?: string | null;
   disabled?: boolean | null;
   image_urls?: string[] | null;
   instagram_url?: string | null;
