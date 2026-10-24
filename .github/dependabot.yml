@@ -35,11 +35,22 @@ updates:
         update-types: ["minor", "patch"]
 
   - package-ecosystem: "npm"
-    directories:
-      - "/frontend"
-      - "/chrome-extension"
+    directory: "/frontend"
     registries:
       - codeartifact-npm
+    target-branch: "staging"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/chrome-extension"
     target-branch: "staging"
     schedule:
       interval: "weekly"
