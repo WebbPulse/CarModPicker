@@ -42,12 +42,7 @@ interface SecuritySettingsDialogProps {
 }
 
 type TabType =
-  | 'password'
-  | 'email'
-  | '2fa'
-  | 'passkeys'
-  | 'connected'
-  | 'session';
+  'password' | 'email' | '2fa' | 'passkeys' | 'connected' | 'session';
 
 interface IconFieldProps {
   id: string;

@@ -5008,7 +5008,7 @@
         "type": "object"
       },
       "UserUpdate": {
-        "description": "Request body for a user editing their own account.",
+        "description": "Request body for a user editing their own account.\n\nCarries no `email`: the address moves only through the identity email change flow,\nwhich mails a link to the new address before swapping it in.",
         "properties": {
           "disabled": {
             "anyOf": [
@@ -5020,18 +5020,6 @@
               }
             ],
             "title": "Disabled"
-          },
-          "email": {
-            "anyOf": [
-              {
-                "format": "email",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
           },
           "facebook_url": {
             "anyOf": [
