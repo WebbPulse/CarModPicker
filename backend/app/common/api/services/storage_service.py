@@ -31,6 +31,8 @@ logger = logging.getLogger(__name__)
 
 _STANDARD_IMAGE_OBJECT_KEY = re.compile(r"^([a-z_]+)/[a-f0-9]{16}/[^/]+$")
 
+PRESIGNED_URL_MAX_EXPIRATION = 24 * 60 * 60
+
 
 def _is_test_environment() -> bool:
     """Check if we're running in a test environment."""
@@ -379,8 +381,9 @@ class StorageService:
         """Mint a presigned GET for one image through `webbpulse.storage.presigned_get`.
 
         The bucket is private, so images are served through these temporary URLs. The
-        expiry defaults to the configured one and is capped at SigV4's seven day ceiling.
-        A non-positive expiry is refused with 400.
+        expiry defaults to the configured one, capped at SigV4's seven day ceiling. A
+        requested expiry is clamped to PRESIGNED_URL_MAX_EXPIRATION, and a non-positive
+        one is refused with 400.
         """
         self._ensure_client()
         if not self.s3_client or not self.bucket_name:
@@ -392,7 +395,9 @@ class StorageService:
         if not file_key:
             return ""
 
-        expiration_time = self.presigned_url_expiration if expiration is None else expiration
+        expiration_time = (
+            self.presigned_url_expiration if expiration is None else min(expiration, PRESIGNED_URL_MAX_EXPIRATION)
+        )
         if expiration_time < 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
