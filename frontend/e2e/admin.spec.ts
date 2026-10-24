@@ -120,6 +120,13 @@ async function mockApi(page: import('@playwright/test').Page): Promise<void> {
       const path = url.pathname.replace(/^\/api/, '');
       const method = request.method();
 
+      if (path === '/auth/refresh' && method === 'POST') {
+        return jsonResponse(route, {
+          access_token: 'e2e-access-token',
+          token_type: 'bearer',
+          expires_in: 3600,
+        });
+      }
       if (path === '/users/me' && method === 'GET') {
         return jsonResponse(route, MOCK_ADMIN_USER);
       }
