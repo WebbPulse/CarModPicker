@@ -50,7 +50,7 @@
     "cmdk": "^1.1.1",
     "eslint-plugin-react-dom": "^5.28.4",
     "eslint-plugin-react-x": "^5.28.4",
-    "lucide-react": "^1.60.0",
+    "lucide-react": "^1.61.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-icons": "^5.7.0",
