@@ -121,13 +121,41 @@ class TestSearch:
         assert len(data["users"]["items"]) > 0
         assert any(search_term.lower() in u["username"].lower() for u in data["users"]["items"])
 
-    def test_search_users_by_email(self, client: TestClient, test_user: DBUser) -> None:
-        """Test searching users by email."""
-        search_term = test_user.email.split("@")[0]
-        response = client.get(f"{settings.API_STR}/search/?q={search_term}")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["users"]["items"]) > 0
+    def test_search_users_ignores_email(self, client: TestClient) -> None:
+        """An email fragment that is not in any username finds nothing, and results carry no email."""
+        username = get_unique_name("emailprobe")
+        local_part = get_unique_name("hiddenmailbox")
+        UserRepository().create_user(
+            DBUser(username=username, email=f"{local_part}@example.com", email_verified=True, disabled=False)
+        )
+
+        by_email = client.get(f"{settings.API_STR}/search/?q={local_part}")
+        assert by_email.status_code == 200, by_email.text
+        assert by_email.json()["users"]["items"] == []
+
+        by_username = client.get(f"{settings.API_STR}/search/?q={username}")
+        assert by_username.status_code == 200, by_username.text
+        items = by_username.json()["users"]["items"]
+        assert [u["username"] for u in items] == [username]
+        assert all("email" not in u for u in items)
+
+    def test_list_users_ignores_email_for_public_callers(self, client: TestClient) -> None:
+        """The public user list searches usernames only and never returns emails."""
+        username = get_unique_name("listprobe")
+        local_part = get_unique_name("secretinbox")
+        UserRepository().create_user(
+            DBUser(username=username, email=f"{local_part}@example.com", email_verified=True, disabled=False)
+        )
+
+        by_email = client.get(f"{settings.API_STR}/users", params={"search": local_part})
+        assert by_email.status_code == 200, by_email.text
+        assert by_email.json()["items"] == []
+
+        by_username = client.get(f"{settings.API_STR}/users", params={"search": username})
+        assert by_username.status_code == 200, by_username.text
+        items = by_username.json()["items"]
+        assert [u["username"] for u in items] == [username]
+        assert all("email" not in u for u in items)
 
     def test_search_parts_by_name(
         self, client: TestClient, test_user: DBUser, test_category, test_part_manufacturer, db_session: Any

@@ -44,6 +44,10 @@ PACKAGE_PATHS = (
     ("POST", "/api/auth/step-up"),
     ("GET", "/api/auth/oauth/providers"),
     ("GET", "/api/auth/passkeys/availability"),
+    ("POST", "/api/auth/email/change"),
+    ("POST", "/api/auth/email/change/confirm"),
+    ("GET", "/api/auth/sessions"),
+    ("DELETE", "/api/auth/sessions/{family_id}"),
 )
 
 PASS_THROUGH_PATHS = (("POST", "/events"),)
@@ -432,6 +436,32 @@ def test_create_user_accepts_the_verified_attribute(
     )
 
     assert created["email_verified"] is True
+
+
+@pytest.mark.parametrize(
+    ("attribute", "value"),
+    [
+        ("is_superuser", True),
+        ("is_admin", True),
+        ("is_service_account", True),
+        ("subscription_tier", "premium"),
+        ("stripe_customer_id", "cus_x"),
+    ],
+)
+def test_create_user_drops_privileged_attributes(
+    hooks: CarModPickerIdentityHooks,
+    attribute: str,
+    value: Any,
+) -> None:
+    """A registration cannot grant itself a role, a tier or a billing link."""
+    created = hooks.create_user(
+        email=f"{attribute.replace('_', '')}@example.com",
+        attributes={"username": f"priv{attribute.replace('_', '')}", attribute: value},
+    )
+
+    stored = hooks.load_user_by_id(str(created["id"]))
+    assert stored is not None
+    assert stored[attribute] == User.model_fields[attribute].default
 
 
 def test_delete_user_removes_the_row_and_reports_it(

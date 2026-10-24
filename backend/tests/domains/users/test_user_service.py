@@ -2,8 +2,9 @@
 
 import os
 from typing import Any
+from uuid import uuid4
 
-from app.common.db.dynamo.users import User
+from app.common.db.dynamo.users import User, UserRepository
 from app.domains.users.services.user_service import UserService
 
 
@@ -55,6 +56,16 @@ class TestUserService:
         service = UserService()
         result = service.get_all_users(search=test_user.username)
         assert [u.id for u in result] == [test_user.id]
+
+    def test_get_all_users_search_matches_email_only_when_asked(self, test_user: User) -> None:
+        """Email fragments match only for admin callers that opt in."""
+        suffix = uuid4().hex
+        user = UserRepository().create_user(
+            User(username=f"svcprobe_{suffix}", email=f"mailonly_{suffix}@example.com", email_verified=True)
+        )
+        service = UserService()
+        assert service.get_all_users(search=f"mailonly_{suffix}") == []
+        assert [u.id for u in service.get_all_users(search=f"mailonly_{suffix}", include_email=True)] == [user.id]
 
     def test_count_all(self, test_user: User) -> None:
         """Test counting all users."""

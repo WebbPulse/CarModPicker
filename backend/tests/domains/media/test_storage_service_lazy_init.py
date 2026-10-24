@@ -174,8 +174,8 @@ def test_lazy_connect_against_moto_bucket(live_storage_settings: None) -> None:
     assert service.object_exists("user/abc/x.jpg") is False
 
 
-def test_presigned_get_caps_expiry_at_the_sigv4_ceiling(live_storage_settings: None) -> None:
-    """A long expiry is capped at seven days and minted through the shared presigner."""
+def test_presigned_get_caps_requested_expiry(live_storage_settings: None) -> None:
+    """A long requested expiry is capped and minted through the shared presigner."""
     injected = MagicMock()
     injected.generate_presigned_url.return_value = "https://example.test/signed"
     service = StorageService()
@@ -185,7 +185,7 @@ def test_presigned_get_caps_expiry_at_the_sigv4_ceiling(live_storage_settings: N
 
     assert url == "https://example.test/signed"
     kwargs = injected.generate_presigned_url.call_args.kwargs
-    assert kwargs["ExpiresIn"] == 604_800
+    assert kwargs["ExpiresIn"] == ss_module.PRESIGNED_URL_MAX_EXPIRATION
     assert kwargs["Params"] == {"Bucket": BUCKET, "Key": "user/abc/x.jpg"}
 
 

@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 from app.common.api.dependencies.auth import (
     get_current_admin_user,
     get_current_user,
-    get_optional_current_user,
 )
 from app.common.api.dependencies.repositories import Repositories, get_repositories
 from app.common.api.services.storage_service import storage_service
@@ -40,7 +39,7 @@ async def get_image_by_source_url(
     Returns the existing file_key if found, so clients can skip re-uploading.
     """
     canonical = get_canonical_image_url(source_url)
-    mapping = repos.image_source_mappings.get_by_source_url(canonical)
+    mapping = repos.image_source_mappings.get_by_source_url(canonical, current_user.id)
     if not mapping:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No cached image for this source URL")
     return {"file_key": mapping.file_key}
@@ -136,7 +135,7 @@ async def upload_image(
     try:
         if source_url and source_url.strip():
             canonical = get_canonical_image_url(source_url)
-            existing = repos.image_source_mappings.get_by_source_url(canonical)
+            existing = repos.image_source_mappings.get_by_source_url(canonical, current_user.id)
             if existing:
                 presigned_url = storage_service.get_presigned_url(existing.file_key)
                 logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")
@@ -162,7 +161,7 @@ async def upload_image(
         if source_url and source_url.strip() and entity_type == "part":
             try:
                 canonical = get_canonical_image_url(source_url)
-                repos.image_source_mappings.record(canonical, file_key)
+                repos.image_source_mappings.record(canonical, file_key, current_user.id)
             except Exception as e:
                 logger.warning(f"Failed to store image source mapping: {e}")
 
@@ -208,7 +207,7 @@ async def fetch_image_from_url(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="source_url is required")
 
     canonical = get_canonical_image_url(source_url)
-    existing = repos.image_source_mappings.get_by_source_url(canonical)
+    existing = repos.image_source_mappings.get_by_source_url(canonical, current_user.id)
     if existing:
         presigned_url = storage_service.get_presigned_url(existing.file_key)
         logger.info(f"User {current_user.id} reused cached image for source URL (file_key={existing.file_key})")
@@ -236,7 +235,7 @@ async def fetch_image_from_url(
 
         if body.entity_type == "part":
             try:
-                repos.image_source_mappings.record(canonical, file_key)
+                repos.image_source_mappings.record(canonical, file_key, current_user.id)
             except Exception as e:
                 logger.warning(f"Failed to store image source mapping: {e}")
 
@@ -259,7 +258,7 @@ async def fetch_image_from_url(
 async def get_presigned_url(
     file_key: str,
     expiration: Optional[int] = None,
-    current_user: Optional[DBUser] = Depends(get_optional_current_user),
+    current_user: DBUser = Depends(get_current_user),
 ) -> dict[str, str]:
     """Generate a presigned URL for accessing an image in S3 bucket.
 
@@ -268,13 +267,12 @@ async def get_presigned_url(
     """
     storage_service.validate_file_key(file_key)
 
-    if current_user:
-        if not storage_service.verify_file_key_ownership(file_key, current_user.id):
-            logger.warning(f"User {current_user.id} attempted to access file_key they don't own: {file_key}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this image",
-            )
+    if not storage_service.verify_file_key_ownership(file_key, current_user.id):
+        logger.warning(f"User {current_user.id} attempted to access file_key they don't own: {file_key}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this image",
+        )
 
     try:
         presigned_url = storage_service.get_presigned_url(file_key, expiration=expiration)

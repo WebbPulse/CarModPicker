@@ -63,17 +63,6 @@
             ],
             "title": "Is Admin"
           },
-          "is_superuser": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Superuser"
-          },
           "subscription_expires_at": {
             "anyOf": [
               {
@@ -5008,7 +4997,7 @@
         "type": "object"
       },
       "UserUpdate": {
-        "description": "Request body for a user editing their own account.",
+        "description": "Request body for a user editing their own account.\n\nCarries no `email`: the address moves only through the identity email change flow,\nwhich mails a link to the new address before swapping it in.",
         "properties": {
           "disabled": {
             "anyOf": [
@@ -5020,18 +5009,6 @@
               }
             ],
             "title": "Disabled"
-          },
-          "email": {
-            "anyOf": [
-              {
-                "format": "email",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
           },
           "facebook_url": {
             "anyOf": [
@@ -13566,11 +13543,11 @@
     },
     "/api/users": {
       "get": {
-        "description": "List all users with pagination and search.\n\nReturns full UserRead (with email_verified and totp_enabled) for each user if:",
+        "description": "List users with pagination and search.\n\nAdmins and superusers get full UserRead items and a search that also matches\nemails; everyone else gets PublicUserRead items matched on username only.",
         "operationId": "list_users_api_users_get",
         "parameters": [
           {
-            "description": "Search in usernames and emails",
+            "description": "Search in usernames, and in emails for admins",
             "in": "query",
             "name": "search",
             "required": false,
@@ -13583,7 +13560,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Search in usernames and emails",
+              "description": "Search in usernames, and in emails for admins",
               "title": "Search"
             }
           },

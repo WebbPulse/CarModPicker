@@ -119,7 +119,7 @@ locals {
       s3_delete   = false
       ses         = true
       memory      = 512
-      tables      = ["users", "oauth_accounts", "webauthn_credentials", "rate-limits"]
+      tables      = ["users", "oauth_accounts", "webauthn_credentials", "rate-limits", "idempotency"]
       read_tables = []
     }
     catalog = {
@@ -246,7 +246,8 @@ locals {
         IDENTITY_EMAIL_FROM            = local.email_from
         IDENTITY_SES_CONFIGURATION_SET = module.ses.configuration_set_name
 
-        IDENTITY_REGISTRATION_ENABLED = "true"
+        IDENTITY_REGISTRATION_ENABLED    = "true"
+        IDENTITY_REGISTRATION_ATTRIBUTES = jsonencode(["username"])
 
         IDENTITY_TOTP_CIPHER = "secret"
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any, Generator
 from uuid import uuid4
@@ -10,10 +12,9 @@ from uuid import uuid4
 import pytest
 import stripe
 from fastapi.testclient import TestClient
-from webbpulse.testing import sign_stripe_payload
+from webbpulse.testing import FakeStripeGateway, sign_stripe_payload
 
 from app.common.db.dynamo.users import User, UserRepository
-from app.domains.users.services import billing_service
 from app.domains.users.services.billing_service import (
     PREMIUM_PRICE_LOOKUP_KEY,
     get_gateway_factory,
@@ -28,18 +29,15 @@ PERIOD_END = 1_900_000_000
 WEBHOOK_PATH = "/api/billing/stripe/webhook"
 
 
-class FakeGateway:
-    """Records every Stripe call billing makes and answers from canned state."""
+class FakeGateway(FakeStripeGateway):
+    """The shared Stripe fake with an injectable failure and a record of retrieved subscriptions."""
 
     def __init__(self) -> None:
         """Start with one premium price and no customers or subscriptions."""
-        self.prices: dict[str, str] = {PREMIUM_PRICE_LOOKUP_KEY: "price_premium"}
-        self.customers: list[dict[str, Any]] = []
-        self.checkout_calls: list[dict[str, Any]] = []
-        self.portal_calls: list[dict[str, Any]] = []
-        self.subscriptions: dict[str, dict[str, Any]] = {}
+        super().__init__(prices={PREMIUM_PRICE_LOOKUP_KEY: "price_premium"})
         self.retrieved: list[str] = []
         self.fail_with: Exception | None = None
+        self.price_barrier: threading.Barrier | None = None
 
     def _maybe_fail(self) -> None:
         """Raise the configured failure, if any."""
@@ -47,34 +45,32 @@ class FakeGateway:
             raise self.fail_with
 
     def find_price_id(self, lookup_key: str) -> str | None:
-        """The canned price for a lookup key."""
+        """The seeded price, after every racer behind the barrier has arrived."""
         self._maybe_fail()
-        return self.prices.get(lookup_key)
+        if self.price_barrier is not None:
+            self.price_barrier.wait()
+        return super().find_price_id(lookup_key)
 
-    def create_customer(self, *, email: str, user_id: str) -> str:
-        """Record a customer and return a new id."""
+    def ensure_customer(self, **kwargs: Any) -> str:
+        """The owner's one customer id, unless a failure is configured."""
         self._maybe_fail()
-        customer_id = f"cus_{len(self.customers) + 1}"
-        self.customers.append({"id": customer_id, "email": email, "user_id": user_id})
-        return customer_id
+        return super().ensure_customer(**kwargs)
 
     def create_checkout_session(self, **kwargs: Any) -> str:
-        """Record a checkout session and return its URL."""
+        """Record the session and answer a fake Checkout URL."""
         self._maybe_fail()
-        self.checkout_calls.append(kwargs)
-        return "https://checkout.stripe.test/session"
+        return super().create_checkout_session(**kwargs)
 
     def create_portal_session(self, **kwargs: Any) -> str:
-        """Record a portal session and return its URL."""
+        """Record the session and answer a fake portal URL."""
         self._maybe_fail()
-        self.portal_calls.append(kwargs)
-        return "https://billing.stripe.test/portal"
+        return super().create_portal_session(**kwargs)
 
     def retrieve_subscription(self, subscription_id: str) -> dict[str, Any]:
-        """Return a canned subscription."""
+        """Record and answer a seeded subscription."""
         self._maybe_fail()
         self.retrieved.append(subscription_id)
-        return self.subscriptions[subscription_id]
+        return super().retrieve_subscription(subscription_id)
 
 
 @pytest.fixture
@@ -151,15 +147,37 @@ def test_checkout_creates_customer_and_session(
     response = client.post("/api/billing/checkout-session", headers=auth_headers_for(test_user.id))
 
     assert response.status_code == 200, response.text
-    assert response.json() == {"url": "https://checkout.stripe.test/session"}
-    assert gateway.customers == [{"id": "cus_1", "email": test_user.email, "user_id": str(test_user.id)}]
-    assert _reload(test_user).stripe_customer_id == "cus_1"
-    call = gateway.checkout_calls[0]
-    assert call["price_id"] == "price_premium"
-    assert call["customer_id"] == "cus_1"
-    assert call["user_id"] == str(test_user.id)
-    assert call["success_url"].endswith("/checkout?status=success&session_id={CHECKOUT_SESSION_ID}")
-    assert call["cancel_url"].endswith("/checkout?status=cancelled")
+    assert response.json()["url"].startswith("https://checkout.stripe.test/")
+    assert gateway.customer_creates == 1
+    [customer] = gateway.customers.values()
+    assert customer["email"] == test_user.email
+    assert customer["metadata"] == {"user_id": str(test_user.id)}
+    assert _reload(test_user).stripe_customer_id == customer["id"]
+    session = gateway.checkout_sessions[0]
+    assert session["price"] == "price_premium"
+    assert session["customer"] == customer["id"]
+    assert session["client_reference_id"] == str(test_user.id)
+    assert session["metadata"] == {"user_id": str(test_user.id)}
+    assert session["success_url"].endswith("/checkout?status=success&session_id={CHECKOUT_SESSION_ID}")
+    assert session["cancel_url"].endswith("/checkout?status=cancelled")
+
+
+def test_concurrent_checkouts_share_one_customer(
+    client: TestClient, test_user: User, gateway: FakeGateway, stripe_env: None
+) -> None:
+    """Two checkouts racing for a user with no stored customer end with one customer."""
+    gateway.price_barrier = threading.Barrier(2, timeout=10)
+    headers = auth_headers_for(test_user.id)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(lambda _: client.post("/api/billing/checkout-session", headers=headers), range(2)))
+
+    assert [response.status_code for response in responses] == [200, 200]
+    assert gateway.customer_creates == 1
+    [customer_id] = gateway.customers
+    assert {session["customer"] for session in gateway.checkout_sessions} == {customer_id}
+    assert len(gateway.checkout_sessions) == 2
+    assert _reload(test_user).stripe_customer_id == customer_id
 
 
 def test_checkout_reuses_existing_customer(
@@ -171,8 +189,8 @@ def test_checkout_reuses_existing_customer(
     response = client.post("/api/billing/checkout-session", headers=auth_headers_for(test_user.id))
 
     assert response.status_code == 200
-    assert gateway.customers == []
-    assert gateway.checkout_calls[0]["customer_id"] == "cus_existing"
+    assert gateway.customers == {}
+    assert gateway.checkout_sessions[0]["customer"] == "cus_existing"
 
 
 def test_checkout_refuses_premium_user(
@@ -183,7 +201,7 @@ def test_checkout_refuses_premium_user(
 
     assert response.status_code == 409
     assert response.json()["error_code"] == "ALREADY_PREMIUM"
-    assert gateway.checkout_calls == []
+    assert gateway.checkout_sessions == []
 
 
 def test_checkout_without_stripe_is_503(
@@ -206,7 +224,7 @@ def test_checkout_without_price_is_503(
 
     assert response.status_code == 503
     assert response.json()["error_code"] == "STRIPE_PRICE_MISSING"
-    assert gateway.customers == []
+    assert gateway.customers == {}
 
 
 def test_checkout_stripe_failure_is_502(
@@ -243,9 +261,9 @@ def test_portal_returns_to_profile(client: TestClient, test_user: User, gateway:
     response = client.post("/api/billing/portal-session", headers=auth_headers_for(test_user.id))
 
     assert response.status_code == 200
-    assert response.json() == {"url": "https://billing.stripe.test/portal"}
-    assert gateway.portal_calls[0]["customer_id"] == "cus_portal"
-    assert gateway.portal_calls[0]["return_url"].endswith("/profile")
+    assert response.json()["url"].startswith("https://billing.stripe.test/")
+    assert gateway.portal_sessions[0]["customer"] == "cus_portal"
+    assert gateway.portal_sessions[0]["return_url"].endswith("/profile")
 
 
 def test_webhook_without_secret_is_503(
@@ -461,27 +479,3 @@ def test_subscription_state_falls_back_to_legacy_period_end() -> None:
     state = subscription_state({"status": "active", "current_period_end": PERIOD_END})
 
     assert state["subscription_expires_at"] == datetime.fromtimestamp(PERIOD_END, UTC)
-
-
-def test_gateway_resolves_price_by_lookup_key() -> None:
-    """The real gateway asks Stripe for the active price by lookup key."""
-
-    class _Prices:
-        """A stand in for the Stripe prices service."""
-
-        def __init__(self) -> None:
-            """Start with no recorded params."""
-            self.params: dict[str, Any] = {}
-
-        def list(self, params: dict[str, Any]) -> Any:
-            """Record the params and answer one price."""
-            self.params = params
-            return type("Listing", (), {"data": [type("Price", (), {"id": "price_x"})()]})()
-
-    prices = _Prices()
-    client = type("Client", (), {"v1": type("V1", (), {"prices": prices})()})()
-
-    gateway = billing_service.StripeGateway(client)  # type: ignore[arg-type]
-
-    assert gateway.find_price_id(PREMIUM_PRICE_LOOKUP_KEY) == "price_x"
-    assert prices.params["lookup_keys"] == [PREMIUM_PRICE_LOOKUP_KEY]

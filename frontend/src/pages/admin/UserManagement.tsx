@@ -58,7 +58,6 @@ function UserManagement() {
     email: null,
     disabled: null,
     image_urls: null,
-    is_superuser: null,
     is_admin: null,
     email_verified: null,
     subscription_tier: null,
@@ -170,7 +169,6 @@ function UserManagement() {
       email: formData.email || null,
       disabled: formData.disabled ?? null,
       is_admin: formData.is_admin ?? null,
-      is_superuser: formData.is_superuser ?? null,
       email_verified: formData.email_verified ?? null,
       image_urls: formData.image_urls || null,
       subscription_tier: formData.subscription_tier ?? null,
@@ -190,7 +188,6 @@ function UserManagement() {
         email: null,
         disabled: null,
         image_urls: null,
-        is_superuser: null,
         is_admin: null,
         email_verified: null,
         subscription_tier: null,
@@ -225,7 +222,6 @@ function UserManagement() {
       email: user.email,
       disabled: user.disabled,
       image_urls: user.image_urls || null,
-      is_superuser: user.is_superuser,
       is_admin: user.is_admin,
       email_verified: user.email_verified,
       subscription_tier: user.subscription_tier ?? null,
@@ -249,7 +245,6 @@ function UserManagement() {
       email: null,
       disabled: null,
       image_urls: null,
-      is_superuser: null,
       is_admin: null,
       email_verified: null,
       subscription_tier: null,
@@ -527,9 +522,19 @@ function UserManagement() {
                 id="edit-email"
                 type="email"
                 value={formData.email || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value || null })
-                }
+                onChange={(e) => {
+                  const email = e.target.value || null;
+                  const unchanged =
+                    (email ?? '').toLowerCase() ===
+                    (selectedUser?.email ?? '').toLowerCase();
+                  setFormData({
+                    ...formData,
+                    email,
+                    email_verified: unchanged
+                      ? (selectedUser?.email_verified ?? false)
+                      : false,
+                  });
+                }}
                 placeholder="Email address"
                 required
               />
@@ -608,29 +613,6 @@ function UserManagement() {
                 {selectedUser?.id === currentUser.id && (
                   <span className="text-xs text-muted-foreground">
                     (Cannot remove your own admin status)
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="edit-is-superuser"
-                  checked={formData.is_superuser ?? false}
-                  onChange={(e) =>
-                    setFormData({ ...formData, is_superuser: e.target.checked })
-                  }
-                  className="rounded"
-                  disabled={
-                    selectedUser?.id === currentUser.id &&
-                    formData.is_superuser === true
-                  }
-                />
-                <label htmlFor="edit-is-superuser" className="text-foreground">
-                  Superuser
-                </label>
-                {selectedUser?.id === currentUser.id && (
-                  <span className="text-xs text-muted-foreground">
-                    (Cannot remove your own superuser status)
                   </span>
                 )}
               </div>

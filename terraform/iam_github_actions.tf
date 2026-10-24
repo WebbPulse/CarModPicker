@@ -98,14 +98,28 @@ locals {
   ]
 }
 
+locals {
+  github_subject_prefixes = [
+    "repo:WebbPulse/CarModPicker",
+    "repo:WebbPulse@185014056/CarModPicker@1034793334",
+  ]
+
+  github_deploy_branch = var.environment == "production" ? "main" : "staging"
+
+  github_deploy_subjects = flatten([
+    for prefix in local.github_subject_prefixes : [
+      "${prefix}:environment:${var.environment}",
+      "${prefix}:ref:refs/heads/${local.github_deploy_branch}",
+    ]
+  ])
+}
+
 module "github_actions_role" {
   source  = "terraform.webbpulse.com/WebbPulse/platform-modules/aws//modules/github-actions-role"
   version = "~> 2.39"
 
   role_name = "${local.prefix}-github-actions-deploy"
-  subjects  = ["repo:WebbPulse/CarModPicker:*"]
-
-  allow_wildcard_subjects = true
+  subjects  = local.github_deploy_subjects
 
   lambda_image_deploy = {
     function_arns = concat(
@@ -148,7 +162,7 @@ module "github_actions_role" {
 
 module "github_actions_ci_role" {
   source  = "terraform.webbpulse.com/WebbPulse/platform-modules/aws//modules/github-actions-role"
-  version = "~> 1.1"
+  version = "~> 2.39"
 
   role_name        = "${local.prefix}-github-actions-ci"
   role_description = "Read only CodeArtifact access for pull request CI in WebbPulse/CarModPicker. Deploy permissions live on the separate github-actions-deploy role."

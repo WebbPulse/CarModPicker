@@ -1,7 +1,8 @@
 """Drain the account delete cascade off the `users` stream through the `user-delete` queue.
 
 The delete tombstones the user and frees the `username` and `email` reservations; this
-removes the rows they owned. Every step is query-then-delete, so replays are no-ops.
+cancels the user's Stripe subscriptions and removes the rows they owned. Every step is
+query-then-act, so replays are no-ops.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ QUEUE_URL_VARIABLE = "USER_DELETE_QUEUE_URL"
 
 MESSAGE_VERSION = 1
 MESSAGE_KIND = "user-delete"
+
+BILLING_OWNER_KEY = "user_id"
 
 
 def _plain(value: Any) -> Any:
@@ -265,13 +268,29 @@ def purge_identity(repos: Any, user_id: UUID) -> Dict[str, int]:
     return {"oauth_accounts": accounts, "webauthn_credentials": credentials}
 
 
-def cascade_user_delete(repos: Any, user_id: UUID) -> Dict[str, int]:
-    """Delete every row in the fifteen tables that belonged to the deleted user.
+def cancel_billing(billing: Any, user_id: UUID) -> Dict[str, int]:
+    """Cancel every live Stripe subscription the user holds, immediately.
 
-    Parts run first so the part purge consumer can start draining their
-    tombstones. This must never write `users`, whose row is already gone.
+    Customers are found by their `user_id` metadata, since the user row is
+    already gone. `None` means Stripe is not configured on this stage. A Stripe
+    error propagates so the message is retried; a replay cancels nothing.
+    """
+    if billing is None:
+        return {"stripe_subscriptions_cancelled": 0}
+    cancelled = billing.cancel_owner_subscriptions(BILLING_OWNER_KEY, str(user_id))
+    return {"stripe_subscriptions_cancelled": len(cancelled)}
+
+
+def cascade_user_delete(repos: Any, user_id: UUID, billing: Any = None) -> Dict[str, int]:
+    """Cancel the deleted user's billing, then delete every row they owned.
+
+    Billing runs first so a deleted account stops being charged even if a later
+    step needs a retry. Parts run next so the part purge consumer can start
+    draining their tombstones. This must never write `users`, whose row is
+    already gone.
     """
     counts: Dict[str, int] = {}
+    counts.update(cancel_billing(billing, user_id))
     counts.update(purge_owned_parts(repos, user_id))
     counts.update(purge_owned_build_lists(repos, user_id))
     counts.update(purge_owned_moderation(repos, user_id))
@@ -279,7 +298,7 @@ def cascade_user_delete(repos: Any, user_id: UUID) -> Dict[str, int]:
     return counts
 
 
-def process_queue_records(repos: Any, records: Iterable[Mapping[str, Any]]) -> List[str]:
+def process_queue_records(repos: Any, records: Iterable[Mapping[str, Any]], billing: Any = None) -> List[str]:
     """Drain a batch of queue messages and return the ids of the ones that failed.
 
     One cascade per message, isolated, so a throttle on one user does not re-run
@@ -299,7 +318,7 @@ def process_queue_records(repos: Any, records: Iterable[Mapping[str, Any]]) -> L
         if user_id is None:
             continue
         try:
-            removed = cascade_user_delete(repos, user_id)
+            removed = cascade_user_delete(repos, user_id, billing)
         except Exception:
             logger.exception(
                 "User delete queue: the cascade failed for a user; reporting the message for retry.",
@@ -345,14 +364,14 @@ def handle_stream(event: Mapping[str, Any], client: Any) -> Dict[str, List[Dict[
     return {"batchItemFailures": [{"itemIdentifier": sequence} for sequence in failures]}
 
 
-def handle_queue(event: Mapping[str, Any], repos: Any) -> Dict[str, List[Dict[str, str]]]:
-    """The queue half, with the repository bundle passed in so tests need no AWS.
+def handle_queue(event: Mapping[str, Any], repos: Any, billing: Any = None) -> Dict[str, List[Dict[str, str]]]:
+    """The queue half, with the repository bundle and billing gateway passed in so tests need no AWS.
 
     Returns the `batchItemFailures` shape keyed by `messageId`; an empty list is
     returned explicitly, since an unparseable result retries the whole batch.
     """
     records = event.get("Records") or []
-    failures = process_queue_records(repos, records)
+    failures = process_queue_records(repos, records, billing)
     if failures:
         logger.warning(
             "User delete queue: reporting partial batch failure.",

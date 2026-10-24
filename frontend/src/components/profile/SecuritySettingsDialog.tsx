@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { FaClock, FaKey, FaLink, FaLock, FaShieldAlt } from 'react-icons/fa';
+import {
+  FaClock,
+  FaEnvelope,
+  FaKey,
+  FaLink,
+  FaLock,
+  FaShieldAlt,
+} from 'react-icons/fa';
 import { useAuth } from '../../hooks/useAuth';
 import { identityAvailability } from '../../api/authMode';
 import { changePassword } from '../../api/identityAuth';
@@ -10,6 +17,7 @@ import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import IdentityConnectedAccounts from './IdentityConnectedAccounts';
+import IdentityEmailChange from './IdentityEmailChange';
 import IdentityPasskeySettings from './IdentityPasskeySettings';
 import { getApiErrorMessage } from '../../utils/apiError';
 
@@ -33,7 +41,8 @@ interface SecuritySettingsDialogProps {
   onSessionUpdated?: () => void;
 }
 
-type TabType = 'password' | '2fa' | 'passkeys' | 'connected' | 'session';
+type TabType =
+  'password' | 'email' | '2fa' | 'passkeys' | 'connected' | 'session';
 
 interface IconFieldProps {
   id: string;
@@ -235,6 +244,20 @@ function SecuritySettingsDialog({
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('email')}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === 'email'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <FaEnvelope />
+                <span>Email</span>
+              </div>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('2fa')}
               className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                 activeTab === '2fa'
@@ -428,6 +451,10 @@ function SecuritySettingsDialog({
                 </Button>
               </div>
             </form>
+          )}
+
+          {activeTab === 'email' && user && (
+            <IdentityEmailChange currentEmail={user.email} />
           )}
 
           {activeTab === '2fa' && (

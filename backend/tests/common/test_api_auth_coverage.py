@@ -77,7 +77,6 @@ PUBLIC_ROUTES: set[tuple[str, str]] = {
     ("POST", "/api/bug-reports"),
     ("GET", "/api/search"),
     ("GET", "/api/part-price-alerts/unsubscribe"),
-    ("GET", "/api/images/presigned-url"),
     ("GET", "/api/app-settings"),
     ("POST", "/api/billing/stripe/webhook"),
 }

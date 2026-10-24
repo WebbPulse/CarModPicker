@@ -57,6 +57,9 @@ const VerifyEmail = lazy(
 const VerifyEmailConfirm = lazy(
   () => import('./pages/authentication/VerifyEmailConfirm.tsx')
 );
+const VerifyEmailChange = lazy(
+  () => import('./pages/authentication/VerifyEmailChange.tsx')
+);
 const ExtensionAuth = lazy(
   () => import('./pages/authentication/ExtensionAuth.tsx')
 );
@@ -110,6 +113,7 @@ const NO_AD_SPACE_PATHS = new Set([
   '/forgot-password/confirm',
   '/verify-email',
   '/verify-email/confirm',
+  '/verify-email-change',
   '/reset-password',
   '/extension-auth',
   '/auth/extension-handoff',
@@ -229,6 +233,10 @@ function App() {
                   <Route
                     path="/verify-email/confirm"
                     element={<VerifyEmailConfirm />}
+                  />
+                  <Route
+                    path="/verify-email-change"
+                    element={<VerifyEmailChange />}
                   />
                   <Route path="/extension-auth" element={<ExtensionAuth />} />
                   <Route

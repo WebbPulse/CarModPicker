@@ -156,6 +156,10 @@
       {
         "name": "car_id",
         "type": "S"
+      },
+      {
+        "name": "listing",
+        "type": "S"
       }
     ],
     "global_secondary_indexes": [
@@ -168,6 +172,12 @@
       {
         "hash_key": "car_id",
         "name": "car_id-created_at-index",
+        "projection_type": "ALL",
+        "range_key": "created_at"
+      },
+      {
+        "hash_key": "listing",
+        "name": "listing-created_at-index",
         "projection_type": "ALL",
         "range_key": "created_at"
       }

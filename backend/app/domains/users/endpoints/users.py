@@ -127,7 +127,7 @@ async def upload_profile_picture(
         old_key = (current_user.image_urls or [None])[0]
         if old_key:
             try:
-                storage_service.delete_image(old_key)
+                storage_service.delete_owned_image(old_key, current_user.id)
                 logger.info(f"Deleted old profile picture for user {current_user.id}: {old_key}")
             except Exception as e:
                 logger.warning(f"Failed to delete old profile picture for user {current_user.id}: {str(e)}")
@@ -165,7 +165,7 @@ async def delete_profile_picture(
         )
 
     try:
-        storage_service.delete_image(old_file_key)
+        storage_service.delete_owned_image(old_file_key, current_user.id)
         updated = repos.users.update(current_user.id, image_urls=None)
 
         logger.info(f"User {current_user.id} deleted profile picture: {old_file_key}")
@@ -219,18 +219,19 @@ async def get_user(
     },
 )
 async def list_users(
-    search: Optional[str] = Query(None, description="Search in usernames and emails"),
+    search: Optional[str] = Query(None, description="Search in usernames, and in emails for admins"),
     params: CursorParams = Depends(get_cursor_params),
     repos: Repositories = Depends(get_repositories),
     current_user: Union[DBUser, None] = Depends(get_optional_current_user),
 ) -> CursorPage[Union[UserRead, PublicUserRead]]:
-    """List all users with pagination and search.
+    """List users with pagination and search.
 
-    Returns full UserRead (with email_verified and totp_enabled) for each user if:
+    Admins and superusers get full UserRead items and a search that also matches
+    emails; everyone else gets PublicUserRead items matched on username only.
     """
-    users = user_service.get_all_users(search=search, logger=logger)
-
     can_see_sensitive_fields = current_user is not None and (current_user.is_admin or current_user.is_superuser)
+    users = user_service.get_all_users(search=search, logger=logger, include_email=can_see_sensitive_fields)
+
     page = _user_page(users, params, repos, full=can_see_sensitive_fields)
 
     if can_see_sensitive_fields:
@@ -265,6 +266,9 @@ async def update_user(
         ResponsePatterns.raise_forbidden("Not authorized to update this user")
 
     update_data = user.model_dump(exclude_unset=True)
+    storage_service.assert_file_keys_attachable(
+        update_data.get("image_urls") or [], current_user.id, already_attached=db_user.image_urls or []
+    )
     username_changed = False
     session_expire_minutes_changed = False
     changes: dict[str, Any] = {}
@@ -293,7 +297,7 @@ async def update_user(
         del update_data["session_expire_minutes"]
 
     for field, value in update_data.items():
-        if field in ("username", "email") and value is None:
+        if field == "username" and value is None:
             continue
         changes[field] = value
 
@@ -354,7 +358,7 @@ async def get_all_users(
     """
     Get all users (admin only) with pagination and search.
     """
-    users = user_service.get_all_users(search=search, logger=logger)
+    users = user_service.get_all_users(search=search, logger=logger, include_email=True)
     reads = {read.id: read for read in user_reads(users, repos)}
     page = paginate_in_memory(
         users,
@@ -390,7 +394,7 @@ async def admin_update_user(
     if db_user is None:
         ResponsePatterns.raise_not_found("User", user_id)
 
-    if user_id == current_user.id and (user_update.is_admin is False or user_update.is_superuser is False):
+    if user_id == current_user.id and user_update.is_admin is False:
         ResponsePatterns.raise_bad_request("Cannot remove your own admin privileges")
 
     update_data = user_update.model_dump(exclude_unset=True)
@@ -398,6 +402,13 @@ async def admin_update_user(
     for key in ("username", "email"):
         if key in update_data and update_data[key] is None:
             del update_data[key]
+
+    if (
+        "email" in update_data
+        and update_data["email"].lower() != db_user.email.lower()
+        and "email_verified" not in update_data
+    ):
+        update_data["email_verified"] = False
 
     try:
         updated = repos.users.update_user(user_id, **update_data) if update_data else db_user

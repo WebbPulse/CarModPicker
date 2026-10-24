@@ -1,13 +1,15 @@
 """The Chrome extension's sign in handoff: two routes under `/api/auth`.
 
 The web page trades a signed in session for a single use sixty second code, which
-the extension exchanges for a token. The code is a KMS signed JWT, not a row.
+the extension exchanges for a token. The code is a KMS signed JWT carrying a `jti`,
+and the exchange claims that `jti` in the idempotency table, so a code spends once.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import secrets
 import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
@@ -17,6 +19,7 @@ from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:  # pragma: no cover
     from fastapi import APIRouter
+    from webbpulse.dynamodb import IdempotencyStore
 
     from app.common.core.config import Settings
 
@@ -25,6 +28,10 @@ _log = logging.getLogger(__name__)
 HANDOFF_TOKEN_TYPE = "extension_handoff"
 
 HANDOFF_TTL_SECONDS = 60
+
+HANDOFF_CLAIM_TTL_SECONDS = 2 * HANDOFF_TTL_SECONDS
+
+HANDOFF_CLAIM_PREFIX = "extension-handoff#"
 
 EXTENSION_IDS_ENV = "CHROME_EXTENSION_IDS"
 
@@ -66,6 +73,24 @@ def extension_id_for(redirect_uri: str, allowed: list[str]) -> str | None:
     if host == "" or host not in allowed:
         return None
     return host
+
+
+def handoff_claim_store() -> "IdempotencyStore":
+    """The one-shot claim store a handoff code's `jti` is spent in."""
+    from webbpulse.dynamodb import IdempotencyStore
+    from webbpulse.dynamodb import Repository as SharedRepository
+
+    from app.common.db.dynamo.client import resource_kwargs, table_name
+    from app.common.db.dynamo.tables import IDEMPOTENCY
+
+    kwargs = resource_kwargs()
+    repository = SharedRepository(
+        IDEMPOTENCY.suffix,
+        region_name=kwargs.get("region_name"),
+        endpoint_url=kwargs.get("endpoint_url"),
+    )
+    repository.table_name = table_name(IDEMPOTENCY)
+    return IdempotencyStore(repository)
 
 
 class HandoffRequest(BaseModel):
@@ -174,6 +199,7 @@ def build_router(settings: "Settings") -> "APIRouter":
                 "exp": issued_at + HANDOFF_TTL_SECONDS,
                 "typ": HANDOFF_TOKEN_TYPE,
                 "ext": extension_id,
+                "jti": secrets.token_urlsafe(16),
             }
         )
         _log.info("extension.handoff issued for %s to %s", subject, extension_id)
@@ -184,35 +210,39 @@ def build_router(settings: "Settings") -> "APIRouter":
         """Exchange a handoff code for an access token, unauthenticated by design.
 
         `typ` is asserted only after the signature and audience check, so an access
-        token cannot be presented here and traded for one with a reset expiry.
+        token cannot be presented here and traded for one with a reset expiry. The
+        `jti` is then claimed with a conditional put, so a replayed code is refused.
         """
         from webbpulse.identity.service import InvalidToken
+
+        invalid = JSONResponse(
+            {
+                "detail": {
+                    "error_code": "HANDOFF_CODE_INVALID",
+                    "message": "That sign in has expired. Start again from the extension.",
+                }
+            },
+            status_code=401,
+        )
 
         try:
             claims = tokens.verify_access_token(body.code, audience=handoff_audience)
         except InvalidToken as exc:
             _log.info("extension handoff code rejected: %s", exc.reason)
-            return JSONResponse(
-                {
-                    "detail": {
-                        "error_code": "HANDOFF_CODE_INVALID",
-                        "message": "That sign in has expired. Start again from the extension.",
-                    }
-                },
-                status_code=401,
-            )
+            return invalid
 
         if claims.get("typ") != HANDOFF_TOKEN_TYPE:
             _log.warning("extension token exchange refused typ %r", claims.get("typ"))
-            return JSONResponse(
-                {
-                    "detail": {
-                        "error_code": "HANDOFF_CODE_INVALID",
-                        "message": "That sign in has expired. Start again from the extension.",
-                    }
-                },
-                status_code=401,
-            )
+            return invalid
+
+        jti = str(claims.get("jti", ""))
+        if not jti:
+            _log.warning("extension token exchange refused a code without a jti")
+            return invalid
+
+        if not handoff_claim_store().claim(f"{HANDOFF_CLAIM_PREFIX}{jti}", HANDOFF_CLAIM_TTL_SECONDS):
+            _log.warning("extension token exchange refused a replayed code for %s", claims.get("sub"))
+            return invalid
 
         subject = str(claims.get("sub", ""))
         access_token = tokens.mint_access_token(subject)

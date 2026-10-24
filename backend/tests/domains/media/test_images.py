@@ -180,12 +180,13 @@ class TestImages:
 
     def test_get_presigned_url_success(self, client: TestClient, test_user: DBUser) -> None:
         """Test getting a presigned URL for an image."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
         import hashlib
 
         user_hash = hashlib.sha256(str(test_user.id).encode()).hexdigest()[:16]
         file_key = f"user/{user_hash}/test-image.jpg"
 
-        response = client.get(f"{settings.API_STR}/images/presigned-url?file_key={file_key}")
+        response = client.get(f"{settings.API_STR}/images/presigned-url?file_key={file_key}", headers=headers)
 
         assert response.status_code in [200, 503], f"Unexpected status: {response.text}"
 
@@ -194,12 +195,13 @@ class TestImages:
             assert "presigned_url" in data
             assert "file_key" in data
 
-    def test_get_presigned_url_invalid_file_key(self, client: TestClient) -> None:
+    def test_get_presigned_url_invalid_file_key(self, client: TestClient, test_user: DBUser) -> None:
         """Test getting presigned URL with invalid file key."""
-        response = client.get(f"{settings.API_STR}/images/presigned-url?file_key=../../../etc/passwd")
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
+        response = client.get(f"{settings.API_STR}/images/presigned-url?file_key=../../../etc/passwd", headers=headers)
         assert response.status_code == 400
 
-        response = client.get(f"{settings.API_STR}/images/presigned-url?file_key=invalid")
+        response = client.get(f"{settings.API_STR}/images/presigned-url?file_key=invalid", headers=headers)
         assert response.status_code == 400
 
     def test_get_presigned_url_ownership_verification(
@@ -432,12 +434,15 @@ class TestImages:
 
     def test_get_presigned_url_with_expiration(self, client: TestClient, test_user: DBUser) -> None:
         """Test getting a presigned URL with custom expiration."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
         import hashlib
 
         user_hash = hashlib.sha256(str(test_user.id).encode()).hexdigest()[:16]
         file_key = f"user/{user_hash}/test-image.jpg"
 
-        response = client.get(f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration=3600")
+        response = client.get(
+            f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration=3600", headers=headers
+        )
 
         assert response.status_code in [200, 503], f"Unexpected status: {response.text}"
 
@@ -448,6 +453,7 @@ class TestImages:
 
     def test_get_presigned_url_max_expiration(self, client: TestClient, test_user: DBUser) -> None:
         """Test getting a presigned URL with maximum expiration (90 days)."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
         import hashlib
 
         user_hash = hashlib.sha256(str(test_user.id).encode()).hexdigest()[:16]
@@ -455,7 +461,8 @@ class TestImages:
 
         max_expiration = 90 * 24 * 60 * 60
         response = client.get(
-            f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration={max_expiration}"
+            f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration={max_expiration}",
+            headers=headers,
         )
 
         assert response.status_code in [200, 503], f"Unexpected status: {response.text}"
@@ -480,28 +487,35 @@ class TestImages:
 
     def test_get_presigned_url_with_zero_expiration(self, client: TestClient, test_user: DBUser) -> None:
         """Test presigned URL with expiration=0 (should validate and reject)."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
         import hashlib
 
         user_hash = hashlib.sha256(str(test_user.id).encode()).hexdigest()[:16]
         file_key = f"user/{user_hash}/test-image.jpg"
 
-        response = client.get(f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration=0")
+        response = client.get(
+            f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration=0", headers=headers
+        )
 
         assert response.status_code in [400, 422, 503], f"Unexpected status: {response.text}"
 
     def test_get_presigned_url_with_negative_expiration(self, client: TestClient, test_user: DBUser) -> None:
         """Test presigned URL with negative expiration (should validate and reject)."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
         import hashlib
 
         user_hash = hashlib.sha256(str(test_user.id).encode()).hexdigest()[:16]
         file_key = f"user/{user_hash}/test-image.jpg"
 
-        response = client.get(f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration=-1")
+        response = client.get(
+            f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration=-1", headers=headers
+        )
 
         assert response.status_code in [400, 422, 503], f"Unexpected status: {response.text}"
 
     def test_get_presigned_url_with_expiration_exceeding_maximum(self, client: TestClient, test_user: DBUser) -> None:
         """Test presigned URL with expiration exceeding maximum (90 days)."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
         import hashlib
 
         user_hash = hashlib.sha256(str(test_user.id).encode()).hexdigest()[:16]
@@ -509,7 +523,8 @@ class TestImages:
 
         max_expiration = 90 * 24 * 60 * 60 + 1
         response = client.get(
-            f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration={max_expiration}"
+            f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration={max_expiration}",
+            headers=headers,
         )
 
         assert response.status_code in [200, 400, 422, 503], f"Unexpected status: {response.text}"
@@ -649,6 +664,7 @@ class TestImages:
 
     def test_get_presigned_url_expiration_at_maximum(self, client: TestClient, test_user: DBUser) -> None:
         """Test presigned URL with expiration exactly at maximum (90 days = 7776000 seconds)."""
+        headers = get_auth_headers(get_auth_token(client, test_user.username))
         import hashlib
 
         user_hash = hashlib.sha256(str(test_user.id).encode()).hexdigest()[:16]
@@ -656,7 +672,8 @@ class TestImages:
 
         max_expiration = 90 * 24 * 60 * 60
         response = client.get(
-            f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration={max_expiration}"
+            f"{settings.API_STR}/images/presigned-url?file_key={file_key}&expiration={max_expiration}",
+            headers=headers,
         )
 
         assert response.status_code in [200, 503], f"Unexpected status: {response.text}"

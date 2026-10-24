@@ -27,6 +27,8 @@ REFUSAL_MESSAGE = "This account may not sign in."
 SUPERUSER_ROLE = "superuser"
 ADMIN_ROLE = "admin"
 
+REGISTRATION_ATTRIBUTES = frozenset({"username", "email_verified"})
+
 
 class CarModPickerIdentityHooks:
     """CarModPicker's `IdentityHooks`, satisfying the protocol structurally.
@@ -135,13 +137,12 @@ class CarModPickerIdentityHooks:
     def create_user(self, *, email: str, attributes: Mapping[str, Any]) -> Mapping[str, Any]:
         """Create a CarModPicker user row for a package registration and return it.
 
-        The username is derived from the address when none is supplied.
-        `hashed_password` is not a field on `User` since row 13; the `pop` stays
-        because `attributes` is the package's mapping rather than this model.
+        The username is derived from the address when none is supplied. Only
+        `REGISTRATION_ATTRIBUTES` are kept, because the public register route passes
+        caller supplied attributes through; role flags such as `is_superuser` are
+        set out of band, never at registration.
         """
-        record = dict(attributes)
-        record.pop("id", None)
-        record.pop("hashed_password", None)
+        record = {key: value for key, value in attributes.items() if key in REGISTRATION_ATTRIBUTES}
         record["email"] = email
         record["username"] = str(record.get("username") or _username_from(email))
         user = User(**record)
@@ -163,6 +164,21 @@ class CarModPickerIdentityHooks:
                 f"mark_email_verified found no user with id {parsed}. The link was consumed, "
                 "so the address is not verified and the user needs a new one."
             ) from exc
+
+    def change_email(self, user_id: str, email: str) -> None:
+        """Move this user's sign-in address and mark it verified, on the `users` row.
+
+        Called by the package only after the link mailed to `email` is spent. Goes
+        through `update_user` so the email reservation moves in the same transaction.
+        Raises `ValueError` for a missing row, since the link is already spent.
+        """
+        parsed = _as_uuid(user_id)
+        if parsed is None:
+            raise ValueError(f"change_email was given {user_id!r}, which is not one of this product's user ids.")
+        try:
+            self._users.update_user(parsed, email=email, email_verified=True)
+        except ItemNotFound as exc:
+            raise ValueError(f"change_email found no user with id {parsed}. The link was consumed.") from exc
 
     def delete_user(self, user_id: str) -> bool:
         """Hard-delete this product's users row, returning whether one was there.
