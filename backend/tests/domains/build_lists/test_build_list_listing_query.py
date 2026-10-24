@@ -43,9 +43,7 @@ def queried_indexes(monkeypatch: pytest.MonkeyPatch) -> Iterator[List[str | None
     yield seen
 
 
-def _seed(
-    repo: BuildListRepository, *, user_id: UUID, car_id: UUID | None, price: int, age_minutes: int
-) -> BuildList:
+def _seed(repo: BuildListRepository, *, user_id: UUID, car_id: UUID | None, price: int, age_minutes: int) -> BuildList:
     """Write one build list with a fixed price and creation time."""
     created = datetime(2026, 1, 1, tzinfo=UTC) - timedelta(minutes=age_minutes)
     return repo.create(
