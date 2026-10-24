@@ -91,7 +91,6 @@ class AdminUserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     disabled: Optional[bool] = None
     image_urls: Optional[List[str]] = None
-    is_superuser: Optional[bool] = None
     is_admin: Optional[bool] = None
     email_verified: Optional[bool] = None
     subscription_tier: Optional[str] = None

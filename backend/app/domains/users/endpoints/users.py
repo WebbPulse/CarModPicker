@@ -391,7 +391,7 @@ async def admin_update_user(
     if db_user is None:
         ResponsePatterns.raise_not_found("User", user_id)
 
-    if user_id == current_user.id and (user_update.is_admin is False or user_update.is_superuser is False):
+    if user_id == current_user.id and user_update.is_admin is False:
         ResponsePatterns.raise_bad_request("Cannot remove your own admin privileges")
 
     update_data = user_update.model_dump(exclude_unset=True)

@@ -143,7 +143,6 @@ export interface AdminUserUpdate {
   email?: string | null;
   disabled?: boolean | null;
   image_urls?: string[] | null;
-  is_superuser?: boolean | null;
   is_admin?: boolean | null;
   email_verified?: boolean | null;
   subscription_tier?: string | null;
