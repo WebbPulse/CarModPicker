@@ -128,6 +128,7 @@ locals {
       "GET /api/images/by-source-url",
       "DELETE /api/images/delete",
       "POST /api/images/fetch-from-url",
+      "GET /api/images/presigned-url",
       "POST /api/images/upload",
     ]
 
