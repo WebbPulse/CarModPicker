@@ -119,7 +119,7 @@ locals {
       s3_delete   = false
       ses         = true
       memory      = 512
-      tables      = ["users", "oauth_accounts", "webauthn_credentials", "rate-limits"]
+      tables      = ["users", "oauth_accounts", "webauthn_credentials", "rate-limits", "idempotency"]
       read_tables = []
     }
     catalog = {
