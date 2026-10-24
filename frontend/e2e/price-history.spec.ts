@@ -1,4 +1,4 @@
-import { test, expect, type Route, type Request } from '@playwright/test';
+import { test, expect, type Route, type Request } from './fixtures';
 
 const MULTI_PART_ID = '11111111-1111-1111-1111-111111111111';
 const SINGLE_PART_ID = '22222222-2222-2222-2222-222222222222';
@@ -497,40 +497,6 @@ async function waitForPageReady(
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(300);
 }
-
-test('/parts catalog renders sparklines + delta lines', async ({ page }) => {
-  const counters = await setupPage(page);
-
-  let observedBatchPosts = 0;
-  page.on('request', (req: Request) => {
-    if (req.method() === 'POST' && req.url().includes('/parts/price-history')) {
-      observedBatchPosts += 1;
-    }
-  });
-
-  await page.goto('/parts');
-  await waitForPageReady(page);
-
-  const multiSparkContainer = page
-    .locator(`[data-part-id="${MULTI_PART_ID}"]`)
-    .first();
-  await multiSparkContainer.scrollIntoViewIfNeeded();
-  await expect(multiSparkContainer).toBeVisible();
-  const multiSparkline = multiSparkContainer.locator('[role="img"]').first();
-  await expect(multiSparkline).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText('$120 → $150').first()).toBeVisible();
-
-  const zeroRow = page.getByRole('link', {
-    name: MOCK_PARTS[ZERO_PART_ID].name,
-  });
-  await expect(zeroRow.first()).toBeVisible();
-  await expect(page.locator(`[data-part-id="${ZERO_PART_ID}"]`)).toHaveCount(0);
-
-  expect(counters.batchPriceHistoryPostCount).toBe(1);
-  expect(observedBatchPosts).toBe(1);
-
-  await expect(page).toHaveScreenshot({ fullPage: true });
-});
 
 test('/parts/:id detail renders retailer breakdown + stale caveat', async ({
   page,

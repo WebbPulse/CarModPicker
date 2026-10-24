@@ -166,7 +166,7 @@ Rulesets cover `main` and `staging`: pull request required, force-push and delet
 
 ### Workflows
 
-Four workflows in `.github/workflows/`: one CI workflow and three deploy workflows.
+CI, three deploy workflows, and the Playwright workflows in `.github/workflows/`.
 
 | Workflow | Trigger | Paths |
 |---|---|---|
@@ -174,10 +174,12 @@ Four workflows in `.github/workflows/`: one CI workflow and three deploy workflo
 | `deploy-backend.yml` | `push` to `main`, `staging`, plus `workflow_dispatch` | `backend/**`, `.github/workflows/deploy-backend.yml` |
 | `frontend-deploy.yml` | `push` to `main`, `staging`, plus `workflow_dispatch` | `frontend/**`, `.github/workflows/frontend-deploy.yml` |
 | `chrome-extension-deploy.yml` | `push` to `main`, plus `workflow_dispatch` | `chrome-extension/**`, `.github/workflows/chrome-extension-deploy.yml` |
+| `frontend-playwright.yml` | `workflow_call` from `ci.yml` and the baselines workflow | n/a |
+| `frontend-playwright-baselines.yml` | `pull_request` labelled `update-snapshots` | none |
 
 The deploy workflows are fully independent: a backend merge never rebuilds the frontend.
 
-**`ci.yml`** has no `paths:` on its trigger: a first `changes` job runs `dorny/paths-filter`, and its `backend`, `frontend`, `chrome-extension` and `scripts` outputs gate every later job. `backend` and `frontend` call the org reusable `python-ci.yml@v3` and `typescript-ci.yml@v3`, the latter with `audit-level: moderate` and `circular-imports-path: src/` for `npm audit` and `madge --circular`; `chrome-extension` builds and checks `host_permissions`; `scripts` covers the repository-root `scripts/`. `all-checks-passed` needs every other job and runs `if: always()`, failing on any `failure` or `cancelled`. A skipped job passes, which is what lets a frontend-only PR satisfy the required check.
+**`ci.yml`** has no `paths:` on its trigger: a first `changes` job runs `dorny/paths-filter`, and its `backend`, `frontend`, `chrome-extension` and `scripts` outputs gate every later job. `backend` and `frontend` call the org reusable `python-ci.yml@v3` and `typescript-ci.yml@v3`, the latter with `audit-level: moderate` and `circular-imports-path: src/` for `npm audit` and `madge --circular`; `chrome-extension` builds and checks `host_permissions`; `scripts` covers the repository-root `scripts/`; `playwright` runs the `frontend/e2e` Playwright suite against the Vite dev server with the API mocked per spec, uploading the report and actual screenshots on failure. `all-checks-passed` needs every other job and runs `if: always()`, failing on any `failure` or `cancelled`. A skipped job passes, which is what lets a frontend-only PR satisfy the required check.
 
 **`deploy-backend.yml`** is the only path to changing Lambda code. It is a thin caller of the org reusable `lambda-domains-deploy.yml@v3`, which runs the whole pipeline: `resolve-env`, `affected`, `warm-base-image`, `build-images`, `image-map`, `existing-functions`, `deploy-images`, `smoke-domains`. It builds the nine domain images from `backend/Dockerfile` for `linux/arm64` and points each function at a digest; there is no zip in the chain, and the four consumers share their domain's image. `existing-functions` filters to functions that actually exist, so a partial estate skips what is missing instead of failing on `ResourceNotFoundException`. `smoke-domains` requires a 200 from a synthetic `GET /health` per domain; routing is verified by the e2e suite, not the deploy.
 
@@ -224,5 +226,6 @@ Lambda code is not Terraform's. Each of the nine domain functions and four strea
 - A read-only SSO profile cannot mint a CodeArtifact token: managed `ReadOnlyAccess` omits `sts:GetServiceBearerToken`.
 - `var.bootstrap_image_tag` is load-bearing at create time and gates `local.domain_functions_enabled`, so it must name a tag that still resolves in every declared domain's repository before an apply that creates functions.
 - Every `ci.yml` paths-filter also matches `.github/workflows/ci.yml`, so editing CI reruns the whole matrix.
+- Playwright screenshot baselines are generated on the CI runner only: label the PR `update-snapshots`, download the `playwright-baselines-<sha>` artifact, replace `frontend/e2e/*-snapshots/` with it and commit. `e2e/fixtures.ts` blocks every non-local request and pre-dismisses the consent banner; specs import `test` from there, and an authenticated mock must answer `POST /api/auth/refresh` as well as `GET /api/users/me`.
 - `frontend/package.json` has both `dev:production` and `dev:prod`; they are the same command.
 - Chrome extension reloads are manual for `manifest.json`, `background.ts` and `popup.html/css`.
