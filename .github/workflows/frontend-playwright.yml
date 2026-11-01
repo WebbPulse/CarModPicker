@@ -1,0 +1,99 @@
+name: Frontend Playwright
+
+on:
+  workflow_call:
+    inputs:
+      update-snapshots:
+        description: "Regenerate the screenshot baselines on this runner and upload them as an artifact."
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      role-to-assume:
+        required: true
+      codeartifact-domain-owner:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    name: Playwright
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configure AWS credentials for CodeArtifact
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ secrets.role-to-assume }}
+          aws-region: us-west-2
+
+      - name: Log in to CodeArtifact for npm
+        env:
+          CODEARTIFACT_DOMAIN_OWNER: ${{ secrets.codeartifact-domain-owner }}
+        run: |
+          set -euo pipefail
+          aws codeartifact login \
+            --tool npm \
+            --domain webbpulse \
+            --domain-owner "$CODEARTIFACT_DOMAIN_OWNER" \
+            --repository npm \
+            --namespace "@webbpulse"
+
+      - name: Install dependencies
+        env:
+          NPM_CONFIG_AUDIT: "false"
+        run: |
+          set -euo pipefail
+          npm ci
+          npm update $(node -p "const p=require('./package.json');Object.keys({...p.dependencies,...p.devDependencies}).filter(n=>n.startsWith('@webbpulse/')).join(' ')")
+          npm ls --depth=0 2>/dev/null | grep @webbpulse || true
+
+      - name: Install the Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the Playwright suite
+        if: ${{ !inputs.update-snapshots }}
+        run: npx playwright test
+
+      - name: Regenerate the screenshot baselines
+        if: ${{ inputs.update-snapshots }}
+        run: npx playwright test --update-snapshots=all --retries=0
+
+      - name: Upload the regenerated baselines
+        if: ${{ inputs.update-snapshots && !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-baselines-${{ github.sha }}
+          path: frontend/e2e/*-snapshots/
+          retention-days: 14
+
+      - name: Upload the report and actual screenshots
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-results-${{ github.sha }}
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 14

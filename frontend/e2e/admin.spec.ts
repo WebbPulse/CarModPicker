@@ -1,4 +1,4 @@
-import { test, expect, type Route, type Request } from '@playwright/test';
+import { test, expect, type Route, type Request } from './fixtures';
 
 const FIXED_NOW_ISO = '2026-04-25T12:00:00.000Z';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -120,6 +120,13 @@ async function mockApi(page: import('@playwright/test').Page): Promise<void> {
       const path = url.pathname.replace(/^\/api/, '');
       const method = request.method();
 
+      if (path === '/auth/refresh' && method === 'POST') {
+        return jsonResponse(route, {
+          access_token: 'e2e-access-token',
+          token_type: 'bearer',
+          expires_in: 3600,
+        });
+      }
       if (path === '/users/me' && method === 'GET') {
         return jsonResponse(route, MOCK_ADMIN_USER);
       }

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 import { ALL_ROUTES } from '../src/test/route-coverage-list';
 

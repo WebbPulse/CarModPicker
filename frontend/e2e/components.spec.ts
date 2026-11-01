@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('kitchen-sink visual regression', async ({ page }) => {
   page.on('pageerror', (err) => {
