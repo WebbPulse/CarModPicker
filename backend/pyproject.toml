@@ -47,7 +47,7 @@ dev = [
   "locust>=2.47.0",
 ]
 e2e = [
-  "webbpulse[e2e,fastapi,dynamodb,identity,oauth,passkeys,security,stripe]>=0.101.0,<1",
+  "webbpulse[e2e,fastapi,dynamodb,identity,oauth,passkeys,security,stripe]>=0.116.0,<1",
   "pytest>=9.1.1",
   "pytest-asyncio>=1.4.0",
   "pytest-cov>=7.1.0",
